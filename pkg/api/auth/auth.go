@@ -17,24 +17,27 @@ import (
 	"golang.org/x/oauth2"
 
 	"dployr.io/pkg/config"
+	"dployr.io/pkg/logger"
 	"dployr.io/pkg/queue"
 	"dployr.io/pkg/repository"
 )
 
 type Auth struct {
 	*oidc.Provider
-
-	projectRepo *repository.Project
-	eventRepo   *repository.Event
-	Qm          *queue.QueueManager
+	oauth2.Config
+	logger       *logger.Logger
+	projectRepo  *repository.ProjectRepo
+	eventRepo    *repository.EventRepo
+	queueManager *queue.QueueManager
 }
 
-func InitAuth(projectRepo *repository.Project, eventRepo *repository.Event, queueManager *queue.QueueManager) *Auth {
+func InitAuth(projectRepo *repository.ProjectRepo, eventRepo *repository.EventRepo, queueManager *queue.QueueManager) *Auth {
 	return &Auth{
-		Provider:    config.GetOauth2Provider(),
-		projectRepo: projectRepo,
-		eventRepo:   eventRepo,
-		Qm:          queueManager,
+		Provider:     config.GetOauth2Provider(),
+		Config:       *config.GetOauth2Config(),
+		projectRepo:  projectRepo,
+		eventRepo:    eventRepo,
+		queueManager: queueManager,
 	}
 }
 
@@ -46,7 +49,7 @@ func (a *Auth) VerifyIDToken(ctx context.Context, t *oauth2.Token) (*oidc.IDToke
 	}
 
 	oidcConfig := &oidc.Config{
-		ClientID: os.Getenv("AUTH0_CLIENT_ID"),
+		ClientID: a.ClientID,
 	}
 
 	return a.Verifier(oidcConfig).Verify(ctx, rawIDToken)
@@ -68,11 +71,7 @@ func (a *Auth) LoginHandler() gin.HandlerFunc {
 			return
 		}
 
-		// Create OAuth2 config with dynamic redirect URL based on host
-		oauth2Config := config.GetOauth2Config(ctx.Request.Host)
-		authURL := oauth2Config.AuthCodeURL(state)
-
-		ctx.Redirect(http.StatusTemporaryRedirect, authURL)
+		ctx.Redirect(http.StatusTemporaryRedirect, a.AuthCodeURL(state))
 	}
 }
 
@@ -96,11 +95,8 @@ func (a *Auth) CallbackHandler() gin.HandlerFunc {
 			return
 		}
 
-		// Create OAuth2 config with dynamic redirect URL based on host
-		oauth2Config := config.GetOauth2Config(ctx.Request.Host)
-
 		// Exchange an authorization code for a token.
-		token, err := oauth2Config.Exchange(ctx.Request.Context(), ctx.Query("code"))
+		token, err := a.Exchange(ctx.Request.Context(), ctx.Query("code"))
 		if err != nil {
 			ctx.String(http.StatusUnauthorized, "Failed to convert an authorization code into a token.")
 			return
@@ -184,42 +180,30 @@ func (a *Auth) setupUserAccount(ctx *gin.Context) {
 			parts := strings.Split(sub, "|")
 			if len(parts) > 1 {
 				id := parts[1]
-				name := "User"
-				if userName, ok := profile["name"].(string); ok {
-					name = userName
-				}
-
 				log.Println("Setting up account for user" + id)
 
-				if a.Qm != nil {
-					tx, err := a.Qm.GetDB().Begin()
-					if err != nil {
-						log.Printf("Failed to begin transaction: %v", err)
-						return
-					}
-					defer func() {
-						if err != nil {
-							tx.Rollback()
-						}
-					}()
+				// Use the NewJob helper to properly initialize the job
+				baseJob := queue.NewJob(id, map[string]interface{}{
+					"user_id": id,
+				})
 
-					_, err = a.Qm.InsertCreateProjectJob(ctx, tx, id, map[string]interface{}{
-						"user_id":      id,
-						"project_name": name + "'s Project",
-					})
-					if err != nil {
-						log.Printf("Failed to insert job: %v", err)
-						return
-					}
-
-					if err = tx.Commit(); err != nil {
-						log.Printf("Failed to commit transaction: %v", err)
-						return
-					}
-
-					log.Printf("Successfully queued project creation for user %s", id)
+				jobArgs := queue.SetupUserJobArgs{
+					BaseJobArgs: *baseJob,
 				}
+
+				if a.queueManager != nil {
+					_, err := a.queueManager.GetClient().Insert(context.Background(), jobArgs, nil)
+					if err != nil {
+						log.Printf("Failed to enqueue setup user job: %v", err)
+					}
+				}
+			} else {
+				log.Println("Sub does not contain expected format (left|right): " + sub)
 			}
+			return
 		}
+		log.Println("sub not found in profile")
+	} else {
+		log.Println("Invalid profile format in session")
 	}
 }

@@ -17,14 +17,6 @@ const (
     ServiceConfigured = "service_configured"
     SSLCertificateObtained = "ssl_certificate_obtained"
     LogEvent = "log_event"
-    Action = "action"
-)
-
-// Log Levels
-const (
-    LogLevelInfo = "info"
-    LogLevelWarn = "warn"
-    LogLevelError = "error"
 )
 
 type Event struct {
@@ -43,15 +35,6 @@ type Metadata struct {
     UserAgent     string `json:"user_agent"`
     SourceIP      string `json:"source_ip"`
     CorrelationID string `json:"correlation_id"`
-}
-
-type ActionData struct {
-    Name string `json:"name"`
-}
-
-type LogData struct {
-    Level string `json:"level"`
-    Message string `json:"message"`
 }
 
 type ProjectCreatedData struct {

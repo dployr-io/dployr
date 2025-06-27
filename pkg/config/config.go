@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -18,7 +17,7 @@ import (
 )
 
 const (
-	Version     = "0.1.0"
+	Version     = "1.0.0"
 	APIEndpoint = "api.dployr.io"
 )
 
@@ -97,12 +96,25 @@ func init() {
 	}
 }
 
+func GetDSN(portOverride ...string) string {
+	host := os.Getenv("DB_HOST")
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	dbname := os.Getenv("DB_NAME")
+	port := os.Getenv("DB_PORT")
+	if len(portOverride) > 0 {
+		port = portOverride[0]
+	}
+
+	return "host=" + host + " user=" + user + " password=" + password + " dbname=" + dbname + " port=" + port + " sslmode=require"
+}
+
 func GetSupabaseProjectID() string { return os.Getenv("SUPABASE_PROJECT_ID") }
 
-func GetSupabaseAnonKey() string { return os.Getenv("SUPABASE_ANON_KEY") }
+func GetSupabaseAnonKey() string   { return os.Getenv("SUPABASE_ANON_KEY") }
 
 func runMigrations(db *sqlx.DB) {
-	if err := goose.SetDialect("sqlite3"); err != nil {
+	if err := goose.SetDialect("postgres"); err != nil {
 		log.Fatalf("goose: %v", err)
 	}
 
@@ -111,9 +123,9 @@ func runMigrations(db *sqlx.DB) {
 	}
 }
 
-func InitDB() (*repository.Project, *repository.Event) {
-	dsn := "file:./data.sqlite3?_pragma=journal_mode(WAL)"
-	db, err := sqlx.Open("sqlite", dsn)
+func InitDB() (*repository.ProjectRepo, *repository.EventRepo) {
+	dsn := GetDSN()
+	db, err := sqlx.Open("postgres", dsn)
 
 	if err != nil {
 		log.Fatal("Failed to initialize database:", err)
@@ -141,18 +153,11 @@ func GetOauth2Provider() *oidc.Provider {
 	return provider
 }
 
-func GetOauth2Config(host string) *oauth2.Config {
-	scheme := "http"
-	if host != "localhost" && !strings.Contains(host, "localhost") {
-		scheme = "https"
-	}
-
-	redirectURL := fmt.Sprintf("%s://%s/v1/callback", scheme, host)
-
+func GetOauth2Config() *oauth2.Config {
 	return &oauth2.Config{
 		ClientID:     os.Getenv("AUTH0_CLIENT_ID"),
 		ClientSecret: os.Getenv("AUTH0_CLIENT_SECRET"),
-		RedirectURL:  redirectURL,
+		RedirectURL:  os.Getenv("AUTH0_CALLBACK_URL"),
 		Endpoint:     GetOauth2Provider().Endpoint(),
 		Scopes:       []string{oidc.ScopeOpenID, "profile"},
 	}

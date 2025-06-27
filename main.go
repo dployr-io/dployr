@@ -6,14 +6,10 @@ import (
 	"os"
 
 	"dployr.io/pkg/api/auth"
-	"dployr.io/pkg/api/platform"
 	"dployr.io/pkg/api/router"
 	"dployr.io/pkg/config"
-	"dployr.io/pkg/logger"
 	"dployr.io/pkg/queue"
 	"dployr.io/pkg/server"
-
-	_ "modernc.org/sqlite"
 )
 
 func main() {
@@ -26,12 +22,8 @@ func main() {
 		port = "7879"
 	}
 
-	sseManager := platform.NewSSEManager()
-
-	logger := logger.NewLogger("app", sseManager)
-
-	// Create queue manager
-	qm, err := queue.NewQueueManager(eventRepo, logger)
+	// Create queue manager first
+	qm, err := queue.NewQueueManager()
 	if err != nil {
 		log.Fatalf("Failed to create queue manager: %v", err)
 	}
@@ -39,17 +31,14 @@ func main() {
 	// Start queue manager in background
 	go func() {
 		if err := qm.Start(context.Background()); err != nil {
-			log.Printf("Error starting queue manager: %v", err)
+			log.Printf("Queue error: %v", err)
 		}
 	}()
 
+	// Create auth with queue manager
 	auth := auth.InitAuth(projectRepo, eventRepo, qm)
 
 	// Create router and run
-	r := router.New(&router.Router{
-		Auth:       auth,
-		QM:         qm,
-		SSEManager: sseManager,
-	})
+	r := router.New(auth, qm)
 	r.Run(":" + port)
 }

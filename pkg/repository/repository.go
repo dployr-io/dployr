@@ -101,11 +101,7 @@ func setIDIfExists(entity interface{}, id int64) {
 	v := reflect.ValueOf(entity).Elem()
 	idField := v.FieldByName("ID")
 	if idField.IsValid() && idField.CanSet() {
-		if idField.Kind() == reflect.Int64 {
-			idField.SetInt(id)
-		} else if idField.Kind() == reflect.String {
-			idField.SetString(fmt.Sprintf("%d", id))
-		}
+		idField.SetInt(id)
 	}
 }
 
@@ -113,14 +109,6 @@ type Repository[T any] struct {
 	db        *sqlx.DB
 	tableName string
 	queries   QuerySet
-}
-
-type SQLRepository[T any] interface {
-	Create(ctx context.Context, entity *T) error
-	Update(ctx context.Context, entity *T) error
-	Upsert(ctx context.Context, entity *T, conflictCols []string, updateCols []string) error
-	Delete(ctx context.Context, id any) error
-	GetByID(ctx context.Context, id any) (*T, error)
 }
 
 // NewRepository creates a new generic repository with direct queries

@@ -25,40 +25,8 @@ type SetupPhase struct {
 	Execute func(s *ServerSetup) error
 }
 
-type SetupUserAccountArgs struct {
-	Ctx         context.Context
-	EventRepo   *repository.Event
-	ProjectRepo *repository.Project
-	models.SetupUserData
-	SetupState *SetupState
-	Cfg        *HostConfig
-	Conn       *ConnectionPool
-}
 
-func (s *ServerSetup) SetupUserAccount(args SetupUserAccountArgs) (*models.Project, error) {
-	project, err := args.ProjectRepo.GetByID(args.Ctx, args.UserID)
-	if err != nil {
-		return nil, err
-	}
-	if project != nil {
-		return project, nil
-	}
-
-	s.Logger.Info(args.Ctx, args.EventRepo, models.Setup, "Setting up user account for "+args.Name)
-
-	project, err = args.ProjectRepo.Create(args.Ctx, &models.Project{
-		ID:   args.UserID,
-		Name: args.Name + "'s Project",
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return project, nil
-}
-
-func (s *ServerSetup) LoadSetupState(args SetupUserAccountArgs) error {
+func (s *ServerSetup) loadSetupState(ctx context.Context, r *repository.EventRepo, t *SetupState, cfg *HostConfig, conn *ConnectionPool) error {
 	if _, err := os.Stat("/opt/dployr/setup.state"); err == nil {
 		// Load previous setup configuration
 		data, err := os.ReadFile("/opt/dployr/setup.state")
@@ -67,12 +35,12 @@ func (s *ServerSetup) LoadSetupState(args SetupUserAccountArgs) error {
 		}
 
 		// Parse and validate the setup state
-		if err := json.Unmarshal(data, &args.SetupState); err != nil {
+		if err := json.Unmarshal(data, &t); err != nil {
 			return errors.New("invalid setup state file format")
 		}
 
 		// Identify incomplete or failed setup steps
-		if err := s.checkIncompleteSteps(args); err != nil {
+		if err := s.checkIncompleteSteps(ctx, r, t, cfg, conn); err != nil {
 			for _, phase := range s.SetupPhases {
 				phase.Execute(s)
 			}
@@ -107,58 +75,57 @@ func (s *ServerSetup) LoadSetupState(args SetupUserAccountArgs) error {
 	}
 }
 
-func (s *ServerSetup) checkIncompleteSteps(args SetupUserAccountArgs) error {
-	if args.SetupState.Status == models.Success {
+func (s *ServerSetup) checkIncompleteSteps(ctx context.Context, r *repository.EventRepo, t *SetupState, cfg *HostConfig, conn *ConnectionPool) error {
+	if t.Status == models.Success {
 		return nil
 	}
 
 	err := errors.New("incomplete setup steps detected")
 
-	s.Logger.Warn(args.Ctx, args.EventRepo, models.Setup, err.Error())
+	s.Logger.Warn(ctx, r, models.Setup, err.Error())
+	// Check if all required phases are completed
 
-	if args.SetupState.Phases.FireWall.Status != models.Success {
+	if t.Phases.FireWall.Status != models.Success {
 		err = errors.New("required setup phase not completed: Firewall")
 		s.SetupPhases = append(s.SetupPhases, SetupPhase{
 			Name: "Firewall",
 			Execute: func(s *ServerSetup) error {
-				return s.setupFirewall(args)
+				return s.setupFirewall(ctx, r, t, cfg, conn)
 			},
 		})
-		s.Logger.Warn(args.Ctx, args.EventRepo, models.Setup, err.Error())
+		s.Logger.Warn(ctx, r, models.Setup, err.Error())
 		return err
 	}
 
-	if args.SetupState.Phases.SystemDeps.Status != models.Success {
+	if t.Phases.SystemDeps.Status != models.Success {
 		err = errors.New("required setup phase not completed: System Dependencies")
 		s.SetupPhases = append(s.SetupPhases, SetupPhase{
 			Name: "System Dependencies",
 			Execute: func(s *ServerSetup) error {
-				return s.setupSystemDeps(args)
+				return s.setupSystemDeps(ctx, r, t, cfg, conn)
 			},
 		})
-		s.Logger.Warn(args.Ctx, args.EventRepo, models.Setup, err.Error())
+		s.Logger.Warn(ctx, r, models.Setup, err.Error())
 		return err
 	}
 
-	if args.SetupState.Phases.Services.Status != models.Success {
+	if t.Phases.Services.Status != models.Success {
 		err = errors.New("required setup phase not completed: Services")
 		s.SetupPhases = append(s.SetupPhases, SetupPhase{
 			Name: "Services",
 			Execute: func(s *ServerSetup) error {
-				return s.setupServices(args)
+				return s.setupServices(ctx, r, t, cfg, conn)
 			},
 		})
-		s.Logger.Warn(args.Ctx, args.EventRepo, models.Setup, err.Error())
-		return err
 	}
 
 	return nil
 }
 
-func (s *ServerSetup) executeSetupPhase(args SetupUserAccountArgs, phaseName string, commands []string) error {
-	s.Logger.Info(args.Ctx, args.EventRepo, models.Setup, "Setting up "+phaseName+"...")
+func (s *ServerSetup) executeSetupPhase(ctx context.Context, r *repository.EventRepo, cfg *HostConfig, conn *ConnectionPool, phaseName string, commands []string) error {
+	s.Logger.Info(ctx, r, models.Setup, "Setting up "+phaseName+"...")
 
-	err := args.Conn.BatchExecuteCommand(args.Ctx, args.EventRepo, args.Cfg, commands, s.Logger)
+	err := conn.BatchExecuteCommand(ctx, r, cfg, commands, s.Logger)
 	if err != nil {
 		return err
 	}
@@ -166,35 +133,35 @@ func (s *ServerSetup) executeSetupPhase(args SetupUserAccountArgs, phaseName str
 	return nil
 }
 
-func (s *ServerSetup) setupFirewall(args SetupUserAccountArgs) error {
-	args.SetupState.Phases.FireWall.Status = models.Pending
-	err := s.executeSetupPhase(args, "firewall", scripts.FirewallSetupScript)
+func (s *ServerSetup) setupFirewall(ctx context.Context, r *repository.EventRepo, t *SetupState, cfg *HostConfig, conn *ConnectionPool) error {
+	t.Phases.FireWall.Status = models.Pending
+	err := s.executeSetupPhase(ctx, r, cfg, conn, "firewall", scripts.FirewallSetupScript)
 	if err != nil {
-		args.SetupState.Phases.FireWall.Status = models.Failed
+		t.Phases.FireWall.Status = models.Failed
 		return err
 	}
-	args.SetupState.Phases.FireWall.Status = models.Success
+	t.Phases.FireWall.Status = models.Success
 	return nil
 }
 
-func (s *ServerSetup) setupSystemDeps(args SetupUserAccountArgs) error {
-	args.SetupState.Phases.SystemDeps.Status = models.Pending
-	err := s.executeSetupPhase(args, "system dependencies", scripts.SystemDepsSetupScript)
+func (s *ServerSetup) setupSystemDeps(ctx context.Context, r *repository.EventRepo, t *SetupState, cfg *HostConfig, conn *ConnectionPool) error {
+	t.Phases.SystemDeps.Status = models.Pending
+	err := s.executeSetupPhase(ctx, r, cfg, conn, "system dependencies", scripts.SystemDepsSetupScript)
 	if err != nil {
-		args.SetupState.Phases.SystemDeps.Status = models.Failed
+		t.Phases.SystemDeps.Status = models.Failed
 		return err
 	}
-	args.SetupState.Phases.SystemDeps.Status = models.Success
+	t.Phases.SystemDeps.Status = models.Success
 	return nil
 }
 
-func (s *ServerSetup) setupServices(args SetupUserAccountArgs) error {
-	args.SetupState.Phases.Services.Status = models.Pending
-	err := s.executeSetupPhase(args, "services", scripts.ServicesSetupScript)
+func (s *ServerSetup) setupServices(ctx context.Context, r *repository.EventRepo, t *SetupState, cfg *HostConfig, conn *ConnectionPool) error {
+	t.Phases.Services.Status = models.Pending
+	err := s.executeSetupPhase(ctx, r, cfg, conn, "services", scripts.ServicesSetupScript)
 	if err != nil {
-		args.SetupState.Phases.Services.Status = models.Failed
+		t.Phases.Services.Status = models.Failed
 		return err
 	}
-	args.SetupState.Phases.Services.Status = models.Success
+	t.Phases.Services.Status = models.Success
 	return nil
 }
