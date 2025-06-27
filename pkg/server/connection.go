@@ -140,7 +140,7 @@ func (p *ConnectionPool) ExecuteCommand(cfg *HostConfig, command string) (*Comma
 	return res, nil
 }
 
-func (p *ConnectionPool) BatchExecuteCommand(ctx context.Context, r *repository.EventRepo, cfg *HostConfig, cmds []string, logger *logger.Logger) error {
+func (p *ConnectionPool) BatchExecuteCommand(ctx context.Context, r *repository.Event, cfg *HostConfig, cmds []string, logger *logger.Logger) error {
 	for _, cmd := range cmds {
 		res, _ := p.ExecuteCommand(cfg, cmd)
 

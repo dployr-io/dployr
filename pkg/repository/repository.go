@@ -111,6 +111,14 @@ type Repository[T any] struct {
 	queries   QuerySet
 }
 
+type SQLRepository[T any] interface {
+	Create(ctx context.Context, entity *T) error
+	Update(ctx context.Context, entity *T) error
+	Upsert(ctx context.Context, entity *T, conflictCols []string, updateCols []string) error
+	Delete(ctx context.Context, id any) error
+	GetByID(ctx context.Context, id any) (*T, error)
+}
+
 // NewRepository creates a new generic repository with direct queries
 func NewRepository[T any](db *sqlx.DB, tableName string) *Repository[T] {
 	var entity T

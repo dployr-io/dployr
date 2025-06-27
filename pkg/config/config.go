@@ -111,7 +111,7 @@ func GetDSN(portOverride ...string) string {
 
 func GetSupabaseProjectID() string { return os.Getenv("SUPABASE_PROJECT_ID") }
 
-func GetSupabaseAnonKey() string   { return os.Getenv("SUPABASE_ANON_KEY") }
+func GetSupabaseAnonKey() string { return os.Getenv("SUPABASE_ANON_KEY") }
 
 func runMigrations(db *sqlx.DB) {
 	if err := goose.SetDialect("postgres"); err != nil {
@@ -123,7 +123,7 @@ func runMigrations(db *sqlx.DB) {
 	}
 }
 
-func InitDB() (*repository.ProjectRepo, *repository.EventRepo) {
+func InitDB() (*repository.Project, *repository.Event) {
 	dsn := GetDSN()
 	db, err := sqlx.Open("postgres", dsn)
 

@@ -1,17 +1,23 @@
+// queue_manager.go - Updated with simplified worker registration
 package queue
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivertype"
 
 	"dployr.io/pkg/config"
+	"dployr.io/pkg/jobs"
+	"dployr.io/pkg/logger"
+	"dployr.io/pkg/repository"
 )
 
 var (
@@ -21,9 +27,10 @@ var (
 type QueueManager struct {
 	client *river.Client[pgx.Tx]
 	pool   *pgxpool.Pool
+	logger *logger.Logger
 }
 
-func NewQueueManager() (*QueueManager, error) {
+func NewQueueManager(r *repository.Event, logger *logger.Logger) (*QueueManager, error) {
 	poolConfig, err := pgxpool.ParseConfig(config.GetDSN("5432"))
 	if err != nil {
 		return nil, err
@@ -32,36 +39,59 @@ func NewQueueManager() (*QueueManager, error) {
 	// Configure connection pool for better performance
 	poolConfig.MaxConns = 10
 	poolConfig.MinConns = 2
-	poolConfig.MaxConnLifetime = time.Hour
-	poolConfig.MaxConnIdleTime = time.Minute * 30
+	poolConfig.MaxConnLifetime = 1 * time.Hour
+	poolConfig.MaxConnIdleTime = 30 * time.Minute
 
 	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create connection pool: %w", err)
 	}
 
-	// Register all workers
+	// Create worker registry
 	workers := river.NewWorkers()
-	river.AddWorker(workers, &SetupUserWorker{})
 
-	// Create River client
-	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
+	// Register all workers using the simplified approach
+	if err := jobs.RegisterWorkers(workers, r, logger); err != nil {
+		return nil, fmt.Errorf("failed to register workers: %w", err)
+	}
+
+	// Create river client
+	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Queues: map[string]river.QueueConfig{
 			river.QueueDefault: {MaxWorkers: 100},
 		},
-		Workers:              workers,
-		RescueStuckJobsAfter: 10 * time.Minute,
-		JobTimeout:           10 * time.Minute,
+		Workers: workers,
 	})
-
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create river client: %w", err)
 	}
 
 	return &QueueManager{
-		client: client,
+		client: riverClient,
 		pool:   pool,
+		logger: logger,
 	}, nil
+}
+
+// Helper methods for inserting specific job types
+func (qm *QueueManager) InsertCreateProjectJob(ctx context.Context, tx pgx.Tx, userID, jobID string, data map[string]interface{}) (*rivertype.JobInsertResult, error) {
+    args := jobs.NewCreateProjectArgs(userID, jobID, data)
+	log.Println("Inserting create project job for user " + userID)
+    return qm.client.InsertTx(ctx, tx, args, nil)
+}
+
+func (qm *QueueManager) InsertBuildProjectJob(ctx context.Context, tx pgx.Tx, userID, jobID string, data map[string]interface{}) (*rivertype.JobInsertResult, error) {
+    args := jobs.NewBuildProjectArgs(userID, jobID, data)
+    return qm.client.InsertTx(ctx, tx, args, nil)
+}
+
+func (qm *QueueManager) InsertDeployProjectJob(ctx context.Context, tx pgx.Tx, userID, jobID string, data map[string]interface{}) (*rivertype.JobInsertResult, error) {
+    args := jobs.NewDeployProjectArgs(userID, jobID, data)
+    return qm.client.InsertTx(ctx, tx, args, nil)
+}
+
+func (qm *QueueManager) GetClient() *river.Client[pgx.Tx] {
+	return qm.client
 }
 
 func (qm *QueueManager) Start(ctx context.Context) error {
@@ -72,37 +102,10 @@ func (qm *QueueManager) Stop(ctx context.Context) error {
 	return qm.client.Stop(ctx)
 }
 
-// GetClient returns the River client for external use (e.g., River UI)
-func (qm *QueueManager) GetClient() *river.Client[pgx.Tx] {
-	return qm.client
+func (qm *QueueManager) Close() {
+	qm.pool.Close()
 }
 
-// GetPool returns the pgxpool for external use (e.g., River UI)
 func (qm *QueueManager) GetPool() *pgxpool.Pool {
 	return qm.pool
-}
-
-// Transactional enqueue (recommended)
-func (qm *QueueManager) EnqueueJobTx(ctx context.Context, tx pgx.Tx, jobArgs JobArgs, opts *river.InsertOpts) error {
-	switch args := jobArgs.(type) {
-	case SetupUserJobArgs:
-		_, err := qm.client.InsertTx(ctx, tx, args, opts)
-		return err
-	default:
-		return errors.New("unknown job type")
-	}
-}
-
-// Helper functions for creating jobs
-func NewJob(userID string, data interface{}) *BaseJobArgs {
-	return &BaseJobArgs{
-		JobID:     generateJobID(),
-		UserID:    userID,
-		Data:      data,
-		CreatedAt: time.Now(),
-	}
-}
-
-func generateJobID() string {
-	return fmt.Sprintf("job_%d", time.Now().UnixNano())
 }

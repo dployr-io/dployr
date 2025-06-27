@@ -49,3 +49,6 @@ bin/
 # Temporary files
 tmp/
 temp/
+
+# Supabase
+supabase/

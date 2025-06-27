@@ -5,11 +5,13 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-contrib/sessions"
@@ -25,19 +27,19 @@ import (
 type Auth struct {
 	*oidc.Provider
 	oauth2.Config
-	logger       *logger.Logger
-	projectRepo  *repository.ProjectRepo
-	eventRepo    *repository.EventRepo
-	queueManager *queue.QueueManager
+	logger      *logger.Logger
+	projectRepo *repository.Project
+	eventRepo   *repository.Event
+	Qm          *queue.QueueManager
 }
 
-func InitAuth(projectRepo *repository.ProjectRepo, eventRepo *repository.EventRepo, queueManager *queue.QueueManager) *Auth {
+func InitAuth(projectRepo *repository.Project, eventRepo *repository.Event, queueManager *queue.QueueManager) *Auth {
 	return &Auth{
-		Provider:     config.GetOauth2Provider(),
-		Config:       *config.GetOauth2Config(),
-		projectRepo:  projectRepo,
-		eventRepo:    eventRepo,
-		queueManager: queueManager,
+		Provider:    config.GetOauth2Provider(),
+		Config:      *config.GetOauth2Config(),
+		projectRepo: projectRepo,
+		eventRepo:   eventRepo,
+		Qm:          queueManager,
 	}
 }
 
@@ -180,30 +182,38 @@ func (a *Auth) setupUserAccount(ctx *gin.Context) {
 			parts := strings.Split(sub, "|")
 			if len(parts) > 1 {
 				id := parts[1]
+				name := "User"
+				if userName, ok := profile["name"].(string); ok {
+					name = userName
+				}
+
 				log.Println("Setting up account for user" + id)
 
-				// Use the NewJob helper to properly initialize the job
-				baseJob := queue.NewJob(id, map[string]interface{}{
-					"user_id": id,
-				})
-
-				jobArgs := queue.SetupUserJobArgs{
-					BaseJobArgs: *baseJob,
-				}
-
-				if a.queueManager != nil {
-					_, err := a.queueManager.GetClient().Insert(context.Background(), jobArgs, nil)
+				if a.Qm != nil {
+					tx, err := a.Qm.GetPool().Begin(ctx)
 					if err != nil {
-						log.Printf("Failed to enqueue setup user job: %v", err)
+						log.Printf("Failed to begin transaction: %v", err)
+						return
 					}
+					defer tx.Rollback(ctx)
+
+					_, err = a.Qm.InsertCreateProjectJob(ctx, tx, id, fmt.Sprintf("job_%d", time.Now().UnixNano()), map[string]interface{}{
+						"user_id":      id,
+						"project_name": name + "'s Project",
+					})
+					if err != nil {
+						log.Printf("Failed to insert create project job for user %s: %v", id, err)
+						return 
+					}
+
+					if err := tx.Commit(ctx); err != nil {
+						log.Printf("Failed to commit transaction: %v", err)
+						return
+					}
+
+					log.Printf("Successfully queued project creation for user %s", id)
 				}
-			} else {
-				log.Println("Sub does not contain expected format (left|right): " + sub)
 			}
-			return
 		}
-		log.Println("sub not found in profile")
-	} else {
-		log.Println("Invalid profile format in session")
 	}
 }
