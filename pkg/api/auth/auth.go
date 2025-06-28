@@ -19,15 +19,13 @@ import (
 	"golang.org/x/oauth2"
 
 	"dployr.io/pkg/config"
-	"dployr.io/pkg/logger"
 	"dployr.io/pkg/queue"
 	"dployr.io/pkg/repository"
 )
 
 type Auth struct {
 	*oidc.Provider
-	oauth2.Config
-	logger      *logger.Logger
+
 	projectRepo *repository.Project
 	eventRepo   *repository.Event
 	Qm          *queue.QueueManager
@@ -36,7 +34,6 @@ type Auth struct {
 func InitAuth(projectRepo *repository.Project, eventRepo *repository.Event, queueManager *queue.QueueManager) *Auth {
 	return &Auth{
 		Provider:    config.GetOauth2Provider(),
-		Config:      *config.GetOauth2Config(),
 		projectRepo: projectRepo,
 		eventRepo:   eventRepo,
 		Qm:          queueManager,
@@ -51,7 +48,7 @@ func (a *Auth) VerifyIDToken(ctx context.Context, t *oauth2.Token) (*oidc.IDToke
 	}
 
 	oidcConfig := &oidc.Config{
-		ClientID: a.ClientID,
+		ClientID: os.Getenv("AUTH0_CLIENT_ID"),
 	}
 
 	return a.Verifier(oidcConfig).Verify(ctx, rawIDToken)
@@ -73,7 +70,11 @@ func (a *Auth) LoginHandler() gin.HandlerFunc {
 			return
 		}
 
-		ctx.Redirect(http.StatusTemporaryRedirect, a.AuthCodeURL(state))
+		// Create OAuth2 config with dynamic redirect URL based on host
+		oauth2Config := config.GetOauth2Config(ctx.Request.Host)
+		authURL := oauth2Config.AuthCodeURL(state)
+
+		ctx.Redirect(http.StatusTemporaryRedirect, authURL)
 	}
 }
 
@@ -97,8 +98,11 @@ func (a *Auth) CallbackHandler() gin.HandlerFunc {
 			return
 		}
 
+		// Create OAuth2 config with dynamic redirect URL based on host
+		oauth2Config := config.GetOauth2Config(ctx.Request.Host)
+
 		// Exchange an authorization code for a token.
-		token, err := a.Exchange(ctx.Request.Context(), ctx.Query("code"))
+		token, err := oauth2Config.Exchange(ctx.Request.Context(), ctx.Query("code"))
 		if err != nil {
 			ctx.String(http.StatusUnauthorized, "Failed to convert an authorization code into a token.")
 			return
@@ -203,7 +207,7 @@ func (a *Auth) setupUserAccount(ctx *gin.Context) {
 					})
 					if err != nil {
 						log.Printf("Failed to insert create project job for user %s: %v", id, err)
-						return 
+						return
 					}
 
 					if err := tx.Commit(ctx); err != nil {

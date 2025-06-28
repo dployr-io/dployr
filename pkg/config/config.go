@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -153,11 +154,18 @@ func GetOauth2Provider() *oidc.Provider {
 	return provider
 }
 
-func GetOauth2Config() *oauth2.Config {
+func GetOauth2Config(host string) *oauth2.Config {
+	scheme := "http"
+	if host != "localhost" && !strings.Contains(host, "localhost") {
+		scheme = "https"
+	}
+
+	redirectURL := fmt.Sprintf("%s://%s/v1/callback", scheme, host)
+
 	return &oauth2.Config{
 		ClientID:     os.Getenv("AUTH0_CLIENT_ID"),
 		ClientSecret: os.Getenv("AUTH0_CLIENT_SECRET"),
-		RedirectURL:  os.Getenv("AUTH0_CALLBACK_URL"),
+		RedirectURL:  redirectURL,
 		Endpoint:     GetOauth2Provider().Endpoint(),
 		Scopes:       []string{oidc.ScopeOpenID, "profile"},
 	}

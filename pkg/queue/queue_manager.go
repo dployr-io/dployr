@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -76,7 +75,6 @@ func NewQueueManager(r *repository.Event, logger *logger.Logger) (*QueueManager,
 // Helper methods for inserting specific job types
 func (qm *QueueManager) InsertCreateProjectJob(ctx context.Context, tx pgx.Tx, userID, jobID string, data map[string]interface{}) (*rivertype.JobInsertResult, error) {
     args := jobs.NewCreateProjectArgs(userID, jobID, data)
-	log.Println("Inserting create project job for user " + userID)
     return qm.client.InsertTx(ctx, tx, args, nil)
 }
 

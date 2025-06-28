@@ -15,6 +15,7 @@ import (
 
 // SSEClient represents an active Server-Sent Events connection
 type SSEClient struct {
+	Event    string
 	Channel  chan string // Buffered channel to prevent blocking
 	UserID   string
 	ClientID string
@@ -48,10 +49,11 @@ func (m *SSEManager) AddClient(clientID, userID, buildID string) *SSEClient {
 	scopedClientID := fmt.Sprintf("%s:%s", userID, clientID)
 
 	client := &SSEClient{
-		Channel:  make(chan string, getBufferSize()), 
+		Channel:  make(chan string, getBufferSize()),
 		UserID:   userID,
 		ClientID: clientID,
 		BuildID:  buildID,
+		Event:    "log", // Set default event name for SSE
 	}
 
 	m.clients[scopedClientID] = client
@@ -91,15 +93,22 @@ func (m *SSEManager) SendToBuild(buildID, message string) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
+	sentCount := 0
 	for _, client := range m.clients {
 		if client.BuildID == buildID {
 			select {
 			case client.Channel <- message:
 				// Message sent successfully
+				sentCount++
 			default:
 				// Channel is full, skip this message to prevent blocking
 			}
 		}
+	}
+
+	// Debug: Log how many clients received the message
+	if sentCount == 0 {
+		fmt.Printf("Warning: No clients found for buildID %s\n", buildID)
 	}
 }
 
@@ -163,6 +172,9 @@ func BuildLogsStreamHandler(m *SSEManager) gin.HandlerFunc {
 		ctx.Header("Access-Control-Allow-Origin", "*")
 		ctx.Header("Access-Control-Allow-Headers", "Cache-Control")
 
+		// Force immediate response
+		ctx.Writer.Flush()
+
 		// Add client to manager
 		client := m.AddClient(clientID, userID, buildID)
 		defer m.RemoveClient(clientID, userID)
@@ -172,11 +184,18 @@ func BuildLogsStreamHandler(m *SSEManager) gin.HandlerFunc {
 		ctx.Writer.Flush()
 
 		// Keep connection alive and stream messages
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
 		for {
 			select {
 			case message := <-client.Channel:
-				// Send log message to client
+				// Send log message to client with proper event name
 				ctx.SSEvent("log", message)
+				ctx.Writer.Flush()
+			case <-ticker.C:
+				// Send ping to keep connection alive
+				fmt.Fprint(ctx.Writer, ": ping\n\n")
 				ctx.Writer.Flush()
 			case <-ctx.Request.Context().Done():
 				// Client disconnected
@@ -185,8 +204,6 @@ func BuildLogsStreamHandler(m *SSEManager) gin.HandlerFunc {
 		}
 	}
 }
-
-
 
 // TestBuildLogsHandler simulates build logs for testing SSE functionality
 func TestBuildLogsHandler(m *SSEManager) gin.HandlerFunc {
@@ -206,37 +223,58 @@ func TestBuildLogsHandler(m *SSEManager) gin.HandlerFunc {
 
 		// Simulate build logs
 		go func() {
+			// Give time for SSE connection to establish
+			time.Sleep(time.Millisecond * 100)
+
+			// Debug: Check how many clients are connected
+			clientCount := m.GetClientCount(buildID)
+			fmt.Printf("Starting build simulation for %s with %d connected clients\n", buildID, clientCount)
+
 			phases := []string{"setup", "build", "test", "deploy"}
-			messages := [][]string{
-				{"Starting build process...", "Checking environment..."},
-				{"Installing dependencies...", "npm install completed"},
-				{"Running build commands...", "Webpack build finished"},
-				{"Executing tests...", "All tests passed"},
-				{"Deploying application...", "Upload completed"},
-				{"Build completed successfully!", "Deployment URL: https://example.com"},
+			messages := map[string][]string{
+				"setup":  {"Starting build process...", "Checking environment...", "Environment ready"},
+				"build":  {"Installing dependencies...", "npm install completed", "Running build commands...", "Webpack build finished"},
+				"test":   {"Executing tests...", "Running unit tests...", "All tests passed"},
+				"deploy": {"Deploying application...", "Upload completed", "Build completed successfully!", "Deployment URL: https://example.com"},
 			}
 
-			for i, phase := range phases {
-				for _, msg := range messages[i] {
-					formattedMessage := fmt.Sprintf(`{"timestamp":"%s","level":"info","phase":"%s","message":"%s","deploymentId":"%s"}`,
-						time.Now().Format("15:04:05"), phase, msg, buildID)
-					m.SendToBuild(buildID, formattedMessage)
+			for _, phase := range phases {
+				if phaseMessages, exists := messages[phase]; exists {
+					for _, msg := range phaseMessages {
+						formattedMessage := fmt.Sprintf(`{"timestamp":"%s","level":"info","phase":"%s","message":"%s","deploymentId":"%s"}`,
+							time.Now().Format("15:04:05"), phase, msg, buildID)
 
-					// Simulate processing time
-					time.Sleep(time.Millisecond * 500)
+						// Send message to all clients listening to this build
+						m.SendToBuild(buildID, formattedMessage)
 
-					select {
-					case <-ctx.Request.Context().Done():
-						return
-					default:
-						// Continue
+						// Simulate processing time
+						time.Sleep(time.Millisecond * 500)
 					}
 				}
 			}
+
+			// Send final completion message
+			finalMessage := fmt.Sprintf(`{"timestamp":"%s","level":"success","phase":"complete","message":"Build pipeline completed successfully","deploymentId":"%s"}`,
+				time.Now().Format("15:04:05"), buildID)
+			m.SendToBuild(buildID, finalMessage)
 		}()
 
 		ctx.JSON(http.StatusOK, gin.H{
 			"message": fmt.Sprintf("Started simulated build for %s", buildID),
 		})
 	}
+}
+
+// GetClientCount returns the number of active clients for debugging
+func (m *SSEManager) GetClientCount(buildID string) int {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	count := 0
+	for _, client := range m.clients {
+		if buildID == "" || client.BuildID == buildID {
+			count++
+		}
+	}
+	return count
 }
