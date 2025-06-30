@@ -5,14 +5,14 @@ CREATE TABLE IF NOT EXISTS projects (
     git_repo      TEXT      NOT NULL,
     domain        TEXT      NOT NULL,
     provider      TEXT      NOT NULL,
-    environment   JSONB,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_deployed TIMESTAMPTZ,
+    environment   TEXT,     -- JSONB → TEXT
+    created_at    DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_deployed DATETIME,
     deployment_url TEXT,
     status        TEXT      NOT NULL,
-    host_configs  JSONB
+    host_configs  TEXT      -- JSONB → TEXT
 );
 
 -- +goose Down
-DROP TABLE events;
+DROP TABLE IF EXISTS projects;

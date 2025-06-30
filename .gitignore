@@ -52,3 +52,9 @@ temp/
 
 # Supabase
 supabase/
+
+# Vagrant
+.vagrant/
+
+# SQLite
+*.sqlite3*

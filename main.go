@@ -12,6 +12,8 @@ import (
 	"dployr.io/pkg/logger"
 	"dployr.io/pkg/queue"
 	"dployr.io/pkg/server"
+
+	_ "modernc.org/sqlite"
 )
 
 func main() {

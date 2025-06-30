@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+LICENSE
+
+# Development files
+Vagrantfile
+*.exe
+goose.exe
+bootstrap/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Database files (will be created at runtime)
+*.sqlite3
+*.db
+
+# Temporary files
+tmp/
+temp/
+
+# Build artifacts
+dist/
+build/
+
+# Node modules 
+node_modules/
+
+# Docker files
+Dockerfile*
+docker-compose*
+.dockerignore 

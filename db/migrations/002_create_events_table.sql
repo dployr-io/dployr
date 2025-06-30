@@ -4,11 +4,11 @@ CREATE TABLE IF NOT EXISTS events (
     type          TEXT      NOT NULL,
     aggregate_id  TEXT      NOT NULL,
     user_id       TEXT      NOT NULL,
-    timestamp     TIMESTAMPTZ NOT NULL,
-    data          JSONB,
-    metadata      JSONB,
+    timestamp     DATETIME  NOT NULL,
+    data          TEXT,      -- JSONB → TEXT
+    metadata      TEXT,      -- JSONB → TEXT
     version       INTEGER   NOT NULL
 );
 
 -- +goose Down
-DROP TABLE events;
+DROP TABLE IF EXISTS events;

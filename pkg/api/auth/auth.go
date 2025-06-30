@@ -5,13 +5,11 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-contrib/sessions"
@@ -194,23 +192,27 @@ func (a *Auth) setupUserAccount(ctx *gin.Context) {
 				log.Println("Setting up account for user" + id)
 
 				if a.Qm != nil {
-					tx, err := a.Qm.GetPool().Begin(ctx)
+					tx, err := a.Qm.GetDB().Begin()
 					if err != nil {
 						log.Printf("Failed to begin transaction: %v", err)
 						return
 					}
-					defer tx.Rollback(ctx)
+					defer func() {
+						if err != nil {
+							tx.Rollback()
+						}
+					}()
 
-					_, err = a.Qm.InsertCreateProjectJob(ctx, tx, id, fmt.Sprintf("job_%d", time.Now().UnixNano()), map[string]interface{}{
+					_, err = a.Qm.InsertCreateProjectJob(ctx, tx, id, map[string]interface{}{
 						"user_id":      id,
 						"project_name": name + "'s Project",
 					})
 					if err != nil {
-						log.Printf("Failed to insert create project job for user %s: %v", id, err)
+						log.Printf("Failed to insert job: %v", err)
 						return
 					}
 
-					if err := tx.Commit(ctx); err != nil {
+					if err = tx.Commit(); err != nil {
 						log.Printf("Failed to commit transaction: %v", err)
 						return
 					}

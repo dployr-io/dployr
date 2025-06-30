@@ -101,7 +101,11 @@ func setIDIfExists(entity interface{}, id int64) {
 	v := reflect.ValueOf(entity).Elem()
 	idField := v.FieldByName("ID")
 	if idField.IsValid() && idField.CanSet() {
-		idField.SetInt(id)
+		if idField.Kind() == reflect.Int64 {
+			idField.SetInt(id)
+		} else if idField.Kind() == reflect.String {
+			idField.SetString(fmt.Sprintf("%d", id))
+		}
 	}
 }
 

@@ -1,19 +1,18 @@
-// queue_manager.go - Updated with simplified worker registration
+// queue_manager.go - Updated with SQLite driver
 package queue
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	_ "modernc.org/sqlite"
 	"github.com/riverqueue/river"
-	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/riverdriver/riversqlite"
 	"github.com/riverqueue/river/rivertype"
 
-	"dployr.io/pkg/config"
 	"dployr.io/pkg/jobs"
 	"dployr.io/pkg/logger"
 	"dployr.io/pkg/repository"
@@ -24,27 +23,22 @@ var (
 )
 
 type QueueManager struct {
-	client *river.Client[pgx.Tx]
-	pool   *pgxpool.Pool
+	client *river.Client[*sql.Tx]
+	db     *sql.DB
 	logger *logger.Logger
 }
 
 func NewQueueManager(r *repository.Event, logger *logger.Logger) (*QueueManager, error) {
-	poolConfig, err := pgxpool.ParseConfig(config.GetDSN("5432"))
+	// Open SQLite database with WAL mode for better concurrency
+	db, err := sql.Open("sqlite", "file:./data.sqlite3?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, err
 	}
 
-	// Configure connection pool for better performance
-	poolConfig.MaxConns = 10
-	poolConfig.MinConns = 2
-	poolConfig.MaxConnLifetime = 1 * time.Hour
-	poolConfig.MaxConnIdleTime = 30 * time.Minute
-
-	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create connection pool: %w", err)
-	}
+	// Configure connection pool for SQLite
+	db.SetMaxOpenConns(1) // SQLite works best with single connection
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(1 * time.Hour)
 
 	// Create worker registry
 	workers := river.NewWorkers()
@@ -54,8 +48,8 @@ func NewQueueManager(r *repository.Event, logger *logger.Logger) (*QueueManager,
 		return nil, fmt.Errorf("failed to register workers: %w", err)
 	}
 
-	// Create river client
-	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
+	// Create river client with SQLite driver
+	riverClient, err := river.NewClient(riversqlite.New(db), &river.Config{
 		Queues: map[string]river.QueueConfig{
 			river.QueueDefault: {MaxWorkers: 100},
 		},
@@ -67,28 +61,28 @@ func NewQueueManager(r *repository.Event, logger *logger.Logger) (*QueueManager,
 
 	return &QueueManager{
 		client: riverClient,
-		pool:   pool,
+		db:     db,
 		logger: logger,
 	}, nil
 }
 
 // Helper methods for inserting specific job types
-func (qm *QueueManager) InsertCreateProjectJob(ctx context.Context, tx pgx.Tx, userID, jobID string, data map[string]interface{}) (*rivertype.JobInsertResult, error) {
-    args := jobs.NewCreateProjectArgs(userID, jobID, data)
-    return qm.client.InsertTx(ctx, tx, args, nil)
+func (qm *QueueManager) InsertCreateProjectJob(ctx context.Context, tx *sql.Tx, userID string, data map[string]interface{}) (*rivertype.JobInsertResult, error) {
+	args := jobs.NewCreateProjectArgs(userID, data)
+	return qm.client.InsertTx(ctx, tx, args, nil)
 }
 
-func (qm *QueueManager) InsertBuildProjectJob(ctx context.Context, tx pgx.Tx, userID, jobID string, data map[string]interface{}) (*rivertype.JobInsertResult, error) {
-    args := jobs.NewBuildProjectArgs(userID, jobID, data)
-    return qm.client.InsertTx(ctx, tx, args, nil)
+func (qm *QueueManager) InsertBuildProjectJob(ctx context.Context, tx *sql.Tx, userID string, data map[string]interface{}) (*rivertype.JobInsertResult, error) {
+	args := jobs.NewBuildProjectArgs(userID, data)
+	return qm.client.InsertTx(ctx, tx, args, nil)
 }
 
-func (qm *QueueManager) InsertDeployProjectJob(ctx context.Context, tx pgx.Tx, userID, jobID string, data map[string]interface{}) (*rivertype.JobInsertResult, error) {
-    args := jobs.NewDeployProjectArgs(userID, jobID, data)
-    return qm.client.InsertTx(ctx, tx, args, nil)
+func (qm *QueueManager) InsertDeployProjectJob(ctx context.Context, tx *sql.Tx, userID string, data map[string]interface{}) (*rivertype.JobInsertResult, error) {
+	args := jobs.NewDeployProjectArgs(userID, data)
+	return qm.client.InsertTx(ctx, tx, args, nil)
 }
 
-func (qm *QueueManager) GetClient() *river.Client[pgx.Tx] {
+func (qm *QueueManager) GetClient() *river.Client[*sql.Tx] {
 	return qm.client
 }
 
@@ -101,9 +95,9 @@ func (qm *QueueManager) Stop(ctx context.Context) error {
 }
 
 func (qm *QueueManager) Close() {
-	qm.pool.Close()
+	qm.db.Close()
 }
 
-func (qm *QueueManager) GetPool() *pgxpool.Pool {
-	return qm.pool
+func (qm *QueueManager) GetDB() *sql.DB {
+	return qm.db
 }

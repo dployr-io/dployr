@@ -2,22 +2,21 @@ package router
 
 import (
 	"encoding/gob"
-	"log/slog"
 	"net/http"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	"riverqueue.com/riverui"
 
+	"dployr.io/pkg/api"
 	"dployr.io/pkg/api/auth"
 	"dployr.io/pkg/api/platform"
 	"dployr.io/pkg/queue"
 )
 
 type Router struct {
-	Auth *auth.Auth
-	QM   *queue.QueueManager
+	Auth       *auth.Auth
+	QM         *queue.QueueManager
 	SSEManager *platform.SSEManager
 }
 
@@ -36,6 +35,8 @@ func New(r *Router) *gin.Engine {
 
 	router.Static("/public", "dashboard/public")
 
+	router.GET("/health", api.HealthCheckHandler())
+
 	router.GET("/", func(ctx *gin.Context) {
 		ctx.HTML(http.StatusOK, "index.html", nil)
 	})
@@ -53,29 +54,6 @@ func New(r *Router) *gin.Engine {
 
 		// Test endpoint to simulate build logs
 		v1.POST("/builds/:buildId/test", platform.TestBuildLogsHandler(r.SSEManager))
-	}
-
-	if r.QM != nil {
-		opts := &riverui.ServerOpts{
-			Client: r.QM.GetClient(),
-			DB:     r.QM.GetPool(),
-			Logger: slog.Default(),
-		}
-		ui, err := riverui.NewServer(opts)
-		if err != nil {
-			gin.DefaultWriter.Write([]byte("Failed to create River UI server: " + err.Error() + "\n"))
-			return router
-		}
-
-		// Serve River UI assets at root level to fix asset loading
-		router.Any("/assets/*filepath", gin.WrapH(ui))
-
-		// Serve River UI API endpoints at root level
-		router.Any("/api/*path", gin.WrapH(ui))
-
-		// Create an admin group for River UI
-		adminGroup := router.Group("/admin")
-		adminGroup.Any("/*path", gin.WrapH(http.StripPrefix("/admin", ui)))
 	}
 
 	return router
