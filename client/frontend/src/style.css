@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-color: #e8eddf;
+  --text-color: #333533;
+  --card-bg: rgba(255, 255, 255, 0.1);
+  --card-border: rgba(51, 53, 51, 0.2);
+  --input-bg: rgba(255, 255, 255, 0.8);
+  --input-border: rgba(51, 53, 51, 0.3);
+  --input-text: #333533;
+  --input-placeholder: rgba(51, 53, 51, 0.6);
+  --button-primary: #195B5E;
+  --button-primary-hover: #177E89;
+  --shadow-color: rgba(51, 53, 51, 0.1);
+  --logo-url: url('./assets/images/logo.png');
+}
+
+[data-theme="dark"] {
+  --bg-color: #242423;
+  --text-color: #ffffff;
+  --card-bg: rgba(255, 255, 255, 0.05);
+  --card-border: rgba(255, 255, 255, 0.1);
+  --input-bg: rgba(255, 255, 255, 0.1);
+  --input-border: rgba(255, 255, 255, 0.2);
+  --input-text: #ffffff;
+  --input-placeholder: rgba(255, 255, 255, 0.6);
+  --button-primary: #177E89;
+  --button-primary-hover: #195B5E;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --logo-url: url('./assets/images/logo-secondary.png');
+}
+
+@layer base {
+  @font-face {
+    font-family: 'Quicksand';
+    src: local(""),
+         url("assets/fonts/Quicksand-VariableFont_wght.woff") format("woff2");
+  }
+
+  html {
+    font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+                 "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+                 sans-serif;
+  }
+
+  body {
+    @apply m-0 min-h-screen transition-colors duration-300;
+    font-family: 'Quicksand', -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+                 "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+                 sans-serif;
+    background: var(--bg-color);
+    color: var(--text-color);
+  }
+
+  #app {
+    @apply h-screen text-center flex items-center justify-center;
+  }
+}
+
+.theme-toggle {
+  position: fixed;
+  top: 2rem;
+  right: 2rem;
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50px;
+  transition: all 0.2s ease;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  z-index: 1000;
+  opacity: 0.8;
+}
+
+.theme-toggle:hover {
+  background-color: var(--card-bg);
+  opacity: 1;
+}
+
+.theme-toggle svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.main-container {
+  background: var(--card-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 8px 32px var(--shadow-color);
+}
+
+.app-logo {
+  content: var(--logo-url);
+}
+
+.app-input {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--input-text);
+}
+
+.app-input::placeholder {
+  color: var(--input-placeholder);
+}
+
+.app-input:hover {
+  border-color: var(--button-primary);
+}
+
+.app-input:focus {
+  border-color: var(--button-primary);
+  box-shadow: 0 0 0 2px rgba(23, 126, 137, 0.2);
+}
+
+.app-button {
+  background: var(--button-primary);
+  color: white;
+}
+
+.app-button:hover {
+  background: var(--button-primary-hover);
+  transform: translateY(-1px);
+}
+
+.app-button:active {
+  transform: translateY(0);
+}
