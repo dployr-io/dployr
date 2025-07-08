@@ -4,7 +4,7 @@ export namespace main {
 	    id: string;
 	    email: string;
 	    name: string;
-	    image?: string;
+	    avatar?: string;
 	    emailVerified: boolean;
 	    // Go type: time
 	    createdAt: any;
@@ -20,7 +20,7 @@ export namespace main {
 	        this.id = source["id"];
 	        this.email = source["email"];
 	        this.name = source["name"];
-	        this.image = source["image"];
+	        this.avatar = source["avatar"];
 	        this.emailVerified = source["emailVerified"];
 	        this.createdAt = this.convertValues(source["createdAt"], null);
 	        this.updatedAt = this.convertValues(source["updatedAt"], null);

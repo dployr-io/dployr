@@ -22,7 +22,7 @@ type User struct {
 	ID            string    `json:"id"`
 	Email         string    `json:"email"`
 	Name          string    `json:"name"`
-	Image         string    `json:"image,omitempty"`
+	Avatar         string   `json:"avatar,omitempty"`
 	EmailVerified bool      `json:"emailVerified"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
