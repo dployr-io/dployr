@@ -1,6 +1,5 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "version": "0.1.0",
   "name": "dployr",
   "outputfilename": "dployr",
   "frontend:install": "pnpm install",

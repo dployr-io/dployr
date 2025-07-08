@@ -6,6 +6,18 @@ export function GetCurrentUser() {
   return window['go']['main']['App']['GetCurrentUser']();
 }
 
+export function GetDeployments() {
+  return window['go']['main']['App']['GetDeployments']();
+}
+
+export function GetLogs() {
+  return window['go']['main']['App']['GetLogs']();
+}
+
+export function GetProjects() {
+  return window['go']['main']['App']['GetProjects']();
+}
+
 export function SignIn(arg1) {
   return window['go']['main']['App']['SignIn'](arg1);
 }

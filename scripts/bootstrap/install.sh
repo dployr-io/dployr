@@ -154,6 +154,7 @@ setup_config() {
 services:
   dployr-web:
     image: $REGISTRY_URL/dployr:latest
+    pull_policy: always
     ports: 
       - "7879:7879"
     volumes:

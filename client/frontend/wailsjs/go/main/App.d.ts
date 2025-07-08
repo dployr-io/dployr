@@ -4,6 +4,12 @@ import {main} from '../models';
 
 export function GetCurrentUser():Promise<main.User>;
 
+export function GetDeployments():Promise<Array<main.Deployment>>;
+
+export function GetLogs():Promise<Array<main.Log>>;
+
+export function GetProjects():Promise<Array<main.Project>>;
+
 export function SignIn(arg1:string):Promise<main.AuthResponse>;
 
 export function SignOut():Promise<boolean>;

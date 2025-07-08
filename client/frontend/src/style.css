@@ -35,8 +35,8 @@
 @layer base {
   @font-face {
     font-family: 'Quicksand';
-    src: local(""),
-         url("assets/fonts/Quicksand-VariableFont_wght.woff") format("woff2");
+    /* src: local(""),
+         url("assets/fonts/Quicksand-VariableFont_wght.woff") format("woff2"); */
   }
 
   html {
@@ -69,7 +69,6 @@
   cursor: pointer;
   padding: 8px;
   border-radius: 50px;
-  transition: all 0.2s ease;
   font-size: 18px;
   display: flex;
   align-items: center;
@@ -77,12 +76,10 @@
   width: 40px;
   height: 40px;
   z-index: 1000;
-  opacity: 0.8;
 }
 
 .theme-toggle:hover {
   background-color: var(--card-bg);
-  opacity: 1;
 }
 
 .theme-toggle svg {
@@ -133,4 +130,74 @@
 
 .app-button:active {
   transform: translateY(0);
+}
+
+.app-button-outlined {
+  background: transparent;
+  color: var(--input-text);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+}
+
+.app-button-outlined:hover {
+  background: var(--button-primary);
+  color: white;
+}
+
+.app-button-ghost {
+  background: transparent;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+}
+
+.app-button-ghost:hover {
+  background: var(--button-primary-hover);
+  transform: translateY(-1px);
+  color: white;
+}
+
+.icon {
+  color: var(--text-color);
+}
+
+.icon:hover {
+  transform: translateY(-0.5px);
+}
+
+.nav-tab {
+  color: var(--text-color);
+  padding: 0.5rem 1rem;
+  border-bottom: 2px solid transparent;
+  font-weight: 500;
+}
+
+.nav-tab:hover {
+  transform: translateY(-0.5px);
+}
+
+.nav-tab.active {
+  font-weight: 600;
+  border-bottom-color: var(--button-primary);
+}
+
+.card {
+  border: 1px solid var(--card-border);
+}
+
+.card:hover {
+  border-color: var(--button-primary);
+  transform: translateY(-2px);
+}
+
+.metric-circle {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.sidebar {
+  min-width: 280px;
 }

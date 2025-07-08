@@ -35,9 +35,17 @@ func New(auth *auth.Auth, qm *queue.QueueManager) *gin.Engine {
 		ctx.HTML(http.StatusOK, "index.html", nil)
 	})
 
+	r.GET("/health", func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+	
 	r.GET("/about", func(ctx *gin.Context) {
 		ctx.HTML(http.StatusOK, "about.html", nil)
 	})
+
+	r.GET("/auth/:provider", auth.LoginHandler())
+	r.GET("/auth/:provider/callback", auth.CallbackHandler())
+
 
 	// API v1 routes
 	v1 := r.Group("/v1")

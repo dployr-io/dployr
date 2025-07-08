@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"slices"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -19,7 +20,6 @@ import (
 	"dployr.io/pkg/logger"
 	"dployr.io/pkg/queue"
 	"dployr.io/pkg/repository"
-	"slices"
 )
 
 type Auth struct {
@@ -99,6 +99,41 @@ func getProviderName(req *http.Request) (string, error) {
 	return "", fmt.Errorf("provider not found in path: %s", path)
 }
 
+func (a *Auth) LoginHandler() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		provider := ctx.Param("provider")
+		
+		// Validate provider
+		if !a.isValidProvider(provider) {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "unsupported provider"})
+			return
+		}
+
+		// Store provider in session for callback
+		session := sessions.Default(ctx)
+		session.Set("provider", provider)
+		session.Save()
+
+		// Set up the request path for Gothic
+		ctx.Request.URL.Path = fmt.Sprintf("/auth/%s", provider)
+		
+		// Try to get existing user first
+		if gothUser, err := gothic.CompleteUserAuth(ctx.Writer, ctx.Request); err == nil {
+			// User already authenticated, convert and redirect
+			user := a.convertGothUser(gothUser)
+			session.Set("user", user)
+			session.Set("access_token", gothUser.AccessToken)
+			session.Save()
+			
+			ctx.Redirect(http.StatusTemporaryRedirect, "/v1/user")
+			return
+		}
+
+		// Start new authentication
+		gothic.BeginAuthHandler(ctx.Writer, ctx.Request)
+	}
+}
+
 func (a *Auth) CallbackHandler() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		provider := ctx.Param("provider")
@@ -132,6 +167,8 @@ func (a *Auth) CallbackHandler() gin.HandlerFunc {
 
 		// Setup user account asynchronously
 		go a.setupUserAccount(user)
+
+		ctx.Redirect(http.StatusTemporaryRedirect, "/v1/user")
 	}
 }
 

@@ -30,7 +30,7 @@ if [ ! -f "docker-compose.yml" ]; then
 fi
 
 echo "Starting dployr.io services..."
-docker compose up -d
+docker compose up -d --pull always
 
 # Wait for health check with timeout
 echo "Waiting for dployr.io to start..."
