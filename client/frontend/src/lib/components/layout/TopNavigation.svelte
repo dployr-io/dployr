@@ -5,10 +5,11 @@
     accounts, 
     selectedAccount, 
     showProjectDropdown, 
-    showAccountDropdown 
+    showAccountDropdown,
+    showFilterDropdown
 } from '../../../stores';
   import ThemeToggle from '../ui/ThemeToggle.svelte';
-  
+
   export let icon: string;
   export let iconSecondary: string;
   export let isDarkMode: boolean;
@@ -32,6 +33,10 @@
     e.stopPropagation();
     showAccountDropdown.update(show => !show);
     showProjectDropdown.set(false);
+  }
+
+  function toggleFilter() {
+    showFilterDropdown.update(show => !show);
   }
 </script>
 
@@ -58,38 +63,52 @@
 
       <!-- Project Dropdown -->
       {#if $showProjectDropdown}
-        <div class="absolute left-0 top-0 mt-9 z-50 card rounded-lg shadow-lg min-w-[220px]">
+        <div class="absolute left-0 top-0 mt-9 z-50 bg-white rounded-lg shadow-lg min-w-[220px]">
           <div class="p-2">
-            <div class="text-sm font-semibol px-2 py-1 w-fit text-left">{'Projects'}</div>
             {#each $projects as project}
               <button 
-                class="flex items-center w-full px-3 py-2 rounded app-button-ghost text-left"
+                class="group flex items-center w-full px-3 py-2 rounded app-button-ghost text-left hover:text-white active:text-white"
                 on:click={() => selectProject(project)}
               >
-                <div class="w-7 h-7 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center mr-2 font-bold">{project.icon}</div>
+                <img src={project.icon} alt="icon" class="w-7 h-7 rounded mr-2"/>
                 <div>
-                  <div class="text-gray-600 dark:text-gray-200 font-medium">{project.name}</div>
+                  <!-- use group-hover and group-active to override the base gray -->
+                  <div class="text-gray-600 group-hover:text-white group-active:text-white font-medium text-sm">
+                    {project.name}
+                  </div>
                 </div>
               </button>
             {/each}
-            <div class="border-t border-gray-200 dark:border-gray-700 my-2"></div>
+            <div class="border-t border-gray-20 my-2"></div>
               <div class="flex justify-center">
-              <button class="w-full max-w-[180px] px-3 py-2 text-left text-blue-600 hover:underline">+ New Project</button>
+                <button
+                  class="w-full max-w-[180px] px-3 py-1 text-sm text-left font-medium
+                        text-gray-600"
+                >
+                  + New Project
+                </button>
               </div>
           </div>
-          <div class="border-t border-gray-200 dark:border-gray-700"></div>
+          <div class="border-t border-gray-200"></div>
           <div class="p-2">
             <button 
-              class="flex items-center w-full px-3 py-2 rounded app-button-ghost text-left"
+              class="group flex items-center w-full px-3 py-1 rounded app-button-ghost text-left hover:text-white active:text-white"
               on:click|stopPropagation={toggleAccountDropdown}
             >
-              <span class="font-semibold text-gray-600 dark:text-gray-200">Switch Account</span>
-              <svg class="w-4 h-4 ml-auto text-gray-600 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span class="font-semibold text-sm text-gray-600 group-hover:text-white group-active:text-white">
+                Switch Account
+              </span>
+              <svg 
+                class="w-4 h-4 ml-auto text-gray-600 group-hover:text-white group-active:text-white" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
               </svg>
             </button>
             {#if $showAccountDropdown}
-              <div class="absolute left-full top-0 ml-2 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg min-w-[180px]">
+              <div class="absolute left-full top-0 ml-2 z-50 bg-white dark:bg-gray-800 border border-gray-200 rounded-lg shadow-lg min-w-[180px]">
                 <div class="p-2">
                   <div class="text-xs text-gray-500 px-2 py-1">Accounts</div>
                   {#each $accounts as account}
@@ -111,16 +130,60 @@
       {/if}
     </div>
 
-    <!-- Center: Navigation Tabs (Absolutely Centered) -->
-    <div class="absolute left-1/2 transform -translate-x-1/2 flex items-center">
-      <div class="flex items-center space-x-3 overflow-hidden">
-        <a href="#" class="nav-tab active whitespace-nowrap">Overview</a>
-        <a href="#" class="nav-tab whitespace-nowrap">Deployments</a>
-        <a href="#" class="nav-tab whitespace-nowrap">Resources</a>
-        <a href="#" class="nav-tab whitespace-nowrap hidden sm:block">Domains</a>
-        <a href="#" class="nav-tab whitespace-nowrap hidden md:block">Insights</a>
-        <a href="#" class="nav-tab whitespace-nowrap hidden lg:block">Console</a>
-        <a href="#" class="nav-tab whitespace-nowrap hidden xl:block">Settings</a>
+    <!-- Centered search with filter button -->
+    <div class="absolute inset-x-0 top-1/2 transform -translate-y-1/2 flex justify-center pointer-events-none">
+      <div class="relative flex items-center w-full max-w-lg pointer-events-auto">
+        <!-- Search Input -->
+        <div class="relative flex-1">
+          <input
+            type="text"
+            placeholder="Search Projects…"
+            class="app-input w-full pl-8 pr-4 py-1.5 text-sm rounded-lg outline-none transition-all"
+          />
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+          </span>
+        </div>
+        
+        <!-- Filter Button - positioned right of search -->
+        <div class="relative ml-2">
+          <button 
+            class="p-2 rounded-lg transition-colors flex items-center "
+            class:bg-gray-300={$showFilterDropdown}
+            class:dark:bg-gray-200={$showFilterDropdown}
+            class:text-gray-500={$showFilterDropdown}
+            class:dark:text-gray-500={$showFilterDropdown}
+            class:dark:text-gray-400={$showFilterDropdown}
+            on:click|stopPropagation={toggleFilter}
+            aria-label="Filter"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+            </svg>
+          </button>
+          
+          <!-- Filter Dropdown -->
+          {#if $showFilterDropdown}
+            <div class="absolute top-full right-0 mt-2 z-200 card rounded-lg shadow-lg min-w-[200px]">
+              <div class="p-4">
+                <h3 class="font-semibold mb-3">Filter Projects</h3>
+                <div class="space-y-2">
+                  <label class="flex items-center">
+                    <input type="checkbox" class="mr-2" /> Active Projects
+                  </label>
+                  <label class="flex items-center">
+                    <input type="checkbox" class="mr-2" /> Failed Builds
+                  </label>
+                  <label class="flex items-center">
+                    <input type="checkbox" class="mr-2" /> Recent Updates
+                  </label>
+                </div>
+              </div>
+            </div>
+          {/if}
+        </div>
       </div>
     </div>
 

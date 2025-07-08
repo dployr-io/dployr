@@ -4,71 +4,25 @@
   function toggleViewMode(mode: 'grid' | 'list') {
     viewMode.set(mode);
   }
-
-  function toggleFilter() {
-    showFilterDropdown.update(show => !show);
-  }
 </script>
 
 <!-- Sub Header -->
 <div class="relative border-b border-gray-700 px-6 py-3">
   <div class="flex items-center justify-between gap-4">
-    <!-- Centered search with filter button -->
-    <div class="absolute inset-x-0 top-1/2 transform -translate-y-1/2 flex justify-center pointer-events-none">
-      <div class="relative flex items-center w-full max-w-lg pointer-events-auto">
-        <!-- Search Input -->
-        <div class="relative flex-1">
-          <input
-            type="text"
-            placeholder="Search Projects…"
-            class="app-input w-full pl-8 pr-4 py-1.5 text-sm rounded-lg outline-none transition-all"
-          />
-          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4">
-              <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-            </svg>
-          </span>
-        </div>
-        
-        <!-- Filter Button - positioned right of search -->
-        <div class="relative ml-2">
-          <button 
-            class="p-2 rounded-lg transition-colors flex items-center "
-            class:bg-gray-300={$showFilterDropdown}
-            class:dark:bg-gray-200={$showFilterDropdown}
-            class:text-gray-500={$showFilterDropdown}
-            class:dark:text-gray-500={$showFilterDropdown}
-            class:dark:text-gray-400={$showFilterDropdown}
-            on:click|stopPropagation={toggleFilter}
-            aria-label="Filter"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
-            </svg>
-          </button>
-          
-          <!-- Filter Dropdown -->
-          {#if $showFilterDropdown}
-            <div class="absolute top-full right-0 mt-2 z-200 card rounded-lg shadow-lg min-w-[200px]">
-              <div class="p-4">
-                <h3 class="font-semibold mb-3">Filter Projects</h3>
-                <div class="space-y-2">
-                  <label class="flex items-center">
-                    <input type="checkbox" class="mr-2" /> Active Projects
-                  </label>
-                  <label class="flex items-center">
-                    <input type="checkbox" class="mr-2" /> Failed Builds
-                  </label>
-                  <label class="flex items-center">
-                    <input type="checkbox" class="mr-2" /> Recent Updates
-                  </label>
-                </div>
-              </div>
-            </div>
-          {/if}
-        </div>
+    <!-- Center: Navigation Tabs (Absolutely Centered) -->
+    <div class="absolute left-1/2 transform -translate-x-1/2 flex items-center">
+      <div class="flex items-center space-x-3 overflow-hidden">
+        <a href="#" class="nav-tab active whitespace-nowrap">Overview</a>
+        <a href="#" class="nav-tab whitespace-nowrap">Deployments</a>
+        <a href="#" class="nav-tab whitespace-nowrap">Resources</a>
+        <a href="#" class="nav-tab whitespace-nowrap hidden sm:block">Domains</a>
+        <a href="#" class="nav-tab whitespace-nowrap hidden md:block">Insights</a>
+        <a href="#" class="nav-tab whitespace-nowrap hidden lg:block">Console</a>
+        <a href="#" class="nav-tab whitespace-nowrap hidden xl:block">Settings</a>
       </div>
     </div>
+
+    
 
     <!-- Right: Controls (right-aligned, min space) -->
     <div class="flex items-center space-x-2 ml-auto">
