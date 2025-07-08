@@ -103,3 +103,14 @@ export function gitIcon(provider: string): string {
     `;
   }
 }
+
+export function formatLogTime(createdAt: number): string {
+  const date = new Date(createdAt);
+  return date.toLocaleTimeString('en-US', { 
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    fractionalSecondDigits: 2
+  });
+}

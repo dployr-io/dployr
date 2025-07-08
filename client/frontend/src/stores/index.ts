@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { User, Project, Deployment, AppState, Account, ThemeType, ViewMode } from '../types/index';
+import type { User, Project, Deployment, LogEntry, AppState, Account, ThemeType, ViewMode } from '../types/index';
 import { main } from '../../wailsjs/go/models';
 
 // Theme store
@@ -37,6 +37,7 @@ export const appState = writable<AppState>({
 // Data stores
 export const projects = writable<Project[]>([]);
 export const deployments = writable<Deployment[]>([]);
+export const logs = writable<LogEntry[]>([]);
 export const selectedProject = writable<Project | null>(null);
 
 // Account management

@@ -1,4 +1,11 @@
-import { SignIn, GetCurrentUser, SignOut, GetDeployments, GetProjects } from '../../../wailsjs/go/main/App.js';
+import { 
+  SignIn, 
+  GetCurrentUser, 
+  SignOut, 
+  GetDeployments, 
+  GetProjects, 
+  GetLogs 
+} from '../../../wailsjs/go/main/App.js';
 import { main } from '../../../wailsjs/go/models';
 
 export const authService = {
@@ -26,5 +33,10 @@ export const dataService = {
   async getProjects() {
     const projectData = await GetProjects();
     return projectData.map((p: any) => main.Project.createFrom(p));
+  },
+
+  async getLogs() {
+    const logData = await GetLogs();
+    return logData.map((p: any) => main.LogEntry.createFrom(p));
   }
 };

@@ -14,7 +14,9 @@
     isDarkMode, 
     deployments, 
     projects, 
-    selectedProject 
+    selectedProject, 
+    logs
+
   } from './stores';
   
   // Service
@@ -48,12 +50,14 @@
 
   async function loadData() {
     try {
-      const [deploymentData, projectData] = await Promise.all([
+      const [deploymentData, projectData, logData] = await Promise.all([
         dataService.getDeployments(),
-        dataService.getProjects()
+        dataService.getProjects(),
+        dataService.getLogs(),
       ]);
       deployments.set(deploymentData);
       projects.set(projectData);
+      logs.set(logData);
     } catch (error) {
       console.error('Failed to load data:', error);
     }

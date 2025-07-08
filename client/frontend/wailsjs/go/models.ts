@@ -123,22 +123,26 @@ export namespace main {
 		    return a;
 		}
 	}
-	export class Log {
+	export class LogEntry {
+	    id: string;
 	    host: string;
 	    message: string;
 	    status: string;
+	    level: string;
 	    // Go type: time
 	    createdAt: any;
 	
 	    static createFrom(source: any = {}) {
-	        return new Log(source);
+	        return new LogEntry(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
 	        this.host = source["host"];
 	        this.message = source["message"];
 	        this.status = source["status"];
+	        this.level = source["level"];
 	        this.createdAt = this.convertValues(source["createdAt"], null);
 	    }
 	

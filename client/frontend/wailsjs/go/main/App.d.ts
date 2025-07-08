@@ -6,7 +6,7 @@ export function GetCurrentUser():Promise<main.User>;
 
 export function GetDeployments():Promise<Array<main.Deployment>>;
 
-export function GetLogs():Promise<Array<main.Log>>;
+export function GetLogs():Promise<Array<main.LogEntry>>;
 
 export function GetProjects():Promise<Array<main.Project>>;
 

@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -63,10 +66,12 @@ type Deployment struct {
 	Status     string    `json:"status,omitempty"`
 }
 
-type Log struct {
+type LogEntry struct {
+	Id        string    `json:"id"`
 	Host      string    `json:"host"`
 	Message   string    `json:"message"`
 	Status    string    `json:"status"`
+	Level     string    `json:"level"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -190,27 +195,87 @@ func (a *App) GetDeployments() []Deployment {
 	}
 }
 
-func (a *App) GetLogs() []Log {
-	return []Log{
-		{
-			Host:      "https://api.example.com",
-			Message:   "Updated user model to include image field",
-			Status:    "GET 200",
-			CreatedAt: time.Now(),
-		},
-		{
-			Host:      "https://api.example.com",
-			Message:   "Temporary redirect to new endpoint",
-			Status:    "POST 307",
-			CreatedAt: time.Now().Add(2 * time.Minute),
-		},
-		{
-			Host:      "https://api.example.com",
-			Message:   "Deployment failed due to timeout",
-			Status:    "GET 500",
-			CreatedAt: time.Now().Add(3 * time.Minute),
-		},
+func (a *App) GetLogs() []LogEntry {
+	var logs []LogEntry
+	
+	hosts := []string{
+		"https://api.example.com",
+		"https://auth.example.com", 
+		"https://cdn.example.com",
+		"https://gateway.example.com",
+		"https://admin.example.com",
+		"https://webhooks.example.com",
 	}
+	
+	messages := []string{
+		"Updated user model to include image field",
+		"Temporary redirect to new endpoint", 
+		"Deployment failed due to timeout",
+		"Successfully authenticated user",
+		"Cache miss for user profile",
+		"Database connection established",
+		"Rate limit exceeded for API key",
+		"Image upload completed successfully",
+		"Invalid token provided",
+		"Resource not found in database",
+		"Webhook delivery successful",
+		"Payment processing completed",
+		"Email notification sent",
+		"File compression finished",
+		"Session expired for user",
+		"Health check passed",
+		"Backup process initiated",
+		"Configuration updated",
+		"SSL certificate renewed",
+		"Memory usage threshold exceeded",
+	}
+	
+	statuses := []string{
+		"GET 200", "POST 201", "PUT 200", "DELETE 204",
+		"GET 404", "POST 400", "PUT 422", "DELETE 403",
+		"GET 500", "POST 502", "PUT 503", "DELETE 500",
+		"GET 307", "POST 301", "PUT 302",
+	}
+	
+	baseTime := time.Now()
+	
+	for i := 0; i < 300; i++ {
+		// Progressive time going backwards, max 30 days
+		minutesBack := rand.Intn(43200) // 30 days * 24 hours * 60 minutes
+		logTime := baseTime.Add(-time.Duration(minutesBack) * time.Minute)
+		
+		status := statuses[rand.Intn(len(statuses))]
+		var level string
+		
+		// Determine level based on status code
+		statusCode := status[len(status)-3:]
+		switch {
+		case strings.HasPrefix(statusCode, "2"):
+			level = "success"
+		case strings.HasPrefix(statusCode, "3"):
+			level = "warning" 
+		case strings.HasPrefix(statusCode, "4"), strings.HasPrefix(statusCode, "5"):
+			level = "error"
+		default:
+			level = "info"
+		}
+		
+		logs = append(logs, LogEntry{
+			Id:        fmt.Sprintf("717172%04d", 8220+i),
+			Level:     level,
+			Host:      hosts[rand.Intn(len(hosts))],
+			Message:   messages[rand.Intn(len(messages))],
+			Status:    status,
+			CreatedAt: logTime,
+		})
+	}
+	
+	// Sort by CreatedAt descending (newest first)
+	sort.Slice(logs, func(i, j int) bool {
+		return logs[i].CreatedAt.After(logs[j].CreatedAt)
+	})
+	
+	return logs
 }
 
 func (a *App) GetProjects() []Project {
