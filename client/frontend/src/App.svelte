@@ -15,7 +15,10 @@
     deployments, 
     projects, 
     selectedProject, 
-    logs
+    logs,
+
+    domains
+
 
   } from './stores';
   
@@ -50,14 +53,16 @@
 
   async function loadData() {
     try {
-      const [deploymentData, projectData, logData] = await Promise.all([
+      const [deploymentData, projectData, logData, domainsData] = await Promise.all([
         dataService.getDeployments(),
         dataService.getProjects(),
         dataService.getLogs(),
+        dataService.getDomains(),
       ]);
       deployments.set(deploymentData);
       projects.set(projectData);
       logs.set(logData);
+      domains.set(domainsData);
     } catch (error) {
       console.error('Failed to load data:', error);
     }

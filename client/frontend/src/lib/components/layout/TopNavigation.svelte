@@ -63,7 +63,7 @@
 
       <!-- Project Dropdown -->
       {#if $showProjectDropdown}
-        <div class="absolute left-0 top-0 mt-9 z-50 bg-white rounded-lg shadow-lg min-w-[220px]">
+        <div class="absolute left-0 top-0 mt-9 z-50 bg-white dark:bg-stone-900 border border-gray-300 dark:border-stone-700 rounded-lg shadow-lg min-w-[220px]">
           <div class="p-2">
             {#each $projects as project}
               <button 
@@ -73,33 +73,33 @@
                 <img src={project.icon} alt="icon" class="w-7 h-7 rounded mr-2"/>
                 <div>
                   <!-- use group-hover and group-active to override the base gray -->
-                  <div class="text-gray-600 group-hover:text-white group-active:text-white font-medium text-sm">
+                  <div class="text-gray-600 dark:text-gray-200 group-hover:text-white group-active:text-white font-medium text-sm">
                     {project.name}
                   </div>
                 </div>
               </button>
             {/each}
-            <div class="border-t border-gray-20 my-2"></div>
+            <div class="border-t border-gray-200 dark:border-stone-700  my-2"></div>
               <div class="flex justify-center">
                 <button
                   class="w-full max-w-[180px] px-3 py-1 text-sm text-left font-medium
-                        text-gray-600"
+                        text-gray-600 dark:text-gray-200"
                 >
                   + New Project
                 </button>
               </div>
           </div>
-          <div class="border-t border-gray-200"></div>
+          <div class="border-t border-gray-200 dark:border-stone-700 "></div>
           <div class="p-2">
             <button 
               class="group flex items-center w-full px-3 py-1 rounded app-button-ghost text-left hover:text-white active:text-white"
               on:click|stopPropagation={toggleAccountDropdown}
             >
-              <span class="font-semibold text-sm text-gray-600 group-hover:text-white group-active:text-white">
+              <span class="font-semibold text-sm text-gray-600 dark:text-gray-200 group-hover:text-white group-active:text-white">
                 Switch Account
               </span>
               <svg 
-                class="w-4 h-4 ml-auto text-gray-600 group-hover:text-white group-active:text-white" 
+                class="w-4 h-4 ml-auto text-gray-600 dark:text-gray-200 group-hover:text-white group-active:text-white" 
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"
@@ -164,9 +164,14 @@
             </svg>
           </button>
           
-          <!-- Filter Dropdown -->
+          
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Dropdown -->
           {#if $showFilterDropdown}
-            <div class="absolute top-full right-0 mt-2 z-200 card rounded-lg shadow-lg min-w-[200px]">
+            <div class="absolute top-full  mt-2 z-[100] bg-white dark:bg-stone-900 border border-gray-300 dark:border-stone-700 rounded-lg shadow-lg min-w-[200px]">
               <div class="p-4">
                 <h3 class="font-semibold mb-3">Filter Projects</h3>
                 <div class="space-y-2">
@@ -183,9 +188,6 @@
               </div>
             </div>
           {/if}
-        </div>
-      </div>
-    </div>
 
     <!-- Right: User Controls -->
     <div class="flex items-center space-x-3 flex-shrink-0">

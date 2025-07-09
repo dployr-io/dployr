@@ -1,6 +1,5 @@
 <script lang="ts">
   import { deployments, appState } from '../../../stores';
-  import { parseDuration, parseDate } from '../../../utils';
   import DeploymentCard from './DeploymentCard.svelte';
 
   function selectDeployment(deployment: any) {

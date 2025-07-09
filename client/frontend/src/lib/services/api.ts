@@ -4,7 +4,8 @@ import {
   SignOut, 
   GetDeployments, 
   GetProjects, 
-  GetLogs 
+  GetLogs, 
+  GetDomains
 } from '../../../wailsjs/go/main/App.js';
 import { main } from '../../../wailsjs/go/models';
 
@@ -38,5 +39,10 @@ export const dataService = {
   async getLogs() {
     const logData = await GetLogs();
     return logData.map((p: any) => main.LogEntry.createFrom(p));
+  },
+
+  async getDomains() {
+    const domainsData = await GetDomains();
+    return domainsData.map((p: any) => main.Domain.createFrom(p));
   }
 };

@@ -14,7 +14,6 @@ export { default as OnboardingPage } from './onboarding/OnboardingPage.svelte';
 
 // Project components
 export { default as ProjectGrid } from './project/ProjectGrid.svelte';
-export { default as ProjectList } from './project/ProjectList.svelte';
 export { default as ProjectCard } from './project/ProjectCard.svelte';
 
 // Deployment components

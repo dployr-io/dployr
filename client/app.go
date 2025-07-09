@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"os"
@@ -40,6 +42,16 @@ type Project struct {
 	Provider    string    `json:"provider"`
 }
 
+type Domain struct {
+	Id 					string `json:"id"`
+	Subdomain			string `json:"subdomain"`
+    Provider            string `json:"provider"`
+    AutoSetupAvailable  bool   `json:"auto_setup_available"`
+    ManualRecords       string `json:"manual_records,omitempty"`
+	Verified            bool `json:"verified"`
+	UpdatedAt 		    time.Time `json:"updatedAt"`
+}
+
 // NewApp creates a new App application struct
 func NewApp() *App {
 	err := godotenv.Load()
@@ -62,7 +74,6 @@ type Deployment struct {
 	Duration   int       `json:"duration"`
 	Message    string    `json:"message"`
 	CreatedAt  time.Time `json:"createdAt"`
-	User       *User     `json:"user"`
 	Status     string    `json:"status,omitempty"`
 }
 
@@ -81,17 +92,17 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
-func authUrl() string {
-	endpoint := os.Getenv("AUTH_ENDPOINT")
+func getBaseUrl() string {
+	endpoint := os.Getenv("BASE_URL")
 	if endpoint == "" {
-		panic("AUTH_ENDPOINT environment variable is not set")
+		panic("BASE_URL environment variable is not set")
 	}
 
 	return endpoint
 }
 
 func (a *App) SignIn(provider string) AuthResponse {
-	authURL := authUrl() + "/auth/" + provider
+	authURL := getBaseUrl() + "/auth/" + provider
 
 	err := a.openBrowser(authURL)
 	if err != nil {
@@ -128,7 +139,7 @@ func (a *App) openBrowser(url string) error {
 }
 
 func (a *App) SignOut() bool {
-	resp, err := http.Post(authUrl()+"/v1/logout", "", nil)
+	resp, err := http.Post(getBaseUrl()+"/v1/logout", "", nil)
 	if err != nil {
 		return false
 	}
@@ -139,7 +150,7 @@ func (a *App) SignOut() bool {
 
 func (a *App) GetCurrentUser() *User {
 	client := &http.Client{}
-	req, _ := http.NewRequest("GET", authUrl()+"/api/auth/session", nil)
+	req, _ := http.NewRequest("GET", getBaseUrl()+"/api/auth/session", nil)
 
 	// Forward stored session cookie
 	if sessionCookie := a.getStoredSessionCookie(); sessionCookie != "" {
@@ -180,7 +191,6 @@ func (a *App) GetDeployments() []Deployment {
 			Duration:  120,
 			Message:   "Initial deployment",
 			CreatedAt: time.Now(),
-			User:      a.GetCurrentUser(),
 			Status:    "success",
 		},
 		{
@@ -189,7 +199,6 @@ func (a *App) GetDeployments() []Deployment {
 			Duration:  90,
 			Message:   "Second deployment",
 			CreatedAt: time.Now(),
-			User:      a.GetCurrentUser(),
 			Status:    "failed",
 		},
 	}
@@ -311,6 +320,137 @@ func (a *App) GetProjects() []Project {
 			Icon:        "https://picsum.photos/200/200",
 			Date:        time.Now().AddDate(0, 0, -210),
 			Provider:    "unity",
+		},
+	}
+}
+
+// HTTP GET request example
+func (a *App) FetchData(url string) (string, error) {
+    req, err := http.NewRequest("GET", url, nil)
+    if err != nil {
+        return "", err
+    }
+    
+    res, err := http.DefaultClient.Do(req)
+    if err != nil {
+        return "", err
+    }
+    defer res.Body.Close()
+    
+    body, err := io.ReadAll(res.Body)
+    if err != nil {
+        return "", err
+    }
+    
+    return string(body), nil
+}
+
+// HTTP POST request example
+func (a *App) PostData(url string, data interface{}) (string, error) {
+    jsonData, _ := json.Marshal(data)
+    
+    req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+    if err != nil {
+        return "", err
+    }
+    req.Header.Set("Content-Type", "application/json")
+    
+    res, err := http.DefaultClient.Do(req)
+    if err != nil {
+        return "", err
+    }
+    defer res.Body.Close()
+    
+    body, err := io.ReadAll(res.Body)
+    return string(body), err
+}
+
+// HTTP PUT request example
+func (a *App) UpdateData(url string, data interface{}) (string, error) {
+    jsonData, _ := json.Marshal(data)
+    
+    req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
+    if err != nil {
+        return "", err
+    }
+    req.Header.Set("Content-Type", "application/json")
+    
+    res, err := http.DefaultClient.Do(req)
+    if err != nil {
+        return "", err
+    }
+    defer res.Body.Close()
+    
+    body, err := io.ReadAll(res.Body)
+    return string(body), err
+}
+
+// HTTP DELETE request example
+func (a *App) DeleteData(url string) (string, error) {
+    req, err := http.NewRequest("DELETE", url, nil)
+    if err != nil {
+        return "", err
+    }
+    
+    res, err := http.DefaultClient.Do(req)
+    if err != nil {
+        return "", err
+    }
+    defer res.Body.Close()
+    
+    body, err := io.ReadAll(res.Body)
+    return string(body), err
+}
+
+func (a *App) AddDomain(domain string, projectID string) (Domain, error) {
+    // Get project details
+	_, err := a.PostData(getBaseUrl() + "/foo/bar",  map[string]interface{}{
+		domain: "foo.bar",
+	})
+
+	// Network simulation
+	time.Sleep(3 * time.Second)
+
+	res := Domain{
+		Provider: "cloudflare",
+		AutoSetupAvailable: true,
+		ManualRecords: generateManualInstructions(domain, "202.121.80.311"),
+	}
+
+    return res, err
+}
+
+func generateManualInstructions(domain, serverIP string) string {
+    return fmt.Sprintf(`
+A Record:
+Name: @
+Value: %s
+TTL: 300
+
+CNAME Record:
+Name: www
+Value: %s
+TTL: 300
+`, serverIP, domain)
+}
+
+func (a *App) GetDomains() []Domain {
+	return []Domain{
+		{
+			Id: 	"39189134002340941",
+			Subdomain: "foo.bar",
+			Provider: "namecheap",
+			AutoSetupAvailable: true,
+			Verified: false,
+			UpdatedAt: time.Now(),
+		},
+		{
+			Id: 	"39189134002340940",
+			Subdomain: "29500390932930390332.dployr.io",
+			Provider: "cloudflare",
+			AutoSetupAvailable: true,
+			Verified: true,
+			UpdatedAt: time.Now(),
 		},
 	}
 }

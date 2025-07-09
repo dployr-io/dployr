@@ -45,7 +45,7 @@
           <span class="truncate">{deployment.message}</span>
       </div>
       <div class="flex items-center space-x-2 flex-shrink-0 ml-2">
-          <span class="truncate">{parseDate(deployment.createdAt, deployment.user)}</span>
+          <span class="truncate">{parseDate(deployment.createdAt, null)}</span>
           <div class="w-6 h-6 bg-orange-500 rounded-full flex-shrink-0"></div>
       </div>
   </div>

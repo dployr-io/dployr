@@ -2,6 +2,7 @@
   import { appState, deployments } from '../../../stores';
   import DeploymentList from '../deployment/DeploymentList.svelte';
   import LogsView from '../deployment/LogsView.svelte';
+  import DomainsView from '../deployment/DomainsView.svelte';
 </script>
 
 <!-- Section Content -->
@@ -15,7 +16,7 @@
     <div class="text-gray-500">Resources section coming soon...</div>
   {:else if $appState.selectedSection === 'Domains'}
     <!-- Domains content -->
-    <div class="text-gray-500">Domains section coming soon...</div>
+    <DomainsView />
   {:else if $appState.selectedSection === 'Settings'}
     <!-- Settings content -->
     <div class="text-gray-500">Settings section coming soon...</div>

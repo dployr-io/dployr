@@ -6,7 +6,7 @@ export function parseDuration(int: number): string {
   return `${minutes}m ${seconds}s`;
 }
 
-export function parseDate(int: number, user: User | undefined): string {
+export function parseDate(int: number, user: User | undefined | null): string {
   const d = new Date(int);
   const formattedDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   return `${formattedDate} by ${user?.name}`;

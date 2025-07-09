@@ -3,6 +3,7 @@
   import ProjectCard from './ProjectCard.svelte';
   
   export let gridCols: number;
+  export let maxGridCols: number;
 
   function selectProject(project: any) {
     selectedProject.set(project);
@@ -10,7 +11,7 @@
   }
 </script>
 
-<div class="grid gap-6" style="grid-template-columns: repeat({Math.min(gridCols, 3)}, minmax(300px, 1fr));">
+<div class="grid gap-6" style="grid-template-columns: repeat({Math.min(gridCols, maxGridCols)}, minmax(300px, 1fr));">
   {#each $projects as project}
     <ProjectCard 
       {project} 
