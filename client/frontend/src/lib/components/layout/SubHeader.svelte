@@ -18,9 +18,9 @@
 <!-- Sub Header -->
 <div class="relative border-b border-gray-700 px-6 py-3">
   <div class="flex items-center justify-between gap-4">
-    <!-- Center: Navigation Tabs (Absolutely Centered) -->
-    <div class="absolute left-1/2 transform -translate-x-1/2 flex items-center">
-      <div class="flex items-center space-x-3 overflow-hidden">
+    <!-- Center: Navigation Tabs -->
+    <div class="absolute left-1/2 transform -translate-x-1/2 text-sm flex items-center">
+      <div class="flex items-center font-semibold overflow-hidden">
         <a href="#" class="flex gap-1 nav-tab whitespace-nowrap items-center"
           class:active={selectedSection === 'Deployments'}
           on:click={() => selectSection('Deployments')}

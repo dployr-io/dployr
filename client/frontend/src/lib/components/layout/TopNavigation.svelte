@@ -162,32 +162,30 @@
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
               <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
             </svg>
-          </button>
-          
-          
+          </button> 
         </div>
       </div>
     </div>
 
     <!-- Filter Dropdown -->
-          {#if $showFilterDropdown}
-            <div class="absolute top-full  mt-2 z-[100] bg-white dark:bg-stone-900 border border-gray-300 dark:border-stone-700 rounded-lg shadow-lg min-w-[200px]">
-              <div class="p-4">
-                <h3 class="font-semibold mb-3">Filter Projects</h3>
-                <div class="space-y-2">
-                  <label class="flex items-center">
-                    <input type="checkbox" class="mr-2" /> Active Projects
-                  </label>
-                  <label class="flex items-center">
-                    <input type="checkbox" class="mr-2" /> Failed Builds
-                  </label>
-                  <label class="flex items-center">
-                    <input type="checkbox" class="mr-2" /> Recent Updates
-                  </label>
-                </div>
-              </div>
-            </div>
-          {/if}
+    {#if $showFilterDropdown}
+      <div class="absolute top-full  mt-2 z-[100] bg-white dark:bg-stone-900 border border-gray-300 dark:border-stone-700 rounded-lg shadow-lg min-w-[200px]">
+        <div class="p-4">
+          <h3 class="font-semibold mb-3">Filter Projects</h3>
+          <div class="space-y-2">
+            <label class="flex items-center">
+              <input type="checkbox" class="mr-2" /> Active Projects
+            </label>
+            <label class="flex items-center">
+              <input type="checkbox" class="mr-2" /> Failed Builds
+            </label>
+            <label class="flex items-center">
+              <input type="checkbox" class="mr-2" /> Recent Updates
+            </label>
+          </div>
+        </div>
+      </div>
+    {/if}
 
     <!-- Right: User Controls -->
     <div class="flex items-center space-x-3 flex-shrink-0">
