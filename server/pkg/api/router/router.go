@@ -2,20 +2,20 @@ package router
 
 import (
 	"encoding/gob"
-	"log/slog"
-	"net/http"
+	// "net/http"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	"riverqueue.com/riverui"
 
 	"dployr.io/pkg/api/auth"
+	"dployr.io/pkg/api/observability"
+	"dployr.io/pkg/api/platform"
 	"dployr.io/pkg/queue"
 )
 
 // New registers the routes and returns the router.
-func New(auth *auth.Auth, qm *queue.QueueManager) *gin.Engine {
+func New(auth *auth.Auth, queue *queue.Queue, ssh *platform.SshManager) *gin.Engine {
 	r := gin.Default()
 
 	// To store custom types in our cookies,
@@ -25,27 +25,26 @@ func New(auth *auth.Auth, qm *queue.QueueManager) *gin.Engine {
 	store := cookie.NewStore([]byte("secret"))
 	r.Use(sessions.Sessions("auth-session", store))
 
-	r.LoadHTMLGlob("public/*.html")
+	// r.LoadHTMLGlob("public/*.html")
 
-	r.StaticFile("/favicon.ico", "./public/favicon.ico")
-	r.StaticFile("/styles.css", "./public/styles.css")
-	r.StaticFile("/scripts.js", "./public/scripts.js")
+	// r.StaticFile("/favicon.ico", "./public/favicon.ico")
+	// r.StaticFile("/styles.css", "./public/styles.css")
+	// r.StaticFile("/scripts.js", "./public/scripts.js")
 
-	r.GET("/", func(ctx *gin.Context) {
-		ctx.HTML(http.StatusOK, "index.html", nil)
-	})
+	// r.GET("/", func(ctx *gin.Context) {
+	// 	ctx.HTML(http.StatusOK, "index.html", nil)
+	// })
 
-	r.GET("/health", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
-	
-	r.GET("/about", func(ctx *gin.Context) {
-		ctx.HTML(http.StatusOK, "about.html", nil)
-	})
+	// r.GET("/about", func(ctx *gin.Context) {
+	// 	ctx.HTML(http.StatusOK, "about.html", nil)
+	// })
+
+	health := observability.NewHealthManager(ssh, queue)
+	r.GET("/health", health.HealthHandler())
+
 
 	r.GET("/auth/:provider", auth.LoginHandler())
 	r.GET("/auth/:provider/callback", auth.CallbackHandler())
-
 
 	// API v1 routes
 	v1 := r.Group("/v1")
@@ -53,29 +52,10 @@ func New(auth *auth.Auth, qm *queue.QueueManager) *gin.Engine {
 		v1.GET("/callback", auth.CallbackHandler())
 		v1.GET("/user", auth.UserHandler())
 		v1.GET("/logout", auth.LogoutHandler())
-	}
 
-	if qm != nil {
-		opts := &riverui.ServerOpts{
-			Client: qm.GetClient(),
-			DB:     qm.GetPool(),
-			Logger: slog.Default(),
-		}
-		ui, err := riverui.NewServer(opts)
-		if err != nil {
-			gin.DefaultWriter.Write([]byte("Failed to create River UI server: " + err.Error() + "\n"))
-			return r
-		}
+		v1.POST("/ssh/connect", ssh.SshConnectHandler())
 
-		// Serve River UI assets at root level to fix asset loading
-		r.Any("/assets/*filepath", gin.WrapH(ui))
-
-		// Serve River UI API endpoints at root level
-		r.Any("/api/*path", gin.WrapH(ui))
-
-		// Create an admin group for River UI
-		adminGroup := r.Group("/admin")
-		adminGroup.Any("/*path", gin.WrapH(http.StripPrefix("/admin", ui)))
+		v1.GET("/ws/ssh/:sessionID", ssh.SshWebSocketHandler())
 	}
 
 	return r

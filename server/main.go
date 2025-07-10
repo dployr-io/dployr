@@ -1,11 +1,11 @@
 package main
 
 import (
-	"context"
-	"log"
 	"os"
+	"time"
 
 	"dployr.io/pkg/api/auth"
+	"dployr.io/pkg/api/platform"
 	"dployr.io/pkg/api/router"
 	"dployr.io/pkg/config"
 	"dployr.io/pkg/queue"
@@ -22,23 +22,16 @@ func main() {
 		port = "7879"
 	}
 
-	// Create queue manager first
-	qm, err := queue.NewQueueManager()
-	if err != nil {
-		log.Fatalf("Failed to create queue manager: %v", err)
-	}
+	// Init queue manager 
+	_queue := queue.NewQueue(3, time.Second, queue.CreateHandler())
 
-	// Start queue manager in background
-	go func() {
-		if err := qm.Start(context.Background()); err != nil {
-			log.Printf("Queue error: %v", err)
-		}
-	}()
+	// Init auth
+	auth := auth.InitAuth(projectRepo, eventRepo, _queue)
 
-	// Create auth with queue manager
-	auth := auth.InitAuth(projectRepo, eventRepo, qm)
+	// Init ssh manager
+	ssh := platform.NewSshManager()
 
 	// Create router and run
-	r := router.New(auth, qm)
+	r := router.New(auth, _queue, ssh)
 	r.Run(":" + port)
 }

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"dployr.io/pkg/models"
-	"dployr.io/pkg/config"
 )
 
 type SetupState struct {
@@ -49,7 +48,6 @@ type SslSetup struct {
 
 func NewSetupState(p *models.Project) *SetupState {
 	return &SetupState{
-		Version: config.Version,
 		ProjectId: fmt.Sprintf("proj_%d_%s", p.Name,time.Now().Unix()),
 		ServerId: fmt.Sprintf("srv_%s_%d_%s", p.Name, p.Provider, time.Now().Unix()),
 		Status: models.Pending,

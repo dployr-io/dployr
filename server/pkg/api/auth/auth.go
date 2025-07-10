@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -26,7 +25,7 @@ type Auth struct {
 	logger       *logger.Logger
 	projectRepo  *repository.ProjectRepo
 	eventRepo    *repository.EventRepo
-	queueManager *queue.QueueManager
+	queue		 *queue.Queue
 }
 
 type User struct {
@@ -36,7 +35,7 @@ type User struct {
 	Provider string `json:"provider"`
 }
 
-func InitAuth(projectRepo *repository.ProjectRepo, eventRepo *repository.EventRepo, queueManager *queue.QueueManager) *Auth {
+func InitAuth(projectRepo *repository.ProjectRepo, eventRepo *repository.EventRepo, queue *queue.Queue) *Auth {
 	redirectURL := os.Getenv("OAUTH_REDIRECT_URL")
 	if redirectURL == "" {
 		redirectURL = "http://localhost:7879/auth"
@@ -81,7 +80,7 @@ func InitAuth(projectRepo *repository.ProjectRepo, eventRepo *repository.EventRe
 	return &Auth{
 		projectRepo:  projectRepo,
 		eventRepo:    eventRepo,
-		queueManager: queueManager,
+		queue: 	      queue,
 	}
 }
 
@@ -210,22 +209,6 @@ func (a *Auth) LogoutHandler() gin.HandlerFunc {
 
 func (a *Auth) setupUserAccount(user *User) {
 	log.Printf("Setting up account for user: %s", user.ID)
-
-	baseJob := queue.NewJob(user.ID, map[string]interface{}{
-		"user_id":  user.ID,
-		"provider": user.Provider,
-	})
-
-	jobArgs := queue.SetupUserJobArgs{
-		BaseJobArgs: *baseJob,
-	}
-
-	if a.queueManager != nil {
-		_, err := a.queueManager.GetClient().Insert(context.Background(), jobArgs, nil)
-		if err != nil {
-			log.Printf("Failed to enqueue setup user job: %v", err)
-		}
-	}
 }
 
 func (a *Auth) convertGothUser(gothUser goth.User) *User {
