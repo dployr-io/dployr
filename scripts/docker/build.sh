@@ -11,7 +11,22 @@ fi
 
 : ${REGISTRY_URL:=$HOST:$PORT}
 : ${NAME:=dployr}
-: ${TAG:=latest}
+
+BASE=$(cat "$SCRIPT_DIR/../../version.txt")
+DEVBUMP_FILE="$SCRIPT_DIR/../../.devbump"
+
+if [ -n "$CI" ]; then
+  # CI build: use nearest Git tag (must be pushed already)
+  TAG="$(git describe --tags --abbrev=0)"
+else
+  # Local build: bump .devbump
+  B0=$(cat "$DEVBUMP_FILE")
+  B=$((B0 + 1))
+  echo "$B" > "$DEVBUMP_FILE"
+  TAG="${BASE}+dev.${B}"
+fi
+
+echo "→ Building version $TAG"
 
 if [ -z "$REGISTRY_URL" ]; then
   echo "REGISTRY_URL is not set. Please set it in your environment variables."
@@ -22,8 +37,14 @@ if [ -z "$REGISTRY_URL" ]; then
   exit 1
 fi
 
-# Change to server directory for build context to avoid problematic files
 cd server
-docker build -t $REGISTRY_URL/$NAME:$TAG . --file Dockerfile
+
+# Pass VERSION into Go via ldflags
+LDFLAGS="-X 'main.Version=$TAG'"
+
+docker build \
+  --build-arg LDFLAGS="$LDFLAGS" \
+  -t "$REGISTRY_URL/$NAME:$TAG" \
+  . --file Dockerfile
 
 echo "Docker image built successfully: $REGISTRY_URL/$NAME:$TAG"

@@ -4,6 +4,9 @@ FROM golang:1.23.9-alpine AS builder
 # Install build dependencies including C compiler for CGO
 RUN apk add --no-cache git ca-certificates tzdata gcc musl-dev
 
+# Allow build-arg for version stamping
+ARG LDFLAGS
+
 # Set working directory
 WORKDIR /app
 
