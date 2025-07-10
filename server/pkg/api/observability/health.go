@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"dployr.io/pkg/api/platform"
+	"dployr.io/pkg/config"
 	"dployr.io/pkg/queue"
 	"github.com/gin-gonic/gin"
 )
@@ -21,7 +22,8 @@ func NewHealthManager(sshManager *platform.SshManager, queue *queue.Queue) *Heal
 func (api *HealthManager) HealthHandler() gin.HandlerFunc {
     return func(ctx *gin.Context) {
         ctx.JSON(http.StatusOK, gin.H{
-            "status":       "healthy",
+			"version": config.Version,  
+            "status": "healthy",
             "ssh_sessions": api.sshManager.SessionCount(),
             "timestamp": time.Now().Unix(),
         })

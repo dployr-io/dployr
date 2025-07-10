@@ -18,7 +18,7 @@ import (
 	"dployr.io/pkg/repository"
 )
 
-// Version is injected at build time via -ldflags (CI) or from version.txt + .devbump (local).
+// Version is injected at build time via -ldflags (CI) or from version.txt
 var Version = "dev"
 
 func init() {
