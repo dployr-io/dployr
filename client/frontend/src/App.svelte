@@ -3,7 +3,7 @@
   import logoSecondary from './assets/images/logo-secondary.png';
   import icon from './assets/images/icon.svg';
   import iconSecondary from './assets/images/icon-secondary.svg';
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   
   // Components
   import { OnboardingFlow, DashboardLayout } from './lib/components';
@@ -16,15 +16,15 @@
     projects, 
     selectedProject, 
     logs,
-
-    domains
-
-
+    domains,
+    wsconsole
   } from './stores';
   
   // Service
   import { authService, dataService } from './lib/services/api';
   import { main } from '../wailsjs/go/models';
+
+  let terminalComponent;
 
   async function handleSignOut() {
     try {
@@ -53,16 +53,18 @@
 
   async function loadData() {
     try {
-      const [deploymentData, projectData, logData, domainsData] = await Promise.all([
+      const [deploymentData, projectData, logData, domainsData, consoleData] = await Promise.all([
         dataService.getDeployments(),
         dataService.getProjects(),
         dataService.getLogs(),
         dataService.getDomains(),
+        dataService.newConsole(),
       ]);
       deployments.set(deploymentData);
       projects.set(projectData);
       logs.set(logData);
       domains.set(domainsData);
+      wsconsole.set(consoleData);
     } catch (error) {
       console.error('Failed to load data:', error);
     }

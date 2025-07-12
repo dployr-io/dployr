@@ -3,6 +3,7 @@
   import DeploymentList from '../deployment/DeploymentList.svelte';
   import LogsView from '../deployment/LogsView.svelte';
   import DomainsView from '../deployment/DomainsView.svelte';
+  import ConsoleView from '../deployment/ConsoleView.svelte';
 </script>
 
 <!-- Section Content -->
@@ -23,8 +24,8 @@
   {:else if $appState.selectedSection === 'Insights'}
     <!-- Insights content -->
     <div class="text-gray-500">Insights section coming soon...</div>
-  {:else if $appState.selectedSection === 'Terminal'}
+  {:else if $appState.selectedSection === 'Console'}
     <!-- Terminal content -->
-    <div class="text-gray-500">Terminal section coming soon...</div>
+    <ConsoleView />
   {/if}
 </div>

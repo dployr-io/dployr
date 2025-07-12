@@ -4,9 +4,13 @@ import {main} from '../models';
 
 export function AddDomain(arg1:string,arg2:string):Promise<main.Domain>;
 
-export function DeleteData(arg1:string):Promise<string>;
+export function ConnectSsh(arg1:string,arg2:number,arg3:string,arg4:string):Promise<main.SshConnectResponse>;
 
-export function FetchData(arg1:string):Promise<string>;
+export function DeleteData(arg1:string):Promise<any>;
+
+export function DisconnectTerminal():Promise<void>;
+
+export function FetchData(arg1:string):Promise<any>;
 
 export function GetCurrentUser():Promise<main.User>;
 
@@ -18,12 +22,24 @@ export function GetLogs():Promise<Array<main.LogEntry>>;
 
 export function GetProjects():Promise<Array<main.Project>>;
 
-export function PostData(arg1:string,arg2:any):Promise<string>;
+export function IsTerminalConnected():Promise<boolean>;
+
+export function NewConsole():Promise<main.Console>;
+
+export function NewWsMessage():Promise<main.WsMessage>;
+
+export function PostData(arg1:string,arg2:any):Promise<any>;
+
+export function ResizeTerminal(arg1:number,arg2:number):Promise<void>;
+
+export function SendTerminalInput(arg1:string):Promise<void>;
 
 export function SignIn(arg1:string):Promise<main.AuthResponse>;
 
 export function SignOut():Promise<boolean>;
 
+export function StartTerminalWebSocket(arg1:string,arg2:string):Promise<void>;
+
 export function StoreSession(arg1:string):Promise<void>;
 
-export function UpdateData(arg1:string,arg2:any):Promise<string>;
+export function UpdateData(arg1:string,arg2:any):Promise<any>;

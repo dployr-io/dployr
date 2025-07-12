@@ -78,6 +78,32 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class Console {
+	    terminal: any;
+	    websocket: any;
+	    fitAddon: any;
+	    terminalElement: any;
+	    sessionId: any;
+	    status: string;
+	    statusMessage: string;
+	    errorMessage: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Console(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.terminal = source["terminal"];
+	        this.websocket = source["websocket"];
+	        this.fitAddon = source["fitAddon"];
+	        this.terminalElement = source["terminalElement"];
+	        this.sessionId = source["sessionId"];
+	        this.status = source["status"];
+	        this.statusMessage = source["statusMessage"];
+	        this.errorMessage = source["errorMessage"];
+	    }
+	}
 	export class Deployment {
 	    id: string;
 	    commitHash: string;
@@ -245,6 +271,41 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class SshConnectResponse {
+	    sessionId: string;
+	    status: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SshConnectResponse(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sessionId = source["sessionId"];
+	        this.status = source["status"];
+	    }
+	}
+	
+	export class WsMessage {
+	    type: string;
+	    data?: string;
+	    cols?: number;
+	    rows?: number;
+	    message?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new WsMessage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.type = source["type"];
+	        this.data = source["data"];
+	        this.cols = source["cols"];
+	        this.rows = source["rows"];
+	        this.message = source["message"];
+	    }
 	}
 
 }

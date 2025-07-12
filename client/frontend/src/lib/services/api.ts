@@ -1,3 +1,4 @@
+import { get } from 'svelte/store';
 import { 
   SignIn, 
   GetCurrentUser, 
@@ -5,7 +6,8 @@ import {
   GetDeployments, 
   GetProjects, 
   GetLogs, 
-  GetDomains
+  GetDomains,
+  NewConsole
 } from '../../../wailsjs/go/main/App.js';
 import { main } from '../../../wailsjs/go/models';
 
@@ -44,5 +46,10 @@ export const dataService = {
   async getDomains() {
     const domainsData = await GetDomains();
     return domainsData.map((p: any) => main.Domain.createFrom(p));
+  },
+
+  async newConsole() {
+    const consoleData = await NewConsole();
+    return main.Console.createFrom(consoleData);
   }
 };

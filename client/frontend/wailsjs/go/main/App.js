@@ -6,8 +6,16 @@ export function AddDomain(arg1, arg2) {
   return window['go']['main']['App']['AddDomain'](arg1, arg2);
 }
 
+export function ConnectSsh(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['ConnectSsh'](arg1, arg2, arg3, arg4);
+}
+
 export function DeleteData(arg1) {
   return window['go']['main']['App']['DeleteData'](arg1);
+}
+
+export function DisconnectTerminal() {
+  return window['go']['main']['App']['DisconnectTerminal']();
 }
 
 export function FetchData(arg1) {
@@ -34,8 +42,28 @@ export function GetProjects() {
   return window['go']['main']['App']['GetProjects']();
 }
 
+export function IsTerminalConnected() {
+  return window['go']['main']['App']['IsTerminalConnected']();
+}
+
+export function NewConsole() {
+  return window['go']['main']['App']['NewConsole']();
+}
+
+export function NewWsMessage() {
+  return window['go']['main']['App']['NewWsMessage']();
+}
+
 export function PostData(arg1, arg2) {
   return window['go']['main']['App']['PostData'](arg1, arg2);
+}
+
+export function ResizeTerminal(arg1, arg2) {
+  return window['go']['main']['App']['ResizeTerminal'](arg1, arg2);
+}
+
+export function SendTerminalInput(arg1) {
+  return window['go']['main']['App']['SendTerminalInput'](arg1);
 }
 
 export function SignIn(arg1) {
@@ -44,6 +72,10 @@ export function SignIn(arg1) {
 
 export function SignOut() {
   return window['go']['main']['App']['SignOut']();
+}
+
+export function StartTerminalWebSocket(arg1, arg2) {
+  return window['go']['main']['App']['StartTerminalWebSocket'](arg1, arg2);
 }
 
 export function StoreSession(arg1) {

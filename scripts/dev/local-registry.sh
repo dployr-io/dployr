@@ -10,7 +10,7 @@ fi
 
 # Set default values if not set in .env
 : ${PORT:=4444}
-: ${HOST:=192.168.100.4}
+: ${HOST:=}
 : ${IMAGE:=registry}
 
 # Check for port conflict

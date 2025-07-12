@@ -6,6 +6,8 @@ export type Project = main.Project;
 export type LogEntry = main.LogEntry;
 export type Deployment = main.Deployment;
 export type Domain = main.Domain;
+export type Console = main.Console;
+export type WsMessage = main.WsMessage;
 
 // Only create additional interfaces for frontend-specific state
 export interface AppState {

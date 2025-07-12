@@ -3,8 +3,9 @@ module dployr
 go 1.23
 
 require (
-	github.com/joho/godotenv v1.5.1
-	github.com/wailsapp/wails/v2 v2.10.1
+	github.com/gorilla/websocket v1.5.3
+	github.com/vmihailenco/msgpack/v5 v5.4.1
+	github.com/wailsapp/wails/v2 v2.10.2
 )
 
 require (
@@ -28,6 +29,7 @@ require (
 	github.com/tkrajina/go-reflector v0.5.8 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
+	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/wailsapp/go-webview2 v1.0.19 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	golang.org/x/crypto v0.33.0 // indirect

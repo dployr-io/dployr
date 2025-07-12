@@ -1,3 +1,4 @@
 .vagrant
 supabase
 *.env*
+*.db
