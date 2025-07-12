@@ -44,7 +44,12 @@
       fontFamily: 'Monaco, Menlo, "Ubuntu Mono", monospace',
       theme: themes.dark,
       cols: 80,
-      rows: 24
+      rows: Math.floor((window.innerHeight - 300) / 20), // Dynamic rows
+      scrollback: 10000,
+      scrollOnUserInput: true,
+      convertEol: true,
+      disableStdin: false,
+      cursorStyle: 'block'
     });
 
     $wsconsole.fitAddon = new FitAddon();
@@ -138,14 +143,6 @@
   <div class="header">
     <div class="connection-form">
       <div class="form-group">
-        <label>Hostname</label>
-        <input bind:value={hostname} placeholder="" />
-      </div>
-      <div class="form-group">
-        <label>Port</label>
-        <input type="number" bind:value={port} placeholder="22" />
-      </div>
-      <div class="form-group">
         <label>Username</label>
         <input bind:value={username} placeholder="user" />
       </div>
@@ -160,12 +157,12 @@
   </div>
 
   <div class="status {status}">
-    {$wsconsole.statusMessage}
+    {#if $wsconsole.errorMessage}
+      <p>{$wsconsole.errorMessage}</p>
+    {:else}
+      <p>{$wsconsole.statusMessage}</p>
+    {/if}
   </div>
-
-  {#if $wsconsole.errorMessage}
-    <div class="error-message">{$wsconsole.errorMessage}</div>
-  {/if}
 
   <div class="terminal-container">
     <div class="terminal-controls">
@@ -247,6 +244,8 @@
     padding: 0.75rem;
     margin: 0.5rem;
     border-radius: 4px;
+    max-height: 32px;           /* Limit error message height */
+    align-self: center;
   }
 
   .terminal-container {
@@ -255,6 +254,9 @@
     background: #0c0c0c;
     display: flex;
     flex-direction: column;
+    min-height: 0;  /* Allow flex shrinking */
+    height: calc(100vh - 250px);  /* Fixed height with room for errors */
+    overflow: hidden;             /* Prevent container overflow */
   }
 
   .terminal-controls {
@@ -278,10 +280,20 @@
     background: #000000;
     border-radius: 4px;
     padding: 0.5rem;
+    overflow: auto;
+    text-align: left;  /* Force left alignment */
+    display: flex;
+    flex-direction: column;
   }
 
   .terminal {
     height: 100%;
     width: 100%;
+    text-align: left;  /* Ensure terminal content is left-aligned */
+  }
+
+  /* Override any inherited text alignment */
+  .terminal * {
+    text-align: left !important;
   }
 </style>

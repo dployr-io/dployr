@@ -35,8 +35,8 @@
 @layer base {
   @font-face {
     font-family: 'Quicksand';
-    /* src: local(""),
-         url("assets/fonts/Quicksand-VariableFont_wght.woff") format("woff2"); */
+    src: local(""),
+         url("assets/fonts/Quicksand[wght].woff") format("woff2"); 
   }
 
   html {
