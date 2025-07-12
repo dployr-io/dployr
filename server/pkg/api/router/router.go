@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	// "net/http"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -17,6 +18,12 @@ import (
 // New registers the routes and returns the router.
 func New(auth *auth.Auth, queue *queue.Queue, ssh *platform.SshManager) *gin.Engine {
 	r := gin.Default()
+
+	config := cors.DefaultConfig()
+	config.AllowAllOrigins = true
+	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "Connection", "Upgrade"}
+	r.Use(cors.New(config))
 
 	// To store custom types in our cookies,
 	// we must first register them using gob.Register
@@ -42,7 +49,6 @@ func New(auth *auth.Auth, queue *queue.Queue, ssh *platform.SshManager) *gin.Eng
 	health := observability.NewHealthManager(ssh, queue)
 	r.GET("/health", health.HealthHandler())
 
-
 	r.GET("/auth/:provider", auth.LoginHandler())
 	r.GET("/auth/:provider/callback", auth.CallbackHandler())
 
@@ -55,7 +61,7 @@ func New(auth *auth.Auth, queue *queue.Queue, ssh *platform.SshManager) *gin.Eng
 
 		v1.POST("/ssh/connect", ssh.SshConnectHandler())
 
-		v1.GET("/ws/ssh/:sessionID", ssh.SshWebSocketHandler())
+		v1.GET("/ws/ssh/:sessionId", ssh.SshWebSocketHandler())
 	}
 
 	return r

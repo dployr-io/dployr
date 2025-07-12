@@ -17,23 +17,12 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// Message types for WebSocket communication
-type MessageType string
-
-const (
-	MessageInput  MessageType = "input"
-	MessageOutput MessageType = "output"
-	MessageResize MessageType = "resize"
-	MessageError  MessageType = "error"
-	MessageStatus MessageType = "status"
-)
-
 type WsMessage struct {
-	Type    MessageType `msgpack:"type" json:"type"`
-	Data    string      `msgpack:"data,omitempty" json:"data,omitempty"`
-	Cols    int         `msgpack:"cols,omitempty" json:"cols,omitempty"`
-	Rows    int         `msgpack:"rows,omitempty" json:"rows,omitempty"`
-	Message string      `msgpack:"message,omitempty" json:"message,omitempty"`
+	Type    string `msgpack:"type" json:"type"`
+	Data    string `msgpack:"data,omitempty" json:"data,omitempty"`
+	Cols    int    `msgpack:"cols,omitempty" json:"cols,omitempty"`
+	Rows    int    `msgpack:"rows,omitempty" json:"rows,omitempty"`
+	Message string `msgpack:"message,omitempty" json:"message,omitempty"`
 }
 
 type SshConnectRequest struct {
@@ -127,23 +116,23 @@ func (m *SshManager) SshConnectHandler() gin.HandlerFunc {
 		}
 
 		// Generate session ID and store
-		sessionID := generateSessionID()
+		sessionId := generateSessionID()
 		bg_ctx, cancel := context.WithCancel(context.Background())
 
 		sshSession := &SshSession{
-			ID:      sessionID,
+			ID:      sessionId,
 			Client:  client,
 			Session: session,
 			Cancel:  cancel,
 		}
 
 		m.mutex.Lock()
-		m.sessions[sessionID] = sshSession
+		m.sessions[sessionId] = sshSession
 		m.mutex.Unlock()
 
 		// Return session ID
 		ctx.JSON(http.StatusOK, gin.H{
-			"sessionId": sessionID,
+			"sessionId": sessionId,
 			"status":    "connected",
 		})
 
@@ -153,7 +142,7 @@ func (m *SshManager) SshConnectHandler() gin.HandlerFunc {
 			case <-bg_ctx.Done():
 				return
 			case <-time.After(10 * time.Minute): // 10 minute timeout
-				m.CleanupSession(sessionID)
+				m.CleanupSession(sessionId)
 			}
 		}()
 	}
@@ -163,15 +152,15 @@ func (m *SshManager) SshConnectHandler() gin.HandlerFunc {
 func (m *SshManager) SshWebSocketHandler() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// Extract session ID from URL path
-		sessionID := ctx.Param("sessionID") // Assumes route: /ws/ssh/:sessionID
-		if sessionID == "" {
+		sessionId := ctx.Param("sessionId") // Assumes route: /ws/ssh/:sessionId
+		if sessionId == "" {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Session ID required"})
 			return
 		}
 
 		// Get SSH session
 		m.mutex.RLock()
-		sshSession, exists := m.sessions[sessionID]
+		sshSession, exists := m.sessions[sessionId]
 		m.mutex.RUnlock()
 
 		if !exists {
@@ -195,7 +184,7 @@ func (m *SshManager) SshWebSocketHandler() gin.HandlerFunc {
 		if err := m.setupSSHTerminal(sshSession); err != nil {
 			log.Printf("SSH terminal setup failed: %v", err)
 			m.sendMessage(conn, WsMessage{
-				Type:    MessageError,
+				Type:    "output",
 				Message: fmt.Sprintf("Terminal setup failed: %v", err),
 			})
 			return
@@ -254,12 +243,11 @@ func (m *SshManager) streamOutput(session *SshSession, stdout, stderr io.Reader)
 		for {
 			n, err := stdout.Read(outputBuffer)
 			if err != nil {
-				log.Printf("Stdout read error: %v", err)
 				break
 			}
 			if n > 0 {
 				m.sendMessage(session.Connection, WsMessage{
-					Type: MessageOutput,
+					Type: "output",
 					Data: string(outputBuffer[:n]),
 				})
 			}
@@ -271,12 +259,11 @@ func (m *SshManager) streamOutput(session *SshSession, stdout, stderr io.Reader)
 		for {
 			n, err := stderr.Read(errorBuffer)
 			if err != nil {
-				log.Printf("Stderr read error: %v", err)
 				break
 			}
 			if n > 0 {
 				m.sendMessage(session.Connection, WsMessage{
-					Type: MessageOutput,
+					Type: "output",
 					Data: string(errorBuffer[:n]),
 				})
 			}
@@ -304,12 +291,12 @@ func (m *SshManager) handleTerminalSession(session *SshSession) {
 
 		// Handle different message types
 		switch msg.Type {
-		case MessageInput:
+		case "input":
 			if session.StdinPipe != nil {
 				(session.StdinPipe).Write([]byte(msg.Data))
 			}
 
-		case MessageResize:
+		case "resize":
 			if msg.Cols > 0 && msg.Rows > 0 {
 				session.Session.WindowChange(msg.Rows, msg.Cols)
 			}
@@ -335,11 +322,11 @@ func (m *SshManager) sendMessage(conn *websocket.Conn, msg WsMessage) {
 	conn.WriteMessage(websocket.BinaryMessage, data)
 }
 
-func (m *SshManager) CleanupSession(sessionID string) {
+func (m *SshManager) CleanupSession(sessionId string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	session, exists := m.sessions[sessionID]
+	session, exists := m.sessions[sessionId]
 	if !exists {
 		return
 	}
@@ -359,14 +346,13 @@ func (m *SshManager) CleanupSession(sessionID string) {
 	}
 
 	// Remove from sessions
-	delete(m.sessions, sessionID)
+	delete(m.sessions, sessionId)
 
-	log.Printf("Cleaned up session: %s", sessionID)
+	log.Printf("Cleaned up session: %s", sessionId)
 }
 
 func (m *SshManager) SessionCount() int {
-    m.mutex.RLock()
-    defer m.mutex.RUnlock()
-    return len(m.sessions)
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return len(m.sessions)
 }
-
