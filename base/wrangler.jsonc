@@ -9,6 +9,11 @@
   "vars": {
     "ENVIRONMENT": "production"
   },
+  "observability": {
+    "logs": {
+      "enabled": true
+    }
+  },
   "env": {
     "production": {
       "name": "dployr-base",        
