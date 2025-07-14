@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dployr-base", 
+  "main": "src/index.ts",
+  "compatibility_date": "2025-07-13",
+  "assets": {
+    "directory": "./public",
+  },
+  "vars": {
+    "ENVIRONMENT": "production"
+  },
+  "env": {
+    "staging": {
+      "name": "dployr-base-staging",
+      "vars": {
+        "ENVIRONMENT": "staging"
+      }
+    }
+  }
+}
