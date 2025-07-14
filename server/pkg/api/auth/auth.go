@@ -6,11 +6,11 @@ import (
 	"log"
 	"math/big"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	_ "embed"
+
 	"github.com/golang-jwt/jwt/v5"
 
 	"dployr.io/pkg/api/middleware"
@@ -42,6 +42,36 @@ type JWTManager struct {
 type Claims struct {
 	UserID string `json:"user_id"`
 	jwt.RegisteredClaims
+}
+
+
+func JWTAuth(jwtManager *JWTManager) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		authHeader := ctx.GetHeader("Authorization")
+		if authHeader == "" {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+			ctx.Abort()
+			return
+		}
+
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		if tokenString == authHeader {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Bearer token required"})
+			ctx.Abort()
+			return
+		}
+
+		claims, err := jwtManager.ValidateToken(tokenString)
+		if err != nil {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			ctx.Abort()
+			return
+		}
+
+		// Set user info in context
+		ctx.Set("user_id", claims.UserID)
+		ctx.Next()
+	}
 }
 
 // NewJWTManager creates a new JWT manager with a secure random key
@@ -226,17 +256,6 @@ func sendMagicCodeEmail(toAddr, code, toName string) error {
 
 
 // Placeholder for JWT generation
-func generateJWT(j *JWTManager, userID interface{}) (string, error) {
-	// Convert userID to string
-	var userIDStr string
-	switch v := userID.(type) {
-	case int:
-		userIDStr = strconv.Itoa(v)
-	case string:
-		userIDStr = v
-	default:
-		userIDStr = fmt.Sprintf("%v", v)
-	}
-	
-	return j.GenerateToken(userIDStr)
+func generateJWT(j *JWTManager, userID string) (string, error) {
+	return j.GenerateToken(userID)
 }

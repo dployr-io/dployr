@@ -2,7 +2,6 @@ package router
 
 import (
 	"encoding/gob"
-	// "net/http"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/sessions"
@@ -75,6 +74,15 @@ func New(
 		v1.POST("/ssh/connect", ssh.SshConnectHandler())
 
 		v1.GET("/ws/ssh/:session-id", ssh.SshWebSocketHandler())
+
+		 // Protected routes use JWT middleware
+		// protected := r.Group("/api/protected")
+		// protected.Use(middleware.JWTAuth(jwtManager))
+		// {
+		// 	protected.GET("/deployments", getDeploymentsHandler)
+		// 	protected.POST("/deploy", deployHandler)
+		// 	// other protected routes
+    	// }
 	}
 
 	return r

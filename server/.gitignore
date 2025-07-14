@@ -58,3 +58,4 @@ supabase/
 
 # SQLite
 *.sqlite3*
+*.db
