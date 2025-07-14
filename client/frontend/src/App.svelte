@@ -22,7 +22,7 @@
   
   // Service
   import { authService, dataService } from './lib/services/api';
-  import { main } from '../wailsjs/go/models';
+  import { types } from '../wailsjs/go/models';
 
   let terminalComponent;
 
@@ -41,7 +41,7 @@
     // const user = await authService.getCurrentUser();
 
     // DEV FEATURE: to be removed
-    const user = new main.User({
+    const user = new types.User({
       id: "78329839993909317",
       email: "john.doe@example.com",
       name: "John Doe",
@@ -82,7 +82,7 @@
 </script>
 
 <main class="w-full flex items-center justify-center min-h-screen">
-  {#if !$currentUser}
+  {#if $currentUser}
     <OnboardingFlow {logo} {logoSecondary} isDarkMode={$isDarkMode} />
   {:else}
     <DashboardLayout {icon} {iconSecondary} isDarkMode={$isDarkMode} />

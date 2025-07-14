@@ -21,7 +21,7 @@
       title: "How do you intend to use dployr?",
       options: [
         "Deploy applications to any infrastructure",
-        "Design custom cloud architectures",
+        "Design new cloud architecture",
         "Learn deployment and orchestration", 
         "Explore platform capabilities"
       ]

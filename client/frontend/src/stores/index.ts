@@ -1,6 +1,5 @@
 import { writable } from 'svelte/store';
 import type { User, Project, Deployment, LogEntry, AppState, Account, ThemeType, ViewMode, Domain, Console } from '../types/index';
-import { main } from '../../wailsjs/go/models';
 
 // Theme store
 export const currentTheme = writable<ThemeType>('system');
