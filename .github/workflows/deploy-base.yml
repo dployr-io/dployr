@@ -3,10 +3,10 @@ name: Deploy Dployr Base
 on:
   push:
     branches: 
-      - main
+      - master
       - staging
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   test:
