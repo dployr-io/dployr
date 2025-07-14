@@ -26,8 +26,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       # Install deps via pnpm
       - name: Install dependencies
@@ -55,8 +53,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
 
       # Install deps via pnpm
       - name: Install dependencies
