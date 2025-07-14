@@ -152,7 +152,7 @@ func (m *SshManager) SshConnectHandler() gin.HandlerFunc {
 func (m *SshManager) SshWebSocketHandler() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// Extract session ID from URL path
-		sessionId := ctx.Param("sessionId") // Assumes route: /ws/ssh/:sessionId
+		sessionId := ctx.Param("session-id") // Assumes route: /ws/ssh/:session-id
 		if sessionId == "" {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Session ID required"})
 			return

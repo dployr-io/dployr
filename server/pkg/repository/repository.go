@@ -18,6 +18,13 @@ type QuerySet struct {
 	upsert  string
 }
 
+type AppRepos struct {
+	ProjectRepo *ProjectRepo
+	UserRepo *UserRepo
+	TokenRepo *MagicTokenRepo
+	EventRepo *EventRepo
+}
+
 // Get struct fields using reflection
 func getStructFields(entity interface{}) []string {
 	t := reflect.TypeOf(entity)
@@ -70,6 +77,7 @@ func buildUpdateClause(fields []string) string {
 func buildQueries(tableName string, fields []string) QuerySet {
 	// Remove ID from insert fields
 	insertFields := filterFields(fields, "id")
+	insertFields = filterFields(insertFields, "created_at")
 	placeholders := buildPlaceholders(insertFields)
 
 	return QuerySet{
@@ -214,7 +222,7 @@ func (r *Repository[T]) Delete(ctx context.Context, id any) error {
 }
 
 // Build UPSERT query with ON CONFLICT
-func (r *Repository[T]) buildUpsertQuery(conflictCols []string, updateCols []string) string {
+func (r *Repository[T]) BuildUpsertQuery(conflictCols []string, updateCols []string) string {
 	var entity T
 	fields := getStructFields(entity)
 
@@ -238,9 +246,9 @@ func (r *Repository[T]) buildUpsertQuery(conflictCols []string, updateCols []str
 		r.tableName, strings.Join(insertFields, ", "), placeholders, conflictClause, updateClause)
 }
 
-// Upsert - PostgreSQL UPSERT with ON CONFLICT
+// Upsert - UPSERT with ON CONFLICT
 func (r *Repository[T]) Upsert(ctx context.Context, entity *T, conflictCols []string, updateCols []string) error {
-	query := r.buildUpsertQuery(conflictCols, updateCols)
+	query := r.BuildUpsertQuery(conflictCols, updateCols)
 
 	_, err := r.db.NamedExecContext(ctx, query, entity)
 	if err != nil {

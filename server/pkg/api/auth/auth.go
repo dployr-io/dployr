@@ -1,238 +1,242 @@
 package auth
 
 import (
+	"crypto/rand"
 	"fmt"
 	"log"
+	"math/big"
 	"net/http"
-	"os"
+	"strconv"
 	"strings"
-	"slices"
+	"time"
 
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-gonic/gin"
-	"github.com/markbates/goth"
-	"github.com/markbates/goth/gothic"
-	"github.com/markbates/goth/providers/bitbucket"
-	"github.com/markbates/goth/providers/github"
-	"github.com/markbates/goth/providers/gitlab"
+	_ "embed"
+	"github.com/golang-jwt/jwt/v5"
 
-	"dployr.io/pkg/logger"
-	"dployr.io/pkg/queue"
+	"dployr.io/pkg/api/middleware"
+	"dployr.io/pkg/mail"
+	"dployr.io/pkg/models"
 	"dployr.io/pkg/repository"
+	"github.com/gin-gonic/gin"
 )
 
-type Auth struct {
-	logger       *logger.Logger
-	projectRepo  *repository.ProjectRepo
-	eventRepo    *repository.EventRepo
-	queue		 *queue.Queue
+type VerificationData struct {
+  Name string
+  Code string
 }
 
-type User struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Provider string `json:"provider"`
+type MagicCodeRequest struct {
+	Email string `json:"email" binding:"required,email"`
+	Name  string `json:"name,omitempty"` // Optional for signup
 }
 
-func InitAuth(projectRepo *repository.ProjectRepo, eventRepo *repository.EventRepo, queue *queue.Queue) *Auth {
-	redirectURL := os.Getenv("OAUTH_REDIRECT_URL")
-	if redirectURL == "" {
-		redirectURL = "http://localhost:7879/auth"
-	}
-
-	// Initialize Goth providers
-	var providers []goth.Provider
-
-	// GitHub
-	if githubKey := os.Getenv("GITHUB_CLIENT_ID"); githubKey != "" {
-		providers = append(providers, github.New(
-			githubKey,
-			os.Getenv("GITHUB_CLIENT_SECRET"),
-			fmt.Sprintf("%s/github/callback", redirectURL),
-		))
-	}
-
-	// GitLab
-	if gitlabKey := os.Getenv("GITLAB_CLIENT_ID"); gitlabKey != "" {
-		providers = append(providers, gitlab.New(
-			gitlabKey,
-			os.Getenv("GITLAB_CLIENT_SECRET"),
-			fmt.Sprintf("%s/gitlab/callback", redirectURL),
-		))
-	}
-
-	// BitBucket
-	if bitbucketKey := os.Getenv("BITBUCKET_CLIENT_ID"); bitbucketKey != "" {
-		providers = append(providers, bitbucket.New(
-			bitbucketKey,
-			os.Getenv("BITBUCKET_CLIENT_SECRET"),
-			fmt.Sprintf("%s/bitbucket/callback", redirectURL),
-		))
-	}
-
-	// Set up Goth providers
-	goth.UseProviders(providers...)
-
-	// Configure Gothic to work with Gin
-	gothic.GetProviderName = getProviderName
-
-	return &Auth{
-		projectRepo:  projectRepo,
-		eventRepo:    eventRepo,
-		queue: 	      queue,
-	}
+type MagicCodeVerify struct {
+	Email string `json:"email" binding:"required,email"`
+	Code  string `json:"code" binding:"required,len=6"`
 }
 
-// Custom function to extract provider name from Gin context
-func getProviderName(req *http.Request) (string, error) {
-	// Extract provider from URL path
-	// Expected paths: /auth/{provider} or /auth/{provider}/callback
-	path := req.URL.Path
-	parts := strings.Split(path, "/")
-	
-	if len(parts) >= 3 && parts[1] == "auth" {
-		return parts[2], nil
-	}
-	
-	return "", fmt.Errorf("provider not found in path: %s", path)
+type JWTManager struct {
+	secretKey []byte
 }
 
-func (a *Auth) LoginHandler() gin.HandlerFunc {
+type Claims struct {
+	UserID string `json:"user_id"`
+	jwt.RegisteredClaims
+}
+
+// NewJWTManager creates a new JWT manager with a secure random key
+func NewJWTManager() *JWTManager {
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		panic("failed to generate JWT secret key")
+	}
+	return &JWTManager{secretKey: key}
+}
+
+// GenerateToken creates a new JWT token for a user
+func (j *JWTManager) GenerateToken(userID string) (string, error) {
+	claims := Claims{
+		UserID: userID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			Issuer:    "dployr.io",
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(j.secretKey)
+}
+
+// ValidateToken validates and parses a JWT token
+func (j *JWTManager) ValidateToken(tokenString string) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return j.secretKey, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, fmt.Errorf("invalid token")
+}
+
+// RequestMagicCodeHandler handles both signup and login with rate limiting
+func RequestMagicCodeHandler(userRepo *repository.UserRepo, tokenRepo *repository.MagicTokenRepo, codeRateLimiter *middleware.RateLimiter) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		provider := ctx.Param("provider")
-		
-		// Validate provider
-		if !a.isValidProvider(provider) {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "unsupported provider"})
+		var req MagicCodeRequest
+		if err := ctx.ShouldBindJSON(&req); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		// Store provider in session for callback
-		session := sessions.Default(ctx)
-		session.Set("provider", provider)
-		session.Save()
-
-		// Set up the request path for Gothic
-		ctx.Request.URL.Path = fmt.Sprintf("/auth/%s", provider)
-		
-		// Try to get existing user first
-		if gothUser, err := gothic.CompleteUserAuth(ctx.Writer, ctx.Request); err == nil {
-			// User already authenticated, convert and redirect
-			user := a.convertGothUser(gothUser)
-			session.Set("user", user)
-			session.Set("access_token", gothUser.AccessToken)
-			session.Save()
-			
-			ctx.Redirect(http.StatusTemporaryRedirect, "/v1/user")
+		// Rate limiting
+		if !codeRateLimiter.IsAllowed(req.Email) {
+			ctx.JSON(http.StatusTooManyRequests, gin.H{
+				"error": "Too many requests. Please wait before requesting another code.",
+			})
 			return
 		}
 
-		// Start new authentication
-		gothic.BeginAuthHandler(ctx.Writer, ctx.Request)
-	}
-}
-
-func (a *Auth) CallbackHandler() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		provider := ctx.Param("provider")
-		
-		// Validate provider
-		if !a.isValidProvider(provider) {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "unsupported provider"})
-			return
-		}
-
-		// Set up the request path for Gothic
-		ctx.Request.URL.Path = fmt.Sprintf("/auth/%s/callback", provider)
-
-		// Complete authentication with Gothic
-		gothUser, err := gothic.CompleteUserAuth(ctx.Writer, ctx.Request)
+		// Generate 6-digit alphanumeric code
+		code, err := generateMagicCode()
 		if err != nil {
-			log.Printf("Auth error: %v", err)
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "authentication failed"})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate code"})
 			return
 		}
 
-		// Convert Goth user to our User struct
-		user := a.convertGothUser(gothUser)
+		magicToken, err := tokenRepo.GetByEmail(ctx, req.Email)
 
-		// Store user in session
-		session := sessions.Default(ctx)
-		session.Set("access_token", gothUser.AccessToken)
-		session.Set("user", user)
-		session.Set("provider", provider)
-		session.Save()
+		if err != nil || magicToken == nil {
+			log.Printf("No existing magic token found for email: %s", err)
 
-		// Setup user account asynchronously
-		go a.setupUserAccount(user)
+			// Store code with 15-minute expiration
+			magicToken = &models.MagicToken{
+				Email:     req.Email,
+				Code:      code,
+				ExpiresAt: time.Now().Add(15 * time.Minute),
+				Name:      req.Name,
+				Used:      false,
+			}
 
-		ctx.Redirect(http.StatusTemporaryRedirect, "/v1/user")
-	}
-}
-
-func (a *Auth) UserHandler() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		session := sessions.Default(ctx)
-		user := session.Get("user")
-
-		if user == nil {
-			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
-			return
-		}
-
-		ctx.JSON(http.StatusOK, user)
-	}
-}
-
-func (a *Auth) LogoutHandler() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		session := sessions.Default(ctx)
-		provider := session.Get("provider")
-		
-		if provider != nil {
-			// Set up request path for Gothic logout
-			ctx.Request.URL.Path = fmt.Sprintf("/logout/%s", provider.(string))
-			err := gothic.Logout(ctx.Writer, ctx.Request)
+			err = tokenRepo.Create(ctx, magicToken)
 			if err != nil {
-				log.Printf("Logout error: %v", err)
+				log.Printf("Error creating magic token: %v", err)
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate login code"})
+				return
 			}
 		}
 
-		// Clear session
-		session.Clear()
-		session.Save()
+		// Send email with code
+		err = sendMagicCodeEmail(req.Email, code, req.Name)
+		if err != nil {
+			log.Printf("Error sending email: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send email"})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{
+			"message": "Check your email for the 6-digit login code",
+		})
+	}
+}
+
+func VerifyMagicCodeHandler(j *JWTManager, userRepo *repository.UserRepo, tokenRepo *repository.MagicTokenRepo) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var req MagicCodeVerify
+		if err := ctx.ShouldBindJSON(&req); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Verify and consume code
+		magicToken, err := tokenRepo.ConsumeCode(ctx, req.Email, req.Code)
+		if err != nil {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired code"})
+			return
+		}
+
+		name := magicToken.Name
+		if name == "" {
+			name = strings.Split(req.Email, "@")[0]
+		}
 		
-		ctx.JSON(http.StatusOK, gin.H{"message": "logged out"})
+		user, err := userRepo.GetByEmail(ctx, req.Email)
+		if err != nil {
+			log.Printf("Error getting user by email: %s", err)
+			user = &models.User{
+				Email: req.Email,
+				Name: name,
+			}
+
+			err = userRepo.Create(ctx, user)
+
+
+			if err != nil {
+				log.Printf("Error creating user: %v", err)
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+				return
+			}
+		}
+
+		// Generate JWT session token
+		sessionToken, err := generateJWT(j, user.Id)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{
+			"token": sessionToken,
+			"user":  user,
+		})
 	}
 }
 
-func (a *Auth) setupUserAccount(user *User) {
-	log.Printf("Setting up account for user: %s", user.ID)
+// generateMagicCode creates a 6-digit alphanumeric code (uppercase)
+func generateMagicCode() (string, error) {
+	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	code := make([]byte, 6)
+	
+	for i := range code {
+		randomIndex, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			return "", err
+		}
+		code[i] = charset[randomIndex.Int64()]
+	}
+	
+	return string(code), nil
 }
 
-func (a *Auth) convertGothUser(gothUser goth.User) *User {
-	user := &User{
-		ID:       gothUser.UserID,
-		Email:    gothUser.Email,
-		Provider: gothUser.Provider,
-	}
-
-	// Handle name - try different fields
-	if gothUser.Name != "" {
-		user.Name = gothUser.Name
-	} else if gothUser.NickName != "" {
-		user.Name = gothUser.NickName
-	} else if gothUser.FirstName != "" || gothUser.LastName != "" {
-		user.Name = strings.TrimSpace(gothUser.FirstName + " " + gothUser.LastName)
-	} else {
-		user.Name = gothUser.Email // fallback to email
-	}
-
-	return user
+// sendMagicCodeEmail sends the 6-char code via email
+func sendMagicCodeEmail(toAddr, code, toName string) error {
+	emailBody := strings.ReplaceAll(string(mail.VerificationTemplate), "{{.Name}}", toName)
+    emailBody = strings.ReplaceAll(emailBody, "{{.Code}}", code)
+    return mail.SendEmail(toAddr, "Your Login Code", emailBody, toName)
 }
 
-func (a *Auth) isValidProvider(provider string) bool {
-	validProviders := []string{"github", "gitlab", "bitbucket"}
-	return slices.Contains(validProviders, provider)
+
+// Placeholder for JWT generation
+func generateJWT(j *JWTManager, userID interface{}) (string, error) {
+	// Convert userID to string
+	var userIDStr string
+	switch v := userID.(type) {
+	case int:
+		userIDStr = strconv.Itoa(v)
+	case string:
+		userIDStr = v
+	default:
+		userIDStr = fmt.Sprintf("%v", v)
+	}
+	
+	return j.GenerateToken(userIDStr)
 }

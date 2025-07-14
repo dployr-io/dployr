@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"dployr.io/pkg/api/auth"
+	"dployr.io/pkg/api/middleware"
 	"dployr.io/pkg/api/platform"
 	"dployr.io/pkg/api/router"
 	"dployr.io/pkg/config"
@@ -13,7 +14,11 @@ import (
 )
 
 func main() {
-	projectRepo, eventRepo := config.InitDB()
+	repos := config.InitDB()
+
+	if (repos == nil) {
+		panic("Database failed to initialize properly")
+	}
 
 	server.NewConnectionPool()
 
@@ -25,13 +30,17 @@ func main() {
 	// Init queue manager 
 	_queue := queue.NewQueue(3, time.Second, queue.CreateHandler())
 
-	// Init auth
-	auth := auth.InitAuth(projectRepo, eventRepo, _queue)
+	// Init rate limiter - 15 minute window
+	rl := middleware.NewRateLimiter(3, 15*time.Minute)
+	middleware.CleanupRateLimit(rl)
 
 	// Init ssh manager
 	ssh := platform.NewSshManager()
 
+	// Init JWT manager
+	j := auth.NewJWTManager()
+
 	// Create router and run
-	r := router.New(auth, _queue, ssh)
+	r := router.New(repos, _queue, ssh, rl, j)
 	r.Run(":" + port)
 }

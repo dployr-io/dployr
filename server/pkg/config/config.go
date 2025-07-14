@@ -57,7 +57,7 @@ func runMigrations(db *sqlx.DB) {
 	}
 }
 
-func InitDB() (*repository.ProjectRepo, *repository.EventRepo) {
+func InitDB() (repos *repository.AppRepos) {
 	dsn := "file:data.db?_foreign_keys=on&_journal=WAL"
 	db, err := sqlx.Open("sqlite3", dsn)
 
@@ -71,8 +71,16 @@ func InitDB() (*repository.ProjectRepo, *repository.EventRepo) {
 
 	projectRepo := repository.NewProjectRepo(db)
 	eventRepo := repository.NewEventRepo(db)
+	userRepo := repository.NewUserRepo(db)
+	tokenRepo := repository.NewMagicTokenRepo(db)
 
-	return projectRepo, eventRepo
+
+	return &repository.AppRepos{
+		UserRepo: userRepo,
+		TokenRepo: tokenRepo,
+		ProjectRepo: projectRepo,
+		EventRepo: eventRepo,
+	}
 }
 
 func GetOauth2Provider() *oidc.Provider {

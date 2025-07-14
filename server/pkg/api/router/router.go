@@ -9,14 +9,23 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 
-	"dployr.io/pkg/api/auth"
+	"dployr.io/pkg/api/middleware"
 	"dployr.io/pkg/api/observability"
 	"dployr.io/pkg/api/platform"
+	"dployr.io/pkg/api/auth"
 	"dployr.io/pkg/queue"
+	"dployr.io/pkg/repository"
 )
 
+
 // New registers the routes and returns the router.
-func New(auth *auth.Auth, queue *queue.Queue, ssh *platform.SshManager) *gin.Engine {
+func New(
+	ar *repository.AppRepos, 
+	queue *queue.Queue, 
+	ssh *platform.SshManager, 
+	rl *middleware.RateLimiter, 
+	j *auth.JWTManager,
+) *gin.Engine {
 	r := gin.Default()
 
 	config := cors.DefaultConfig()
@@ -49,19 +58,23 @@ func New(auth *auth.Auth, queue *queue.Queue, ssh *platform.SshManager) *gin.Eng
 	health := observability.NewHealthManager(ssh, queue)
 	r.GET("/health", health.HealthHandler())
 
-	r.GET("/auth/:provider", auth.LoginHandler())
-	r.GET("/auth/:provider/callback", auth.CallbackHandler())
-
 	// API v1 routes
 	v1 := r.Group("/v1")
 	{
-		v1.GET("/callback", auth.CallbackHandler())
-		v1.GET("/user", auth.UserHandler())
-		v1.GET("/logout", auth.LogoutHandler())
+		v1.POST("/auth/request-code", auth.RequestMagicCodeHandler(
+			ar.UserRepo, 
+			ar.TokenRepo, 
+			rl,
+		))
+    	v1.POST("/auth/verify-code", auth.VerifyMagicCodeHandler(
+			j,
+			ar.UserRepo, 
+			ar.TokenRepo,
+		))
 
 		v1.POST("/ssh/connect", ssh.SshConnectHandler())
 
-		v1.GET("/ws/ssh/:sessionId", ssh.SshWebSocketHandler())
+		v1.GET("/ws/ssh/:session-id", ssh.SshWebSocketHandler())
 	}
 
 	return r

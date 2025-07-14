@@ -73,6 +73,7 @@ require (
 require (
 	github.com/coreos/go-oidc/v3 v3.14.1
 	github.com/gin-contrib/sessions v1.0.4
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/gorilla/websocket v1.5.3
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
