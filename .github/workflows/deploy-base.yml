@@ -80,7 +80,7 @@ jobs:
         working-directory: base
 
       - name: Deploy to production
-        run: pnpm exec wrangler deploy
+        run: pnpm exec wrangler deploy --env production
         working-directory: base
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
