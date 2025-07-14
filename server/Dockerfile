@@ -16,20 +16,12 @@ COPY go.mod go.sum ./
 # Download dependencies
 RUN go mod download
 
-# Install Riverqueue cli
-RUN go install github.com/riverqueue/river/cmd/river@latest
-
 # Copy source code
 COPY . .
 
 # Build the application
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main .
 
-# TODO: REMOBE THIS LINE, Sqlite3 is no longer needed
-# Run River migrations during build
-RUN mkdir -p /app/data && \
-    export DATABASE_URL="sqlite:///app/data/data.sqlite3" && \
-    /go/bin/river migrate-up --line main --database-url "$DATABASE_URL"
 
 # Final stage
 FROM alpine:latest
