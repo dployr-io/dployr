@@ -12,54 +12,75 @@ jobs:
   deploy-staging:
     if: github.ref == 'refs/heads/staging'
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
-      # Install pnpm
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 10
 
-      # Setup Node.js + pnpm caching
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
 
-      # Install deps via pnpm
+      - name: Configure local pnpm store
+        run: pnpm config set store-dir .pnpm-store
+        working-directory: base
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: base/.pnpm-store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('base/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        working-directory: base
 
-      # Deploy to staging
-      - name: Deploy (staging)
+      - name: Deploy to staging
         run: pnpm exec wrangler deploy --env staging
+        working-directory: base
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
   deploy-production:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
-      # Install pnpm
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
 
-      # Install deps via pnpm
+      - name: Configure local pnpm store
+        run: pnpm config set store-dir .pnpm-store
+        working-directory: base
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: base/.pnpm-store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('base/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-store-
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        working-directory: base
 
-      # Deploy to production
-      - name: Deploy (production)
+      - name: Deploy to production
         run: pnpm exec wrangler deploy
+        working-directory: base
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
