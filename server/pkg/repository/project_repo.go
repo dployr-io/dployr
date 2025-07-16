@@ -38,3 +38,10 @@ func (r *ProjectRepo) GetByID(ctx context.Context, id any) (*models.Project, err
 	return r.Repository.GetByID(ctx, id)
 }
 
+func (r *ProjectRepo) GetAll(ctx context.Context) ([]*models.Project, error) {
+	var projects []*models.Project
+	query := `SELECT * FROM projects ORDER BY created_at DESC`
+	err := r.db.SelectContext(ctx, &projects, query)
+	return projects, err
+}
+
