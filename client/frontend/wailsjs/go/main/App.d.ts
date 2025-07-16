@@ -6,13 +6,7 @@ export function AddDomain(arg1:string,arg2:string):Promise<types.Domain>;
 
 export function ConnectSsh(arg1:string,arg2:number,arg3:string,arg4:string):Promise<types.SshConnectResponse>;
 
-export function DeleteData(arg1:string):Promise<any>;
-
 export function DisconnectTerminal():Promise<void>;
-
-export function FetchData(arg1:string):Promise<any>;
-
-export function GetCurrentUser():Promise<types.User>;
 
 export function GetDeployments():Promise<Array<types.Deployment>>;
 
@@ -28,18 +22,12 @@ export function NewConsole():Promise<types.Console>;
 
 export function NewWsMessage():Promise<types.WsMessage>;
 
-export function PostData(arg1:string,arg2:any):Promise<any>;
-
 export function ResizeTerminal(arg1:number,arg2:number):Promise<void>;
 
 export function SendTerminalInput(arg1:string):Promise<void>;
 
-export function SignIn(arg1:string):Promise<types.AuthResponse>;
-
-export function SignOut():Promise<boolean>;
+export function SignIn(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<any>;
 
 export function StartTerminalWebSocket(arg1:string,arg2:string):Promise<void>;
 
-export function StoreSession(arg1:string):Promise<void>;
-
-export function UpdateData(arg1:string,arg2:any):Promise<any>;
+export function VerifyMagicCode(arg1:string,arg2:string,arg3:string):Promise<any>;

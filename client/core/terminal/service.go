@@ -2,16 +2,18 @@
 package terminal
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 
 	"github.com/gorilla/websocket"
 	"github.com/vmihailenco/msgpack/v5"
 	_runtime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"dployr/core/http"
 	"dployr/core/types"
 )
 
@@ -19,13 +21,11 @@ type TerminalService struct {
 	ctx         context.Context
 	wsConn      *websocket.Conn
 	isConnected bool
-	httpClient  *http.Client
 }
 
-func NewTerminalService(ctx context.Context, httpClient *http.Client) *TerminalService {
+func NewTerminalService(ctx context.Context) *TerminalService {
 	return &TerminalService{
 		ctx:        ctx,
-		httpClient: httpClient,
 	}
 }
 
@@ -35,27 +35,35 @@ func (t *TerminalService) ConnectSsh(hostname string, port int, username string,
 	url := fmt.Sprintf("http://%s:7879/v1/ssh/connect", hostname)
 	log.Printf("📡 Making request to: %s", url)
 
-	res, err := t.httpClient.Post(url, map[string]interface{}{
+	data := map[string]interface{}{
 		"hostname": hostname,
 		"port":     port,
 		"username": username,
 		"password": password,
-	})
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect SSH: %v", err)
 	}
 
-	switch v := res.(type) {
-	case []byte:
-		var response types.SshConnectResponse
-		if err := json.Unmarshal(v, &response); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
-		}
-		return &response, nil
-	default:
-		return nil, fmt.Errorf("unexpected response type: %T, value: %+v", v, v)
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
+	defer res.Body.Close()
+
+	var response types.SshConnectResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
+	}
+	return &response, nil
 }
 
 func (t *TerminalService) StartTerminalWebSocket(hostname string, sessionId string) error {

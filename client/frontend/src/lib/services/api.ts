@@ -1,29 +1,37 @@
-import { get } from 'svelte/store';
+import type { User } from 'src/types';
+import { addToast } from '../../../src/stores/toastStore';
 import { 
   SignIn, 
-  GetCurrentUser, 
-  SignOut, 
   GetDeployments, 
   GetProjects, 
   GetLogs, 
   GetDomains,
-  NewConsole
+  NewConsole,
+  VerifyMagicCode,
 } from '../../../wailsjs/go/main/App.js';
 import { types } from '../../../wailsjs/go/models';
+import { getFromLocalStorage } from '../../../src/utils/localStorage';
+
 
 export const authService = {
-  async signIn(provider: string) {
-    return await SignIn(provider.toLowerCase());
+  async signIn(host: string, email: string, name: string, password: string, privateKey: string) {
+   return await SignIn(host, email, name, password, privateKey);
+  },
+
+  async verifyMagicCode(host: string, email: string, code: string) {
+    return await VerifyMagicCode(host, email, code);
   },
   
   async getCurrentUser() {
-    const user = await GetCurrentUser();
-    // Return null if no user, otherwise create proper User instance
-    return user ? types.User.createFrom(user) : null;
+    return await getFromLocalStorage<User>('user');
+  },
+
+  async getToken() {
+    return await getFromLocalStorage<string>('token');
   },
   
   async signOut() {
-    return await SignOut();
+    // return await SignOut();
   }
 };
 

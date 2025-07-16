@@ -17,6 +17,15 @@ export const appStage = writable<string>('');
 export const signInProvider = writable<string>('');
 export const currentPage = writable<number>(0);
 export const isTransitioning = writable<boolean>(false);
+export const host = writable<string>('');
+export const email = writable<string>('');
+export const name = writable<string>('');
+export const password = writable<string>('');
+export const privateKey = writable<string>('');
+export const isLoading = writable<boolean>(false);
+export const otp = writable<string>('');
+export const token = writable<string>('');
+
 
 // UI stores
 export const viewMode = writable<ViewMode>('grid');

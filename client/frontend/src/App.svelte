@@ -4,6 +4,7 @@
   import icon from './assets/images/icon.svg';
   import iconSecondary from './assets/images/icon-secondary.svg';
   import { onMount, onDestroy } from 'svelte';
+  import ToastContainer from '../src/lib/components/ui/ToastContainer.svelte';
   
   // Components
   import { OnboardingFlow, DashboardLayout } from './lib/components';
@@ -17,12 +18,14 @@
     selectedProject, 
     logs,
     domains,
-    wsconsole
+    wsconsole,
+    token,
   } from './stores';
   
   // Service
   import { authService, dataService } from './lib/services/api';
   import { types } from '../wailsjs/go/models';
+  import { addToast } from './stores/toastStore';
 
   let terminalComponent;
 
@@ -37,20 +40,6 @@
     }
   }
 
-  async function checkAuthStatus() {
-    // const user = await authService.getCurrentUser();
-
-    // DEV FEATURE: to be removed
-    const user = new types.User({
-      id: "78329839993909317",
-      email: "john.doe@example.com",
-      name: "John Doe",
-      avatar: "https://picsum.photos/200/200"
-    })
-
-    currentUser.set(user);
-  }
-
   async function loadData() {
     try {
       const [deploymentData, projectData, logData, domainsData, consoleData] = await Promise.all([
@@ -60,18 +49,26 @@
         dataService.getDomains(),
         dataService.newConsole(),
       ]);
+
       deployments.set(deploymentData);
       projects.set(projectData);
       logs.set(logData);
       domains.set(domainsData);
       wsconsole.set(consoleData);
+
+      const [tokenData, userData] = await Promise.all([
+        authService.getToken(),
+        authService.getCurrentUser(),
+      ]);
+      
+      token.set(tokenData);
+      currentUser.set(userData);
     } catch (error) {
       console.error('Failed to load data:', error);
     }
   }
 
   onMount(() => {
-    checkAuthStatus();
     loadData();
   });
 
@@ -81,8 +78,10 @@
   }
 </script>
 
+<ToastContainer />
+
 <main class="w-full flex items-center justify-center min-h-screen">
-  {#if $currentUser}
+  {#if !$currentUser}
     <OnboardingFlow {logo} {logoSecondary} isDarkMode={$isDarkMode} />
   {:else}
     <DashboardLayout {icon} {iconSecondary} isDarkMode={$isDarkMode} />

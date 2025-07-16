@@ -81,3 +81,7 @@ type SshConnectResponse struct {
 	SessionId string `json:"sessionId"`
 	Status    string `json:"status"`
 }
+
+type MessageResponse struct {
+    Message string `json:"message"`
+}

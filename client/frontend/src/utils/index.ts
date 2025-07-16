@@ -114,3 +114,20 @@ export function formatLogTime(createdAt: number): string {
     fractionalSecondDigits: 2
   });
 }
+
+export function getErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  const jsonPart = raw.match(/\{.*\}$/)?.[0];
+  if (jsonPart) {
+    try {
+      const { error, message } = JSON.parse(jsonPart) as {
+        error?: string;
+        message?: string;
+      };
+      return error ?? message ?? raw;
+    } catch {
+      // ignore parse errors
+    }
+  }
+  return raw;
+}

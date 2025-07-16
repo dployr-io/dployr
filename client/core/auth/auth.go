@@ -2,7 +2,10 @@
 package auth
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -11,59 +14,93 @@ import (
 	"dployr/core/types"
 )
 
-type AuthService struct {
-	baseURL string
+type AuthService struct{}
+
+func NewAuthService() *AuthService {
+	return &AuthService{}
 }
 
-func NewAuthService(baseURL string) *AuthService {
-	return &AuthService{baseURL: baseURL}
+
+func (a *AuthService) SignIn(host, email, name, password, privateKey string) (*types.MessageResponse, error) {
+    url := fmt.Sprintf("http://%s:7879/v1/auth/request-code", host)
+
+    payload := map[string]string{"name": name, "email": email}
+    b, err := json.Marshal(payload)
+    if err != nil {
+        return nil, err
+    }
+
+    resp, err := http.Post(url, "application/json", bytes.NewReader(b))
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode < 200 || resp.StatusCode > 299 {
+        errBody, err := io.ReadAll(resp.Body)
+        if err != nil {
+            return nil, err
+        }
+        return nil, fmt.Errorf("sign-in failed (%d): %s", resp.StatusCode, errBody)
+    }
+
+    var result types.MessageResponse
+    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+        return nil, err
+    }
+    return &result, nil
 }
 
-func (a *AuthService) SignIn(provider string) types.AuthResponse {
-	authURL := a.baseURL + "/auth/" + provider
-	err := a.openBrowser(authURL)
-	if err != nil {
-		return types.AuthResponse{Success: false, Error: err.Error()}
-	}
-	return types.AuthResponse{Success: true}
+func (a *AuthService) VerifyMagicCode(host, email, code string) (*any, error) {
+	url := fmt.Sprintf("http://%s:7879/v1/auth/verify-code", host)
+
+	payload := map[string]string{"code": code, "email": email}
+    b, err := json.Marshal(payload)
+    if err != nil {
+        return nil, err
+    }
+
+    resp, err := http.Post(url, "application/json", bytes.NewReader(b))
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode < 200 || resp.StatusCode > 299 {
+        errBody, err := io.ReadAll(resp.Body)
+        if err != nil {
+            return nil, err
+        }
+        return nil, fmt.Errorf("verification failed (%d): %s", resp.StatusCode, errBody)
+    }
+
+    var result any
+    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+        return nil, err
+    }
+    return &result, nil
 }
 
-func (a *AuthService) SignOut() bool {
-	resp, err := http.Post(a.baseURL+"/v1/logout", "", nil)
-	if err != nil {
-		return false
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode == 200
+func SignOut() {
+	// Remove from local storage
 }
 
-func (a *AuthService) GetCurrentUser() *types.User {
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", a.baseURL+"/api/auth/session", nil)
-
-	if sessionCookie := a.getStoredSessionCookie(); sessionCookie != "" {
-		req.Header.Set("Cookie", sessionCookie)
-	}
-
-	resp, err := client.Do(req)
-	if err != nil || resp.StatusCode != 200 {
-		return nil
-	}
-	defer resp.Body.Close()
+func GetCurrentUser() *types.User {
+	// Retrieve from localstorage
 
 	var sessionResp struct {
 		User *types.User `json:"user"`
 	}
 
-	json.NewDecoder(resp.Body).Decode(&sessionResp)
+	//json.NewDecoder(resp.Body).Decode(&sessionResp)
 	return sessionResp.User
 }
 
-func (a *AuthService) StoreSession(token string) {
+func StoreSession(token string) {
 	os.WriteFile("session.cookie", []byte(token), 0600)
 }
 
-func (a *AuthService) openBrowser(url string) error {
+func openBrowser(url string) error {
 	var cmd string
 	var args []string
 
@@ -82,7 +119,7 @@ func (a *AuthService) openBrowser(url string) error {
 	return exec.Command(cmd, args...).Start()
 }
 
-func (a *AuthService) getStoredSessionCookie() string {
+func getStoredSessionCookie() string {
 	token, err := os.ReadFile("session.cookie")
 	if err != nil {
 		return ""

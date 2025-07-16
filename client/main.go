@@ -5,7 +5,6 @@ import (
 	"dployr/core/auth"
 	"dployr/core/data"
 	"dployr/core/domain"
-	"dployr/core/http"
 	"dployr/core/terminal"
 	"dployr/core/types"
 	"embed"
@@ -22,7 +21,6 @@ var assets embed.FS
 type App struct {
 	ctx             context.Context
 	authService     *auth.AuthService
-	httpClient      *http.Client
 	dataService     *data.DataService
 	domainService   *domain.DomainService
 	terminalService *terminal.TerminalService
@@ -59,13 +57,11 @@ func main() {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	baseURL := getBaseUrl()
-	
-	a.httpClient = http.NewClient()
-	a.authService = auth.NewAuthService(baseURL)
+
+	a.authService = auth.NewAuthService()
 	a.dataService = data.NewDataService()
-	a.domainService = domain.NewDomainService(a.httpClient, baseURL)
-	a.terminalService = terminal.NewTerminalService(ctx, a.httpClient)
+	a.domainService = domain.NewDomainService(getBaseUrl())
+	a.terminalService = terminal.NewTerminalService(ctx)
 }
 
 func getBaseUrl() string {
@@ -73,36 +69,12 @@ func getBaseUrl() string {
 }
 
 // Wails binding methods - delegate to services
-func (a *App) SignIn(provider string) types.AuthResponse {
-	return a.authService.SignIn(provider)
+func (a *App) SignIn(host, email, name, password, privateKey string) (any, error) {
+	return a.authService.SignIn(host, email, name, password, privateKey)
 }
 
-func (a *App) SignOut() bool {
-	return a.authService.SignOut()
-}
-
-func (a *App) GetCurrentUser() *types.User {
-	return a.authService.GetCurrentUser()
-}
-
-func (a *App) StoreSession(token string) {
-	a.authService.StoreSession(token)
-}
-
-func (a *App) FetchData(url string) (any, error) {
-	return a.httpClient.Get(url)
-}
-
-func (a *App) PostData(url string, data interface{}) (any, error) {
-	return a.httpClient.Post(url, data)
-}
-
-func (a *App) UpdateData(url string, data interface{}) (any, error) {
-	return a.httpClient.Put(url, data)
-}
-
-func (a *App) DeleteData(url string) (any, error) {
-	return a.httpClient.Delete(url)
+func (a *App) VerifyMagicCode(host, email, code string) (any, error) {
+	return a.authService.VerifyMagicCode(host, email, code)
 }
 
 func (a *App) GetDeployments() []types.Deployment {
@@ -156,5 +128,4 @@ func (a *App) DisconnectTerminal() error {
 func (a *App) IsTerminalConnected() bool {
 	return a.terminalService.IsTerminalConnected()
 }
-
 

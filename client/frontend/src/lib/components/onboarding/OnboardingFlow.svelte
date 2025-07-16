@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { saveToLocalStorage } from '../../../../src/utils/localStorage';
+  import { addToast } from '../../../../src/stores/toastStore';
   import { 
     currentPage, 
     isTransitioning, 
@@ -6,16 +8,22 @@
     discoveryOptions, 
     discoveryOther, 
     appStage, 
-    signInProvider 
+    currentUser,
+    host,
+    email,
+    password,
+    name,
+    privateKey,
+    isLoading,
+    otp,
 } from '../../../stores';
-  import { getProviderIcon } from '../../../utils';
+  import { getErrorMessage } from '../../../utils';
   import { authService } from '../../services/api';
   import OnboardingPage from './OnboardingPage.svelte';
   
   export let logo: string;
   export let logoSecondary: string;
   export let isDarkMode: boolean;
-
   const pages = [
     {
       title: "How do you intend to use dployr?",
@@ -50,12 +58,9 @@
     },
     {
       title: "Sign in your account",
-      options: [
-        "GitHub",
-        "GitLab",
-        "Bitbucket",
-        "Unity",
-      ]
+    },
+    {
+      title: "Verify your email",
     }
   ];
 
@@ -84,11 +89,31 @@
     appStage.set(option);
   }
 
-  async function handleSignIn(provider: string) {
-    const result = await authService.signIn(provider);
-    if (!result.Success) {
-        console.error('Failed to open browser');
-        return;
+  async function handleSignIn(host: string, email: string, name: string, password: string, privateKey: string) {
+   try {
+    $isLoading = true;
+    const res = await authService.signIn(host, email, name, password, privateKey);
+    addToast(res.message, 'success');
+    nextPage();
+   } catch (error) {
+    addToast(getErrorMessage(error), 'error');
+   } finally {
+    $isLoading = false;
+   }
+  }
+
+  async function handleMagicCode(host: string, email: string, code: string) {
+    try{
+      $isLoading = true;
+      const res = await authService.verifyMagicCode(host, email, code);      
+      $currentUser = res.user;
+
+      saveToLocalStorage("user", res.user);
+      saveToLocalStorage("token", res.token);
+    } catch (error) {
+      addToast(getErrorMessage(error), 'error');
+    } finally {
+      $isLoading = false;
     }
   }
 
@@ -96,7 +121,8 @@
     if ($currentPage === 0) return $selectedOptions.length > 0;
     if ($currentPage === 1) return $discoveryOptions.length > 0 && (!$discoveryOptions.includes('Other') || $discoveryOther.trim().length > 0);
     if ($currentPage === 2) return !!$appStage;
-    if ($currentPage === 3) return !!$signInProvider;
+    if ($currentPage === 3) return !!$host && !!$email && !!$name;
+    if ($currentPage === 4) return $otp.length === 6;
     return false;
   })();
 
@@ -140,8 +166,19 @@
         class="w-32 rounded-xl flex-shrink-0"
       >
       <div class="text-xl font-semibold text-center flex-1 leading-relaxed text-gray-700 dark:text-gray-100">
-        {pages[$currentPage].title}
+        {#if !$currentUser}
+          {pages[$currentPage].title}
+        {:else}
+          <p>Welcome back, {$currentUser.name}!</p>
+        {/if}
       </div>
+
+      {#if !$currentUser && $currentPage === 3}
+        <div class="flex flex-col items-start">
+          <p>To get started ensure you have setup your server.</p>  
+          <p><a href="" class="underline font-semibold">Click</a> to learn how.</p>  
+        </div>
+      {/if}
     </div>
     
     <OnboardingPage 
@@ -149,16 +186,25 @@
       {toggleOption}
       {toggleDiscovery}
       {selectAppStage}
-      {handleSignIn}
+      handleSignIn={async () =>
+        handleSignIn(
+          $host,     
+          $email,
+          $name,
+          $password,
+          $privateKey
+      )}
+      handleMagicCode={async () =>
+        handleMagicCode(
+          $host, $email, $otp,
+      )}
       {nextPage}
       {previousPage}
       {canProceed}
-      {getProviderIcon}
       currentPage={$currentPage}
       selectedOptions={$selectedOptions}
       discoveryOptions={$discoveryOptions}
       appStage={$appStage}
-      signInProvider={$signInProvider}
     />
   </div>
 </main>

@@ -4,26 +4,24 @@ package domain
 import (
 	"fmt"
 	"time"
-	"dployr/core/http"
+
 	"dployr/core/types"
 )
 
 type DomainService struct {
-	httpClient *http.Client
 	baseURL    string
 }
 
-func NewDomainService(httpClient *http.Client, baseURL string) *DomainService {
+func NewDomainService(baseURL string) *DomainService {
 	return &DomainService{
-		httpClient: httpClient,
 		baseURL:    baseURL,
 	}
 }
 
 func (d *DomainService) AddDomain(domain string, projectID string) (types.Domain, error) {
-	_, err := d.httpClient.Post(d.baseURL+"/foo/bar", map[string]interface{}{
-		domain: "foo.bar",
-	})
+	// _, err := http.Post(d.baseURL+"/foo/bar", "application/json" , &types.Domain{
+	// 	domain: "foo.bar",
+	// })
 
 	time.Sleep(3 * time.Second)
 
@@ -32,6 +30,8 @@ func (d *DomainService) AddDomain(domain string, projectID string) (types.Domain
 		AutoSetupAvailable: true,
 		ManualRecords:      d.generateManualInstructions(domain, "202.121.80.311"),
 	}
+
+	err := error(nil)
 
 	return res, err
 }

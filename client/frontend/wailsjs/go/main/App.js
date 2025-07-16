@@ -10,20 +10,8 @@ export function ConnectSsh(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ConnectSsh'](arg1, arg2, arg3, arg4);
 }
 
-export function DeleteData(arg1) {
-  return window['go']['main']['App']['DeleteData'](arg1);
-}
-
 export function DisconnectTerminal() {
   return window['go']['main']['App']['DisconnectTerminal']();
-}
-
-export function FetchData(arg1) {
-  return window['go']['main']['App']['FetchData'](arg1);
-}
-
-export function GetCurrentUser() {
-  return window['go']['main']['App']['GetCurrentUser']();
 }
 
 export function GetDeployments() {
@@ -54,10 +42,6 @@ export function NewWsMessage() {
   return window['go']['main']['App']['NewWsMessage']();
 }
 
-export function PostData(arg1, arg2) {
-  return window['go']['main']['App']['PostData'](arg1, arg2);
-}
-
 export function ResizeTerminal(arg1, arg2) {
   return window['go']['main']['App']['ResizeTerminal'](arg1, arg2);
 }
@@ -66,22 +50,14 @@ export function SendTerminalInput(arg1) {
   return window['go']['main']['App']['SendTerminalInput'](arg1);
 }
 
-export function SignIn(arg1) {
-  return window['go']['main']['App']['SignIn'](arg1);
-}
-
-export function SignOut() {
-  return window['go']['main']['App']['SignOut']();
+export function SignIn(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['SignIn'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function StartTerminalWebSocket(arg1, arg2) {
   return window['go']['main']['App']['StartTerminalWebSocket'](arg1, arg2);
 }
 
-export function StoreSession(arg1) {
-  return window['go']['main']['App']['StoreSession'](arg1);
-}
-
-export function UpdateData(arg1, arg2) {
-  return window['go']['main']['App']['UpdateData'](arg1, arg2);
+export function VerifyMagicCode(arg1, arg2, arg3) {
+  return window['go']['main']['App']['VerifyMagicCode'](arg1, arg2, arg3);
 }
