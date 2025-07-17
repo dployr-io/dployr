@@ -26,8 +26,8 @@ func (r *ProjectRepo) Create(ctx context.Context, p *models.Project) error {
     }
 
     const insertSQL = `
-    INSERT INTO projects (id, name, domain, git_repo, status)
-    VALUES (:id, :name, :domain, :git_repo, "setup")
+    INSERT INTO projects (id, name, git_repo, status)
+    VALUES (:id, :name, :git_repo, "setup")
     `
     _, err := r.db.NamedExecContext(ctx, insertSQL, p)
     if err != nil {
@@ -45,11 +45,11 @@ func (r *ProjectRepo) Upsert(ctx context.Context, p *models.Project, conflictCol
 	return r.Repository.Upsert(ctx, p, conflictCols, updateCols)
 }
 
-func (r *ProjectRepo) Delete(ctx context.Context, id any) error {
+func (r *ProjectRepo) Delete(ctx context.Context, id string) error {
 	return r.Repository.Delete(ctx, id)
 }
 
-func (r *ProjectRepo) GetByID(ctx context.Context, id any) (*models.Project, error) {
+func (r *ProjectRepo) GetByID(ctx context.Context, id string) (*models.Project, error) {
 	return r.Repository.GetByID(ctx, id)
 }
 

@@ -67,19 +67,18 @@ func CreateProjectHandler(projectRepo *repository.ProjectRepo, rl *middleware.Ra
 		project := &models.Project{
 			Name:          req.Name,
 			GitRepo:       req.GitRepo,
-			Domain:        &req.Domain,
 		}
 
 		if req.Environment != nil {
-			envJSON, _ := json.Marshal(req.Environment)
-			rawMessage := json.RawMessage(envJSON)
-			project.Environment = &rawMessage  
+			var envData map[string]string
+			json.Unmarshal(req.Environment, &envData)
+			project.Environment = &models.JSON[interface{}]{Data: envData}
 		}
 		
 		if req.HostConfigs != nil {
-			configJSON, _ := json.Marshal(req.HostConfigs)
-			rawMessage := json.RawMessage(configJSON)
-			project.HostConfigs = &rawMessage  
+			var envData map[string]string
+			json.Unmarshal(req.Environment, &envData)
+			project.Environment = &models.JSON[interface{}]{Data: envData} 
 		}
 
 		if err := projectRepo.Create(ctx, project); err != nil {
@@ -191,20 +190,17 @@ func UpdateProjectHandler(projectRepo *repository.ProjectRepo, rl *middleware.Ra
 		if req.GitRepo != "" {
 			project.GitRepo = req.GitRepo
 		}
-		if req.Domain != "" {
-			project.Domain = &req.Domain
-		}
 
 		if req.Environment != nil {
-			envJSON, _ := json.Marshal(req.Environment)
-			rawMessage := json.RawMessage(envJSON)
-			project.Environment = &rawMessage
+			var envData map[string]string
+			json.Unmarshal(req.Environment, &envData)
+			project.Environment = &models.JSON[interface{}]{Data: envData}
 		}
 		
 		if req.HostConfigs != nil {
-			configJSON, _ := json.Marshal(req.HostConfigs)
-			rawMessage := json.RawMessage(configJSON)
-			project.HostConfigs = &rawMessage 
+			var envData map[string]string
+			json.Unmarshal(req.HostConfigs, &envData)
+			project.HostConfigs = &models.JSON[interface{}]{Data: envData}
 		}
 
 
