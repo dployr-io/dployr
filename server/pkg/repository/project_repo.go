@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
-	
+	"fmt"
+
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	
+
 	"dployr.io/pkg/models"
 )
 
@@ -19,7 +21,20 @@ func NewProjectRepo(db *sqlx.DB) *ProjectRepo {
 }
 
 func (r *ProjectRepo) Create(ctx context.Context, p *models.Project) error {
-	return r.Repository.Create(ctx, p)
+	if p.Id == "" {
+        p.Id = uuid.NewString()
+    }
+
+    const insertSQL = `
+    INSERT INTO projects (id, name, domain, git_repo, status)
+    VALUES (:id, :name, :domain, :git_repo, "setup")
+    `
+    _, err := r.db.NamedExecContext(ctx, insertSQL, p)
+    if err != nil {
+        return fmt.Errorf("create project failed: %w", err)
+    }
+
+	return nil
 }
 
 func (r *ProjectRepo) Update(ctx context.Context, p *models.Project) error {

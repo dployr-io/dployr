@@ -19,6 +19,14 @@ func NewHealthManager(sshManager *platform.SshManager, queue *queue.Queue) *Heal
 	return &HealthManager{sshManager: sshManager, queue: queue}
 }
 
+// HealthHandler returns the health status of the application
+// @Summary Health check
+// @Description Get the current health status and statistics of the application
+// @Tags system
+// @Accept json
+// @Produce json
+// @Success 200 {object} gin.H "Health status retrieved successfully"
+// @Router /health [get]
 func (api *HealthManager) HealthHandler() gin.HandlerFunc {
     return func(ctx *gin.Context) {
         ctx.JSON(http.StatusOK, gin.H{

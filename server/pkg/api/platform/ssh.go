@@ -69,7 +69,18 @@ func generateSessionID() string {
 	return hex.EncodeToString(bytes)
 }
 
-// HTTP handler for SSH connection
+// SshConnectHandler creates SSH connection and returns session ID
+// @Summary Create SSH connection
+// @Description Establish an SSH connection to a remote server and return a session ID for WebSocket communication
+// @Tags ssh
+// @Accept json
+// @Produce json
+// @Param request body SshConnectRequest true "SSH connection request"
+// @Success 200 {object} gin.H "SSH connection established successfully"
+// @Failure 400 {object} gin.H "Invalid request"
+// @Failure 401 {object} gin.H "SSH authentication failed"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /ssh/connect [post]
 func (m *SshManager) SshConnectHandler() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var req SshConnectRequest
@@ -148,7 +159,15 @@ func (m *SshManager) SshConnectHandler() gin.HandlerFunc {
 	}
 }
 
-// WebSocket handler for terminal communication
+// SshWebSocketHandler handles WebSocket connections for terminal communication
+// @Summary WebSocket SSH terminal
+// @Description Establish a WebSocket connection for real-time SSH terminal communication
+// @Tags ssh
+// @Param session-id path string true "SSH Session ID"
+// @Success 101 {string} string "Switching Protocols"
+// @Failure 400 {object} gin.H "Invalid session ID"
+// @Failure 404 {object} gin.H "Session not found"
+// @Router /ws/ssh/{session-id} [get]
 func (m *SshManager) SshWebSocketHandler() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// Extract session ID from URL path

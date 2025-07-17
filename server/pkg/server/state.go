@@ -49,7 +49,7 @@ type SslSetup struct {
 func NewSetupState(p *models.Project) *SetupState {
 	return &SetupState{
 		ProjectId: fmt.Sprintf("proj_%d_%s", p.Name,time.Now().Unix()),
-		ServerId: fmt.Sprintf("srv_%s_%d_%s", p.Name, p.Provider, time.Now().Unix()),
+		ServerId: fmt.Sprintf("srv_%s_%d_%s", p.Name, time.Now().Unix()),
 		Status: models.Pending,
 		Phases: Phases{},
 	}

@@ -1,12 +1,13 @@
 package models
 
 import (
-    "time"
+	"encoding/json"
+	"time"
 )
 
 // States
 const (
-	Pending = "pending"
+	Pending = "setup"
 	Building = "building"
 	Deploying = "deploying"
 	Success = "success"
@@ -23,16 +24,15 @@ const (
 )
 
 type Project struct {
-    ID            string            `db:"id" json:"id"`
+    Id            string            `db:"id" json:"id"`
     Name          string            `db:"name" json:"name"`
     GitRepo       string            `db:"git_repo" json:"git_repo"`
-    Domain        string            `db:"domain" json:"domain"`
-    Provider      string            `db:"provider" json:"provider"`
-    Environment   map[string]string `db:"environment" json:"environment,omitempty"`
+    Domain        *string            `db:"domain" json:"domain,omitempty"`
+    Environment   *json.RawMessage   `db:"environment" json:"environment,omitempty"`
     CreatedAt     time.Time         `db:"created_at" json:"created_at"`
     UpdatedAt     time.Time         `db:"updated_at" json:"updated_at"`
+    DeploymentURL *string            `db:"deployment_url" json:"deployment_url,omitempty"`
     LastDeployed  *time.Time        `db:"last_deployed" json:"last_deployed,omitempty"`
-    DeploymentURL string            `db:"deployment_url" json:"deployment_url,omitempty"`
-	Status        string            `db:"status" json:"status"`
-    HostConfigs   map[string]any    `db:"host_configs" json:"host_configs,omitempty"`
+	Status        string            `db:"status" json:"status,omitempty"`
+    HostConfigs   *json.RawMessage   `db:"host_configs" json:"host_configs,omitempty"`
 }

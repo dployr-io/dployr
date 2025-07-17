@@ -1,55 +1,89 @@
 package projects
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
+	"dployr.io/pkg/api/middleware"
 	"dployr.io/pkg/models"
 	"dployr.io/pkg/repository"
+	"github.com/gin-gonic/gin"
 )
 
 type CreateProjectRequest struct {
 	Name          string            `json:"name" binding:"required"`
 	GitRepo       string            `json:"git_repo" binding:"required"`
 	Domain        string            `json:"domain"`
-	Provider      string            `json:"provider" binding:"required"`
-	Environment   map[string]string `json:"environment,omitempty"`
+	Environment   json.RawMessage `json:"environment,omitempty"`
 	DeploymentURL string            `json:"deployment_url,omitempty"`
 	Status        string            `json:"status"`
-	HostConfigs   map[string]any    `json:"host_configs,omitempty"`
+	HostConfigs   json.RawMessage    `json:"host_configs,omitempty"`
 }
 
 type UpdateProjectRequest struct {
 	Name          string            `json:"name"`
 	GitRepo       string            `json:"git_repo"`
 	Domain        string            `json:"domain"`
-	Provider      string            `json:"provider"`
-	Environment   map[string]string `json:"environment,omitempty"`
+	Environment   json.RawMessage `json:"environment,omitempty"`
 	DeploymentURL string            `json:"deployment_url,omitempty"`
 	Status        string            `json:"status"`
-	HostConfigs   map[string]any    `json:"host_configs,omitempty"`
+	HostConfigs   json.RawMessage    `json:"host_configs,omitempty"`
 }
 
-func CreateProjectHandler(projectRepo *repository.ProjectRepo) gin.HandlerFunc {
+// CreateProjectHandler creates a new project
+// @Summary Create a new project
+// @Description Create a new deployment project with the provided configuration
+// @Tags projects
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CreateProjectRequest true "Project creation request"
+// @Success 201 {object} gin.H "Project created successfully"
+// @Failure 400 {object} gin.H "Invalid request"
+// @Failure 401 {object} gin.H "Unauthorized"
+// @Failure 429 {object} gin.H "Too many requests"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /api/projects [post]
+func CreateProjectHandler(projectRepo *repository.ProjectRepo, rl *middleware.RateLimiter) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+        clientIP := ctx.ClientIP()
+
 		var req CreateProjectRequest
 		if err := ctx.ShouldBindJSON(&req); err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
+		// Rate limiting
+		if !rl.IsAllowed(fmt.Sprintf("%s-create-project", clientIP)) {
+			ctx.JSON(http.StatusTooManyRequests, gin.H{
+				"error": "Too many requests. Please wait before attempting to create project.",
+			})
+			return
+		}
+
 		project := &models.Project{
 			Name:          req.Name,
 			GitRepo:       req.GitRepo,
-			Domain:        req.Domain,
-			Provider:      req.Provider,
-			Environment:   req.Environment,
-			DeploymentURL: req.DeploymentURL,
-			Status:        req.Status,
-			HostConfigs:   req.HostConfigs,
+			Domain:        &req.Domain,
+		}
+
+		if req.Environment != nil {
+			envJSON, _ := json.Marshal(req.Environment)
+			rawMessage := json.RawMessage(envJSON)
+			project.Environment = &rawMessage  
+		}
+		
+		if req.HostConfigs != nil {
+			configJSON, _ := json.Marshal(req.HostConfigs)
+			rawMessage := json.RawMessage(configJSON)
+			project.HostConfigs = &rawMessage  
 		}
 
 		if err := projectRepo.Create(ctx, project); err != nil {
+			log.Printf("Error creating project: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create project"})
 			return
 		}
@@ -58,10 +92,22 @@ func CreateProjectHandler(projectRepo *repository.ProjectRepo) gin.HandlerFunc {
 	}
 }
 
+// RetrieveProjectsHandler retrieves all projects
+// @Summary Get all projects
+// @Description Retrieve a list of all projects for the authenticated user
+// @Tags projects
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} gin.H "Projects retrieved successfully"
+// @Failure 401 {object} gin.H "Unauthorized"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /api/projects [get]
 func RetrieveProjectsHandler(projectRepo *repository.ProjectRepo) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		projects, err := projectRepo.GetAll(ctx)
 		if err != nil {
+			log.Printf("Error retrieving projects: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve projects"})
 			return
 		}
@@ -70,6 +116,19 @@ func RetrieveProjectsHandler(projectRepo *repository.ProjectRepo) gin.HandlerFun
 	}
 }
 
+// RetrieveProjectHandler retrieves a specific project by ID
+// @Summary Get a project by ID
+// @Description Retrieve a specific project by its ID
+// @Tags projects
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Project ID"
+// @Success 200 {object} gin.H "Project retrieved successfully"
+// @Failure 401 {object} gin.H "Unauthorized"
+// @Failure 404 {object} gin.H "Project not found"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /api/projects/{id} [get]
 func RetrieveProjectHandler(projectRepo *repository.ProjectRepo) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		id := ctx.Param("id")
@@ -84,13 +143,38 @@ func RetrieveProjectHandler(projectRepo *repository.ProjectRepo) gin.HandlerFunc
 	}
 }
 
-func UpdateProjectHandler(projectRepo *repository.ProjectRepo) gin.HandlerFunc {
+// UpdateProjectHandler updates an existing project
+// @Summary Update a project
+// @Description Update an existing project with new configuration
+// @Tags projects
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Project ID"
+// @Param request body UpdateProjectRequest true "Project update request"
+// @Success 200 {object} gin.H "Project updated successfully"
+// @Failure 400 {object} gin.H "Invalid request"
+// @Failure 401 {object} gin.H "Unauthorized"
+// @Failure 404 {object} gin.H "Project not found"
+// @Failure 429 {object} gin.H "Too many requests"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /api/projects/{id} [put]
+func UpdateProjectHandler(projectRepo *repository.ProjectRepo, rl *middleware.RateLimiter) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		clientIP := ctx.ClientIP()
 		id := ctx.Param("id")
 
 		var req UpdateProjectRequest
 		if err := ctx.ShouldBindJSON(&req); err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Rate limiting
+		if !rl.IsAllowed(fmt.Sprintf("%s-create-project", clientIP)) {
+			ctx.JSON(http.StatusTooManyRequests, gin.H{
+				"error": "Too many requests. Please wait before attempting to create project.",
+			})
 			return
 		}
 
@@ -108,23 +192,21 @@ func UpdateProjectHandler(projectRepo *repository.ProjectRepo) gin.HandlerFunc {
 			project.GitRepo = req.GitRepo
 		}
 		if req.Domain != "" {
-			project.Domain = req.Domain
+			project.Domain = &req.Domain
 		}
-		if req.Provider != "" {
-			project.Provider = req.Provider
-		}
+
 		if req.Environment != nil {
-			project.Environment = req.Environment
+			envJSON, _ := json.Marshal(req.Environment)
+			rawMessage := json.RawMessage(envJSON)
+			project.Environment = &rawMessage
 		}
-		if req.DeploymentURL != "" {
-			project.DeploymentURL = req.DeploymentURL
-		}
-		if req.Status != "" {
-			project.Status = req.Status
-		}
+		
 		if req.HostConfigs != nil {
-			project.HostConfigs = req.HostConfigs
+			configJSON, _ := json.Marshal(req.HostConfigs)
+			rawMessage := json.RawMessage(configJSON)
+			project.HostConfigs = &rawMessage 
 		}
+
 
 		if err := projectRepo.Update(ctx, project); err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update project"})
@@ -135,6 +217,17 @@ func UpdateProjectHandler(projectRepo *repository.ProjectRepo) gin.HandlerFunc {
 	}
 }
 
+// DeleteProjectHandler deletes a project
+// @Summary Deletes a project
+// @Description Deletes a project from list of projects 
+// @Tags projects
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} gin.H "Project deleted successfully"
+// @Failure 401 {object} gin.H "Unauthorized"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /api/projects [get]
 func DeleteProjectHandler(projectRepo *repository.ProjectRepo) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		id := ctx.Param("id")

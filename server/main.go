@@ -11,8 +11,29 @@ import (
 	"dployr.io/pkg/config"
 	"dployr.io/pkg/queue"
 	"dployr.io/pkg/server"
+
+	_ "dployr.io/docs"
 )
 
+// @title           dployr API
+// @version         0.1
+// @description     Your app, your server, your rules
+// @termsOfService  https://dployr.io/terms
+
+// @contact.name   API Support
+// @contact.url    https://dployr.io/support
+// @contact.email  support@dployr.io
+
+// @license.name  MIT
+// @license.url   https://opensource.org/licenses/MIT
+
+// @host      localhost:7879
+// @BasePath  /v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 func main() {
 	repos := config.InitDB()
 

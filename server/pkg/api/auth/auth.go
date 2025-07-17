@@ -120,8 +120,21 @@ func (j *JWTManager) ValidateToken(tokenString string) (*Claims, error) {
 }
 
 // RequestMagicCodeHandler handles both signup and login with rate limiting
-func RequestMagicCodeHandler(userRepo *repository.UserRepo, tokenRepo *repository.MagicTokenRepo, codeRateLimiter *middleware.RateLimiter) gin.HandlerFunc {
+// @Summary Request magic code for authentication
+// @Description Request a 6-digit magic code to be sent to the user's email for authentication
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body MagicCodeRequest true "Magic code request"
+// @Success 200 {object} gin.H "Magic code sent successfully"
+// @Failure 400 {object} gin.H "Invalid request"
+// @Failure 429 {object} gin.H "Too many requests"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /auth/request-code [post]
+func RequestMagicCodeHandler(userRepo *repository.UserRepo, tokenRepo *repository.MagicTokenRepo, rl *middleware.RateLimiter) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		clientIP := ctx.ClientIP()
+
 		var req MagicCodeRequest
 		if err := ctx.ShouldBindJSON(&req); err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -129,7 +142,7 @@ func RequestMagicCodeHandler(userRepo *repository.UserRepo, tokenRepo *repositor
 		}
 
 		// Rate limiting
-		if !codeRateLimiter.IsAllowed(req.Email) {
+		if !rl.IsAllowed(fmt.Sprintf("%s-request-code", clientIP)) {
 			ctx.JSON(http.StatusTooManyRequests, gin.H{
 				"error": "Too many requests. Please wait before requesting another code.",
 			})
@@ -179,6 +192,17 @@ func RequestMagicCodeHandler(userRepo *repository.UserRepo, tokenRepo *repositor
 	}
 }
 
+// VerifyMagicCodeHandler verifies the magic code and returns JWT token
+// @Summary Verify magic code and authenticate
+// @Description Verify the 6-digit magic code received via email and return JWT token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body MagicCodeVerify true "Magic code verification"
+// @Success 200 {object} gin.H "Authentication successful"
+// @Failure 400 {object} gin.H "Invalid request"
+// @Failure 401 {object} gin.H "Invalid or expired code"
+// @Failure 500 {object} gin.H "Internal server error"
 func VerifyMagicCodeHandler(j *JWTManager, userRepo *repository.UserRepo, tokenRepo *repository.MagicTokenRepo) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var req MagicCodeVerify

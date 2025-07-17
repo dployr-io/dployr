@@ -4,6 +4,9 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
 	"dployr.io/pkg/api/auth"
 	"dployr.io/pkg/api/middleware"
 	"dployr.io/pkg/api/observability"
@@ -32,6 +35,9 @@ func New(
 	health := observability.NewHealthManager(ssh, queue)
 	r.GET("/health", health.HealthHandler())
 
+	// Swagger endpoint
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
 	// API v1 routes
 	v1 := r.Group("/v1")
 	{
@@ -54,8 +60,8 @@ func New(
 		api.Use(auth.JWTAuth(j))
 		{
 			api.GET("/projects", projects.RetrieveProjectsHandler(ar.ProjectRepo))
-			api.POST("/projects", projects.CreateProjectHandler(ar.ProjectRepo))
-			api.PUT("/projects/:id", projects.UpdateProjectHandler(ar.ProjectRepo))
+			api.POST("/projects", projects.CreateProjectHandler(ar.ProjectRepo, rl))
+			api.PUT("/projects/:id", projects.UpdateProjectHandler(ar.ProjectRepo, rl))
 			api.DELETE("/projects/:id", projects.DeleteProjectHandler(ar.ProjectRepo))
 		}
 	}
