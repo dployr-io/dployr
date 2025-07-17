@@ -142,7 +142,7 @@
           class="app-input w-full px-4 py-1.5 text-sm rounded-lg outline-none transition-all" 
         />
       </div>
-      <div>
+      <!-- <div>
         <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1 px-4 text-left">Name</label>
         <input 
           id="name"
@@ -152,7 +152,7 @@
           bind:value={$name} 
           class="app-input w-full px-4 py-1.5 text-sm rounded-lg outline-none transition-all" 
         />
-      </div>
+      </div> -->
       <div>
         <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1 px-4 text-left">Email address</label>
         <input 

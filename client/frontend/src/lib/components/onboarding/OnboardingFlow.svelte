@@ -121,7 +121,7 @@
     if ($currentPage === 0) return $selectedOptions.length > 0;
     if ($currentPage === 1) return $discoveryOptions.length > 0 && (!$discoveryOptions.includes('Other') || $discoveryOther.trim().length > 0);
     if ($currentPage === 2) return !!$appStage;
-    if ($currentPage === 3) return !!$host && !!$email && !!$name;
+    if ($currentPage === 3) return !!$host && !!$email;
     if ($currentPage === 4) return $otp.length === 6;
     return false;
   })();
