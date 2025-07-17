@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS projects (
     name           TEXT      NOT NULL,
     git_repo       TEXT      NOT NULL,
     domain         TEXT      NOT NULL,
-    provider       TEXT      NOT NULL,
     environment    JSON,
     created_at     DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
