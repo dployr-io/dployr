@@ -34,7 +34,6 @@ type Domain struct {
 }
 
 type AuthResponse struct {
-	Success bool
 	User    *User
 	Error   string
 }
