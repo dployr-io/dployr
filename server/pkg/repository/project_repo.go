@@ -54,9 +54,8 @@ func (r *ProjectRepo) GetByID(ctx context.Context, id string) (*models.Project, 
 }
 
 func (r *ProjectRepo) GetAll(ctx context.Context) ([]*models.Project, error) {
-	var projects []*models.Project
+	projects := []*models.Project{}  
 	query := `SELECT * FROM projects ORDER BY created_at DESC`
 	err := r.db.SelectContext(ctx, &projects, query)
 	return projects, err
 }
-
