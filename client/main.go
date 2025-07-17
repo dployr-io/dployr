@@ -6,9 +6,9 @@ import (
 	"dployr/core/data"
 	"dployr/core/domain"
 	"dployr/core/terminal"
-	"dployr/core/types"
 	"embed"
 
+	"dployr.io/pkg/models"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -77,35 +77,35 @@ func (a *App) VerifyMagicCode(host, email, code string) (any, error) {
 	return a.authService.VerifyMagicCode(host, email, code)
 }
 
-func (a *App) GetDeployments() []types.Deployment {
+func (a *App) GetDeployments() []models.Deployment {
 	return a.dataService.GetDeployments()
 }
 
-func (a *App) GetLogs() []types.LogEntry {
+func (a *App) GetLogs() []models.LogEntry {
 	return a.dataService.GetLogs()
 }
 
-func (a *App) GetProjects() []types.Project {
-	return a.dataService.GetProjects()
+func (a *App) GetProjects(host string) (*[]models.Project, error) {
+	return a.dataService.GetProjects(host)
 }
 
-func (a *App) AddDomain(domain string, projectID string) (types.Domain, error) {
+func (a *App) AddDomain(domain string, projectID string) (models.Domain, error) {
 	return a.domainService.AddDomain(domain, projectID)
 }
 
-func (a *App) GetDomains() []types.Domain {
+func (a *App) GetDomains() []models.Domain {
 	return a.domainService.GetDomains()
 }
 
-func (a *App) NewConsole() *types.Console {
-	return &types.Console{}
+func (a *App) NewConsole() *models.Console {
+	return &models.Console{}
 }
 
-func (a *App) NewWsMessage() *types.WsMessage {
-	return &types.WsMessage{}
+func (a *App) NewWsMessage() *models.WsMessage {
+	return &models.WsMessage{}
 }
 
-func (a *App) ConnectSsh(hostname string, port int, username string, password string) (*types.SshConnectResponse, error) {
+func (a *App) ConnectSsh(hostname string, port int, username string, password string) (*models.SshConnectResponse, error) {
 	return a.terminalService.ConnectSsh(hostname, port, username, password)
 }
 

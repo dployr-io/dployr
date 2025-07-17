@@ -14,7 +14,7 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 	_runtime "github.com/wailsapp/wails/v2/pkg/runtime"
 
-	"dployr/core/types"
+	"dployr.io/pkg/models"
 )
 
 type TerminalService struct {
@@ -29,7 +29,7 @@ func NewTerminalService(ctx context.Context) *TerminalService {
 	}
 }
 
-func (t *TerminalService) ConnectSsh(hostname string, port int, username string, password string) (*types.SshConnectResponse, error) {
+func (t *TerminalService) ConnectSsh(hostname string, port int, username string, password string) (*models.SshConnectResponse, error) {
 	log.Printf("Attempting ssh connection to: %s:%d, user: %s", hostname, port, username)
 
 	url := fmt.Sprintf("http://%s:7879/v1/ssh/connect", hostname)
@@ -59,7 +59,7 @@ func (t *TerminalService) ConnectSsh(hostname string, port int, username string,
 	}
 	defer res.Body.Close()
 
-	var response types.SshConnectResponse
+	var response models.SshConnectResponse
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %v", err)
 	}
@@ -100,7 +100,7 @@ func (t *TerminalService) SendTerminalInput(data string) error {
 		return fmt.Errorf("WebSocket not connected")
 	}
 
-	message := types.WsMessage{
+	message := models.WsMessage{
 		Type: "input",
 		Data: data,
 	}
@@ -127,7 +127,7 @@ func (t *TerminalService) ResizeTerminal(cols, rows int) error {
 		return fmt.Errorf("WebSocket not connected")
 	}
 
-	message := types.WsMessage{
+	message := models.WsMessage{
 		Type: "resize",
 		Cols: cols,
 		Rows: rows,
@@ -185,7 +185,7 @@ func (t *TerminalService) handleWebSocketMessages() {
 			break
 		}
 
-		var msg types.WsMessage
+		var msg models.WsMessage
 		if err := msgpack.Unmarshal(messageData, &msg); err != nil {
 			log.Printf("Failed to unpack messagepack payload: %v", err)
 			break

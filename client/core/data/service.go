@@ -2,13 +2,16 @@
 package data
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
 
-	"dployr/core/types"
+	"dployr.io/pkg/models"
 )
 
 type DataService struct{}
@@ -17,10 +20,10 @@ func NewDataService() *DataService {
 	return &DataService{}
 }
 
-func (d *DataService) GetDeployments() []types.Deployment {
-	return []types.Deployment{
+func (d *DataService) GetDeployments() []models.Deployment {
+	return []models.Deployment{
 		{
-			ID:        "GYjp7NCai",
+			CommitHash:        "GYjp7NCai",
 			Branch:    "main",
 			Duration:  120,
 			Message:   "Initial deployment",
@@ -28,7 +31,7 @@ func (d *DataService) GetDeployments() []types.Deployment {
 			Status:    "success",
 		},
 		{
-			ID:        "KhddGNCdf",
+			CommitHash:        "KhddGNCdf",
 			Branch:    "develop",
 			Duration:  90,
 			Message:   "Second deployment",
@@ -38,8 +41,8 @@ func (d *DataService) GetDeployments() []types.Deployment {
 	}
 }
 
-func (d *DataService) GetLogs() []types.LogEntry {
-	var logs []types.LogEntry
+func (d *DataService) GetLogs() []models.LogEntry {
+	var logs []models.LogEntry
 
 	hosts := []string{
 		"https://api.example.com",
@@ -101,7 +104,7 @@ func (d *DataService) GetLogs() []types.LogEntry {
 			level = "info"
 		}
 
-		logs = append(logs, types.LogEntry{
+		logs = append(logs, models.LogEntry{
 			Id:        fmt.Sprintf("717172%04d", 8220+i),
 			Level:     level,
 			Host:      hosts[rand.Intn(len(hosts))],
@@ -118,39 +121,26 @@ func (d *DataService) GetLogs() []types.LogEntry {
 	return logs
 }
 
-func (d *DataService) GetProjects() []types.Project {
-	return []types.Project{
-		{
-			Name:        "taxi-navigator",
-			Description: "A web application for navigating taxi routes",
-			URL:         "github.com/tommy/taxi-navigator",
-			Icon:        "https://picsum.photos/200/200",
-			Date:        time.Now(),
-			Provider:    "github",
-		},
-		{
-			Name:        "docker-study",
-			Description: "A study project for Docker",
-			URL:         "github.com/tommy/docker-study",
-			Icon:        "https://picsum.photos/200/200",
-			Date:        time.Now().AddDate(0, 0, -30),
-			Provider:    "github",
-		},
-		{
-			Name:        "ml-project",
-			Description: "A machine learning project",
-			URL:         "gitlab.com/tommy/ml-project",
-			Icon:        "https://picsum.photos/200/200",
-			Date:        time.Now().AddDate(0, 0, -70),
-			Provider:    "gitlab",
-		},
-		{
-			Name:        "Xmas-Frenzy",
-			Description: "A festive project for the holiday season",
-			URL:         "unity.com/tommy/xmas-frenzy",
-			Icon:        "https://picsum.photos/200/200",
-			Date:        time.Now().AddDate(0, 0, -210),
-			Provider:    "unity",
-		},
-	}
+func (d *DataService) GetProjects(host string) (*[]models.Project, error) {
+	url := fmt.Sprintf("http://%s:7879/v1/api/projects", host)
+
+    resp, err := http.Get(url)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode < 200 || resp.StatusCode > 299 {
+        errBody, err := io.ReadAll(resp.Body)
+        if err != nil {
+            return nil, err
+        }
+        return nil, fmt.Errorf("verification failed (%d): %s", resp.StatusCode, errBody)
+    }
+
+    var result []models.Project
+    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+        return nil, err
+    }
+    return &result, nil
 }

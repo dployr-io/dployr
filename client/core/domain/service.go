@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"dployr/core/types"
+	"dployr.io/pkg/models"
 )
 
 type DomainService struct {
@@ -18,14 +18,14 @@ func NewDomainService(baseURL string) *DomainService {
 	}
 }
 
-func (d *DomainService) AddDomain(domain string, projectID string) (types.Domain, error) {
+func (d *DomainService) AddDomain(domain string, projectID string) (models.Domain, error) {
 	// _, err := http.Post(d.baseURL+"/foo/bar", "application/json" , &types.Domain{
 	// 	domain: "foo.bar",
 	// })
 
 	time.Sleep(3 * time.Second)
 
-	res := types.Domain{
+	res := models.Domain{
 		Provider:           "cloudflare",
 		AutoSetupAvailable: true,
 		ManualRecords:      d.generateManualInstructions(domain, "202.121.80.311"),
@@ -36,8 +36,8 @@ func (d *DomainService) AddDomain(domain string, projectID string) (types.Domain
 	return res, err
 }
 
-func (d *DomainService) GetDomains() []types.Domain {
-	return []types.Domain{
+func (d *DomainService) GetDomains() []models.Domain {
+	return []models.Domain{
 		{
 			Id:                 "39189134002340941",
 			Subdomain:          "foo.bar",

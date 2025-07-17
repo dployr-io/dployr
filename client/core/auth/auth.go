@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"runtime"
 
-	"dployr/core/types"
+    "dployr.io/pkg/models"
 )
 
 type AuthService struct{}
@@ -21,7 +21,7 @@ func NewAuthService() *AuthService {
 }
 
 
-func (a *AuthService) SignIn(host, email, name, password, privateKey string) (*types.MessageResponse, error) {
+func (a *AuthService) SignIn(host, email, name, password, privateKey string) (*models.MessageResponse, error) {
     url := fmt.Sprintf("http://%s:7879/v1/auth/request-code", host)
 
     payload := map[string]string{"name": name, "email": email}
@@ -44,7 +44,7 @@ func (a *AuthService) SignIn(host, email, name, password, privateKey string) (*t
         return nil, fmt.Errorf("sign-in failed (%d): %s", resp.StatusCode, errBody)
     }
 
-    var result types.MessageResponse
+    var result models.MessageResponse
     if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
         return nil, err
     }
@@ -85,11 +85,11 @@ func SignOut() {
 	// Remove from local storage
 }
 
-func GetCurrentUser() *types.User {
+func GetCurrentUser() *models.User {
 	// Retrieve from localstorage
 
 	var sessionResp struct {
-		User *types.User `json:"user"`
+		User *models.User `json:"user"`
 	}
 
 	//json.NewDecoder(resp.Body).Decode(&sessionResp)
