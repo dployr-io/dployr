@@ -1,2 +1,2 @@
 # dployr
-A Free Un-opinionated Deployment Orchestrator for Next.js Apps
+Your app, your server, your rules
