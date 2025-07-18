@@ -1,6 +1,6 @@
 <script lang="ts">
   import { SIDEBAR_WIDTH_DOCKED } from '../../../../src/constants';
-  import { projects, selectedProject, appState, viewMode, sidebarWidth } from '../../../stores';
+  import { projects, selectedProject, appState, sidebarWidth, showNewProjectPopup } from '../../../stores';
   import ProjectCard from './ProjectCard.svelte';
 
 
@@ -9,15 +9,15 @@
     appState.update(state => ({ ...state, selectedProjectId: project.id }));
   }
 
-  function toggleViewMode(mode: 'grid' | 'list') {
-    viewMode.set(mode);
-  }
-
   function handleSideBarDockToggle() {
     $sidebarWidth !== SIDEBAR_WIDTH_DOCKED ?
     sidebarWidth.set(SIDEBAR_WIDTH_DOCKED):
     sidebarWidth.set(640);
   } 
+
+  function handleNewProject() {
+    showNewProjectPopup.set(true);
+  }
 </script>
 <div class="flex flex-col gap-4">
   <div class="flex w-full justify-end items-center">
@@ -35,7 +35,14 @@
       {/if}
     </button>
   </div>
-  <div class="flex flex-col gap-6">
+  <div class="flex flex-col gap-6 items-center">
+    {#if $sidebarWidth === SIDEBAR_WIDTH_DOCKED}
+      <button on:click={handleNewProject}>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      </button>
+    {/if}
     {#each $projects as project}
       <ProjectCard 
         {project} 
@@ -47,7 +54,7 @@
     {#if $sidebarWidth !== SIDEBAR_WIDTH_DOCKED}
       <!-- Add New Project Card -->
       <button type="button" 
-        class="card p-6 rounded-lg cursor-pointer transition-all duration-200 text-left border-dashed"
+        class="card p-6 w-full rounded-lg cursor-pointer transition-all duration-200 text-left border-dashed"
         on:click={() => {}}
         tabindex="0"
       >

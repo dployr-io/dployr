@@ -2,6 +2,7 @@
 package data
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -151,3 +152,107 @@ func (d *DataService) GetProjects(host, token string) ([]models.Project, error) 
     }
     return result, nil
 }
+
+func (d *DataService) CreateProject(host, token string, payload map[string]string) (*models.Project, error) {
+	url := fmt.Sprintf("http://%s:7879/v1/api/projects", host)
+
+	b, err := json.Marshal(payload)
+    if err != nil {
+        return nil, err
+    }
+
+	req, err := http.NewRequest("POST", url, bytes.NewReader(b))
+    if err != nil {
+        return nil, err
+    }
+
+    req.Header.Set("Authorization", "Bearer "+token)
+    resp, err := http.DefaultClient.Do(req)
+	
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode < 200 || resp.StatusCode > 299 {
+        errBody, err := io.ReadAll(resp.Body)
+        if err != nil {
+            return nil, err
+        }
+        return nil, fmt.Errorf("verification failed (%d): %s", resp.StatusCode, errBody)
+    }
+
+    var result *models.Project
+    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+        return nil, err
+    }
+    return result, nil
+}
+
+func (d *DataService) UpdateProject(host, token string, payload map[string]any) (*models.Project, error) {
+	url := fmt.Sprintf("http://%s:7879/v1/api/projects", host)
+
+	b, err := json.Marshal(payload)
+    if err != nil {
+        return nil, err
+    }
+
+	req, err := http.NewRequest("PUT", url, bytes.NewReader(b))
+    if err != nil {
+        return nil, err
+    }
+
+    req.Header.Set("Authorization", "Bearer "+token)
+    resp, err := http.DefaultClient.Do(req)
+	
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode < 200 || resp.StatusCode > 299 {
+        errBody, err := io.ReadAll(resp.Body)
+        if err != nil {
+            return nil, err
+        }
+        return nil, fmt.Errorf("verification failed (%d): %s", resp.StatusCode, errBody)
+    }
+
+    var result *models.Project
+    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+        return nil, err
+    }
+    return result, nil
+}
+
+func (d *DataService) DeleteProject(host, token string,) (*models.MessageResponse, error) {
+	url := fmt.Sprintf("http://%s:7879/v1/api/projects", host)
+
+	req, err := http.NewRequest("DELETE", url, nil)
+    if err != nil {
+        return nil, err
+    }
+
+    req.Header.Set("Authorization", "Bearer "+token)
+    resp, err := http.DefaultClient.Do(req)
+	
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    if resp.StatusCode < 200 || resp.StatusCode > 299 {
+        errBody, err := io.ReadAll(resp.Body)
+        if err != nil {
+            return nil, err
+        }
+        return nil, fmt.Errorf("verification failed (%d): %s", resp.StatusCode, errBody)
+    }
+
+    var result *models.MessageResponse
+    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+        return nil, err
+    }
+    return result, nil
+}
+

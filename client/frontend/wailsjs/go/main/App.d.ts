@@ -6,6 +6,10 @@ export function AddDomain(arg1:string,arg2:string):Promise<models.Domain>;
 
 export function ConnectSsh(arg1:string,arg2:number,arg3:string,arg4:string):Promise<models.SshConnectResponse>;
 
+export function CreateProject(arg1:string,arg2:string,arg3:Record<string, string>):Promise<models.Project>;
+
+export function DeleteProject(arg1:string,arg2:string):Promise<models.MessageResponse>;
+
 export function DisconnectTerminal():Promise<void>;
 
 export function GetCurrentUser():Promise<models.User>;
@@ -31,5 +35,7 @@ export function SendTerminalInput(arg1:string):Promise<void>;
 export function SignIn(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<any>;
 
 export function StartTerminalWebSocket(arg1:string,arg2:string):Promise<void>;
+
+export function UpdateProject(arg1:string,arg2:string,arg3:Record<string, any>):Promise<models.Project>;
 
 export function VerifyMagicCode(arg1:string,arg2:string,arg3:string):Promise<any>;

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { viewMode, showFilterDropdown, appState } from '../../../stores';
+  import { appState } from '../../../stores';
 
   let selectedSection = 'Deployments';
 
@@ -14,7 +14,7 @@
 <div class="relative border-b border-gray-700 px-6 py-3">
   <div class="flex items-center">
     <button class="flex flex-none app-button px-4 py-2 rounded-lg font-medium items-center gap-2">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-4">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
       </svg>
       Back 

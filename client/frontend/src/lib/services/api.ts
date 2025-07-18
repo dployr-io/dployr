@@ -8,6 +8,7 @@ import {
   GetDomains,
   NewConsole,
   VerifyMagicCode,
+  CreateProject,
 } from '../../../wailsjs/go/main/App.js';
 import { models } from '../../../wailsjs/go/models';
 import { getFromLocalStorage } from '../../../src/utils/localStorage';
@@ -60,9 +61,17 @@ export const dataService = {
     const domainsData = await GetDomains();
     return domainsData.map((p: any) => models.Domain.createFrom(p));
   },
+};
 
+export const consoleService = {
   async newConsole() {
     const consoleData = await NewConsole();
     return models.Console.createFrom(consoleData);
   }
+};
+
+export const projectService = {
+  async createProject(host: string, token: string, payload: Record<string, string>) {
+    return await CreateProject(host, token, payload);
+  },
 };

@@ -37,10 +37,10 @@
       <button 
         on:click={nextPage}
         disabled={!canProceed}
-        class="px-8 py-3 border-none rounded-xl font-semibold text-base transition-all duration-300 
+        class="px-6 py-3 border-none rounded-md font-semibold text-sm transition-all duration-300
         {canProceed 
           ? 'bg-[#195B5E] text-white hover:-translate-y-px hover:bg-[#144a4d] cursor-pointer' 
-          : 'bg-[#CFDBD5] text-gray-500 cursor-not-allowed'}"
+          : ''}"
       >
         Next
       </button>
@@ -77,14 +77,14 @@
     <div class="flex justify-between mt-4">
       <button 
         on:click={previousPage}
-        class="px-8 py-3 border-none rounded-xl font-semibold text-base cursor-pointer transition-all duration-300 bg-[#195B5E] text-white hover:-translate-y-px hover:bg-[#144a4d]"
+        class="px-6 py-3 border-none rounded-md font-semibold text-sm transition-all duration-300 bg-[#195B5E] text-white hover:-translate-y-px hover:bg-[#144a4d]"
       >
         Back
       </button>
       <button 
         on:click={nextPage}
         disabled={!canProceed}
-        class="px-8 py-3 border-none rounded-xl font-semibold text-base cursor-pointer transition-all duration-300 
+        class="px-6 py-3 border-none rounded-md font-semibold text-sm transition-all duration-300 
         {canProceed 
           ? 'bg-[#195B5E] text-white hover:-translate-y-px hover:bg-[#144a4d]' 
           : 'bg-[#CFDBD5] text-gray-500 cursor-not-allowed'}"
@@ -112,14 +112,14 @@
     <div class="flex justify-between mt-4">
       <button 
         on:click={previousPage}
-        class="px-8 py-3 border-none rounded-xl font-semibold text-base cursor-pointer transition-all duration-300 bg-[#195B5E] text-white hover:-translate-y-px hover:bg-[#144a4d]"
+        class="px-6 py-3 border-none rounded-md font-semibold text-sm transition-all duration-300 bg-[#195B5E] text-white hover:-translate-y-px hover:bg-[#144a4d]"
       >
         Back
       </button>
       <button 
         on:click={nextPage}
         disabled={!canProceed}
-        class="px-8 py-3 border-none rounded-xl font-semibold text-base cursor-pointer transition-all duration-300 
+        class="px-6 py-3 border-none rounded-md font-semibold text-sm transition-all duration-300 
         {canProceed 
           ? 'bg-[#195B5E] text-white hover:-translate-y-px hover:bg-[#144a4d]' 
           : 'bg-[#CFDBD5] text-gray-500 cursor-not-allowed'}"
@@ -132,14 +132,14 @@
   <div class="flex flex-col gap-8 w-96 mx-auto">
     <div class="flex flex-col gap-4 w-full">
       <div>
-        <label for="hostname" class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1 px-4 text-left">Server hostname</label>
+        <label for="hostname" class="block text-sm font-semibold text-gray-700 dark:text-gray-400 mb-1 px-4 text-left">Server hostname</label>
         <input 
           id="hostname"
           name="hostname"
           type="text" 
           placeholder="888.888.88.888" 
           bind:value={$host} 
-          class="app-input w-full px-4 py-1.5 text-sm rounded-lg outline-none transition-all" 
+          class="app-input font-medium w-full px-4 py-1.5 text-sm rounded-lg outline-none transition-all" 
         />
       </div>
       <!-- <div>
@@ -154,14 +154,14 @@
         />
       </div> -->
       <div>
-        <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1 px-4 text-left">Email address</label>
+        <label for="email" class="block text-sm font-semibold text-gray-700 dark:text-gray-400 mb-1 px-4 text-left">Email address</label>
         <input 
           id="email"
           name="email"
           type="text" 
           placeholder="admin@acme.inc" 
           bind:value={$email} 
-          class="app-input w-full px-4 py-1.5 text-sm rounded-lg outline-none transition-all" 
+          class="app-input font-medium w-full px-4 py-1.5 text-sm rounded-lg outline-none transition-all" 
         />
       </div>
       <!-- {#if usePrivateKey}
@@ -212,14 +212,14 @@
     <div class="flex justify-between mt-4">
       <button 
         on:click={previousPage}
-        class="px-8 py-3 border-none rounded-xl font-semibold text-base cursor-pointer transition-all duration-300 bg-[#195B5E] text-white hover:-translate-y-px hover:bg-[#144a4d]"
+        class="px-6 py-3 border-none rounded-md font-semibold text-sm transition-all duration-300 bg-[#195B5E] text-white hover:-translate-y-px hover:bg-[#144a4d]"
       >
         Back
       </button>
       <button 
         on:click={handleSignIn}
         disabled={!canProceed || $isLoading}
-        class="px-8 py-3 border-none rounded-xl font-semibold text-base cursor-pointer transition-all duration-300 
+        class="px-6 py-3 border-none rounded-md font-semibold text-sm transition-all duration-300 
         {canProceed && !$isLoading
           ? 'bg-[#195B5E] text-white hover:-translate-y-px hover:bg-[#144a4d]' 
           : 'bg-[#CFDBD5] text-gray-500 cursor-not-allowed'}"      

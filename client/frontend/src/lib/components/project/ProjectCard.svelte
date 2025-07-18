@@ -18,7 +18,7 @@
 <div role="button"
   tabindex="0"
   aria-pressed={isSelected}
-  class="card rounded-lg cursor-pointer transition-all duration-200 text-left relative"
+  class="card rounded-lg w-full cursor-pointer transition-all duration-200 text-left relative"
   class:bg-gray-100={isSelected}
   class:dark:bg-opacity-10={isSelected}
   class:p-6={$sidebarWidth !== SIDEBAR_WIDTH_DOCKED}

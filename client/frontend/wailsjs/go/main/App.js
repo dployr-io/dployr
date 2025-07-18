@@ -10,6 +10,14 @@ export function ConnectSsh(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ConnectSsh'](arg1, arg2, arg3, arg4);
 }
 
+export function CreateProject(arg1, arg2, arg3) {
+  return window['go']['main']['App']['CreateProject'](arg1, arg2, arg3);
+}
+
+export function DeleteProject(arg1, arg2) {
+  return window['go']['main']['App']['DeleteProject'](arg1, arg2);
+}
+
 export function DisconnectTerminal() {
   return window['go']['main']['App']['DisconnectTerminal']();
 }
@@ -60,6 +68,10 @@ export function SignIn(arg1, arg2, arg3, arg4, arg5) {
 
 export function StartTerminalWebSocket(arg1, arg2) {
   return window['go']['main']['App']['StartTerminalWebSocket'](arg1, arg2);
+}
+
+export function UpdateProject(arg1, arg2, arg3) {
+  return window['go']['main']['App']['UpdateProject'](arg1, arg2, arg3);
 }
 
 export function VerifyMagicCode(arg1, arg2, arg3) {

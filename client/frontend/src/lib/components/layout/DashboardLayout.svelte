@@ -2,13 +2,41 @@
   import TopNavigation from './TopNavigation.svelte';
   import SubHeader from './SubHeader.svelte';
   import MainContent from './MainContent.svelte';
-  import { sidebarWidth, isResizing, showFilterDropdown, showProjectDropdown, showAccountDropdown, showProfileDropdown } from '../../../stores';
+  import { 
+    sidebarWidth, 
+    isResizing, 
+    showFilterDropdown, 
+    showProjectDropdown, 
+    showAccountDropdown, 
+    showProfileDropdown, 
+    showNewProjectPopup, 
+    host,
+
+    token,
+
+    name,
+
+    isLoading
+
+
+
+
+  } from '../../../stores';
   import { SIDEBAR_WIDTH_DOCKED } from '../../../../src/constants';
   import ProjectGrid from '../project/ProjectGrid.svelte';
+  import Modal from '../ui/Modal.svelte';
+  import { projectService } from '../../../../src/lib/services/api';
+  import { setTimeout } from 'timers/promises';
   
   export let icon: string;
   export let iconSecondary: string;
   export let isDarkMode: boolean;
+
+  export let projectName: string = "";
+  export let gitRepo: string = "";
+  export let error: Error;
+
+  $: isDisabled = projectName.length > 3 && gitRepo.length > 3;
 
   function startResize(e: MouseEvent) {
     isResizing.set(true);
@@ -39,9 +67,82 @@
       showProfileDropdown.set(false);
     });
   }
+  
+  async function handleCreateProject() {
+   isLoading.set(true);
+    try {
+      projectService.createProject($host, $token, {
+        "git_repo": gitRepo,
+        "name": projectName
+      })
+      gitRepo = "";
+      projectName = "";
+    } catch (e) {
+      error = e as Error;
+    } finally {
+       isLoading.set(false);
+    }
+  }
 </script>
 
 <div class="w-full h-screen flex flex-col">
+  {#if $showNewProjectPopup} 
+    <Modal bind:show={$showNewProjectPopup} title="New Project">
+      <label for="project-name" class="block text-sm font-semibold text-gray-700 dark:text-gray-400 mb-1 px-4 text-left">Name</label>
+      <input 
+        id="project-name"
+        name="project-name"
+        type="text" 
+        placeholder="Enter project name" 
+        bind:value={projectName} 
+        class="app-input font-medium w-full px-4 py-1.5 text-sm rounded-lg outline-none transition-all" 
+      />
+
+      <div class="h-4" />
+
+      <label for="git-repo" class="block text-sm font-semibold text-gray-700 dark:text-gray-400 mb-1 px-4 text-left">Remote repository</label>
+      <input 
+        id="git-repo"
+        name="git-repo"
+        type="text" 
+        placeholder="Enter link to git repository" 
+        bind:value={gitRepo} 
+        class="app-input font-medium w-full px-4 py-1.5 text-sm rounded-lg outline-none transition-all" 
+      />
+
+      <div class="h-4" />
+      {#if error}
+        <div class="flex pl-4">
+          <p class="font-semibold text-sm text-left text-red-400">
+            {error.message}
+          </p>
+        </div>
+      {/if}
+
+      <div slot="footer" class="flex gap-3">
+        <button class="app-button-outlined px-4 py-2 rounded-lg" on:click={() => $showNewProjectPopup = false}>Cancel</button>
+        <button  
+          class="
+            px-4 py-2 rounded-lg font-semibold text-sm
+            bg-[#195B5E] text-white hover:-translate-y-px hover:bg-[#144a4d]
+            disabled:bg-[#CFDBD5] disabled:text-gray-500 disabled:cursor-not-allowed
+          "
+          disabled={!isDisabled}
+          on:click={handleCreateProject}
+        >
+          {#if $isLoading}
+            <div class="flex items-center gap-2">
+              <div class="w-5 h-5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin mx-auto" />
+              Loading
+            </div>
+          {:else}
+            Create Project
+          {/if}
+        </button>
+      </div>
+    </Modal>
+  {/if}
+
   <TopNavigation {icon} {iconSecondary} {isDarkMode} />
   <SubHeader />
   

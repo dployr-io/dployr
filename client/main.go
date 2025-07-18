@@ -93,6 +93,18 @@ func (a *App) GetProjects(host, token string) ([]models.Project, error) {
 	return a.dataService.GetProjects(host, token)
 }
 
+func (a *App) CreateProject(host, token string, payload map[string]string) (*models.Project, error) {
+	return a.dataService.CreateProject(host, token, payload)
+}
+
+func (a *App) UpdateProject(host, token string, payload map[string]any) (*models.Project, error) {
+	return a.dataService.UpdateProject(host, token, payload)
+}
+
+func (a *App) DeleteProject(host, token string) (*models.MessageResponse, error) {
+	return a.dataService.DeleteProject(host, token)
+}
+
 func (a *App) AddDomain(domain string, projectID string) (models.Domain, error) {
 	return a.domainService.AddDomain(domain, projectID)
 }

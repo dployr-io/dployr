@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { deployments, appState } from '../../../stores';
+  import { deployments, appState, selectedDeployment } from '../../../stores';
   import DeploymentCard from './DeploymentCard.svelte';
 
   function selectDeployment(deployment: any) {
@@ -7,7 +7,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-6 h-full max-w-5xl">
+<div class="flex flex-col gap-6 h-full w-full max-w-5xl">
     <!-- Left Filters Sidebar -->
     <div class="flex gap-2">
         <!-- Branch Filter -->
@@ -48,7 +48,7 @@
     <div class="flex-1 space-y-4">
         <div class="flex items-center justify-between">
             <div class="text-sm text-gray-500">{$deployments.length}/{$deployments.length} deployments</div>
-            <button class="app-button px-4 py-2 rounded-lg">Deploy Now</button>
+            <button class="app-button px-4 py-2 rounded-lg">New Deployment</button>
         </div>
         
         <!-- Deployments List -->
@@ -56,7 +56,7 @@
           {#each $deployments as deployment}
             <DeploymentCard 
               {deployment} 
-              isSelected={$appState.selectedDeploymentId === deployment.id}
+              isSelected={$selectedDeployment?.commitHash === deployment.commitHash}
               on:select={() => selectDeployment(deployment)}
             />
           {/each}

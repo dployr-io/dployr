@@ -24,7 +24,7 @@
   } from './stores';
   
   // Service
-  import { authService, dataService } from './lib/services/api';
+  import { authService, consoleService, dataService } from './lib/services/api';
 
   async function loadData() {
     try {
@@ -38,18 +38,19 @@
       currentUser.set(userData);
       host.set(hostData as string);
 
-      const [deploymentData, projectData, logData, domainsData, consoleData] = await Promise.all([
+      const [deploymentData, projectData, logData, domainsData] = await Promise.all([
         dataService.getDeployments(),
         dataService.getProjects(hostData || '', tokenData || ''),
         dataService.getLogs(),
         dataService.getDomains(),
-        dataService.newConsole(),
       ]);
 
       deployments.set(deploymentData);
       projects.set(projectData);
       logs.set(logData);
       domains.set(domainsData);
+
+      const consoleData = await consoleService.newConsole();
       wsconsole.set(consoleData);
 
       // Auto-select first project when projects load

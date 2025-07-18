@@ -32,7 +32,7 @@
               class:bg-yellow-100={deployment.status === 'pending'}
               class:text-yellow-800={deployment.status === 'pending'}
           >{(deployment.status)?.toUpperCase()}</span>
-          <span class="font-mono text-sm truncate">{deployment.id}</span>
+          <span class="font-mono text-sm truncate">{deployment.commitHash}</span>
       </div>
       <span class="text-sm text-gray-500 flex-shrink-0 ml-2">{parseDuration(deployment.duration)}</span>
   </div>

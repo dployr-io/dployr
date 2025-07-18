@@ -12,6 +12,7 @@
   --input-text: #333533;
   --input-placeholder: rgba(51, 53, 51, 0.6);
   --button-primary: #195B5E;
+  --button-disabled: 
   --button-primary-hover: #177E89;
   --shadow-color: rgba(51, 53, 51, 0.1);
   --logo-url: url('./assets/images/logo.png');
@@ -144,6 +145,8 @@
 
 .app-button {
   background: var(--button-primary);
+  font-weight: 500;
+  font-size: 14px;
   color: white;
 }
 
@@ -156,11 +159,18 @@
   transform: translateY(0);
 }
 
+.app-button:disabled {
+  background: #CFDBD5;
+  color: gray; 
+  cursor: not-allowed;
+}
+
 .app-button-outlined {
   background: transparent;
   color: var(--input-text);
+  font-weight: 500;
+  font-size: 14px;
   border: 1px solid var(--input-border);
-  border-radius: 4px;
 }
 
 .app-button-outlined:hover {
@@ -172,8 +182,9 @@
   background: transparent;
   color: white;
   border: none;
+  font-weight: 500;
+  font-size: 14px;
   padding: 0.5rem 1rem;
-  border-radius: 4px;
 }
 
 .app-button-ghost:hover {
