@@ -121,10 +121,17 @@ func (d *DataService) GetLogs() []models.LogEntry {
 	return logs
 }
 
-func (d *DataService) GetProjects(host string) (*[]models.Project, error) {
+func (d *DataService) GetProjects(host, token string) ([]models.Project, error) {
 	url := fmt.Sprintf("http://%s:7879/v1/api/projects", host)
 
-    resp, err := http.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+    if err != nil {
+        return nil, err
+    }
+
+    req.Header.Set("Authorization", "Bearer "+token)
+    resp, err := http.DefaultClient.Do(req)
+	
     if err != nil {
         return nil, err
     }
@@ -142,5 +149,5 @@ func (d *DataService) GetProjects(host string) (*[]models.Project, error) {
     if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
         return nil, err
     }
-    return &result, nil
+    return result, nil
 }

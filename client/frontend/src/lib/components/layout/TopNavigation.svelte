@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { clearLocalStorage } from '../../../../src/utils/localStorage';
   import { 
     projects, 
     selectedProject, 
@@ -6,7 +7,11 @@
     selectedAccount, 
     showProjectDropdown, 
     showAccountDropdown,
-    showFilterDropdown
+    showFilterDropdown,
+    showProfileDropdown,
+    currentUser,
+    token,
+    host,
 } from '../../../stores';
   import ThemeToggle from '../ui/ThemeToggle.svelte';
 
@@ -33,6 +38,20 @@
     e.stopPropagation();
     showAccountDropdown.update(show => !show);
     showProjectDropdown.set(false);
+  }
+
+  function toggleProfileDropdown(e: { stopPropagation: () => void; }) {
+    e.stopPropagation();
+    showProfileDropdown.update(show => !show);
+    showProjectDropdown.set(false);
+  }
+
+  function handleSignOut() {
+    $currentUser = null;
+    $token = "";
+    $host = "";
+    clearLocalStorage();
+    showProfileDropdown.set(false);
   }
 
   function toggleFilter() {
@@ -70,7 +89,7 @@
                 class="group flex items-center w-full px-3 py-2 rounded app-button-ghost text-left hover:text-white active:text-white"
                 on:click={() => selectProject(project)}
               >
-                <img src={project.icon} alt="icon" class="w-7 h-7 rounded mr-2"/>
+                <img src={project.logo} alt="logo" class="w-7 h-7 rounded mr-2"/>
                 <div>
                   <!-- use group-hover and group-active to override the base gray -->
                   <div class="text-gray-600 dark:text-gray-200 group-hover:text-white group-active:text-white font-medium text-sm">
@@ -79,15 +98,20 @@
                 </div>
               </button>
             {/each}
-            <div class="border-t border-gray-200 dark:border-stone-700  my-2"></div>
-              <div class="flex justify-center">
-                <button
-                  class="w-full max-w-[180px] px-3 py-1 text-sm text-left font-medium
-                        text-gray-600 dark:text-gray-200"
-                >
-                  + New Project
-                </button>
-              </div>
+            {#if $projects.length > 0}
+              <div class="border-t border-gray-200 dark:border-stone-700  my-2"></div>
+            {/if}
+            <div class="flex justify-center">
+              <button
+                class="flex items-center gap-1 w-full px-3 py-1 text-sm text-left font-medium
+                      text-gray-600 dark:text-gray-200"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                New Project
+              </button>
+            </div>
           </div>
           <div class="border-t border-gray-200 dark:border-stone-700 "></div>
           <div class="p-2">
@@ -189,7 +213,14 @@
 
     <!-- Right: User Controls -->
     <div class="flex items-center space-x-3 flex-shrink-0">
-      <img src="https://picsum.photos/200/20" alt="Profile" class="h-7 w-7 rounded-full" />
+      <button
+        type="button"
+        on:click|stopPropagation={toggleProfileDropdown}
+        aria-label="Open profile"
+        class="p-0 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#195B5E] hover:opacity-90 active:scale-95 transition"
+      >
+        <img src="https://picsum.photos/200/20" alt="Profile" class="h-7 w-7 rounded-full"  />
+      </button>
       <div>
         |
       </div>
@@ -201,6 +232,35 @@
         </svg>
       </button>
       <ThemeToggle />
+      <!-- Project Dropdown -->
+      {#if $showProfileDropdown}
+        <div class="absolute right-4 top-14 z-50 bg-white dark:bg-stone-900 border border-gray-300 dark:border-stone-700 rounded-lg shadow-lg min-w-[220px]"> 
+          <div class="p-2 flex flex-col gap-2">
+            <button 
+              class="group gap-1 flex items-center w-full px-3 py-1 rounded app-button-ghost text-left hover:text-white active:text-white"
+              on:click|stopPropagation={toggleAccountDropdown}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 text-gray-600 dark:text-gray-200">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+              </svg>
+              <span class="font-semibold text-sm text-gray-600 dark:text-gray-200 group-hover:text-white group-active:text-white">
+                User settings
+              </span>
+            </button>
+            <button 
+              class="group gap-1 flex items-center w-full px-3 py-1 rounded bg-red-500 h-9 text-white text-left"
+              on:click|stopPropagation={handleSignOut}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 9V5.25A2.25 2.25 0 0 1 10.5 3h6a2.25 2.25 0 0 1 2.25 2.25v13.5A2.25 2.25 0 0 1 16.5 21h-6a2.25 2.25 0 0 1-2.25-2.25V15m-3 0-3-3m0 0 3-3m-3 3H15" />
+              </svg>
+               <span class="font-semibold text-sm">
+                Sign out
+              </span>
+            </button>
+          </div>
+        </div>
+      {/if}
     </div>
   </div>
 </nav>

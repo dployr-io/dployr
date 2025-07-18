@@ -107,9 +107,10 @@
       $isLoading = true;
       const res = await authService.verifyMagicCode(host, email, code);      
       $currentUser = res.user;
-
+      
       saveToLocalStorage("user", res.user);
       saveToLocalStorage("token", res.token);
+      saveToLocalStorage("host", host);
     } catch (error) {
       addToast(getErrorMessage(error), 'error');
     } finally {

@@ -20,31 +20,27 @@
     domains,
     wsconsole,
     token,
+    host,
   } from './stores';
   
   // Service
   import { authService, dataService } from './lib/services/api';
-  import { types } from '../wailsjs/go/models';
-  import { addToast } from './stores/toastStore';
-
-  let terminalComponent;
-
-  async function handleSignOut() {
-    try {
-      await authService.signOut();
-      currentUser.set(null);
-      // Delete locally saved data and configs
-      // Optionally navigate to sign-in page
-    } catch (error) {
-      console.error('Sign out error:', error);
-    }
-  }
 
   async function loadData() {
     try {
+      const [tokenData, userData, hostData] = await Promise.all([
+        authService.getToken(),
+        authService.getCurrentUser(),
+        authService.getHost(),
+      ]);
+      
+      token.set(tokenData as string);
+      currentUser.set(userData);
+      host.set(hostData as string);
+
       const [deploymentData, projectData, logData, domainsData, consoleData] = await Promise.all([
         dataService.getDeployments(),
-        dataService.getProjects(),
+        dataService.getProjects(hostData || '', tokenData || ''),
         dataService.getLogs(),
         dataService.getDomains(),
         dataService.newConsole(),
@@ -55,14 +51,6 @@
       logs.set(logData);
       domains.set(domainsData);
       wsconsole.set(consoleData);
-
-      const [tokenData, userData] = await Promise.all([
-        authService.getToken(),
-        authService.getCurrentUser(),
-      ]);
-      
-      token.set(tokenData);
-      currentUser.set(userData);
     } catch (error) {
       console.error('Failed to load data:', error);
     }
@@ -70,6 +58,24 @@
 
   onMount(() => {
     loadData();
+  
+    let interval = setInterval(loadData, 30000);
+    
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        clearInterval(interval);
+      } else {
+        loadData();
+        interval = setInterval(loadData, 30000);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   });
 
   // Auto-select first project when projects load

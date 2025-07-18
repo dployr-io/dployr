@@ -24,7 +24,7 @@
   <button class="absolute top-4 right-4 dark:text-gray-400 text-gray-600 font-medium hover:text-white" tabindex="-1">⋯</button>
   <div class="pr-8 mb-4">
       <div class="flex items-center space-x-3">
-          <img src={project.icon} alt={project.name} class="w-10 h-10 rounded" />
+          <img src={project.logo} alt={project.name} class="w-10 h-10 rounded" />
           <div class="min-w-0 flex-1">
               <h3 class="font-semibold truncate">{project.name}</h3>
               <p class="text-sm dark:text-gray-400 font-medium text-gray-600 truncate">{project.description}</p>
@@ -38,7 +38,7 @@
           <span class="text-sm dark:text-gray-400 text-gray-600 font-medium truncate">{project.url}</span>
       </div>
       <div class="flex ml-auto text-sm dark:text-gray-400 font-medium text-gray-600 flex-shrink-0">
-          {formatProjectDate(project.date)}
+        {formatProjectDate(project.date)}
       </div>
   </div>
 </button>

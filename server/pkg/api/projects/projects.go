@@ -72,13 +72,13 @@ func CreateProjectHandler(projectRepo *repository.ProjectRepo, rl *middleware.Ra
 		if req.Environment != nil {
 			var envData map[string]string
 			json.Unmarshal(req.Environment, &envData)
-			project.Environment = &models.JSON[interface{}]{Data: envData}
+			project.Environment = &models.JSON[any]{Data: envData}
 		}
 		
 		if req.HostConfigs != nil {
 			var envData map[string]string
 			json.Unmarshal(req.Environment, &envData)
-			project.Environment = &models.JSON[interface{}]{Data: envData} 
+			project.Environment = &models.JSON[any]{Data: envData} 
 		}
 
 		if err := projectRepo.Create(ctx, project); err != nil {
@@ -111,7 +111,7 @@ func RetrieveProjectsHandler(projectRepo *repository.ProjectRepo) gin.HandlerFun
 			return
 		}
 
-		ctx.JSON(http.StatusOK, gin.H{"projects": projects})
+		ctx.JSON(http.StatusOK, projects)
 	}
 }
 

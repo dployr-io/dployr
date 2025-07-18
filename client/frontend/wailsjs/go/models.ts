@@ -1,4 +1,4 @@
-export namespace types {
+export namespace models {
 	
 	export class Console {
 	    terminal: any;
@@ -27,7 +27,6 @@ export namespace types {
 	    }
 	}
 	export class Deployment {
-	    id: string;
 	    commitHash: string;
 	    branch: string;
 	    duration: number;
@@ -42,7 +41,6 @@ export namespace types {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
 	        this.commitHash = source["commitHash"];
 	        this.branch = source["branch"];
 	        this.duration = source["duration"];
@@ -77,7 +75,7 @@ export namespace types {
 	    manual_records?: string;
 	    verified: boolean;
 	    // Go type: time
-	    updatedAt: any;
+	    updated_at: any;
 	
 	    static createFrom(source: any = {}) {
 	        return new Domain(source);
@@ -91,7 +89,7 @@ export namespace types {
 	        this.auto_setup_available = source["auto_setup_available"];
 	        this.manual_records = source["manual_records"];
 	        this.verified = source["verified"];
-	        this.updatedAt = this.convertValues(source["updatedAt"], null);
+	        this.updated_at = this.convertValues(source["updated_at"], null);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -111,6 +109,48 @@ export namespace types {
 		    }
 		    return a;
 		}
+	}
+	export class JSON___dployr_io_pkg_models_Domain_ {
+	    Data: Domain[];
+	
+	    static createFrom(source: any = {}) {
+	        return new JSON___dployr_io_pkg_models_Domain_(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Data = this.convertValues(source["Data"], Domain);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class JSON_interface____ {
+	    Data: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new JSON_interface____(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Data = source["Data"];
+	    }
 	}
 	export class LogEntry {
 	    id: string;
@@ -154,13 +194,19 @@ export namespace types {
 		}
 	}
 	export class Project {
+	    id: string;
 	    name: string;
-	    description: string;
-	    url: string;
-	    icon: string;
+	    logo?: string;
+	    description?: string;
+	    git_repo: string;
+	    // Go type: JSON___dployr_io_pkg_models_Domain_
+	    domains?: any;
+	    environment?: JSON_interface____;
+	    deployment_url?: string;
 	    // Go type: time
-	    date: any;
-	    provider: string;
+	    last_deployed?: any;
+	    status?: string;
+	    host_configs?: JSON_interface____;
 	
 	    static createFrom(source: any = {}) {
 	        return new Project(source);
@@ -168,12 +214,17 @@ export namespace types {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
 	        this.name = source["name"];
+	        this.logo = source["logo"];
 	        this.description = source["description"];
-	        this.url = source["url"];
-	        this.icon = source["icon"];
-	        this.date = this.convertValues(source["date"], null);
-	        this.provider = source["provider"];
+	        this.git_repo = source["git_repo"];
+	        this.domains = this.convertValues(source["domains"], null);
+	        this.environment = this.convertValues(source["environment"], JSON_interface____);
+	        this.deployment_url = source["deployment_url"];
+	        this.last_deployed = this.convertValues(source["last_deployed"], null);
+	        this.status = source["status"];
+	        this.host_configs = this.convertValues(source["host_configs"], JSON_interface____);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -207,6 +258,50 @@ export namespace types {
 	        this.sessionId = source["sessionId"];
 	        this.status = source["status"];
 	    }
+	}
+	export class User {
+	    id: string;
+	    name: string;
+	    email: string;
+	    avatar?: string;
+	    role: string;
+	    // Go type: time
+	    created_at: any;
+	    // Go type: time
+	    updated_at: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new User(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.email = source["email"];
+	        this.avatar = source["avatar"];
+	        this.role = source["role"];
+	        this.created_at = this.convertValues(source["created_at"], null);
+	        this.updated_at = this.convertValues(source["updated_at"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class WsMessage {
 	    type: string;

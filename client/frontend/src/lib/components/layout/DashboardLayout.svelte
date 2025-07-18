@@ -3,7 +3,7 @@
   import SubHeader from './SubHeader.svelte';
   import Sidebar from './Sidebar.svelte';
   import MainContent from './MainContent.svelte';
-  import { sidebarWidth, isResizing, showFilterDropdown, showProjectDropdown, showAccountDropdown } from '../../../stores';
+  import { sidebarWidth, isResizing, showFilterDropdown, showProjectDropdown, showAccountDropdown, showProfileDropdown } from '../../../stores';
   
   export let icon: string;
   export let iconSecondary: string;
@@ -35,6 +35,7 @@
       showProjectDropdown.set(false);
       showAccountDropdown.set(false);
       showFilterDropdown.set(false);
+      showProfileDropdown.set(false);
     });
   }
 </script>

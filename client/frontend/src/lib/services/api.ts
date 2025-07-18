@@ -9,8 +9,9 @@ import {
   NewConsole,
   VerifyMagicCode,
 } from '../../../wailsjs/go/main/App.js';
-import { types } from '../../../wailsjs/go/models';
+import { models } from '../../../wailsjs/go/models';
 import { getFromLocalStorage } from '../../../src/utils/localStorage';
+import type { get } from 'svelte/store';
 
 
 export const authService = {
@@ -29,6 +30,10 @@ export const authService = {
   async getToken() {
     return await getFromLocalStorage<string>('token');
   },
+
+  async getHost() {
+    return await getFromLocalStorage<string>('host');
+  },
   
   async signOut() {
     // return await SignOut();
@@ -38,26 +43,26 @@ export const authService = {
 export const dataService = {
   async getDeployments() {
     const deploymentData = await GetDeployments();
-    return deploymentData.map((d: any) => types.Deployment.createFrom(d));
+    return deploymentData.map((d: any) => models.Deployment.createFrom(d));
   },
   
-  async getProjects() {
-    const projectData = await GetProjects();
-    return projectData.map((p: any) => types.Project.createFrom(p));
+  async getProjects(host: string, token: string) {
+    const projectData = await GetProjects(host, token);
+    return projectData.map((p: any) => models.Project.createFrom(p));
   },
 
   async getLogs() {
     const logData = await GetLogs();
-    return logData.map((p: any) => types.LogEntry.createFrom(p));
+    return logData.map((p: any) => models.LogEntry.createFrom(p));
   },
 
   async getDomains() {
     const domainsData = await GetDomains();
-    return domainsData.map((p: any) => types.Domain.createFrom(p));
+    return domainsData.map((p: any) => models.Domain.createFrom(p));
   },
 
   async newConsole() {
     const consoleData = await NewConsole();
-    return types.Console.createFrom(consoleData);
+    return models.Console.createFrom(consoleData);
   }
 };

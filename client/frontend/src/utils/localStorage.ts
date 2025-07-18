@@ -28,3 +28,14 @@ export function getFromLocalStorage<T>(key: string): T | null {
   }
 }
 
+/**
+ * Clear localStorage of all its values
+ */
+export function clearLocalStorage(): void {
+  try {
+    localStorage.clear();
+  } catch (err) {
+    console.error("Failed to clear localStorage:", err);
+  }
+}
+

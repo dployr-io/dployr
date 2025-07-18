@@ -14,6 +14,10 @@ export function DisconnectTerminal() {
   return window['go']['main']['App']['DisconnectTerminal']();
 }
 
+export function GetCurrentUser() {
+  return window['go']['main']['App']['GetCurrentUser']();
+}
+
 export function GetDeployments() {
   return window['go']['main']['App']['GetDeployments']();
 }
@@ -26,8 +30,8 @@ export function GetLogs() {
   return window['go']['main']['App']['GetLogs']();
 }
 
-export function GetProjects() {
-  return window['go']['main']['App']['GetProjects']();
+export function GetProjects(arg1, arg2) {
+  return window['go']['main']['App']['GetProjects'](arg1, arg2);
 }
 
 export function IsTerminalConnected() {

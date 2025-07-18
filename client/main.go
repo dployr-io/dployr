@@ -77,6 +77,10 @@ func (a *App) VerifyMagicCode(host, email, code string) (any, error) {
 	return a.authService.VerifyMagicCode(host, email, code)
 }
 
+func (a *App) GetCurrentUser() *models.User {
+	return auth.GetCurrentUser()
+}
+
 func (a *App) GetDeployments() []models.Deployment {
 	return a.dataService.GetDeployments()
 }
@@ -85,8 +89,8 @@ func (a *App) GetLogs() []models.LogEntry {
 	return a.dataService.GetLogs()
 }
 
-func (a *App) GetProjects(host string) (*[]models.Project, error) {
-	return a.dataService.GetProjects(host)
+func (a *App) GetProjects(host, token string) ([]models.Project, error) {
+	return a.dataService.GetProjects(host, token)
 }
 
 func (a *App) AddDomain(domain string, projectID string) (models.Domain, error) {

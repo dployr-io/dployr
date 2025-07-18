@@ -34,6 +34,7 @@ export const isResizing = writable<boolean>(false);
 export const showFilterDropdown = writable<boolean>(false);
 export const showProjectDropdown = writable<boolean>(false);
 export const showAccountDropdown = writable<boolean>(false);
+export const showProfileDropdown = writable<boolean>(false);
 
 // App state
 export const appState = writable<AppState>({

@@ -55,7 +55,7 @@
       inputmode="numeric"
       maxlength="1"
       bind:this={inputs[idx]}
-      class="w-12 h-12 text-center text-lg rounded-lg border border-gray-300 focus:border-[#195B5E] outline-none transition"
+      class="w-12 h-12 text-center text-lg text-gray-600 font-black rounded-lg border border-gray-300 focus:border-[#195B5E] outline-none transition"
       value={codes[idx]}
       on:input={(e) => onInput(e, idx)}
       on:keydown={(e) => onKeydown(e, idx)}

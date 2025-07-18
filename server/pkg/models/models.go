@@ -52,13 +52,13 @@ type Project struct {
 	Description   *string 			`db:"description" json:"description"`
     GitRepo       string            `db:"git_repo" json:"git_repo"`
     Domains       *JSON[[]Domain]  			`db:"domains" json:"domains,omitempty"`
-    Environment   *JSON[interface{}]  `db:"environment" json:"environment,omitempty"`
+    Environment   *JSON[any]  `db:"environment" json:"environment,omitempty"`
     CreatedAt     time.Time         `db:"created_at" json:"-"`
     UpdatedAt     time.Time         `db:"updated_at" json:"-"`
     DeploymentUrl *string           `db:"deployment_url" json:"deployment_url,omitempty"`
     LastDeployed  *time.Time        `db:"last_deployed" json:"last_deployed,omitempty"`
 	Status        string            `db:"status" json:"status,omitempty"`
-    HostConfigs   *JSON[interface{}]  `db:"host_configs" json:"host_configs,omitempty"`
+    HostConfigs   *JSON[any]  `db:"host_configs" json:"host_configs,omitempty"`
 }
 
 type Domain struct {
@@ -150,4 +150,8 @@ func (j JSON[T]) Value() (driver.Value, error) {
 
 func (j JSON[T]) MarshalJSON() ([]byte, error) {
     return json.Marshal(j.Data)
+}
+
+func (j *JSON[T]) UnmarshalJSON(data []byte) error {
+    return json.Unmarshal(data, &j.Data)
 }
