@@ -17,7 +17,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-6">
+<div class="flex flex-col gap-6  w-full max-w-5xl">
   <div class="flex items-center justify-between gap-2 flex-shrink-0">
     <input 
       type="text" 

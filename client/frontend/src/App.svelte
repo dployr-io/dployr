@@ -51,6 +51,11 @@
       logs.set(logData);
       domains.set(domainsData);
       wsconsole.set(consoleData);
+
+      // Auto-select first project when projects load
+      if (projectData.length > 0 && !$selectedProject) {
+        selectedProject.set(projectData[0]);
+      }
     } catch (error) {
       console.error('Failed to load data:', error);
     }
@@ -77,11 +82,6 @@
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   });
-
-  // Auto-select first project when projects load
-  $: if ($projects.length > 0 && !$selectedProject) {
-    selectedProject.set($projects[0]);
-  }
 </script>
 
 <ToastContainer />

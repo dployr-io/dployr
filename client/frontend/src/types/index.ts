@@ -12,8 +12,6 @@ export type WsMessage = models.WsMessage;
 // Only create additional interfaces for frontend-specific state
 export interface AppState {
   selectedSection: string;
-  selectedProjectId: string | null;
-  selectedDeploymentId: string | null;
 }
 
 export interface Account {

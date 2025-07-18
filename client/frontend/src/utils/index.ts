@@ -131,3 +131,11 @@ export function getErrorMessage(err: unknown): string {
   }
   return raw;
 }
+
+export function handleKeydown(event: KeyboardEvent, callback: () => void) {
+  // “Enter” or spacebar should fire the click
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    callback();
+  }
+}

@@ -2,7 +2,6 @@
 export { default as DashboardLayout } from './layout/DashboardLayout.svelte';
 export { default as TopNavigation } from './layout/TopNavigation.svelte';
 export { default as SubHeader } from './layout/SubHeader.svelte';
-export { default as Sidebar } from './layout/Sidebar.svelte';
 export { default as MainContent } from './layout/MainContent.svelte';
 
 // UI components

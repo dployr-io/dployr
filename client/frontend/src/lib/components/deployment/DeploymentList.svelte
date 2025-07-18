@@ -7,7 +7,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-6 h-full">
+<div class="flex flex-col gap-6 h-full max-w-5xl">
     <!-- Left Filters Sidebar -->
     <div class="flex gap-2">
         <!-- Branch Filter -->

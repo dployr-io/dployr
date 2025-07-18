@@ -39,8 +39,6 @@ export const showProfileDropdown = writable<boolean>(false);
 // App state
 export const appState = writable<AppState>({
   selectedSection: 'Deployments',
-  selectedProjectId: null,
-  selectedDeploymentId: null
 });
 
 // Data stores

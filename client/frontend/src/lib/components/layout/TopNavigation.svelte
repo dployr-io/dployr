@@ -237,14 +237,14 @@
         <div class="absolute right-4 top-14 z-50 bg-white dark:bg-stone-900 border border-gray-300 dark:border-stone-700 rounded-lg shadow-lg min-w-[220px]"> 
           <div class="p-2 flex flex-col gap-2">
             <button 
-              class="group gap-1 flex items-center w-full px-3 py-1 rounded app-button-ghost text-left hover:text-white active:text-white"
+              class="group gap-1 flex items-center w-full px-3 py-1 rounded app-button-ghost text-left group-hover:text-white group-active:text-white"
               on:click|stopPropagation={toggleAccountDropdown}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 text-gray-600 dark:text-gray-200">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 text-gray-600 dark:text-gray-200 group-hover:text-white group-active:text-white">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
               </svg>
               <span class="font-semibold text-sm text-gray-600 dark:text-gray-200 group-hover:text-white group-active:text-white">
-                User settings
+                Profile settings
               </span>
             </button>
             <button 

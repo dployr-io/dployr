@@ -44,7 +44,7 @@
   }
 </script>
 
-<div class="h-full flex flex-col gap-4">
+<div class="h-full flex flex-col gap-4 w-full max-w-5xl">
   <!-- Main Content -->
     <div class="flex items-center justify-between gap-2 flex-shrink-0">
         <input 

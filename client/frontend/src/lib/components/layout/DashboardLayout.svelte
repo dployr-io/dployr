@@ -1,9 +1,10 @@
 <script lang="ts">
   import TopNavigation from './TopNavigation.svelte';
   import SubHeader from './SubHeader.svelte';
-  import Sidebar from './Sidebar.svelte';
   import MainContent from './MainContent.svelte';
   import { sidebarWidth, isResizing, showFilterDropdown, showProjectDropdown, showAccountDropdown, showProfileDropdown } from '../../../stores';
+  import { SIDEBAR_WIDTH_DOCKED } from '../../../../src/constants';
+  import ProjectGrid from '../project/ProjectGrid.svelte';
   
   export let icon: string;
   export let iconSecondary: string;
@@ -47,8 +48,12 @@
   <!-- Main Content -->
   <div class="flex flex-1 min-h-0">
     <!-- Left Sidebar -->
-    <div class="sidebar border-r border-gray-700 p-6 flex-shrink-0" style="width: {$sidebarWidth}px;">
-      <Sidebar />
+    <div class="sidebar border-r border-gray-700 flex-shrink-0" style="width: {$sidebarWidth}px;"
+      class:p-6={$sidebarWidth !== SIDEBAR_WIDTH_DOCKED}
+      class:pt-6={$sidebarWidth === SIDEBAR_WIDTH_DOCKED}
+      class:px-2={$sidebarWidth === SIDEBAR_WIDTH_DOCKED}
+    >
+      <ProjectGrid />
     </div>
 
     <!-- Resize Handle -->
@@ -70,7 +75,7 @@
 
     <!-- Main Content Area -->
     <div class="flex-1 p-6 min-h-0 overflow-auto">
-      <MainContent sidebarWidth={$sidebarWidth} />
+      <MainContent />
     </div>
   </div>
 </div>

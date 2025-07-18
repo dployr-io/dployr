@@ -139,7 +139,7 @@
   }
 </script>
 
-<div class="ssh-terminal">
+<div class="ssh-terminal  w-full ">
   <div class="header">
     <div class="connection-form">
       <div class="form-group">

@@ -1,20 +1,32 @@
 <script lang="ts">
-  import { viewMode } from '../../../stores';
-  import ProjectGrid from '../project/ProjectGrid.svelte';
-  
-  export let sidebarWidth: number;
-
-  // Calculate grid columns based on available width
-  $: mainContentWidth = typeof window !== 'undefined' ? window.innerWidth - sidebarWidth - 48 : 800; // 48px for padding
-  $: gridCols = Math.max(1, Math.floor(mainContentWidth / 350)); // 350px min card width
-  $: maxGridCols = 3;
+  import { appState, deployments } from '../../../stores';
+  import DeploymentList from '../deployment/DeploymentList.svelte';
+  import LogsView from '../deployment/LogsView.svelte';
+  import DomainsView from '../deployment/DomainsView.svelte';
+  import ConsoleView from '../deployment/ConsoleView.svelte';
 </script>
 
-<!-- Projects Display -->
-{#if $viewMode === 'grid'}
-  <!-- Grid View -->
-  <ProjectGrid gridCols={gridCols} maxGridCols={maxGridCols} />
-{:else}
-  <!-- List View -->
-  <ProjectGrid gridCols={gridCols} maxGridCols={1}  />
-{/if}
+<!-- Section Content -->
+<div class="h-full flex flex-col items-center">
+  {#if $appState.selectedSection === 'Deployments'}
+    <DeploymentList />
+  {:else if $appState.selectedSection === 'Logs'}
+    <LogsView />
+  {:else if $appState.selectedSection === 'Resources'}
+    <!-- Resources content -->
+    <div class="text-gray-500">Resources section coming soon...</div>
+  {:else if $appState.selectedSection === 'Domains'}
+    <!-- Domains content -->
+    <DomainsView />
+  {:else if $appState.selectedSection === 'Settings'}
+    <!-- Settings content -->
+    <div class="text-gray-500">Settings section coming soon...</div>
+  {:else if $appState.selectedSection === 'Insights'}
+    <!-- Insights content -->
+    <div class="text-gray-500">Insights section coming soon...</div>
+  {:else if $appState.selectedSection === 'Console'}
+    <!-- Terminal content -->
+    <ConsoleView />
+  {/if}
+</div>
+
