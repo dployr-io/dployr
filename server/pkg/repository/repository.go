@@ -124,11 +124,11 @@ type Repository[T any] struct {
 }
 
 type SQLRepository[T any] interface {
-	Create(ctx context.Context, entity *T) error
-	Update(ctx context.Context, entity *T) error
-	Upsert(ctx context.Context, entity *T, conflictCols []string, updateCols []string) error
+	Create(ctx context.Context, entity T) error
+	Update(ctx context.Context, entity T) error
+	Upsert(ctx context.Context, entity T, conflictCols []string, updateCols []string) error
 	Delete(ctx context.Context, id any) error
-	GetByID(ctx context.Context, id any) (*T, error)
+	GetByID(ctx context.Context, id any) error
 }
 
 // NewRepository creates a new generic repository with direct queries
@@ -144,7 +144,7 @@ func NewRepository[T any](db *sqlx.DB, tableName string) *Repository[T] {
 	}
 }
 
-func (r *Repository[T]) Create(ctx context.Context, entity *T) error {
+func (r *Repository[T]) Create(ctx context.Context, entity T) error {
 	result, err := r.db.NamedExecContext(ctx, r.queries.create, entity)
 	if err != nil {
 		if isPrimaryKeyViolation(err) {
@@ -160,30 +160,30 @@ func (r *Repository[T]) Create(ctx context.Context, entity *T) error {
 	return nil
 }
 
-func (r *Repository[T]) GetByID(ctx context.Context, id any) (*T, error) {
+func (r *Repository[T]) GetByID(ctx context.Context, id any) (T, error) {
 	var entity T
 
 	rows, err := r.db.NamedQueryContext(ctx, r.queries.getByID, map[string]interface{}{
 		"id": id,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("get by id failed: %w", err)
+		return entity, fmt.Errorf("get by id failed: %w", err)
 	}
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, fmt.Errorf("record not found")
+		return entity, fmt.Errorf("record not found")
 	}
 
 	err = rows.StructScan(&entity)
 	if err != nil {
-		return nil, fmt.Errorf("get by id scan failed: %w", err)
+		return entity, fmt.Errorf("get by id scan failed: %w", err)
 	}
 
-	return &entity, nil
+	return entity, nil
 }
 
-func (r *Repository[T]) Update(ctx context.Context, entity *T) error {
+func (r *Repository[T]) Update(ctx context.Context, entity T) error {
 	result, err := r.db.NamedExecContext(ctx, r.queries.update, entity)
 	if err != nil {
 		return fmt.Errorf("update failed: %w", err)
@@ -247,7 +247,7 @@ func (r *Repository[T]) BuildUpsertQuery(conflictCols []string, updateCols []str
 }
 
 // Upsert - UPSERT with ON CONFLICT
-func (r *Repository[T]) Upsert(ctx context.Context, entity *T, conflictCols []string, updateCols []string) error {
+func (r *Repository[T]) Upsert(ctx context.Context, entity T, conflictCols []string, updateCols []string) error {
 	query := r.BuildUpsertQuery(conflictCols, updateCols)
 
 	_, err := r.db.NamedExecContext(ctx, query, entity)

@@ -51,14 +51,14 @@ type Project struct {
 	Logo		  *string			`db:"logo" json:"logo"`
 	Description   *string 			`db:"description" json:"description"`
     GitRepo       string            `db:"git_repo" json:"git_repo"`
-    Domains       *JSON[[]Domain]  			`db:"domains" json:"domains,omitempty"`
-    Environment   *JSON[any]  `db:"environment" json:"environment,omitempty"`
+    Domains       *JSON[[]Domain]  	`db:"domains" json:"domains,omitempty"`
+    Environment   *JSON[any]  		`db:"environment" json:"environment,omitempty"`
     CreatedAt     time.Time         `db:"created_at" json:"-"`
     UpdatedAt     time.Time         `db:"updated_at" json:"-"`
     DeploymentUrl *string           `db:"deployment_url" json:"deployment_url,omitempty"`
     LastDeployed  *time.Time        `db:"last_deployed" json:"last_deployed,omitempty"`
 	Status        string            `db:"status" json:"status,omitempty"`
-    HostConfigs   *JSON[any]  `db:"host_configs" json:"host_configs,omitempty"`
+    HostConfigs   *JSON[any]  		`db:"host_configs" json:"host_configs,omitempty"`
 }
 
 type Domain struct {
@@ -72,11 +72,11 @@ type Domain struct {
 }
 
 type Deployment struct {
-	CommitHash string    `json:"commitHash"`
+	CommitHash string    `json:"commit_hash"`
 	Branch     string    `json:"branch"`
 	Duration   int       `json:"duration"`
 	Message    string    `json:"message"`
-	CreatedAt  time.Time `json:"createdAt"`
+	CreatedAt  time.Time `json:"created_at"`
 	Status     string    `json:"status,omitempty"`
 }
 
@@ -91,18 +91,18 @@ type LogEntry struct {
 	Message   string    `json:"message"`
 	Status    string    `json:"status"`
 	Level     string    `json:"level"`
-	CreatedAt time.Time `json:"createdAt"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Console struct {
 	Terminal        any    `json:"terminal"`
 	Websocket       any    `json:"websocket"`
-	FitAddon        any    `json:"fitAddon"`
-	TerminalElement any    `json:"terminalElement"`
-	SessionId       any    `json:"sessionId"`
+	FitAddon        any    `json:"fit_addon"`
+	TerminalElement any    `json:"terminal_element"`
+	SessionId       any    `json:"session_id"`
 	Status          string `json:"status"`
-	StatusMessage   string `json:"statusMessage"`
-	ErrorMessage    string `json:"errorMessage"`
+	StatusMessage   string `json:"status_message"`
+	ErrorMessage    string `json:"error_message"`
 }
 
 type WsMessage struct {
@@ -114,7 +114,7 @@ type WsMessage struct {
 }
 
 type SshConnectResponse struct {
-	SessionId string `json:"sessionId"`
+	SessionId string `json:"session_id"`
 	Status    string `json:"status"`
 }
 

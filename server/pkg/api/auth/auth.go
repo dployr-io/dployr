@@ -158,11 +158,11 @@ func RequestMagicCodeHandler(userRepo *repository.UserRepo, tokenRepo *repositor
 
 		magicToken, err := tokenRepo.GetByEmail(ctx, req.Email)
 
-		if err != nil || magicToken == nil {
+		if err != nil  {
 			log.Printf("No existing magic token found for email: %s", err)
 
 			// Store code with 15-minute expiration
-			magicToken = &models.MagicToken{
+			magicToken = models.MagicToken{
 				Email:     req.Email,
 				Code:      code,
 				ExpiresAt: time.Now().Add(15 * time.Minute),
@@ -226,7 +226,7 @@ func VerifyMagicCodeHandler(j *JWTManager, userRepo *repository.UserRepo, tokenR
 		user, err := userRepo.GetByEmail(ctx, req.Email)
 		if err != nil {
 			log.Printf("Error getting user by email: %s", err)
-			user = &models.User{
+			user = models.User{
 				Email: req.Email,
 				Name: name,
 			}

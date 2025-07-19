@@ -46,7 +46,7 @@ func (l *Logger) log(ctx context.Context, r *repository.EventRepo, level, phase,
 	entryJSON, _ := json.Marshal(entry)
 	metadataJSON, _ := json.Marshal(models.Metadata{})
 
-	r.Create(ctx, &models.Event{
+	r.Create(ctx, models.Event{
 		ID:          uuid.New().String(),
 		Type:        models.LogEvent,
 		AggregateID: l.deploymentID,
