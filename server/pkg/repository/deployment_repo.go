@@ -58,14 +58,14 @@ func (r *DeploymentRepo) GetByID(ctx context.Context, id string) (models.Deploym
 
 func (r *DeploymentRepo) GetAll(ctx context.Context) ([]models.Deployment, error) {
 	d := []models.Deployment{}  
-	query := `SELECT * FROM deployments ORDER BY created_at DESC`
-	err := r.db.SelectContext(ctx, &d, query)
+	q := `SELECT * FROM deployments ORDER BY created_at DESC`
+	err := r.db.SelectContext(ctx, &d, q)
 	return d, err
 }
 
 func (r *DeploymentRepo) GetByCommitHash(ctx context.Context, commitHash string) (models.Deployment, error) {
 	var d models.Deployment
-	const q = `SELECT * FROM deployments WHERE commit_hash = ? LIMIT 1`
+	q := `SELECT * FROM deployments WHERE commit_hash = ? LIMIT 1`
     err := r.db.GetContext(ctx, &d, q, commitHash)
     if err != nil {
         return models.Deployment{}, err
@@ -75,8 +75,8 @@ func (r *DeploymentRepo) GetByCommitHash(ctx context.Context, commitHash string)
 
 func (r *DeploymentRepo) GetByProjectID(ctx context.Context, projectId string) ([]models.Deployment, error) {
 	d := []models.Deployment{}  
-	query := `SELECT * FROM deployments WHERE project_id = ? ORDER BY created_at DESC`
-	err := r.db.SelectContext(ctx, &d, query, projectId)
+	q := `SELECT * FROM deployments WHERE project_id = ? ORDER BY created_at DESC`
+	err := r.db.SelectContext(ctx, &d, q, projectId)
 	return d, err
 }
 

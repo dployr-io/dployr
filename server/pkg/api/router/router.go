@@ -8,6 +8,8 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"dployr.io/pkg/api/auth"
+	"dployr.io/pkg/api/deployments"
+	"dployr.io/pkg/api/logs"
 	"dployr.io/pkg/api/middleware"
 	"dployr.io/pkg/api/observability"
 	"dployr.io/pkg/api/platform"
@@ -18,10 +20,10 @@ import (
 
 // New registers the routes and returns the router.
 func New(
-	ar *repository.AppRepos, 
-	queue *queue.Queue, 
-	ssh *platform.SshManager, 
-	rl *middleware.RateLimiter, 
+	ar *repository.AppRepos,
+	queue *queue.Queue,
+	ssh *platform.SshManager,
+	rl *middleware.RateLimiter,
 	j *auth.JWTManager,
 ) *gin.Engine {
 	r := gin.Default()
@@ -42,16 +44,25 @@ func New(
 	v1 := r.Group("/v1")
 	{
 		// Public routes
-		v1.POST("/auth/request-code", auth.RequestMagicCodeHandler(
-			ar.UserRepo, 
-			ar.TokenRepo, 
-			rl,
-		))
-    	v1.POST("/auth/verify-code", auth.VerifyMagicCodeHandler(
-			j,
-			ar.UserRepo, 
-			ar.TokenRepo,
-		))
+		_auth := v1.Group("/auth")
+		_auth.Use(auth.JWTAuth(j))
+		{
+			_auth.POST("/request-code", auth.RequestMagicCodeHandler(
+				ar.UserRepo,
+				ar.MagicTokenRepo,
+				rl,
+			))
+			_auth.POST("/verify-code", auth.VerifyMagicCodeHandler(
+				j,
+				ar.UserRepo,
+				ar.MagicTokenRepo,
+			))
+			_auth.POST("/refresh", auth.RefreshTokenHandler(
+				j,
+				ar.RefreshTokenRepo,
+			))
+		}
+
 		v1.POST("/ssh/connect", ssh.SshConnectHandler())
 		v1.GET("/ws/ssh/:session-id", ssh.SshWebSocketHandler())
 
@@ -59,10 +70,19 @@ func New(
 		api := v1.Group("/api")
 		api.Use(auth.JWTAuth(j))
 		{
+			// Projects
 			api.GET("/projects", projects.RetrieveProjectsHandler(ar.ProjectRepo))
 			api.POST("/projects", projects.CreateProjectHandler(ar.ProjectRepo, rl))
 			api.PUT("/projects/:id", projects.UpdateProjectHandler(ar.ProjectRepo, rl))
 			api.DELETE("/projects/:id", projects.DeleteProjectHandler(ar.ProjectRepo))
+
+			// Deployments
+			api.GET("/deployments", deployments.RetrieveDeploymentsHandler(ar.DeploymentRepo))
+			api.POST("/deployments", deployments.CreateDeploymentHandler(ar.DeploymentRepo, rl))
+			api.GET("/deployments/:id", deployments.RetrieveDeploymentHandler(ar.DeploymentRepo))
+
+			// Logs
+			api.GET("/logs/stream", logs.StreamLogsHandler(ar.LogRepo))
 		}
 	}
 

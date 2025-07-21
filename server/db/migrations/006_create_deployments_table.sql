@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS deployments (
   branch       TEXT      NOT NULL,
   duration     INTEGER   NOT NULL,
   message      TEXT      NOT NULL,
-  created_at   DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at   DATETIME  DEFAULT CURRENT_TIMESTAMP,
   status       TEXT
 );
 

@@ -12,7 +12,6 @@ import (
 )
 
 type CreateDeploymentRequest struct {
-	ProjectId  string `json:"project_id" binding:"required"`
 	CommitHash string `json:"commit_hash" binding:"required"`
 	Branch     string `json:"branch" binding:"required"`
 	Duration   int    `json:"duration"`

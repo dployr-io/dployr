@@ -35,6 +35,15 @@ type MagicToken struct {
 	ExpiresAt time.Time `db:"expires_at" json:"expires_at"`
 }
 
+type RefreshToken struct {
+    Id        int       `json:"id" db:"id"`           
+    Token     string    `json:"token" db:"token"`
+    UserId    string       `json:"user_id" db:"user_id"`
+    Used      bool      `json:"used" db:"used"`
+    CreatedAt time.Time `json:"created_at" db:"created_at"`
+    ExpiresAt time.Time `json:"expires_at" db:"expires_at"`
+}
+
 type User struct {
 	Id        string    `db:"id" json:"id"`
 	Name      string    `db:"name" json:"name"`
@@ -72,12 +81,13 @@ type Domain struct {
 }
 
 type Deployment struct {
-	CommitHash string    `json:"commit_hash"`
-	Branch     string    `json:"branch"`
-	Duration   int       `json:"duration"`
-	Message    string    `json:"message"`
-	CreatedAt  time.Time `json:"created_at"`
-	Status     string    `json:"status,omitempty"`
+	ProjectId  string    `json:"project_id" db:"project_id"`
+	CommitHash string    `db:"commit_hash" json:"commit_hash"`
+	Branch     string    `db:"branch" json:"branch"`
+	Duration   int       `db:"duration" json:"duration"`
+	Message    string    `db:"message" json:"message"`
+	CreatedAt  time.Time `db:"created_at" json:"created_at"`
+	Status     string    `db:"status" json:"status"`
 }
 
 type AuthResponse struct {
@@ -85,13 +95,22 @@ type AuthResponse struct {
 	Error   string
 }
 
+type AuthTokenPair struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int    `json:"expires_in"`
+	TokenType    string `json:"token_type"`
+}
+
+
 type LogEntry struct {
-	Id        string    `json:"id"`
-	Host      string    `json:"host"`
-	Message   string    `json:"message"`
-	Status    string    `json:"status"`
-	Level     string    `json:"level"`
-	CreatedAt time.Time `json:"created_at"`
+	Id        string    `db:"id" json:"id"`
+	Host      string    `db:"host" json:"host"`
+	Message   string    `db:"message" json:"message"`
+	Status    string    `db:"status" json:"status"`
+	Type	  string 	`db:"type" json:"type"`
+	Level     string    `db:"level" json:"level"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
 
 type Console struct {

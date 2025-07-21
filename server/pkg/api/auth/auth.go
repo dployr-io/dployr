@@ -2,6 +2,7 @@ package auth
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"math/big"
@@ -21,8 +22,8 @@ import (
 )
 
 type VerificationData struct {
-  Name string
-  Code string
+  	Name string
+  	Code string
 }
 
 type MagicCodeRequest struct {
@@ -44,6 +45,15 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+type TokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int    `json:"expires_in"` 
+}
+
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
 
 func JWTAuth(jwtManager *JWTManager) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
@@ -83,12 +93,30 @@ func NewJWTManager() *JWTManager {
 	return &JWTManager{secretKey: key}
 }
 
-// GenerateToken creates a new JWT token for a user
-func (j *JWTManager) GenerateToken(userID string) (string, error) {
+func (j *JWTManager) GenerateTokenPair(userID string) (*TokenResponse, error) {
+	accessToken, err := j.generateAccessToken(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := j.generateRefreshToken()
+	if err != nil {
+		return nil, err
+	}
+
+	return &TokenResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    900, // 15 minutes in seconds
+	}, nil
+}
+
+// generateAccessToken creates a short-lived JWT
+func (j *JWTManager) generateAccessToken(userID string) (string, error) {
 	claims := Claims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)), 
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			Issuer:    "dployr.io",
@@ -97,6 +125,15 @@ func (j *JWTManager) GenerateToken(userID string) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(j.secretKey)
+}
+
+// generateRefreshToken creates a random string (not a JWT)
+func (j *JWTManager) generateRefreshToken() (string, error) {
+	bytes := make([]byte, 32) // 256 bits
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }
 
 // ValidateToken validates and parses a JWT token
@@ -242,14 +279,16 @@ func VerifyMagicCodeHandler(j *JWTManager, userRepo *repository.UserRepo, tokenR
 		}
 
 		// Generate JWT session token
-		sessionToken, err := generateJWT(j, user.Id)
+		res, err := j.GenerateTokenPair(user.Id)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
 			return
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"token": sessionToken,
+			"access_token": res.AccessToken,
+			"refresh_token": res.RefreshToken,
+			"expires_in": res.ExpiresIn,
 			"user":  user,
 		})
 	}
@@ -278,8 +317,61 @@ func sendMagicCodeEmail(toAddr, code, toName string) error {
     return mail.SendEmail(toAddr, "Your Login Code", emailBody, toName)
 }
 
+// RefreshTokenHandler - endpoint to exchange refresh token for new access token
+// @Summary Refresh access token
+// @Description Exchange a valid refresh token for a new access token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body RefreshRequest true "Refresh token request"
+// @Success 200 {object} TokenResponse "New access token"
+// @Failure 400 {object} gin.H "Invalid request"
+// @Failure 401 {object} gin.H "Invalid or expired refresh token"
+// @Failure 500 {object} gin.H "Internal server error"
+// @Router /auth/refresh [post]
+func RefreshTokenHandler(j *JWTManager, refreshRepo *repository.RefreshTokenRepo) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var req RefreshRequest
+		if err := ctx.ShouldBindJSON(&req); err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 
-// Placeholder for JWT generation
-func generateJWT(j *JWTManager, userID string) (string, error) {
-	return j.GenerateToken(userID)
+		// Validate and consume refresh token (marks as used)
+		refreshToken, err := refreshRepo.ConsumeToken(ctx, req.RefreshToken)
+		if err != nil {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired refresh token"})
+			return
+		}
+
+		// Generate new token pair
+		tokenPair, err := j.GenerateTokenPair(refreshToken.UserId)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate tokens"})
+			return
+		}
+
+		// Store new refresh token in database
+		newRefreshToken := models.RefreshToken{
+			Token:     tokenPair.RefreshToken,
+			UserId:    refreshToken.UserId,
+			ExpiresAt: time.Now().Add(7 * 24 * time.Hour), // 7 days
+			Used:      false,
+		}
+
+		err = refreshRepo.Create(ctx, newRefreshToken)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
+			return
+		}
+
+		// Return new token pair (same format as login)
+		ctx.JSON(http.StatusOK, gin.H{
+			"access_token":  tokenPair.AccessToken,
+			"refresh_token": tokenPair.RefreshToken,
+			"expires_in":    tokenPair.ExpiresIn,
+			"token_type":    "Bearer",
+		})
+	}
 }
+

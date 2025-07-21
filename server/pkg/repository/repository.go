@@ -19,10 +19,13 @@ type QuerySet struct {
 }
 
 type AppRepos struct {
-	ProjectRepo *ProjectRepo
-	UserRepo *UserRepo
-	TokenRepo *MagicTokenRepo
-	EventRepo *EventRepo
+	ProjectRepo      *ProjectRepo
+	UserRepo         *UserRepo
+	MagicTokenRepo   *MagicTokenRepo
+	RefreshTokenRepo *RefreshTokenRepo
+	EventRepo        *EventRepo
+	DeploymentRepo   *DeploymentRepo
+	LogRepo          *LogRepo
 }
 
 // Get struct fields using reflection

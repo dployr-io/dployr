@@ -203,7 +203,6 @@ func UpdateProjectHandler(projectRepo *repository.ProjectRepo, rl *middleware.Ra
 			project.HostConfigs = &models.JSON[interface{}]{Data: envData}
 		}
 
-
 		if err := projectRepo.Update(ctx, project); err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update project"})
 			return
