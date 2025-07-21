@@ -1,0 +1,52 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: dployr
+    main: ./server/main.go
+    dir: ./server
+    binary: dployr
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w 
+      - -X dployr.io/pkg/config.Version={{.Version}}
+      - -X dployr.io/pkg/config.GoVersion={{.GoVersion}}
+      - -X dployr.io/pkg/config.GitCommit={{.Commit}}
+      - -X dployr.io/pkg/config.BuildTime={{.Timestamp}}
+      - -X dployr.io/pkg/config.BuildUser=goreleaser
+
+archives:
+  - id: dployr-archive
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  draft: true

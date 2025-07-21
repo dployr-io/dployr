@@ -15,8 +15,14 @@ import (
 	"dployr.io/pkg/repository"
 )
 
-// Version is injected at build time via -ldflags (CI) or from version.txt
-var Version = "dev"
+// Injected at build time via -ldflags
+var (
+    Version   = "dev"
+    GoVersion = ""
+    GitCommit = ""
+    BuildTime = ""
+    BuildUser = ""
+)
 
 func init() {
 	if err := godotenv.Load(".env"); err != nil {
