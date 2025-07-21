@@ -11,22 +11,13 @@
     showProfileDropdown, 
     showNewProjectPopup, 
     host,
-
     token,
-
-    name,
-
     isLoading
-
-
-
-
   } from '../../../stores';
   import { SIDEBAR_WIDTH_DOCKED } from '../../../../src/constants';
   import ProjectGrid from '../project/ProjectGrid.svelte';
   import Modal from '../ui/Modal.svelte';
   import { projectService } from '../../../../src/lib/services/api';
-  import { setTimeout } from 'timers/promises';
   
   export let icon: string;
   export let iconSecondary: string;

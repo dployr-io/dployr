@@ -12,13 +12,11 @@ export function DeleteProject(arg1:string,arg2:string):Promise<models.MessageRes
 
 export function DisconnectTerminal():Promise<void>;
 
-export function GetCurrentUser():Promise<models.User>;
-
-export function GetDeployments():Promise<Array<models.Deployment>>;
+export function GetDeployments(arg1:string,arg2:string,arg3:string,arg4:string):Promise<Array<models.Deployment>>;
 
 export function GetDomains():Promise<Array<models.Domain>>;
 
-export function GetLogs():Promise<Array<models.LogEntry>>;
+export function GetLogs(arg1:string,arg2:string,arg3:string,arg4:string):Promise<Array<models.LogEntry>>;
 
 export function GetProjects(arg1:string,arg2:string):Promise<Array<models.Project>>;
 
@@ -32,7 +30,7 @@ export function ResizeTerminal(arg1:number,arg2:number):Promise<void>;
 
 export function SendTerminalInput(arg1:string):Promise<void>;
 
-export function SignIn(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<any>;
+export function SignIn(arg1:string,arg2:string,arg3:string):Promise<any>;
 
 export function StartTerminalWebSocket(arg1:string,arg2:string):Promise<void>;
 

@@ -3,12 +3,12 @@ export namespace models {
 	export class Console {
 	    terminal: any;
 	    websocket: any;
-	    fitAddon: any;
-	    terminalElement: any;
-	    sessionId: any;
+	    fit_addon: any;
+	    terminal_element: any;
+	    session_id: any;
 	    status: string;
-	    statusMessage: string;
-	    errorMessage: string;
+	    status_message: string;
+	    error_message: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Console(source);
@@ -18,22 +18,23 @@ export namespace models {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.terminal = source["terminal"];
 	        this.websocket = source["websocket"];
-	        this.fitAddon = source["fitAddon"];
-	        this.terminalElement = source["terminalElement"];
-	        this.sessionId = source["sessionId"];
+	        this.fit_addon = source["fit_addon"];
+	        this.terminal_element = source["terminal_element"];
+	        this.session_id = source["session_id"];
 	        this.status = source["status"];
-	        this.statusMessage = source["statusMessage"];
-	        this.errorMessage = source["errorMessage"];
+	        this.status_message = source["status_message"];
+	        this.error_message = source["error_message"];
 	    }
 	}
 	export class Deployment {
-	    commitHash: string;
+	    project_id: string;
+	    commit_hash: string;
 	    branch: string;
 	    duration: number;
 	    message: string;
 	    // Go type: time
-	    createdAt: any;
-	    status?: string;
+	    created_at: any;
+	    status: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Deployment(source);
@@ -41,11 +42,12 @@ export namespace models {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.commitHash = source["commitHash"];
+	        this.project_id = source["project_id"];
+	        this.commit_hash = source["commit_hash"];
 	        this.branch = source["branch"];
 	        this.duration = source["duration"];
 	        this.message = source["message"];
-	        this.createdAt = this.convertValues(source["createdAt"], null);
+	        this.created_at = this.convertValues(source["created_at"], null);
 	        this.status = source["status"];
 	    }
 	
@@ -157,9 +159,10 @@ export namespace models {
 	    host: string;
 	    message: string;
 	    status: string;
+	    type: string;
 	    level: string;
 	    // Go type: time
-	    createdAt: any;
+	    created_at: any;
 	
 	    static createFrom(source: any = {}) {
 	        return new LogEntry(source);
@@ -171,8 +174,9 @@ export namespace models {
 	        this.host = source["host"];
 	        this.message = source["message"];
 	        this.status = source["status"];
+	        this.type = source["type"];
 	        this.level = source["level"];
-	        this.createdAt = this.convertValues(source["createdAt"], null);
+	        this.created_at = this.convertValues(source["created_at"], null);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -258,7 +262,7 @@ export namespace models {
 		}
 	}
 	export class SshConnectResponse {
-	    sessionId: string;
+	    session_id: string;
 	    status: string;
 	
 	    static createFrom(source: any = {}) {
@@ -267,53 +271,9 @@ export namespace models {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.sessionId = source["sessionId"];
+	        this.session_id = source["session_id"];
 	        this.status = source["status"];
 	    }
-	}
-	export class User {
-	    id: string;
-	    name: string;
-	    email: string;
-	    avatar?: string;
-	    role: string;
-	    // Go type: time
-	    created_at: any;
-	    // Go type: time
-	    updated_at: any;
-	
-	    static createFrom(source: any = {}) {
-	        return new User(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.email = source["email"];
-	        this.avatar = source["avatar"];
-	        this.role = source["role"];
-	        this.created_at = this.convertValues(source["created_at"], null);
-	        this.updated_at = this.convertValues(source["updated_at"], null);
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	export class WsMessage {
 	    type: string;

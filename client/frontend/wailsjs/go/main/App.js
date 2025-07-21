@@ -22,20 +22,16 @@ export function DisconnectTerminal() {
   return window['go']['main']['App']['DisconnectTerminal']();
 }
 
-export function GetCurrentUser() {
-  return window['go']['main']['App']['GetCurrentUser']();
-}
-
-export function GetDeployments() {
-  return window['go']['main']['App']['GetDeployments']();
+export function GetDeployments(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['GetDeployments'](arg1, arg2, arg3, arg4);
 }
 
 export function GetDomains() {
   return window['go']['main']['App']['GetDomains']();
 }
 
-export function GetLogs() {
-  return window['go']['main']['App']['GetLogs']();
+export function GetLogs(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['GetLogs'](arg1, arg2, arg3, arg4);
 }
 
 export function GetProjects(arg1, arg2) {
@@ -62,8 +58,8 @@ export function SendTerminalInput(arg1) {
   return window['go']['main']['App']['SendTerminalInput'](arg1);
 }
 
-export function SignIn(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['main']['App']['SignIn'](arg1, arg2, arg3, arg4, arg5);
+export function SignIn(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SignIn'](arg1, arg2, arg3);
 }
 
 export function StartTerminalWebSocket(arg1, arg2) {

@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"dployr/core/auth"
+	"embed"
+	
 	"dployr/core/data"
 	"dployr/core/domain"
 	"dployr/core/terminal"
-	"embed"
-
 	"dployr.io/pkg/models"
+	
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -20,7 +20,6 @@ var assets embed.FS
 
 type App struct {
 	ctx             context.Context
-	authService     *auth.AuthService
 	dataService     *data.DataService
 	domainService   *domain.DomainService
 	terminalService *terminal.TerminalService
@@ -58,7 +57,6 @@ func main() {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
-	a.authService = auth.NewAuthService()
 	a.dataService = data.NewDataService()
 	a.domainService = domain.NewDomainService(getBaseUrl())
 	a.terminalService = terminal.NewTerminalService(ctx)
@@ -69,24 +67,20 @@ func getBaseUrl() string {
 }
 
 // Wails binding methods - delegate to services
-func (a *App) SignIn(host, email, name, password, privateKey string) (any, error) {
-	return a.authService.SignIn(host, email, name, password, privateKey)
+func (a *App) SignIn(host, email, name string) (any, error) {
+	return a.dataService.SignIn(host, email, name)
 }
 
 func (a *App) VerifyMagicCode(host, email, code string) (any, error) {
-	return a.authService.VerifyMagicCode(host, email, code)
+	return a.dataService.VerifyMagicCode(host, email, code)
 }
 
-func (a *App) GetCurrentUser() *models.User {
-	return auth.GetCurrentUser()
+func (a *App) GetDeployments(host, token, refresh, projectId string) ([]models.Deployment, error) {
+	return a.dataService.GetDeployments(host, token, refresh, projectId)
 }
 
-func (a *App) GetDeployments() []models.Deployment {
-	return a.dataService.GetDeployments()
-}
-
-func (a *App) GetLogs() []models.LogEntry {
-	return a.dataService.GetLogs()
+func (a *App) GetLogs(host, token, refresh, projectId string) ([]models.LogEntry, error) {
+	return a.dataService.GetLogs(host, token, refresh, projectId)
 }
 
 func (a *App) GetProjects(host, token string) ([]models.Project, error) {
