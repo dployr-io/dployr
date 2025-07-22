@@ -14,7 +14,6 @@ builds:
     ldflags:
       - -s -w 
       - -X dployr.io/pkg/config.Version={{.Version}}
-      - -X dployr.io/pkg/config.GoVersion={{.GoVersion}}
       - -X dployr.io/pkg/config.GitCommit={{.Commit}}
       - -X dployr.io/pkg/config.BuildTime={{.Timestamp}}
       - -X dployr.io/pkg/config.BuildUser=goreleaser
