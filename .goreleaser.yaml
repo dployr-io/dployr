@@ -1,10 +1,5 @@
 version: 2
 
-before:
-  hooks:
-    - cmd: go mod tidy
-      dir: ./server
-
 builds:
   - id: dployr
     main: ./server/main.go
