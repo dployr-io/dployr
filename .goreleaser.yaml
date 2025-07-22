@@ -2,7 +2,8 @@ version: 2
 
 before:
   hooks:
-    - (cd server && go mod tidy)
+    - cmd: go mod tidy
+      dir: ./server
 
 builds:
   - id: dployr
