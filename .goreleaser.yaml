@@ -43,4 +43,4 @@ changelog:
       - "^test:"
 
 release:
-  draft: true
+  # draft: true
