@@ -1,7 +1,7 @@
 // src/index.ts
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { z } from "zod";
+import { success, z } from "zod";
 
 type Bindings = {
   ZEPTO_API_KEY: string;
@@ -71,7 +71,7 @@ app.post("/api/send-email", async (c) => {
       return c.json({ error: "Failed to send email" }, 500);
     }
 
-    return c.json({ message: "Email sent successfully" });
+    return c.json({ message: "Email sent successfully", success: true });
   } catch (error) {
     console.error("Email error:", error);
     return c.json({ error: "Internal server error" }, 500);
@@ -119,7 +119,7 @@ app.post("/api/dns/create", async (c) => {
       return c.json({ error: "Failed to update DNS record" }, 500);
     }
 
-    return c.json({ message: "DNS record updated successfully" }, 201);
+    return c.json({ message: "DNS record updated successfully", success: true }, 201);
   } catch (error) {
     console.error("Something went wrong:", error);
     return c.json({ error: "Internal server error" }, 500);
