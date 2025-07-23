@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATE_DIR="$HOME/.dployr/state"
+HOME_DIR=$(getent passwd "$USER" | cut -d: -f6)
+STATE_DIR="$HOME_DIR/.dployr/state"
 mkdir -p "$STATE_DIR"
 ENV_FILE="$SCRIPT_DIR/../../.env.dev"
 CDN="https://github.com/tobimadehin/dployr"
@@ -9,6 +10,7 @@ DATE=$(date +"%Y%m%d-%H%M%S")
 INSTALL_START_TIME=$(date +%s)
 DPLOYR_VERSION="latest"
 RANDOM_SUBDOMAIN=$(openssl rand -hex 6)
+SERVER_IP=$(curl -s https://api.ipify.org)
 
 # Colors for output
 RED='\033[0;31m'
@@ -61,6 +63,23 @@ log_warning() {
 
 log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Standard error handler for all functions
+handle_function_error() {
+    local function_name="$1"
+    local error_msg="$2"
+    
+    {
+        printf "\n\n"
+        echo -e "${RED}[ERROR]${NC} $function_name failed"
+        if [ -n "$error_msg" ]; then
+            echo "Error: $error_msg"
+        fi
+        echo ""
+        echo "Full log: $LOG_FILE"
+        echo ""
+    } >/dev/tty
 }
 
 # Check if running as root
@@ -139,7 +158,7 @@ download_dployr() {
         chown -R dployr:dployr /home/dployr
         log_success "Downloaded dployr binary"
     else
-        log_error "Failed to download dployr binary"
+        handle_error "Download error" "Error occoured while downloading dployr binary"
         exit 1
     fi
 }
@@ -204,7 +223,7 @@ select_install_type() {
 
 # Install system requirements
 install_requirements() {
-    local flag_file="$STATE_DIR/download_dployr.flag"
+    local flag_file="$STATE_DIR/install_requirements.flag"
     if [ -f "$flag_file" ]; then
         log_info "dployr binary already downloaded. Skipping."
         return 0
@@ -224,7 +243,7 @@ install_requirements() {
         ubuntu|debian)
             apt-get update -qq
             
-            PACKAGES="curl wget git jq nginx ca-certificates gnupg ufw openssl"
+            PACKAGES="curl wget git jq nginx ca-certificates gnupg ufw openssl net-tools"
             if [ "$INSTALL_TYPE" = "docker" ]; then
                 PACKAGES="$PACKAGES docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"
                 
@@ -249,7 +268,7 @@ install_requirements() {
             fi
             ;;
         *)
-            log_error "Unsupported operating system: $OS_TYPE"
+            handle_error "Package error" "Error occoured while installing required packages" 
             exit 1
             ;;
     esac
@@ -287,12 +306,12 @@ EOF
     
     systemctl enable docker
     timeout 60 systemctl start docker || {
-        log_error "Docker service failed to start within 60 seconds"
+        handle_error "Docker setup error" "Docker service failed to start within 60 seconds"
         exit 1
     }
     
     if ! systemctl is-active --quiet docker; then
-        log_error "Docker service failed to start"
+        handle_error "Docker setup error" "Docker service failed to start within 60 seconds"
         exit 1
     fi
     
@@ -354,7 +373,6 @@ services:
     restart: unless-stopped
 EOF
     
-    chown dployr:dployr /data/dployr/docker-compose.yml
     log_success "Docker Compose configuration created"
 }
 
@@ -397,20 +415,16 @@ EOF
 
 # Create Cloudflare DNS record
 create_cloudflare_dns() {
-    local server_ip="$1"
+    local subdomain="$RANDOM_SUBDOMAIN"
     
-    log_info "Creating DNS record"
+    log_info "Creating DNS record for $SERVER_IP"
     
     # Create A record via Cloudflare API
     local response=$(curl -s -X POST "https://dployr.dev/api/dns/create" \
         -H "Content-Type: application/json" \
         --data '{
-            "name": "'$subdomain'",
-            "ttl": 1,
-            "type": "A",
-            "comment": "Domain record for '$server_ip'",
-            "content": "'$server_ip'",
-            "proxied": false
+            "subdomain": "'"$subdomain"'",
+            "host": "'"$SERVER_IP"'"
         }')
     
     # Check if the request was successful
@@ -420,8 +434,7 @@ create_cloudflare_dns() {
         log_success "DNS record created successfully for $subdomain.dployr.dev"
         return 0
     else
-        local error_message=$(echo $response | jq -r '.errors[0].message // "Unknown error"')
-        log_error "Failed to create DNS record: $error_message"
+        local error_message=$(echo $response | jq -r '.errors.message // "Unknown error"')
         return 1
     fi
 }
@@ -486,34 +499,6 @@ EOF
     log_success "Static HTML content created"
 }
 
-# Get server public IP address
-get_server_ip() {
-    log_info "Detecting server public IP address..."
-    
-    # Try multiple IP detection services
-    local ip=""
-    local services=(
-        "https://ipv4.icanhazip.com"
-        "https://api.ipify.org"
-        "https://checkip.amazonaws.com"
-        "https://ident.me"
-    )
-    
-    for service in "${services[@]}"; do
-        ip=$(curl -s --max-time 10 "$service" | tr -d '\n' | tr -d '\r')
-        
-        # Validate IP format
-        if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-            log_success "Detected server IP: $ip"
-            echo "$ip"
-            return 0
-        fi
-    done
-    
-    log_error "Failed to detect server public IP address"
-    return 1
-}
-
 # Setup Nginx and SSL with automatic domain creation
 setup_nginx_ssl() {
     local flag_file="$STATE_DIR/setup_nginx_ssl.flag"
@@ -525,19 +510,18 @@ setup_nginx_ssl() {
     log_info "Setting up Nginx and SSL..."
     
     # Get server public IP
-    SERVER_IP=$(get_server_ip)
     if [ $? -ne 0 ]; then
         log_error "Cannot proceed without server IP address"
         exit 1
     fi
     
     # Create subdomain DNS record
-    if ! create_cloudflare_dns "$RANDOM_SUBDOMAIN" "$SERVER_IP"; then
+    if ! create_cloudflare_dns; then
         log_error "Failed to create DNS record"
         exit 1
     fi
     
-    DOMAIN="$RANDOM_SUBDOMAIN.dployr.io"
+    DOMAIN="$RANDOM_SUBDOMAIN.dployr.dev"
     log_info "Using domain: $DOMAIN"
     
     # Install certbot
@@ -569,18 +553,27 @@ EOF
     
     # Test and reload nginx
     nginx -t && systemctl reload nginx
-    
+
+    create_static_html
+    nginx -t && systemctl reload nginx
+        
     log_info "Waiting for DNS propagation (30 seconds)..."
     sleep 30
-    
-    log_info "Obtaining SSL certificate for $DOMAIN..."
+
+    log_info "Testing domain accessibility..."
+    if ! curl -s --max-time 10 "http://$DOMAIN" > /dev/null; then
+        log_warning "Domain not yet accessible, waiting additional 30 seconds..."
+        sleep 30
+    fi
+
+    log_info "Obtaining SSL certificate for $DOMAIN"
     
     # Get SSL certificate with retries
     local max_retries=3
     local retry=0
     
     while [ $retry -lt $max_retries ]; do
-        if certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email "admin@dployr.dev" --quiet; then
+        if certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email "admin@dployr.dev" --redirect --quiet; then
             log_success "SSL certificate obtained for $DOMAIN"
             break
         else
@@ -615,7 +608,7 @@ start_dployr() {
         if docker compose ps | grep -q "Up"; then
             log_success "Dployr started successfully (Docker)"
         else
-            log_error "Failed to start dployr (Docker)"
+            handle_error "Program error" "Failed to start dployr (Docker)"
             exit 1
         fi
     else
@@ -624,7 +617,7 @@ start_dployr() {
         if systemctl is-active --quiet dployr; then
             log_success "Dployr started successfully (Systemd)"
         else
-            log_error "Failed to start dployr (Systemd)"
+            handle_error "Program error" "Failed to start dployr (Systemd)"
             exit 1
         fi
     fi
@@ -661,22 +654,34 @@ show_completion() {
     echo ""
 }
 
+# Save original stdout/stderr
+exec 3>&1 4>&2
+
+# Function to show errors on console regardless of redirection
 handle_error() {
-    local exit_code=$1
-    local step_name="$2"
+    local step_name="$1"
+    local error_msg="$2"
     
-    if [ $exit_code -ne 0 ]; then
+    {
         printf "\n\n"
         echo -e "${RED}[ERROR]${NC} Installation failed during: $step_name"
+        if [ -n "$error_msg" ]; then
+            echo "Error: $error_msg"
+        fi
         echo ""
         echo "Last 20 lines from install log:"
         echo "================================"
-        tail -20 "$LOG_FILE" 2>/dev/null || echo "No log available"
+        sync
+        if [ -f "$LOG_FILE" ] && [ -s "$LOG_FILE" ]; then
+            tail -20 "$LOG_FILE"
+        else
+            echo "No log content available"
+        fi
         echo "================================"
         echo ""
         echo "Full log available at: $LOG_FILE"
-        exit 1
-    fi
+        echo ""
+    } >/dev/tty 2>&1
 }
 
 # Main installation flow
@@ -693,38 +698,56 @@ main() {
     TOTAL_STEPS=8
     CURRENT_STEP=0
     
-    # Update progress in place for each step
+    # Step 1: Create user
     show_progress $CURRENT_STEP $TOTAL_STEPS "Creating user..."
-    create_dployr_user >> "$LOG_FILE" 2>&1 || handle_error $? "Creating user"
+    if ! create_dployr_user >> "$LOG_FILE" 2>&1; then
+        exit 1
+    fi
     
     ((CURRENT_STEP++))
     show_progress $CURRENT_STEP $TOTAL_STEPS "Downloading binary..."
-    download_dployr >> "$LOG_FILE" 2>&1 || handle_error $? "Downloading binary"
+    if ! download_dployr >> "$LOG_FILE" 2>&1; then
+        exit 1
+    fi
 
     ((CURRENT_STEP++))
     show_progress $CURRENT_STEP $TOTAL_STEPS "Installing requirements..."
-    install_requirements >> "$LOG_FILE" 2>&1 || handle_error $? "Installing requirements..."
+    if ! install_requirements >> "$LOG_FILE" 2>&1; then
+        exit 1
+    fi
     
     ((CURRENT_STEP++))
     show_progress $CURRENT_STEP $TOTAL_STEPS "Setting up Docker..."
-    setup_docker >> "$LOG_FILE" 2>&1 || handle_error $? "Setting up Docker..."
+    if ! setup_docker >> "$LOG_FILE" 2>&1; then
+        exit 1
+    fi
     
     ((CURRENT_STEP++))
     show_progress $CURRENT_STEP $TOTAL_STEPS "Creating directories..."
-    setup_directories >> "$LOG_FILE" 2>&1 || handle_error $? "Creating directories..."
+    if ! setup_directories >> "$LOG_FILE" 2>&1; then
+        exit 1
+    fi
     
     ((CURRENT_STEP++))
     show_progress $CURRENT_STEP $TOTAL_STEPS "Configuring services..."
-    setup_docker_compose >> "$LOG_FILE" 2>&1 || handle_error $? "Configuring services..."
-    create_systemd_service >> "$LOG_FILE" 2>&1 || handle_error $? "Configuring services..."
+    if ! setup_docker_compose >> "$LOG_FILE" 2>&1; then
+        exit 1
+    fi
+    if ! create_systemd_service >> "$LOG_FILE" 2>&1; then
+        exit 1
+    fi
     
     ((CURRENT_STEP++))
-    show_progress $CURRENT_STEP $TOTAL_STEPS "Setting up SSL..."
-    setup_nginx_ssl >> "$LOG_FILE" 2>&1 || handle_error $? "Setting up SSL..."
+    show_progress $CURRENT_STEP $TOTAL_STEPS "Obtaining SSL certificate. This may take a bit..."
+    if ! setup_nginx_ssl >> "$LOG_FILE" 2>&1; then
+        exit 1
+    fi
     
     ((CURRENT_STEP++))
     show_progress $CURRENT_STEP $TOTAL_STEPS "Starting services..."
-    start_dployr >> "$LOG_FILE" 2>&1 || handle_error $? "Starting services..."
+    if ! start_dployr >> "$LOG_FILE" 2>&1; then
+        exit 1
+    fi
     
     # Final update
     show_progress $TOTAL_STEPS $TOTAL_STEPS "Complete!"
