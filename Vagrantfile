@@ -43,7 +43,7 @@ Vagrant.configure("2") do |config|
         v.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
       
       # Mount local static folder into VM
-      vm.vm.synced_folder "./base/public", "/var/www", create: true
+      vm.vm.synced_folder "./base/public", "/server", create: true
       end
       
       # System update
