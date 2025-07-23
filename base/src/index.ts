@@ -105,7 +105,7 @@ app.post("/api/dns/create", async (c) => {
           name: fullDomain,
           content: host,
           ttl: 1,
-          proxied: true,
+          proxied: false,
         }),
       }
     );
