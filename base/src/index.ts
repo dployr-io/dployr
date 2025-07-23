@@ -16,7 +16,7 @@ const baseDomain = "dployr.dev";
 // DNS format validation
 const dnsSchema = z.object({
   subdomain: z.string().min(1),
-  ip: z
+  host: z
     .string()
     .refine(
       (ip) =>
@@ -27,16 +27,6 @@ const dnsSchema = z.object({
       }
     ),
 });
-
-function generateRandomSubdomain(length = 10): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let result = ''
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return result
-}
-
 
 app.use("/api/*", cors());
 
@@ -99,10 +89,7 @@ app.post("/api/dns/create", async (c) => {
       return c.json({ error: result.error.issues[0].message }, 400);
     }
 
-    const { ip } = result.data;
-
-    const subdomain = generateRandomSubdomain();
-
+    const { subdomain, host } = result.data;
     const fullDomain = `${subdomain}.${baseDomain}`;
 
     const response = await fetch(
@@ -116,7 +103,7 @@ app.post("/api/dns/create", async (c) => {
         body: JSON.stringify({
           type: "A",
           name: fullDomain,
-          content: ip,
+          content: host,
           ttl: 1,
           proxied: true,
         }),
