@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
-# Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+STATE_DIR="$HOME/.dployr/state"
+mkdir -p "$STATE_DIR"
 ENV_FILE="$SCRIPT_DIR/../../.env.dev"
-CDN="https://cdn.dployr.io"
+CDN="https://github.com/tobimadehin/dployr"
 DATE=$(date +"%Y%m%d-%H%M%S")
 INSTALL_START_TIME=$(date +%s)
 DPLOYR_VERSION="latest"
@@ -21,18 +22,28 @@ if [ -f "$ENV_FILE" ]; then
   export $(grep -v '^#' "$ENV_FILE" | xargs)
 fi
 
-# Progress bar function
+# Progress bar function with in-place updates
 show_progress() {
     local current=$1
     local total=$2
+    local message="$3"
     local width=50
     local percentage=$((current * 100 / total))
     local completed=$((current * width / total))
     
-    echo -n "["
-    for ((i=0; i<completed; i++)); do echo -n "#"; done
-    for ((i=completed; i<width; i++)); do echo -n "-"; done
-    echo "] $percentage% ($current/$total)"
+    # Clear line and move cursor to beginning
+    printf "\r\033[K"
+    
+    # Show progress bar
+    printf "["
+    for ((i=0; i<completed; i++)); do printf "#"; done
+    for ((i=completed; i<width; i++)); do printf "-"; done
+    printf "] %3d%% %s" "$percentage" "$message"
+    
+    # Add newline only when complete
+    if [ "$current" -eq "$total" ]; then
+        printf "\n"
+    fi
 }
 
 # Logging functions
@@ -65,6 +76,12 @@ check_sudo() {
 
 # Create dployr user with safe admin permissions
 create_dployr_user() {
+    local flag_file="$STATE_DIR/create_dployr_user.flag"
+    if [ -f "$flag_file" ]; then
+        log_info "dployr user already created. Skipping."
+        return 0
+    fi
+
     log_info "Creating dployr user..."
     
     # Create dployr user if it doesn't exist
@@ -93,12 +110,18 @@ EOF
 
 # Download dployr binary
 download_dployr() {
+    local flag_file="$STATE_DIR/download_dployr.flag"
+    if [ -f "$flag_file" ]; then
+        log_info "dployr binary already downloaded. Skipping."
+        return 0
+    fi
+
     log_info "Downloading dployr binary..."
     
     # Detect architecture
     ARCH=$(uname -m)
     case $ARCH in
-        x86_64) ARCH="amd64" ;;
+        x86_64) ARCH="x86_64" ;;
         aarch64) ARCH="arm64" ;;
         armv7l) ARCH="arm" ;;
         *) log_error "Unsupported architecture: $ARCH"; exit 1 ;;
@@ -107,8 +130,8 @@ download_dployr() {
     # Create server directory
     mkdir -p /home/dployr/server
     
-    # Download binary (assuming CDN has binaries)
-    DOWNLOAD_URL="$CDN/releases/$DPLOYR_VERSION/dployr-linux-$ARCH"
+    # Download binary
+    DOWNLOAD_URL="$CDN/releases/$DPLOYR_VERSION/download/dployr_Linux_$ARCH.tar.gz"
     
     log_info "Downloading from: $DOWNLOAD_URL"
     if curl -fsSL "$DOWNLOAD_URL" -o /home/dployr/server/dployr; then
@@ -181,6 +204,12 @@ select_install_type() {
 
 # Install system requirements
 install_requirements() {
+    local flag_file="$STATE_DIR/download_dployr.flag"
+    if [ -f "$flag_file" ]; then
+        log_info "dployr binary already downloaded. Skipping."
+        return 0
+    fi
+
     log_info "Installing system requirements..."
     
     OS_TYPE=$(grep -w "ID" /etc/os-release | cut -d "=" -f 2 | tr -d '"')
@@ -233,6 +262,12 @@ setup_docker() {
     if [ "$INSTALL_TYPE" != "docker" ]; then
         return
     fi
+
+    local flag_file="$STATE_DIR/setup_docker.flag"
+    if [ -f "$flag_file" ]; then
+        log_info "Docker already configured. Skipping."
+        return 0
+    fi
     
     log_info "Configuring Docker..."
     
@@ -267,6 +302,12 @@ EOF
 
 # Setup directories based on installation type
 setup_directories() {
+    local flag_file="$STATE_DIR/setup_directories.flag"
+    if [ -f "$flag_file" ]; then
+        log_info "Directories already created. Skipping."
+        return 0
+    fi
+    
     log_info "Setting up directories..."
     
     if [ "$INSTALL_TYPE" = "docker" ]; then
@@ -289,6 +330,12 @@ setup_docker_compose() {
         return
     fi
     
+    local flag_file="$STATE_DIR/setup_docker_compose.flag"
+    if [ -f "$flag_file" ]; then
+        log_info "Docker Compose already configured. Skipping."
+        return 0
+    fi
+
     log_info "Setting up Docker Compose..."
     
     cat > /data/dployr/docker-compose.yml << EOF
@@ -316,17 +363,23 @@ create_systemd_service() {
     if [ "$INSTALL_TYPE" != "standalone" ]; then
         return
     fi
+
+    local flag_file="$STATE_DIR/create_systemd_service.flag"
+    if [ -f "$flag_file" ]; then
+        log_info "Systemd service already created. Skipping."
+        return 0
+    fi
     
     log_info "Creating systemd service..."
     
     cat > /etc/systemd/system/dployr.service << EOF
 [Unit]
-Description=Dployr
+Description=Dployr Temporary Server
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/home/dployr/server/dployr
+ExecStart=/usr/bin/node /home/dployr/server/server.js
 Restart=on-failure
 User=dployr
 WorkingDirectory=/home/dployr/server
@@ -342,9 +395,147 @@ EOF
     log_success "Systemd service created and enabled"
 }
 
-# Setup Nginx and SSL
+# Create Cloudflare DNS record
+create_cloudflare_dns() {
+    local server_ip="$1"
+    
+    log_info "Creating DNS record"
+    
+    # Create A record via Cloudflare API
+    local response=$(curl -s -X POST "https://dployr.dev/api/dns/create" \
+        -H "Content-Type: application/json" \
+        --data '{
+            "name": "'$subdomain'",
+            "ttl": 1,
+            "type": "A",
+            "comment": "Domain record for '$server_ip'",
+            "content": "'$server_ip'",
+            "proxied": false
+        }')
+    
+    # Check if the request was successful
+    local success=$(echo $response | jq -r '.success // false')
+    
+    if [ "$success" = "true" ]; then
+        log_success "DNS record created successfully for $subdomain.dployr.dev"
+        return 0
+    else
+        local error_message=$(echo $response | jq -r '.errors[0].message // "Unknown error"')
+        log_error "Failed to create DNS record: $error_message"
+        return 1
+    fi
+}
+
+# Create static HTML content
+create_static_html() {
+    local flag_file="$STATE_DIR/create_static_html.flag"
+    if [ -f "$flag_file" ]; then
+        log_info "Static HTML already created. Skipping."
+        return 0
+    fi
+
+    log_info "Creating static HTML content..."
+    
+    # Create HTML directory
+    mkdir -p /home/dployr/server/public
+    cat > /home/dployr/server/public/index.html << 'EOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dployr</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+        }
+        h1 {
+            font-size: 3rem;
+            margin: 0;
+            font-weight: 300;
+        }
+        p {
+            font-size: 1.2rem;
+            margin-top: 1rem;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Hello dployr</h1>
+        <p>Your deployment platform is ready</p>
+    </div>
+</body>
+</html>
+EOF
+    
+    chown -R dployr:dployr /home/dployr/server
+    log_success "Static HTML content created"
+}
+
+# Get server public IP address
+get_server_ip() {
+    log_info "Detecting server public IP address..."
+    
+    # Try multiple IP detection services
+    local ip=""
+    local services=(
+        "https://ipv4.icanhazip.com"
+        "https://api.ipify.org"
+        "https://checkip.amazonaws.com"
+        "https://ident.me"
+    )
+    
+    for service in "${services[@]}"; do
+        ip=$(curl -s --max-time 10 "$service" | tr -d '\n' | tr -d '\r')
+        
+        # Validate IP format
+        if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            log_success "Detected server IP: $ip"
+            echo "$ip"
+            return 0
+        fi
+    done
+    
+    log_error "Failed to detect server public IP address"
+    return 1
+}
+
+# Setup Nginx and SSL with automatic domain creation
 setup_nginx_ssl() {
+    local flag_file="$STATE_DIR/setup_nginx_ssl.flag"
+    if [ -f "$flag_file" ]; then
+        log_info "Nginx and SSL already configured. Skipping."
+        return 0
+    fi
+
     log_info "Setting up Nginx and SSL..."
+    
+    # Get server public IP
+    SERVER_IP=$(get_server_ip)
+    if [ $? -ne 0 ]; then
+        log_error "Cannot proceed without server IP address"
+        exit 1
+    fi
+    
+    # Create subdomain DNS record
+    if ! create_cloudflare_dns "$RANDOM_SUBDOMAIN" "$SERVER_IP"; then
+        log_error "Failed to create DNS record"
+        exit 1
+    fi
     
     DOMAIN="$RANDOM_SUBDOMAIN.dployr.io"
     log_info "Using domain: $DOMAIN"
@@ -361,13 +552,11 @@ setup_nginx_ssl() {
 server {
     listen 80;
     server_name $DOMAIN;
+    root /home/dployr/server/public;
+    index index.html;
 
     location / {
-        proxy_pass http://localhost:7879;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        try_files \$uri \$uri/ /index.html;
     }
 }
 EOF
@@ -381,21 +570,42 @@ EOF
     # Test and reload nginx
     nginx -t && systemctl reload nginx
     
-    log_info "Attempting to obtain SSL certificate for $DOMAIN..."
+    log_info "Waiting for DNS propagation (30 seconds)..."
+    sleep 30
     
-    # Try to get SSL certificate (will fail if domain doesn't resolve, but that's expected)
-    if certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email "admin@dployr.io" --quiet; then
-        log_success "SSL certificate obtained for $DOMAIN"
-    else
-        log_warning "SSL certificate could not be obtained. You may need to configure DNS first."
-        log_info "Manual command: certbot --nginx -d $DOMAIN"
-    fi
+    log_info "Obtaining SSL certificate for $DOMAIN..."
+    
+    # Get SSL certificate with retries
+    local max_retries=3
+    local retry=0
+    
+    while [ $retry -lt $max_retries ]; do
+        if certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email "admin@dployr.dev" --quiet; then
+            log_success "SSL certificate obtained for $DOMAIN"
+            break
+        else
+            retry=$((retry + 1))
+            if [ $retry -lt $max_retries ]; then
+                log_warning "SSL certificate attempt $retry failed, retrying in 30 seconds..."
+                sleep 30
+            else
+                log_warning "Failed to obtain SSL certificate after $max_retries attempts"
+                log_info "Domain is accessible via HTTP. SSL can be configured manually later with: certbot --nginx -d $DOMAIN"
+            fi
+        fi
+    done
     
     log_success "Nginx configured for domain: $DOMAIN"
 }
 
 # Start dployr service
 start_dployr() {
+    local flag_file="$STATE_DIR/start_dployr.flag"
+    if [ -f "$flag_file" ]; then
+        log_info "dployr already started. Skipping."
+        return 0
+    fi
+    
     log_info "Starting dployr..."
     
     if [ "$INSTALL_TYPE" = "docker" ]; then
@@ -429,14 +639,13 @@ show_completion() {
     
     echo ""
     echo "╔══════════════════════════════════════╗"
-    echo "║          INSTALLATION COMPLETE       ║"
+    echo "║         INSTALLATION COMPLETE        ║"
     echo "╚══════════════════════════════════════╝"
     echo ""
     log_success "Installation completed in ${MINUTES}m ${SECONDS}s"
     echo ""
     echo "Access your dployr installation at:"
-    echo "  HTTP:  http://$RANDOM_SUBDOMAIN.dployr.io"
-    echo "  HTTPS: https://$RANDOM_SUBDOMAIN.dployr.io (if SSL configured)"
+    echo "  https://$RANDOM_SUBDOMAIN.dployr.dev"
     echo ""
     echo "Service management:"
     if [ "$INSTALL_TYPE" = "docker" ]; then
@@ -452,68 +661,74 @@ show_completion() {
     echo ""
 }
 
+handle_error() {
+    local exit_code=$1
+    local step_name="$2"
+    
+    if [ $exit_code -ne 0 ]; then
+        printf "\n\n"
+        echo -e "${RED}[ERROR]${NC} Installation failed during: $step_name"
+        echo ""
+        echo "Last 20 lines from install log:"
+        echo "================================"
+        tail -20 "$LOG_FILE" 2>/dev/null || echo "No log available"
+        echo "================================"
+        echo ""
+        echo "Full log available at: $LOG_FILE"
+        exit 1
+    fi
+}
+
 # Main installation flow
 main() {
     echo "Starting dployr installer..."
+    echo ""
+
+    LOG_FILE="/tmp/dployr-install-$(date +%Y%m%d-%H%M%S).log"
+    echo "Installation started at $(date)" > "$LOG_FILE"
     
-    TOTAL_STEPS=10
-    CURRENT_STEP=0
-    
-    # Step 1
-    echo "Step 1: Checking privileges"
     check_sudo
-    
-    # Step 2
-    echo "Step 2: Selecting installation type"
     select_install_type "$1"
     
-    # Step 3
-    ((CURRENT_STEP++))
-    show_progress $CURRENT_STEP $TOTAL_STEPS
-    create_dployr_user
-    echo ""
+    TOTAL_STEPS=8
+    CURRENT_STEP=0
     
-    # Step 4
-    ((CURRENT_STEP++))
-    show_progress $CURRENT_STEP $TOTAL_STEPS
-    download_dployr
-    echo ""
+    # Update progress in place for each step
+    show_progress $CURRENT_STEP $TOTAL_STEPS "Creating user..."
+    create_dployr_user >> "$LOG_FILE" 2>&1 || handle_error $? "Creating user"
     
-    # Step 5
     ((CURRENT_STEP++))
-    show_progress $CURRENT_STEP $TOTAL_STEPS
-    install_requirements
-    echo ""
+    show_progress $CURRENT_STEP $TOTAL_STEPS "Downloading binary..."
+    download_dployr >> "$LOG_FILE" 2>&1 || handle_error $? "Downloading binary"
+
+    ((CURRENT_STEP++))
+    show_progress $CURRENT_STEP $TOTAL_STEPS "Installing requirements..."
+    install_requirements >> "$LOG_FILE" 2>&1 || handle_error $? "Installing requirements..."
     
-    # Step 6
     ((CURRENT_STEP++))
-    show_progress $CURRENT_STEP $TOTAL_STEPS
-    setup_docker
-    echo ""
+    show_progress $CURRENT_STEP $TOTAL_STEPS "Setting up Docker..."
+    setup_docker >> "$LOG_FILE" 2>&1 || handle_error $? "Setting up Docker..."
     
-    # Step 7
     ((CURRENT_STEP++))
-    show_progress $CURRENT_STEP $TOTAL_STEPS
-    setup_directories
-    echo ""
+    show_progress $CURRENT_STEP $TOTAL_STEPS "Creating directories..."
+    setup_directories >> "$LOG_FILE" 2>&1 || handle_error $? "Creating directories..."
     
-    # Step 8
     ((CURRENT_STEP++))
-    show_progress $CURRENT_STEP $TOTAL_STEPS
-    setup_docker_compose
-    create_systemd_service
-    echo ""
+    show_progress $CURRENT_STEP $TOTAL_STEPS "Configuring services..."
+    setup_docker_compose >> "$LOG_FILE" 2>&1 || handle_error $? "Configuring services..."
+    create_systemd_service >> "$LOG_FILE" 2>&1 || handle_error $? "Configuring services..."
     
-    # Step 9
     ((CURRENT_STEP++))
-    show_progress $CURRENT_STEP $TOTAL_STEPS
-    setup_nginx_ssl
-    echo ""
+    show_progress $CURRENT_STEP $TOTAL_STEPS "Setting up SSL..."
+    setup_nginx_ssl >> "$LOG_FILE" 2>&1 || handle_error $? "Setting up SSL..."
     
-    # Step 10
     ((CURRENT_STEP++))
-    show_progress $CURRENT_STEP $TOTAL_STEPS
-    start_dployr
+    show_progress $CURRENT_STEP $TOTAL_STEPS "Starting services..."
+    start_dployr >> "$LOG_FILE" 2>&1 || handle_error $? "Starting services..."
+    
+    # Final update
+    show_progress $TOTAL_STEPS $TOTAL_STEPS "Complete!"
+    echo ""
     echo ""
     
     show_completion

@@ -14,6 +14,9 @@ importers:
       zeptomail:
         specifier: ^6.2.1
         version: 6.2.1
+      zod:
+        specifier: ^4.0.5
+        version: 4.0.5
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20250712.0
@@ -542,6 +545,9 @@ packages:
   zod@3.22.3:
     resolution: {integrity: sha512-EjIevzuJRiRPbVH4mGc8nApb/lVLKVpmUhAaR5R5doKGfAnGJ6Gr3CViAVjP+4FWSxCsybeWQdcgCtbX+7oZug==}
 
+  zod@4.0.5:
+    resolution: {integrity: sha512-/5UuuRPStvHXu7RS+gmvRf4NXrNxpSllGwDnCBcJZtQsKrviYXm54yDGV2KYNLT5kq0lHGcl7lqWJLgSaG+tgA==}
+
 snapshots:
 
   '@cloudflare/kv-asset-handler@0.4.0':
@@ -969,3 +975,5 @@ snapshots:
       - encoding
 
   zod@3.22.3: {}
+
+  zod@4.0.5: {}
