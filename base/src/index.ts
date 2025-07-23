@@ -116,10 +116,10 @@ app.post("/api/dns/create", async (c) => {
         "Cloudflare encountered an error while setting up DNS record",
         error
       );
-      return c.json({ error: "Failed to send email" }, 500);
+      return c.json({ error: "Failed to update DNS record" }, 500);
     }
 
-    return c.json({ message: "Email sent successfully" }, 201);
+    return c.json({ message: "DNS record updated successfully" }, 201);
   } catch (error) {
     console.error("Something went wrong:", error);
     return c.json({ error: "Internal server error" }, 500);
