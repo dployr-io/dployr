@@ -169,12 +169,12 @@ select_install_type() {
     case "${1:-}" in
         --docker)
             INSTALL_TYPE="docker"
-            log_info "Using Docker installation (from command line)"
+            log_info "Using Docker installation"
             return
             ;;
         --standalone)
             INSTALL_TYPE="standalone" 
-            log_info "Using Standalone installation (from command line)"
+            log_info "Using Standalone installation"
             return
             ;;
     esac
@@ -247,6 +247,8 @@ install_requirements() {
             apt install -y debian-keyring debian-archive-keyring apt-transport-https
             curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
             curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+            chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+            chmod o+r /etc/apt/sources.list.d/caddy-stable.list
             apt-get update -qq
             
             PACKAGES="curl wget git jq caddy ca-certificates gnupg ufw openssl net-tools"
