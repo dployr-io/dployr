@@ -2,14 +2,13 @@ package config
 
 import (
 	"database/sql"
-	_ "embed"
+	"embed"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/joho/godotenv"
-	"github.com/pressly/goose"
+	"github.com/pressly/goose/v3"
 	sqlite3 "modernc.org/sqlite"
 
 	"dployr.io/pkg/repository"
@@ -25,10 +24,6 @@ var (
 )
 
 func init() {
-	if err := godotenv.Load(".env"); err != nil {
-		log.Println("Warning: Could not load .env file:", err)
-	}
-
 	sql.Register("sqlite3", &sqlite3.Driver{})
 }
 
@@ -46,17 +41,18 @@ func GetDSN(portOverride ...string) string {
 	return "host=" + host + " user=" + user + " password=" + password + " dbname=" + dbname + " port=" + port + " sslmode=require"
 }
 
-func runMigrations(db *sqlx.DB) {
+func runMigrations(db *sqlx.DB, embedMigrations embed.FS) {
+	goose.SetBaseFS(embedMigrations)
 	if err := goose.SetDialect("sqlite3"); err != nil {
 		log.Fatalf("goose: %v", err)
 	}
 
-	if err := goose.Up(db.DB, "./db/migrations"); err != nil {
+	if err := goose.Up(db.DB, "db/migrations"); err != nil {
 		log.Printf("Warning: migrations encountered issues: %v", err)
 	}
 }
 
-func InitDB() (repos *repository.AppRepos) {
+func InitDB(m embed.FS) (repos *repository.AppRepos) {
 	dsn := "file:data.db?_foreign_keys=on&_journal=WAL"
 	db, err := sqlx.Open("sqlite3", dsn)
 
@@ -64,7 +60,7 @@ func InitDB() (repos *repository.AppRepos) {
 		log.Fatal("Failed to initialize database:", err)
 	}
 
-	runMigrations(db)
+	runMigrations(db, m)
 
 	fmt.Println("Database initialized successfully")
 

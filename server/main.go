@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"os"
 	"time"
 
@@ -14,6 +15,12 @@ import (
 
 	_ "dployr.io/docs"
 )
+
+//go:embed public/*
+var staticFiles embed.FS
+
+//go:embed db/migrations/*
+var migrationsFS embed.FS
 
 // @title           dployr API
 // @version         0.1
@@ -35,7 +42,7 @@ import (
 // @name Authorization
 // @description Type "Bearer" followed by a space and JWT token.
 func main() {
-	repos := config.InitDB()
+	repos := config.InitDB(migrationsFS)
 
 	if (repos == nil) {
 		panic("Database failed to initialize properly")
@@ -62,6 +69,6 @@ func main() {
 	j := auth.NewJWTManager()
 
 	// Create router and run
-	r := router.New(repos, _queue, ssh, rl, j)
+	r := router.New(repos, _queue, ssh, rl, j, staticFiles)
 	r.Run(":" + port)
 }

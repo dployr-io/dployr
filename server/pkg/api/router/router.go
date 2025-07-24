@@ -1,6 +1,8 @@
 package router
 
 import (
+	"embed"
+	"html/template"
 	"net/http"
 
 	"github.com/gin-contrib/cors"
@@ -27,6 +29,7 @@ func New(
 	ssh *platform.SshManager,
 	rl *middleware.RateLimiter,
 	j *auth.JWTManager,
+	staticFiles embed.FS,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -36,13 +39,17 @@ func New(
 	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "Connection", "Upgrade"}
 	r.Use(cors.New(config))
 
-	r.LoadHTMLGlob("public/*.html")
-	r.StaticFile("/favicon.ico", "./public/favicon.ico")
+	tmpl := template.Must(template.New("").ParseFS(staticFiles, "public/*.html"))
+    r.SetHTMLTemplate(tmpl)
+    
+    faviconData, _ := staticFiles.ReadFile("public/favicon.ico")
+    r.GET("/favicon.ico", func(c *gin.Context) {
+        c.Data(http.StatusOK, "image/x-icon", faviconData)
+    })
 
 	r.GET("/", func(ctx *gin.Context) {
 		ctx.HTML(http.StatusOK, "index.html", nil)
 	})
-
 
 	health := observability.NewHealthManager(ssh, queue)
 	r.GET("/health", health.HealthHandler())
