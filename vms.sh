@@ -10,8 +10,6 @@ SSH_KEY_PATH="$HOME/.ssh/id_rsa.pub"  # Existing SSH public key
 declare -A VMS=(
     ["ubuntu20"]="Canonical:0001-com-ubuntu-server-focal:20_04-lts-gen2:latest"
     ["debian11"]="Debian:debian-11:11:latest"
-    ["centos"]="OpenLogic:CentOS:7_9-gen2:latest"
-    ["suse"]="SUSE:sles-15-sp5:gen2:latest"
 )
 
 # Create Resource Group

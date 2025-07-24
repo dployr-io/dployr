@@ -8,7 +8,6 @@ DISTROS = {
   "ubuntu24" => "ubuntu/noble64",
   "debian11" => "debian/bullseye64",
   "debian12" => "debian/bookworm64",
-  "centos8"  => "centos/stream8",
   "rocky9"   => "rockylinux/9",
   "alma9"    => "almalinux/9",
   "opensuse" => "opensuse/Leap-15.5.x86_64",
