@@ -1,6 +1,8 @@
 package router
 
 import (
+	"net/http"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
@@ -33,6 +35,14 @@ func New(
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "Connection", "Upgrade"}
 	r.Use(cors.New(config))
+
+	r.LoadHTMLGlob("public/*.html")
+	r.StaticFile("/favicon.ico", "./public/favicon.ico")
+
+	r.GET("/", func(ctx *gin.Context) {
+		ctx.HTML(http.StatusOK, "index.html", nil)
+	})
+
 
 	health := observability.NewHealthManager(ssh, queue)
 	r.GET("/health", health.HealthHandler())
