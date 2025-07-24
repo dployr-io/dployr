@@ -105,7 +105,7 @@ create_dployr_user() {
     
     # Create dployr user if it doesn't exist
     if ! id "dployr" &>/dev/null; then
-        useradd -r -m -s /bin/bash -d /home/dployr -u 1000 dployr
+        useradd -r -m -s /bin/bash -d /home/dployr dployr
         log_success "Created dployr user"
     else
         log_warning "User dployr already exists"
@@ -153,7 +153,7 @@ download_dployr() {
     DOWNLOAD_URL="$CDN/releases/$DPLOYR_VERSION/download/dployr_Linux_$ARCH.tar.gz"
     
     log_info "Downloading from: $DOWNLOAD_URL"
-    if curl -fsSL "$DOWNLOAD_URL" -o /home/dployr/server/dployr; then
+    if curl -fsSL "$DOWNLOAD_URL" | tar -xz -C /home/dployr/server; then
         chmod +x /home/dployr/server/dployr
         chown -R dployr:dployr /home/dployr
         log_success "Downloaded dployr binary"
@@ -189,7 +189,7 @@ select_install_type() {
     
     echo ""
     echo "╔══════════════════════════════════════╗"
-    echo "║        DPLOYR.IO INSTALLER           ║"
+    echo "║         DPLOYR.IO INSTALLER          ║"
     echo "╚══════════════════════════════════════╝"
     echo ""
     echo "Select installation type:"
@@ -242,8 +242,14 @@ install_requirements() {
     case "$OS_TYPE" in
         ubuntu|debian)
             apt-get update -qq
+
+            # Install Caddy
+            apt install -y debian-keyring debian-archive-keyring apt-transport-https
+            curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+            curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
+            apt-get update -qq
             
-            PACKAGES="curl wget git jq nginx ca-certificates gnupg ufw openssl net-tools"
+            PACKAGES="curl wget git jq caddy ca-certificates gnupg ufw openssl net-tools"
             if [ "$INSTALL_TYPE" = "docker" ]; then
                 PACKAGES="$PACKAGES docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"
                 
@@ -260,7 +266,11 @@ install_requirements() {
             apt-get install -y $PACKAGES
             ;;
         centos|rhel|rocky|alma)
-            yum install -y curl wget git jq nginx ufw openssl
+            # Install Caddy
+            yum install -y yum-plugin-copr
+            yum copr enable -y @caddy/caddy
+
+            yum install -y curl wget git jq caddy ufw openssl
             if [ "$INSTALL_TYPE" = "docker" ]; then
                 yum install -y yum-utils
                 yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
@@ -331,7 +341,7 @@ setup_directories() {
     
     if [ "$INSTALL_TYPE" = "docker" ]; then
         mkdir -p /data/dployr/{nextjs-apps,builds,images/cache,logs/{hot,warm,cold},monitoring/{prometheus,grafana},ssl,nginx/sites,redis}
-        chown -R 1000:1000 /data/dployr
+        chown -R dployr:dployr /data/dployr
     else
         mkdir -p /home/dployr/{apps,builds,logs,ssl}
         mkdir -p /var/log
@@ -361,7 +371,7 @@ setup_docker_compose() {
 services:
   dployr-web:
     image: dployr:latest
-    user: "1000:1000" 
+    user: "dployr:dployr" 
     ports: 
       - "7879:7879"
     volumes:
@@ -392,14 +402,15 @@ create_systemd_service() {
     
     cat > /etc/systemd/system/dployr.service << EOF
 [Unit]
-Description=Dployr Temporary Server
+Description=dployr 
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/node /home/dployr/server/server.js
+ExecStart=/home/dployr/server/dployr
 Restart=on-failure
 User=dployr
+Group=dployr
 WorkingDirectory=/home/dployr/server
 StandardOutput=append:/var/log/dployr.log
 StandardError=inherit
@@ -439,156 +450,70 @@ create_cloudflare_dns() {
     fi
 }
 
-# Create static HTML content
-create_static_html() {
-    local flag_file="$STATE_DIR/create_static_html.flag"
+# Setup Caddy
+setup_caddy() {
+    local flag_file="$STATE_DIR/setup_caddy.flag"
     if [ -f "$flag_file" ]; then
-        log_info "Static HTML already created. Skipping."
+        log_info "Caddy already configured. Skipping."
         return 0
     fi
 
-    log_info "Creating static HTML content..."
-    
-    # Create HTML directory
-    mkdir -p /home/dployr/server/public
-    cat > /home/dployr/server/public/index.html << 'EOF'
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dployr</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .container {
-            text-align: center;
-            padding: 2rem;
-        }
-        h1 {
-            font-size: 3rem;
-            margin: 0;
-            font-weight: 300;
-        }
-        p {
-            font-size: 1.2rem;
-            margin-top: 1rem;
-            opacity: 0.9;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Hello dployr</h1>
-        <p>Your deployment platform is ready</p>
-    </div>
-</body>
-</html>
-EOF
-    
-    chown -R dployr:dployr /home/dployr/server
-    log_success "Static HTML content created"
-}
-
-# Setup Nginx and SSL with automatic domain creation
-setup_nginx_ssl() {
-    local flag_file="$STATE_DIR/setup_nginx_ssl.flag"
-    if [ -f "$flag_file" ]; then
-        log_info "Nginx and SSL already configured. Skipping."
-        return 0
-    fi
-
-    log_info "Setting up Nginx and SSL..."
-    
-    # Get server public IP
-    if [ $? -ne 0 ]; then
-        log_error "Cannot proceed without server IP address"
-        exit 1
-    fi
+    log_info "Setting up Caddy with automatic HTTPS..."
     
     # Create subdomain DNS record
     if ! create_cloudflare_dns; then
-        log_error "Failed to create DNS record"
+        handle_error "DNS setup error" "Failed to create DNS record"
         exit 1
     fi
     
     DOMAIN="$RANDOM_SUBDOMAIN.dployr.dev"
     log_info "Using domain: $DOMAIN"
     
-    # Install certbot
-    if command -v apt-get &> /dev/null; then
-        apt-get install -y certbot python3-certbot-nginx
-    elif command -v yum &> /dev/null; then
-        yum install -y certbot python3-certbot-nginx
-    fi
+    # Create Caddyfile
+    cat > /etc/caddy/Caddyfile << EOF
+$DOMAIN {
+    reverse_proxy localhost:7879
     
-    # Create Nginx configuration
-    cat > /etc/nginx/sites-available/dployr << EOF
-server {
-    listen 80;
-    server_name $DOMAIN;
-    root /home/dployr/server/public;
-    index index.html;
-
-    location / {
-        try_files \$uri \$uri/ /index.html;
+    # Enable gzip compression
+    encode gzip
+    
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        X-XSS-Protection "1; mode=block"
     }
 }
 EOF
     
-    # Enable site
-    ln -sf /etc/nginx/sites-available/dployr /etc/nginx/sites-enabled/
+    # Set proper permissions
+    chown caddy:caddy /etc/caddy/Caddyfile
+    chmod 644 /etc/caddy/Caddyfile
     
-    # Remove default site if it exists
-    rm -f /etc/nginx/sites-enabled/default
+    # Open firewall ports
+    ufw allow 80
+    ufw allow 443
     
-    # Test and reload nginx
-    nginx -t && systemctl reload nginx
-
-    create_static_html
-    nginx -t && systemctl reload nginx
-        
     log_info "Waiting for DNS propagation (30 seconds)..."
     sleep 30
-
-    log_info "Testing domain accessibility..."
-    if ! curl -s --max-time 10 "http://$DOMAIN" > /dev/null; then
-        log_warning "Domain not yet accessible, waiting additional 30 seconds..."
-        sleep 30
+    
+    # Reload Caddy configuration
+    systemctl reload caddy
+    
+    # Wait a bit for certificate provisioning
+    log_info "Waiting for automatic SSL certificate provisioning..."
+    sleep 15
+    
+    # Check if Caddy is running properly
+    if systemctl is-active --quiet caddy; then
+        log_success "Caddy configured successfully for domain: $DOMAIN"
+        log_info "HTTPS certificate will be automatically provisioned by Caddy"
+    else
+        handle_error "Caddy setup error" "Caddy service failed to start properly"
+        exit 1
     fi
-
-    log_info "Obtaining SSL certificate for $DOMAIN"
     
-    # Get SSL certificate with retries
-    local max_retries=3
-    local retry=0
-    
-    while [ $retry -lt $max_retries ]; do
-        if certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email "admin@dployr.dev" --redirect --quiet; then
-            log_success "SSL certificate obtained for $DOMAIN"
-            break
-        else
-            retry=$((retry + 1))
-            if [ $retry -lt $max_retries ]; then
-                log_warning "SSL certificate attempt $retry failed, retrying in 30 seconds..."
-                sleep 30
-            else
-                log_warning "Failed to obtain SSL certificate after $max_retries attempts"
-                log_info "Domain is accessible via HTTP. SSL can be configured manually later with: certbot --nginx -d $DOMAIN"
-            fi
-        fi
-    done
-    
-    log_success "Nginx configured for domain: $DOMAIN"
+    touch "$flag_file"
 }
 
 # Start dployr service
@@ -738,8 +663,8 @@ main() {
     fi
     
     ((CURRENT_STEP++))
-    show_progress $CURRENT_STEP $TOTAL_STEPS "Obtaining SSL certificate. This may take a bit..."
-    if ! setup_nginx_ssl >> "$LOG_FILE" 2>&1; then
+    show_progress $CURRENT_STEP $TOTAL_STEPS "Setting up Caddy with automatic HTTPS..."
+    if ! setup_caddy >> "$LOG_FILE" 2>&1; then
         exit 1
     fi
     
