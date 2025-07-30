@@ -24,6 +24,7 @@
   export let logo: string;
   export let logoSecondary: string;
   export let isDarkMode: boolean;
+  
   const pages = [
     {
       title: "How do you intend to use dployr?",
@@ -89,10 +90,10 @@
     appStage.set(option);
   }
 
-  async function handleSignIn(host: string, email: string, name: string, password: string, privateKey: string) {
+  async function handleSignIn(host: string, email: string, name: string) {
    try {
     $isLoading = true;
-    const res = await authService.signIn(host, email, name, password, privateKey);
+    const res = await authService.signIn(host, email, name);
     addToast(res.message, 'success');
     nextPage();
    } catch (error) {
@@ -192,8 +193,6 @@
           $host,     
           $email,
           $name,
-          $password,
-          $privateKey
       )}
       handleMagicCode={async () =>
         handleMagicCode(

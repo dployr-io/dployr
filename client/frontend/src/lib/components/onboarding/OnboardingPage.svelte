@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { discoveryOther, email, host, name, isLoading, otp, currentUser } from '../../../stores';
+  import { discoveryOther, email, host, isLoading } from '../../../stores';
   import OtpInput from '../ui/OtpInput.svelte';
 
   export let currentPage: number;
@@ -37,10 +37,10 @@
       <button 
         on:click={nextPage}
         disabled={!canProceed}
-        class="px-6 py-3 border-none rounded-md font-semibold text-sm transition-all duration-300
+        class="px-6 py-3 border-none rounded-md font-semibold text-sm transition-all duration-300 
         {canProceed 
-          ? 'bg-[#195B5E] text-white hover:-translate-y-px hover:bg-[#144a4d] cursor-pointer' 
-          : ''}"
+          ? 'bg-[#195B5E] text-white hover:-translate-y-px hover:bg-[#144a4d]' 
+          : 'bg-[#CFDBD5] text-gray-500 cursor-not-allowed'}"
       >
         Next
       </button>
@@ -142,17 +142,7 @@
           class="app-input font-medium w-full px-4 py-1.5 text-sm rounded-lg outline-none transition-all" 
         />
       </div>
-      <!-- <div>
-        <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1 px-4 text-left">Name</label>
-        <input 
-          id="name"
-          name="name"
-          type="text" 
-          placeholder="John Doe" 
-          bind:value={$name} 
-          class="app-input w-full px-4 py-1.5 text-sm rounded-lg outline-none transition-all" 
-        />
-      </div> -->
+
       <div>
         <label for="email" class="block text-sm font-semibold text-gray-700 dark:text-gray-400 mb-1 px-4 text-left">Email address</label>
         <input 
@@ -164,50 +154,6 @@
           class="app-input font-medium w-full px-4 py-1.5 text-sm rounded-lg outline-none transition-all" 
         />
       </div>
-      <!-- {#if usePrivateKey}
-        <div>
-          <label for="public-key" class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1 px-4 text-left">Public key</label>
-          <input 
-            id="public-key"
-            name="public-key"
-            type="file" 
-            bind:value={publicKey} 
-            class="app-input w-full px-4 py-1.5 text-sm rounded-lg outline-none transition-all font-medium" 
-          />
-        </div>
-      {:else}
-        <div>
-          <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1 px-4 text-left">Password</label>
-          <input 
-            id="password"
-            name="password"
-            type="text" 
-            placeholder="Enter password of server" 
-            bind:value={password} 
-            class="app-input w-full px-4 py-1.5 text-sm rounded-lg outline-none transition-all" 
-          />
-        </div>
-      {/if} -->
-
-      <!-- <div class="flex items-center gap-4">
-        <label class="relative inline-flex items-center cursor-pointer select-none">
-          <input
-            type="checkbox"
-            class="sr-only peer"
-            bind:checked={usePrivateKey}
-          />
-          <div
-            class="w-11 h-6 bg-gray-100 rounded-full transition-colors duration-200 peer-checked:bg-gray-300"
-          ></div>
-          <div
-            class="absolute left-1 top-1 w-4 h-4 bg-slate-500 rounded-full transform transition-transform duration-200 peer-checked:translate-x-5"
-          ></div>
-        </label>
-
-        <p class="text-sm font-medium text-gray-700 dark:text-gray-400">
-          Use public key?
-        </p>
-      </div> -->
     </div>
     <div class="flex justify-between mt-4">
       <button 

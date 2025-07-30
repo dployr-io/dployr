@@ -23,9 +23,9 @@
   export let iconSecondary: string;
   export let isDarkMode: boolean;
 
-  export let projectName: string = "";
-  export let gitRepo: string = "";
-  export let error: Error;
+  let projectName: string = "";
+  let gitRepo: string = "";
+  let error: Error;
 
   $: isDisabled = projectName.length > 3 && gitRepo.length > 3;
 
@@ -66,6 +66,8 @@
         "git_repo": gitRepo,
         "name": projectName
       })
+
+      // reset form
       gitRepo = "";
       projectName = "";
     } catch (e) {
