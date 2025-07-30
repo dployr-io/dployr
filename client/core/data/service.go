@@ -16,7 +16,7 @@ func NewDataService() *DataService {
 
 // makeRequest constructs and executes an HTTP request with dployr server
 func (d *DataService) makeRequest(method, endpoint, host, token string, queryParams map[string]string, body interface{}) (*http.Response, error) {
-	urlStr := fmt.Sprintf("http://%s:7879/v1/%s", host, endpoint)
+	urlStr := fmt.Sprintf("https://%s.dployr.dev/v1/%s", host, endpoint)
 	
 	var bodyReader io.Reader
 	if body != nil {
