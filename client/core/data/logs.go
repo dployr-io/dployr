@@ -3,7 +3,7 @@ package data
 import "dployr.io/pkg/models"
 
 func (d *DataService) GetLogs(host, token, refresh, projectId string) ([]models.LogEntry, error) {
-	resp, err := d.makeRequest("GET", "logs", host, token, map[string]string{"project_id": projectId}, nil)
+	resp, err := d.makeRequest("GET", "api/logs", host, token, map[string]string{"project_id": projectId}, nil)
 	if err != nil {
 		return nil, err
 	}
