@@ -62,7 +62,6 @@ func New(
 	{
 		// Public routes
 		_auth := v1.Group("/auth")
-		_auth.Use(auth.JWTAuth(j))
 		{
 			_auth.POST("/request-code", auth.RequestMagicCodeHandler(
 				ar.UserRepo,
