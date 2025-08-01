@@ -22,8 +22,8 @@ import (
 )
 
 type VerificationData struct {
-  	Name string
-  	Code string
+	Name string
+	Code string
 }
 
 type MagicCodeRequest struct {
@@ -48,7 +48,7 @@ type Claims struct {
 type TokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
-	ExpiresIn    int    `json:"expires_in"` 
+	ExpiresIn    int    `json:"expires_in"`
 }
 
 type RefreshRequest struct {
@@ -116,7 +116,7 @@ func (j *JWTManager) generateAccessToken(userID string) (string, error) {
 	claims := Claims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)), 
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			Issuer:    "dployr.io",
@@ -178,7 +178,6 @@ func RequestMagicCodeHandler(userRepo *repository.UserRepo, tokenRepo *repositor
 			return
 		}
 
-		// Rate limiting
 		if !rl.IsAllowed(fmt.Sprintf("%s-request-code", clientIP)) {
 			ctx.JSON(http.StatusTooManyRequests, gin.H{
 				"error": "Too many requests. Please wait before requesting another code.",
@@ -186,36 +185,27 @@ func RequestMagicCodeHandler(userRepo *repository.UserRepo, tokenRepo *repositor
 			return
 		}
 
-		// Generate 6-digit alphanumeric code
 		code, err := generateMagicCode()
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate code"})
 			return
 		}
 
-		magicToken, err := tokenRepo.GetByEmail(ctx, req.Email)
-
-		if err != nil  {
-			log.Printf("No existing magic token found for email: %s", err)
-
-			// Store code with 15-minute expiration
-			magicToken = models.MagicToken{
-				Email:     req.Email,
-				Code:      code,
-				ExpiresAt: time.Now().Add(15 * time.Minute),
-				Name:      req.Name,
-				Used:      false,
-			}
-
-			err = tokenRepo.Create(ctx, magicToken)
-			if err != nil {
-				log.Printf("Error creating magic token: %v", err)
-				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate login code"})
-				return
-			}
+		magicToken := models.MagicToken{
+			Email:     req.Email,
+			Code:      code,
+			ExpiresAt: time.Now().Add(15 * time.Minute),
+			Name:      req.Name,
+			Used:      false,
 		}
 
-		// Send email with code
+		err = tokenRepo.Upsert(ctx, magicToken, []string{"email"}, []string{"code", "expires_at", "name", "used"})
+		if err != nil {
+			log.Printf("Error upserting magic token: %v", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate login code"})
+			return
+		}
+
 		err = sendMagicCodeEmail(req.Email, code, req.Name)
 		if err != nil {
 			log.Printf("Error sending email: %v", err)
@@ -259,17 +249,16 @@ func VerifyMagicCodeHandler(j *JWTManager, userRepo *repository.UserRepo, tokenR
 		if name == "" {
 			name = strings.Split(req.Email, "@")[0]
 		}
-		
+
 		user, err := userRepo.GetByEmail(ctx, req.Email)
 		if err != nil {
 			log.Printf("Error getting user by email: %s", err)
 			user = models.User{
 				Email: req.Email,
-				Name: name,
+				Name:  name,
 			}
 
-			err = userRepo.Create(ctx, user)
-
+			err = userRepo.Create(ctx, &user)
 
 			if err != nil {
 				log.Printf("Error creating user: %v", err)
@@ -286,10 +275,10 @@ func VerifyMagicCodeHandler(j *JWTManager, userRepo *repository.UserRepo, tokenR
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"access_token": res.AccessToken,
+			"access_token":  res.AccessToken,
 			"refresh_token": res.RefreshToken,
-			"expires_in": res.ExpiresIn,
-			"user":  user,
+			"expires_in":    res.ExpiresIn,
+			"user":          user,
 		})
 	}
 }
@@ -298,7 +287,7 @@ func VerifyMagicCodeHandler(j *JWTManager, userRepo *repository.UserRepo, tokenR
 func generateMagicCode() (string, error) {
 	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	code := make([]byte, 6)
-	
+
 	for i := range code {
 		randomIndex, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
 		if err != nil {
@@ -306,15 +295,15 @@ func generateMagicCode() (string, error) {
 		}
 		code[i] = charset[randomIndex.Int64()]
 	}
-	
+
 	return string(code), nil
 }
 
 // sendMagicCodeEmail sends the 6-char code via email
 func sendMagicCodeEmail(toAddr, code, toName string) error {
 	emailBody := strings.ReplaceAll(string(mail.VerificationTemplate), "{{.Name}}", toName)
-    emailBody = strings.ReplaceAll(emailBody, "{{.Code}}", code)
-    return mail.SendEmail(toAddr, "Your Login Code", emailBody, toName)
+	emailBody = strings.ReplaceAll(emailBody, "{{.Code}}", code)
+	return mail.SendEmail(toAddr, "Your Login Code", emailBody, toName)
 }
 
 // RefreshTokenHandler - endpoint to exchange refresh token for new access token
@@ -359,7 +348,7 @@ func RefreshTokenHandler(j *JWTManager, refreshRepo *repository.RefreshTokenRepo
 			Used:      false,
 		}
 
-		err = refreshRepo.Create(ctx, newRefreshToken)
+		err = refreshRepo.Create(ctx, &newRefreshToken)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session"})
 			return
@@ -374,4 +363,3 @@ func RefreshTokenHandler(j *JWTManager, refreshRepo *repository.RefreshTokenRepo
 		})
 	}
 }
-

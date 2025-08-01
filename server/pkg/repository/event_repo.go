@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/jmoiron/sqlx"
-	
+
 	"dployr.io/pkg/models"
 )
 
@@ -18,7 +18,7 @@ func NewEventRepo(db *sqlx.DB) *EventRepo {
 	}
 }
 
-func (r *EventRepo) Create(ctx context.Context, e models.Event) error {
+func (r *EventRepo) Create(ctx context.Context, e *models.Event) error {
 	return r.Repository.Create(ctx, e)
 }
 
@@ -37,4 +37,3 @@ func (r *EventRepo) Delete(ctx context.Context, id any) error {
 func (r *EventRepo) GetByID(ctx context.Context, id any) (models.Event, error) {
 	return r.Repository.GetByID(ctx, id)
 }
-

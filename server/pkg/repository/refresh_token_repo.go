@@ -9,7 +9,6 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-
 type RefreshTokenRepo struct {
 	*Repository[models.RefreshToken]
 }
@@ -20,7 +19,7 @@ func NewRefreshTokenRepo(db *sqlx.DB) *RefreshTokenRepo {
 	}
 }
 
-func (r *RefreshTokenRepo) Create(ctx context.Context, p models.RefreshToken) error {
+func (r *RefreshTokenRepo) Create(ctx context.Context, p *models.RefreshToken) error {
 	return r.Repository.Create(ctx, p)
 }
 
@@ -34,20 +33,20 @@ func (r *RefreshTokenRepo) GetByToken(ctx context.Context, token string) (models
 }
 
 func (r *RefreshTokenRepo) ConsumeToken(ctx context.Context, token string) (models.RefreshToken, error) {
-	rt, err := r.GetByToken(ctx, token) 
-	
+	rt, err := r.GetByToken(ctx, token)
+
 	if err != nil {
 		return rt, err
 	}
-	
+
 	if rt.Used {
 		return rt, fmt.Errorf("code already used")
 	}
-	
+
 	if time.Now().After(rt.ExpiresAt) {
 		return rt, fmt.Errorf("code expired")
 	}
-	
+
 	_, err = r.db.
 		ExecContext(ctx, "UPDATE refresh_tokens SET used = true WHERE token = ?", token)
 
@@ -57,4 +56,3 @@ func (r *RefreshTokenRepo) ConsumeToken(ctx context.Context, token string) (mode
 
 	return rt, nil
 }
-

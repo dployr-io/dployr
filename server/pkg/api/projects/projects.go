@@ -13,23 +13,23 @@ import (
 )
 
 type CreateProjectRequest struct {
-	Name          string            `json:"name" binding:"required"`
-	GitRepo       string            `json:"git_repo" binding:"required"`
-	Domain        string            `json:"domain"`
+	Name          string          `json:"name" binding:"required"`
+	GitRepo       string          `json:"git_repo" binding:"required"`
+	Domain        string          `json:"domain"`
 	Environment   json.RawMessage `json:"environment,omitempty"`
-	DeploymentURL string            `json:"deployment_url,omitempty"`
-	Status        string            `json:"status"`
-	HostConfigs   json.RawMessage    `json:"host_configs,omitempty"`
+	DeploymentURL string          `json:"deployment_url,omitempty"`
+	Status        string          `json:"status"`
+	HostConfigs   json.RawMessage `json:"host_configs,omitempty"`
 }
 
 type UpdateProjectRequest struct {
-	Name          string            `json:"name"`
-	GitRepo       string            `json:"git_repo"`
-	Domain        string            `json:"domain"`
+	Name          string          `json:"name"`
+	GitRepo       string          `json:"git_repo"`
+	Domain        string          `json:"domain"`
 	Environment   json.RawMessage `json:"environment,omitempty"`
-	DeploymentURL string            `json:"deployment_url,omitempty"`
-	Status        string            `json:"status"`
-	HostConfigs   json.RawMessage    `json:"host_configs,omitempty"`
+	DeploymentURL string          `json:"deployment_url,omitempty"`
+	Status        string          `json:"status"`
+	HostConfigs   json.RawMessage `json:"host_configs,omitempty"`
 }
 
 // CreateProjectHandler creates a new project
@@ -48,7 +48,7 @@ type UpdateProjectRequest struct {
 // @Router /api/projects [post]
 func CreateProjectHandler(projectRepo *repository.ProjectRepo, rl *middleware.RateLimiter) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-        clientIP := ctx.ClientIP()
+		clientIP := ctx.ClientIP()
 
 		var req CreateProjectRequest
 		if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -64,9 +64,9 @@ func CreateProjectHandler(projectRepo *repository.ProjectRepo, rl *middleware.Ra
 			return
 		}
 
-		project := &models.Project{
-			Name:          req.Name,
-			GitRepo:       req.GitRepo,
+		project := models.Project{
+			Name:    req.Name,
+			GitRepo: req.GitRepo,
 		}
 
 		if req.Environment != nil {
@@ -74,14 +74,14 @@ func CreateProjectHandler(projectRepo *repository.ProjectRepo, rl *middleware.Ra
 			json.Unmarshal(req.Environment, &envData)
 			project.Environment = &models.JSON[any]{Data: envData}
 		}
-		
+
 		if req.HostConfigs != nil {
 			var envData map[string]string
-			json.Unmarshal(req.Environment, &envData)
-			project.Environment = &models.JSON[any]{Data: envData} 
+			json.Unmarshal(req.HostConfigs, &envData)
+			project.HostConfigs = &models.JSON[any]{Data: envData}
 		}
 
-		if err := projectRepo.Create(ctx, project); err != nil {
+		if err := projectRepo.Create(ctx, &project); err != nil {
 			log.Printf("Error creating project: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create project"})
 			return
@@ -196,7 +196,7 @@ func UpdateProjectHandler(projectRepo *repository.ProjectRepo, rl *middleware.Ra
 			json.Unmarshal(req.Environment, &envData)
 			project.Environment = &models.JSON[interface{}]{Data: envData}
 		}
-		
+
 		if req.HostConfigs != nil {
 			var envData map[string]string
 			json.Unmarshal(req.HostConfigs, &envData)
@@ -214,7 +214,7 @@ func UpdateProjectHandler(projectRepo *repository.ProjectRepo, rl *middleware.Ra
 
 // DeleteProjectHandler deletes a project
 // @Summary Deletes a project
-// @Description Deletes a project from list of projects 
+// @Description Deletes a project from list of projects
 // @Tags projects
 // @Accept json
 // @Produce json

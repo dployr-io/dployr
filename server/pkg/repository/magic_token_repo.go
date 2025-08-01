@@ -20,7 +20,7 @@ func NewMagicTokenRepo(db *sqlx.DB) *MagicTokenRepo {
 	}
 }
 
-func (r *MagicTokenRepo) Create(ctx context.Context, p models.MagicToken) error {
+func (r *MagicTokenRepo) Create(ctx context.Context, p *models.MagicToken) error {
 	return r.Repository.Create(ctx, p)
 }
 
@@ -50,20 +50,20 @@ func (r *MagicTokenRepo) GetByEmail(ctx context.Context, email string) (models.M
 }
 
 func (r *MagicTokenRepo) ConsumeCode(ctx context.Context, email, code string) (models.MagicToken, error) {
-	mt, err := r.GetByEmail(ctx, email) 
-	
+	mt, err := r.GetByEmail(ctx, email)
+
 	if err != nil {
 		return mt, err
 	}
-	
+
 	if mt.Used {
 		return mt, fmt.Errorf("code already used")
 	}
-	
+
 	if time.Now().After(mt.ExpiresAt) {
 		return mt, fmt.Errorf("code expired")
 	}
-	
+
 	_, err = r.db.
 		ExecContext(ctx, "UPDATE magic_tokens SET used = true WHERE email = ? AND code = ?", email, code)
 
@@ -73,4 +73,3 @@ func (r *MagicTokenRepo) ConsumeCode(ctx context.Context, email, code string) (m
 
 	return mt, nil
 }
-

@@ -20,21 +20,21 @@ func NewUserRepo(db *sqlx.DB) *UserRepo {
 	}
 }
 
-func (r *UserRepo) Create(ctx context.Context, u models.User) error {
-    if u.Id == "" {
-        u.Id = uuid.NewString()
-    }
+func (r *UserRepo) Create(ctx context.Context, u *models.User) error {
+	if u.Id == "" {
+		u.Id = uuid.NewString()
+	}
 
-    const insertSQL = `
+	const insertSQL = `
     INSERT INTO users (id, name, email, role)
     VALUES (:id, :name, :email, :role)
     `
-    _, err := r.db.NamedExecContext(ctx, insertSQL, u)
-    if err != nil {
-        return fmt.Errorf("create user failed: %w", err)
-    }
+	_, err := r.db.NamedExecContext(ctx, insertSQL, u)
+	if err != nil {
+		return fmt.Errorf("create user failed: %w", err)
+	}
 
-    return nil
+	return nil
 }
 
 func (r *UserRepo) Update(ctx context.Context, p models.User) error {
@@ -61,4 +61,3 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (models.User, e
 	}
 	return user, nil
 }
-

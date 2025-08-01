@@ -109,7 +109,19 @@ func isPrimaryKeyViolation(err error) bool {
 
 // Set ID field if it exists (for auto-generated IDs)
 func setIDIfExists(entity interface{}, id int64) {
-	v := reflect.ValueOf(entity).Elem()
+	v := reflect.ValueOf(entity)
+
+	// Handle both pointer and value types
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return
+		}
+		v = v.Elem()
+	} else {
+		// For value types, we can't modify the original, so return early
+		return
+	}
+
 	idField := v.FieldByName("ID")
 	if idField.IsValid() && idField.CanSet() {
 		if idField.Kind() == reflect.Int64 {
@@ -127,7 +139,7 @@ type Repository[T any] struct {
 }
 
 type SQLRepository[T any] interface {
-	Create(ctx context.Context, entity T) error
+	Create(ctx context.Context, entity *T) error
 	Update(ctx context.Context, entity T) error
 	Upsert(ctx context.Context, entity T, conflictCols []string, updateCols []string) error
 	Delete(ctx context.Context, id any) error
@@ -147,7 +159,7 @@ func NewRepository[T any](db *sqlx.DB, tableName string) *Repository[T] {
 	}
 }
 
-func (r *Repository[T]) Create(ctx context.Context, entity T) error {
+func (r *Repository[T]) Create(ctx context.Context, entity *T) error {
 	result, err := r.db.NamedExecContext(ctx, r.queries.create, entity)
 	if err != nil {
 		if isPrimaryKeyViolation(err) {

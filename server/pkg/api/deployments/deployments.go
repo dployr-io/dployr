@@ -57,7 +57,7 @@ func CreateDeploymentHandler(deploymentRepo *repository.DeploymentRepo, rl *midd
 			Message:    req.Message,
 		}
 
-		if err := deploymentRepo.Create(ctx, deployment); err != nil {
+		if err := deploymentRepo.Create(ctx, &deployment); err != nil {
 			log.Printf("Error creating deployment: %v", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create deployment"})
 			return
