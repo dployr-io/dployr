@@ -9,19 +9,19 @@ import (
 
 // States
 const (
-	Pending = "setup"
-	Building = "building"
+	Pending   = "setup"
+	Building  = "building"
 	Deploying = "deploying"
-	Success = "success"
-	Failed = "failed"
+	Success   = "success"
+	Failed    = "failed"
 )
 
 // Phases
 const (
-    Setup = "setup"
-	Build = "build"
-	Deploy = "deploy"
-	SSL = "ssl"
+	Setup    = "setup"
+	Build    = "build"
+	Deploy   = "deploy"
+	SSL      = "ssl"
 	Complete = "complete"
 )
 
@@ -36,12 +36,12 @@ type MagicToken struct {
 }
 
 type RefreshToken struct {
-    Id        int       `json:"id" db:"id"`           
-    Token     string    `json:"token" db:"token"`
-    UserId    string       `json:"user_id" db:"user_id"`
-    Used      bool      `json:"used" db:"used"`
-    CreatedAt time.Time `json:"created_at" db:"created_at"`
-    ExpiresAt time.Time `json:"expires_at" db:"expires_at"`
+	Id        int       `json:"id" db:"id"`
+	Token     string    `json:"token" db:"token"`
+	UserId    string    `json:"user_id" db:"user_id"`
+	Used      bool      `json:"used" db:"used"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	ExpiresAt time.Time `json:"expires_at" db:"expires_at"`
 }
 
 type User struct {
@@ -55,19 +55,19 @@ type User struct {
 }
 
 type Project struct {
-    Id            string            `db:"id" json:"id"`
-    Name          string            `db:"name" json:"name"`
-	Logo		  *string			`db:"logo" json:"logo"`
-	Description   *string 			`db:"description" json:"description"`
-    GitRepo       string            `db:"git_repo" json:"git_repo"`
-    Domains       *JSON[[]Domain]  	`db:"domains" json:"domains,omitempty"`
-    Environment   *JSON[any]  		`db:"environment" json:"environment,omitempty"`
-    CreatedAt     time.Time         `db:"created_at" json:"-"`
-    UpdatedAt     time.Time         `db:"updated_at" json:"-"`
-    DeploymentUrl *string           `db:"deployment_url" json:"deployment_url,omitempty"`
-    LastDeployed  *time.Time        `db:"last_deployed" json:"last_deployed,omitempty"`
-	Status        string            `db:"status" json:"status,omitempty"`
-    HostConfigs   *JSON[any]  		`db:"host_configs" json:"host_configs,omitempty"`
+	Id            string          `db:"id" json:"id"`
+	Name          string          `db:"name" json:"name"`
+	Logo          *string         `db:"logo" json:"logo"`
+	Description   *string         `db:"description" json:"description"`
+	GitRepo       string          `db:"git_repo" json:"git_repo"`
+	Domains       *JSON[[]Domain] `db:"domains" json:"domains,omitempty"`
+	Environment   *JSON[any]      `db:"environment" json:"environment,omitempty"`
+	CreatedAt     time.Time       `db:"created_at" json:"-"`
+	UpdatedAt     time.Time       `db:"updated_at" json:"-"`
+	DeploymentUrl *string         `db:"deployment_url" json:"deployment_url,omitempty"`
+	LastDeployed  *time.Time      `db:"last_deployed" json:"last_deployed,omitempty"`
+	Status        string          `db:"status" json:"status,omitempty"`
+	HostConfigs   *JSON[any]      `db:"host_configs" json:"host_configs,omitempty"`
 }
 
 type Domain struct {
@@ -91,8 +91,8 @@ type Deployment struct {
 }
 
 type AuthResponse struct {
-	User    *User
-	Error   string
+	User  *User
+	Error string
 }
 
 type AuthTokenPair struct {
@@ -100,15 +100,15 @@ type AuthTokenPair struct {
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int    `json:"expires_in"`
 	TokenType    string `json:"token_type"`
+	User         *User  `json:"user,omitempty"`
 }
-
 
 type LogEntry struct {
 	Id        string    `db:"id" json:"id"`
 	Host      string    `db:"host" json:"host"`
 	Message   string    `db:"message" json:"message"`
 	Status    string    `db:"status" json:"status"`
-	Type	  string 	`db:"type" json:"type"`
+	Type      string    `db:"type" json:"type"`
 	Level     string    `db:"level" json:"level"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
@@ -138,39 +138,39 @@ type SshConnectResponse struct {
 }
 
 type MessageResponse struct {
-    Message string `json:"message"`
+	Message string `json:"message"`
 }
 
 type JSON[T any] struct {
-    Data T
+	Data T
 }
 
 func (j *JSON[T]) Scan(value interface{}) error {
-    if value == nil {
-        return nil
-    }
-    
-    var bytes []byte
-    switch v := value.(type) {
-    case string:
-        bytes = []byte(v)
-    case []byte:
-        bytes = v
-    default:
-        return fmt.Errorf("cannot scan %T into JSON", value)
-    }
-    
-    return json.Unmarshal(bytes, &j.Data)
+	if value == nil {
+		return nil
+	}
+
+	var bytes []byte
+	switch v := value.(type) {
+	case string:
+		bytes = []byte(v)
+	case []byte:
+		bytes = v
+	default:
+		return fmt.Errorf("cannot scan %T into JSON", value)
+	}
+
+	return json.Unmarshal(bytes, &j.Data)
 }
 
 func (j JSON[T]) Value() (driver.Value, error) {
-    return json.Marshal(j.Data)
+	return json.Marshal(j.Data)
 }
 
 func (j JSON[T]) MarshalJSON() ([]byte, error) {
-    return json.Marshal(j.Data)
+	return json.Marshal(j.Data)
 }
 
 func (j *JSON[T]) UnmarshalJSON(data []byte) error {
-    return json.Unmarshal(data, &j.Data)
+	return json.Unmarshal(data, &j.Data)
 }
