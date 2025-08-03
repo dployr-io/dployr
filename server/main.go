@@ -44,7 +44,7 @@ var migrationsFS embed.FS
 func main() {
 	repos := config.InitDB(migrationsFS)
 
-	if (repos == nil) {
+	if repos == nil {
 		panic("Database failed to initialize properly")
 	}
 
@@ -55,7 +55,7 @@ func main() {
 		port = "7879"
 	}
 
-	// Init queue manager 
+	// Init queue manager
 	_queue := queue.NewQueue(3, time.Second, queue.CreateHandler())
 
 	// Init rate limiter - 15 minute window
