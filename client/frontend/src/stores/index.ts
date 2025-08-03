@@ -8,6 +8,7 @@ export const isDarkMode = writable<boolean>(false);
 // Auth store
 export const currentUser = writable<User | null>(null);
 export const isAuthenticating = writable<boolean>(false);
+export const isAuthInitialized = writable<boolean>(false);
 
 // Onboarding stores
 export const selectedOptions = writable<string[]>([]);
