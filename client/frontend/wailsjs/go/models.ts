@@ -1,5 +1,87 @@
 export namespace models {
 	
+	export class User {
+	    id: string;
+	    name: string;
+	    email: string;
+	    avatar?: string;
+	    role: string;
+	    // Go type: time
+	    created_at: any;
+	    // Go type: time
+	    updated_at: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new User(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.email = source["email"];
+	        this.avatar = source["avatar"];
+	        this.role = source["role"];
+	        this.created_at = this.convertValues(source["created_at"], null);
+	        this.updated_at = this.convertValues(source["updated_at"], null);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class AuthTokenPair {
+	    access_token: string;
+	    refresh_token: string;
+	    expires_in: number;
+	    token_type: string;
+	    user?: User;
+	
+	    static createFrom(source: any = {}) {
+	        return new AuthTokenPair(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.access_token = source["access_token"];
+	        this.refresh_token = source["refresh_token"];
+	        this.expires_in = source["expires_in"];
+	        this.token_type = source["token_type"];
+	        this.user = this.convertValues(source["user"], User);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class Console {
 	    terminal: any;
 	    websocket: any;
@@ -275,6 +357,7 @@ export namespace models {
 	        this.status = source["status"];
 	    }
 	}
+	
 	export class WsMessage {
 	    type: string;
 	    data?: string;

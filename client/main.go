@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"embed"
-	
+
 	"dployr/core/data"
 	"dployr/core/domain"
 	"dployr/core/terminal"
+
 	"dployr.io/pkg/models"
-	
+
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -16,7 +17,6 @@ import (
 
 //go:embed all:frontend/dist
 var assets embed.FS
-
 
 type App struct {
 	ctx             context.Context
@@ -35,7 +35,7 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "dployr desktop",
+		Title:     "dployr desktop",
 		MinWidth:  1024,
 		MinHeight: 768,
 
@@ -63,15 +63,15 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func getBaseUrl() string {
-	return "";
+	return ""
 }
 
 // Wails binding methods - delegate to services
-func (a *App) SignIn(host, email, name string) (any, error) {
+func (a *App) SignIn(host, email, name string) (*models.MessageResponse, error) {
 	return a.dataService.SignIn(host, email, name)
 }
 
-func (a *App) VerifyMagicCode(host, email, code string) (any, error) {
+func (a *App) VerifyMagicCode(host, email, code string) (*models.AuthTokenPair, error) {
 	return a.dataService.VerifyMagicCode(host, email, code)
 }
 
@@ -138,4 +138,3 @@ func (a *App) DisconnectTerminal() error {
 func (a *App) IsTerminalConnected() bool {
 	return a.terminalService.IsTerminalConnected()
 }
-

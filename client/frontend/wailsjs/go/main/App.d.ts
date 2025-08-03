@@ -30,10 +30,10 @@ export function ResizeTerminal(arg1:number,arg2:number):Promise<void>;
 
 export function SendTerminalInput(arg1:string):Promise<void>;
 
-export function SignIn(arg1:string,arg2:string,arg3:string):Promise<any>;
+export function SignIn(arg1:string,arg2:string,arg3:string):Promise<models.MessageResponse>;
 
 export function StartTerminalWebSocket(arg1:string,arg2:string):Promise<void>;
 
 export function UpdateProject(arg1:string,arg2:string,arg3:Record<string, any>):Promise<models.Project>;
 
-export function VerifyMagicCode(arg1:string,arg2:string,arg3:string):Promise<any>;
+export function VerifyMagicCode(arg1:string,arg2:string,arg3:string):Promise<models.AuthTokenPair>;
