@@ -2,9 +2,9 @@
 
 # Configuration
 RESOURCE_GROUP="TestSuite"
-LOCATION="eastus"  # Change to your preferred region
+LOCATION="eastus"
 ADMIN_USERNAME="azureuser"
-SSH_KEY_PATH="$HOME/.ssh/id_rsa.pub"  # Existing SSH public key
+ADMIN_PASSWORD="SecurePassword123!"  
 
 # VM Configuration - Minimal B1s size (1 vCPU, 1GB RAM)
 declare -A VMS=(
@@ -34,7 +34,8 @@ for vm_name in "${!VMS[@]}"; do
         --image $IMAGE_URN \
         --size Standard_B1s \
         --admin-username $ADMIN_USERNAME \
-        --ssh-key-values @$SSH_KEY_PATH \
+        --admin-password $ADMIN_PASSWORD \
+        --authentication-type password \
         --public-ip-sku Basic \
         --vnet-name VNet \
         --subnet default \
@@ -64,4 +65,5 @@ echo "Monitor creation progress with:"
 echo "az vm list -g $RESOURCE_GROUP -o table --show-details"
 echo ""
 echo "Connect using:"
-echo "ssh -i ${SSH_KEY_PATH%.pub} $ADMIN_USERNAME@<PUBLIC_IP>"
+echo "ssh $ADMIN_USERNAME@<PUBLIC_IP>"
+echo "Password: $ADMIN_PASSWORD"
