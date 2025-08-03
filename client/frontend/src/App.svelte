@@ -27,6 +27,8 @@
   import { authService, consoleService, dataService } from './lib/services/api';
 
   async function loadData() {
+    if (!$currentUser) return;
+
     try {
       const [tokenData, userData, hostData] = await Promise.all([
         authService.getToken(),
