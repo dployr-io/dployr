@@ -1,5 +1,0 @@
-.vagrant
-supabase
-*.env*
-*.db*
-*tmp*
