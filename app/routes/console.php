@@ -1,8 +1,9 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
+use Inertia\Inertia;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+Route::middleware('auth')->group(function () {
+    Route::get('console', function () {
+        return Inertia::render('console/index');
+    })->name('console');
+});

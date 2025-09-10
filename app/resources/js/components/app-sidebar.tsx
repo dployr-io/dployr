@@ -2,10 +2,10 @@ import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { dashboard, logs } from '@/routes';
+import { dashboard, logs, console } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Logs } from 'lucide-react';
+import { BookOpen, Folder, LayoutGrid, Logs, SquareChevronRight } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -18,6 +18,11 @@ const mainNavItems: NavItem[] = [
         title: 'Logs',
         href: logs(),
         icon: Logs,
+    },
+     {
+        title: 'Console',
+        href: console(),
+        icon: SquareChevronRight,
     },
 ];
 
