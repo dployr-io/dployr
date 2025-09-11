@@ -123,4 +123,16 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | App version
+    |--------------------------------------------------------------------------
+    |
+    | This is the single source of truth for the application's version, based 
+    | the VERSION file. It follows semantic versioning style.
+    |
+    | E.g 1.2.3
+    |
+    */
+    'version' => trim(file_exists(base_path('.VERSION')) ? file_get_contents(base_path('.VERSION')) : '0.0.0'),
 ];

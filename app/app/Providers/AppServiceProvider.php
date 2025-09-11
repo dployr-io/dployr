@@ -19,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        $version = trim(file_get_contents(base_path('VERSION')));
+        config(['app.version' => $version]);
     }
 }

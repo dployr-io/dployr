@@ -2,11 +2,11 @@ import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { appearance } from '@/routes';
+import { system } from '@/routes';
 import { edit as editPassword } from '@/routes/password';
 import { edit } from '@/routes/profile';
 import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { type PropsWithChildren } from 'react';
 
 const sidebarNavItems: NavItem[] = [
@@ -21,8 +21,8 @@ const sidebarNavItems: NavItem[] = [
         icon: null,
     },
     {
-        title: 'Appearance',
-        href: appearance(),
+        title: 'System',
+        href: system(),
         icon: null,
     },
 ];
@@ -34,9 +34,10 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
     }
 
     const currentPath = window.location.pathname;
+    const { version }: any = usePage().props;
 
     return (
-        <div className="px-4 py-6">
+        <div className="flex flex-1 flex-col px-4 py-6">
             <Heading title="Settings" description="Manage your profile and account settings" />
 
             <div className="flex flex-col lg:flex-row lg:space-x-12">
@@ -66,6 +67,9 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                 <div className="flex-1 md:max-w-2xl">
                     <section className="max-w-xl space-y-12">{children}</section>
                 </div>
+            </div>
+            <div className="mt-auto flex w-full justify-center">
+                <p className="text-xs text-muted-foreground">Version {version}</p>
             </div>
         </div>
     );

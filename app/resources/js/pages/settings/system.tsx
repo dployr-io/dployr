@@ -6,23 +6,23 @@ import { type BreadcrumbItem } from '@/types';
 
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
-import { appearance } from '@/routes';
+import { system } from '@/routes';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Appearance settings',
-        href: appearance().url,
+        title: 'System settings',
+        href: system().url,
     },
 ];
 
-export default function Appearance() {
+export default function System() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Appearance settings" />
+            <Head title="System settings" />
 
             <SettingsLayout>
                 <div className="space-y-6">
-                    <HeadingSmall title="Appearance settings" description="Update your account's appearance settings" />
+                    <HeadingSmall title="System settings" description="Update your account's system settings" />
                     <AppearanceTabs />
                 </div>
             </SettingsLayout>
