@@ -75,10 +75,10 @@ jobs:
           fi
           
           echo "cleaning storage directories..."
-          find storage -name "*.log" -delete
-          find storage/framework/cache -name "*" -not -name ".gitignore" -delete
-          find storage/framework/sessions -name "*" -not -name ".gitignore" -delete
-          find storage/framework/views -name "*" -not -name ".gitignore" -delete
+          rm -rf storage/logs/*.log
+          rm -rf storage/framework/cache/data/* 
+          rm -rf storage/framework/sessions/*
+          rm -rf storage/framework/views/*
 
       - name: Create archive
         working-directory: app
