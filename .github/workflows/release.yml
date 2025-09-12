@@ -75,20 +75,19 @@ jobs:
           find storage/framework/sessions -name "*" -not -name ".gitignore" -delete 2>/dev/null || true
           find storage/framework/views -name "*" -not -name ".gitignore" -delete 2>/dev/null || true
 
-
-      - name: Create archive
-        working-directory: app
-        run: |
-          zip -r "../dployr-${GITHUB_REF#refs/tags/}.zip" . \
-            -x ".git/*" \
-            -x "node_modules/*" \
-            -x ".env" \
-            -x "storage/logs/*"
-
       - name: Read version from file
         working-directory: app
         id: version
         run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Create archive
+        working-directory: app
+        run: |
+          zip -r "../dployr-v${{ steps.version.outputs.version }}.zip" . \
+            -x ".git/*" \
+            -x "node_modules/*" \
+            -x ".env" \
+            -x "storage/logs/*"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -96,7 +95,7 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           name: dployr ${{ steps.version.outputs.version }}
           files: |
-            ../dployr-${{ steps.version.outputs.version }}.zip
+            dployr-v${{ steps.version.outputs.version }}.zip
             LICENSE
           generate_release_notes: true
         env:
