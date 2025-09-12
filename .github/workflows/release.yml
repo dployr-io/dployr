@@ -57,8 +57,6 @@ jobs:
         run: |
           echo "removing development files..."
           rm -rf tests .github phpunit.xml eslint.config.js .prettierrc .prettierignore resources
-          echo "remaining files:"
-          ls -la
           
           echo "creating config..."
           cp .env.example .env
@@ -82,12 +80,7 @@ jobs:
 
       - name: Create archive
         working-directory: app
-        run: |
-          zip -r "../dployr-v${{ steps.version.outputs.version }}.zip" . \
-            -x ".git/*" \
-            -x "node_modules/*" \
-            -x ".env" \
-            -x "storage/logs/*"
+        run: zip -r "../dployr-v${{ steps.version.outputs.version }}.zip" . 
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
