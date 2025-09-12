@@ -67,7 +67,7 @@ jobs:
           
           echo "creating config..."
           cp .env.example .env
-          APP_KEY=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)
+          APP_KEY=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32 || true)
           if grep -q '^APP_KEY=' .env; then
             sed -i "s/^APP_KEY=.*/APP_KEY=${APP_KEY}/" .env
           else
@@ -81,13 +81,7 @@ jobs:
           rm -rf storage/framework/views/*
 
       - name: Create archive
-        working-directory: app
-        run: |
-          zip -r "../dployr-${GITHUB_REF#refs/tags/}.zip" . \
-            -x ".git/*" \
-            -x "node_modules/*" \
-            -x ".env" \
-            -x "storage/logs/*"
+        run: zip -r "dployr-${GITHUB_REF#refs/tags/}.zip" . 
 
       - name: Read version from file
         working-directory: app
