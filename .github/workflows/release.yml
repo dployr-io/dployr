@@ -56,7 +56,7 @@ jobs:
         working-directory: app
         run: |
           echo "removing development files..."
-          rm -rf tests .github phpunit.xml eslint.config.js .prettierrc .prettierignore resources/css resources/js
+          rm -rf tests .github .cache builds .config .local node_modules phpunit.xml eslint.config.js .editorconfig .gitattributes .gitignore .prettierrc .prettierignore resources/css resources/js
           
           echo "creating config..."
           cp .env.example .env
