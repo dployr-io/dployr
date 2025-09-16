@@ -46,12 +46,17 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
 
                                     <Input
                                         id="name"
+                                        type="text"
                                         className="mt-1 block w-full"
                                         defaultValue={auth.user.name}
                                         name="name"
                                         required
                                         autoComplete="name"
                                         placeholder="Full name"
+                                        minLength={3}
+                                        maxLength={30}
+                                        pattern="[a-zA-Z\s]+"
+                                        title="Please enter only letters and spaces"
                                     />
 
                                     <InputError className="mt-2" message={errors.name} />
@@ -69,6 +74,8 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
                                         required
                                         autoComplete="username"
                                         placeholder="Email address"
+                                        pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+                                        title="Please enter a valid email address"
                                     />
 
                                     <InputError className="mt-2" message={errors.email} />

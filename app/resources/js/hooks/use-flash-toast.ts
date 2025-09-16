@@ -1,14 +1,13 @@
+/**
+ * useFlashToast makes it easy to retrieve session messages on the frontend 
+ * 
+ * @see app/Http/Middleware/HandleInertiaRequests.php
+ */
 import { usePage } from '@inertiajs/react';
 import { useEffect } from 'react';
 import { toast } from '@/lib/toast';
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 
-export function cn(...inputs: ClassValue[]) {
-    return twMerge(clsx(inputs));
-}
-
-export function getFlashToast() {
+export function useFlashToast() {
   const { flash } = usePage().props as { flash?: Record<string, string> };
 
   useEffect(() => {
@@ -33,10 +32,7 @@ export function getFlashToast() {
         case 'status':
           toast.info(message);
           break;
-        default:
-          toast.info(message);
       }
     });
   }, [flash]);
 }
-
