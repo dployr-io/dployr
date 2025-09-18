@@ -1,8 +1,8 @@
 <?php
 
-namespace App\DTO;
+namespace App\DTOs;
 
-class ApiResponse
+readonly class ApiResponse
 {
     public function __construct(
         public bool $success,

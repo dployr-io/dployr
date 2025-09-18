@@ -10,3 +10,4 @@ require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
 require __DIR__.'/logs.php';
 require __DIR__.'/console.php';
+require __DIR__.'/system.php';

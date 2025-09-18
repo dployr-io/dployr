@@ -50,9 +50,9 @@ export function useProjects(onSearchCallback?: () => void | null) {
     };
 
     const handleFormSuccess = (page: any) => {
-        const flashedBranches = page?.props?.flash?.branches ?? [];
-        if (!searchComplete && Array.isArray(flashedBranches) && flashedBranches.length > 0) {
-            setBranches(flashedBranches);
+        const data = page?.props?.flash?.data ?? [];
+        if (!searchComplete && Array.isArray(data) && data.length > 0) {
+            setBranches(data);
             setSearchComplete(true);
         } else if (searchComplete) {
             if (onSearchCallback) {

@@ -4,10 +4,16 @@ import { toast } from '@/lib/toast';
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+/**
+ * Merge Tailwind and custom class names.
+ */
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
+/**
+ * Hook to display flash messages as toast notifications.
+ */
 export function getFlashToast() {
   const { flash } = usePage().props as { flash?: Record<string, string> };
 
@@ -28,11 +34,7 @@ export function getFlashToast() {
           toast.warning(message);
           break;
         case 'info':
-          toast.info(message);
-          break;
         case 'status':
-          toast.info(message);
-          break;
         default:
           toast.info(message);
       }
@@ -40,3 +42,13 @@ export function getFlashToast() {
   }, [flash]);
 }
 
+/**
+ * Convert a string to uppercase words, replacing underscores with spaces.
+ */
+export function toWordUpperCase(value: string) {
+  return value
+    .replace(/_/g, ' ')
+    .split(' ')
+    .map(word => word.toUpperCase())
+    .join(' ');
+}

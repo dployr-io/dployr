@@ -2,10 +2,11 @@
 
 namespace App\Services;
 
-use App\DTO\ApiResponse;
-use function Laravel\Prompts\select;
+use App\Services\RemoteProviderServices\GithubService;
+use App\DTOs\ApiResponse;
+use App\Enums\RemoteType;
 
-class GitRepository
+class GitRepoService
 {
     /**
      * Format url to a standard format.
@@ -33,7 +34,6 @@ class GitRepository
             return null; // invalid URL
         }
 
-        // Optionally remove trailing slash (except for root domain)
         $url = rtrim($url, '/');
 
         return $url;
@@ -69,17 +69,36 @@ class GitRepository
         ];
     }
 
-    public static function search(string $url): ApiResponse
+    public function search(string $url): ApiResponse
     {
         $formattedUrl = self::formatUrl($url);
 
-        if (strlen($formattedUrl) > 10)
+        $parsed = self::parse($formattedUrl);
+
+        if (self::getRemoteType($formattedUrl) == RemoteType::Github) 
         {
+            $githubService = new GithubService();
+            $remote_repo = $githubService->search($parsed['name'], $parsed['repository']);
+            
             return new ApiResponse(true, [
-                'branches' => ['master', 'staging']
+                'branches' => $remote_repo->branches,
+                'avatar_url' => $remote_repo->avatar_url,
+                'url' => $remote_repo->url,
             ]);
         }
 
         return new ApiResponse(false, [], "Something went wrong");
+    }
+
+    private static function getRemoteType(string $url): RemoteType
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+
+        return match($host) {
+            'github.com'   => RemoteType::Github,
+            'gitlab.com'   => RemoteType::Gitlab,
+            'bitbucket.org'=> RemoteType::BitBucket,
+            default        => throw new \InvalidArgumentException("Unsupported remote host: $host", 1),
+        };
     }
 }

@@ -2,15 +2,13 @@
 
 namespace App\Http\Controllers\Projects;
 
-use Exception;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
 use App\Rules\RemoteRepo;
-use App\Services\GitRepository;
-use App\Exceptions\RepositorySearchException;
+use App\Services\GitRepoService;
 
 class ProjectsController extends Controller 
 {
@@ -45,15 +43,23 @@ class ProjectsController extends Controller
             'remote_repo' => ['required', new RemoteRepo()],
         ]);
 
-        $response = GitRepository::search($request->remote_repo);
+        $repo_service = new GitRepoService();
 
-        if (!$response->success) 
-        {
-            throw new RepositorySearchException();
+        try {
+            $response = $repo_service->search($request->remote_repo);
+
+            if (!$response->success) {
+                return back()->withInput()->with('error', $response->error['message'] ?? 'Failed to fetch repository.');
+            }
+            return back()->withInput()->with('data', $response->data['branches'] ?? []);
+        } catch (\RuntimeException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        } catch (\Exception $e) {
+            $errorMessage = $e instanceof \Throwable ? $e->getMessage() : 'An unexpected error occurred.';
+            return back()->withInput()->with('error', $errorMessage ?: 'An unexpected error occurred.');
         }
-
-        return back()->withInput()->with('branches', $response->data['branches'] ?? []);
     }
+
 
     /**
      * Handle an incoming new project request.
@@ -67,7 +73,7 @@ class ProjectsController extends Controller
             'branch' => 'required',
         ]);
 
-        $parsed = GitRepository::parse($request->remote_repo);
+        $parsed = GitRepoService::parse($request->remote_repo);
 
         Project::create([
             'name' => $parsed['name'],
