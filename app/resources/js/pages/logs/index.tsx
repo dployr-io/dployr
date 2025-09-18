@@ -131,7 +131,7 @@ export default function Logs() {
                 <div className="flex min-h-0 flex-1 auto-rows-min gap-4 p-8">
                     <div className="flex min-h-0 w-full flex-1 flex-col gap-6">
                         <div className="flex min-h-0 flex-1 flex-col overflow-hidden border border-sidebar-border">
-                            <div className="flex flex-shrink-0 gap-2 p-2 bg-neutral-50 dark:bg-neutral-800">
+                            <div className="flex flex-shrink-0 gap-2 p-2 bg-neutral-50 dark:bg-neutral-900">
                                 {/* Log Level Filter */}
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -166,6 +166,7 @@ export default function Logs() {
                                     tabIndex={1}
                                     autoComplete="search"
                                     placeholder="Search for a log entry..."
+                                    className='dark:bg-neutral-950'
                                 />
 
                                 {/* Refresh Interval */}

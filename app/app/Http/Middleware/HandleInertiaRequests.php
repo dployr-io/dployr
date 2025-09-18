@@ -47,6 +47,19 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            
+            /**
+             * Session messages 
+             * 
+             * @see app/resources/js/hooks/use-flash-toast.ts
+             */ 
+            'flash' => [
+                'status' => fn() => $request->session()->get('status'),
+                'success' => fn() => $request->session()->get('success'),
+                'warning' => fn() => $request->session()->get('warning'),
+                'error' => fn() => $request->session()->get('error'),
+                'data' => fn() => $request->session()->get('data'),
+            ]
         ];
     }
 }

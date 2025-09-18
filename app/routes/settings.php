@@ -4,6 +4,7 @@ use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use \App\Models\Config;
 
 Route::middleware('auth')->group(function () {
     Route::redirect('settings', '/settings/profile');
@@ -18,7 +19,11 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:6,1')
         ->name('password.update');
 
-    Route::get('settings/system', function () {
-        return Inertia::render('settings/system');
-    })->name('system');
+    Route::get('settings/system', fn () => Inertia::render('settings/system'))
+        ->name('system');
+
+    Route::get('settings/config', function () {
+        $configs = Config::all()->pluck('value', 'key');
+        return Inertia::render('settings/config', ['config' => $configs]);
+    })->name('config');
 });

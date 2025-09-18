@@ -41,6 +41,9 @@ jobs:
         working-directory: app
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
+      - name: Install pnpm
+        run: npm install -g pnpm
+
       - name: Install Node dependencies
         working-directory: app
         run: pnpm i
@@ -53,18 +56,11 @@ jobs:
         working-directory: app
         run: |
           echo "removing development files..."
-          rm -rf node_modules
-          rm -rf tests
-          rm -rf .github
-          rm -rf phpunit.xml
-          rm -rf eslint.config.js
-          rm -rf .prettierrc
-          rm -rf .prettierignore
-          rm -rf resources
+          rm -rf tests .github .cache builds .config .local node_modules phpunit.xml eslint.config.js .editorconfig .gitattributes .gitignore .prettierrc .prettierignore resources/css resources/js
           
           echo "creating config..."
           cp .env.example .env
-          APP_KEY=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)
+          APP_KEY=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-32)
           if grep -q '^APP_KEY=' .env; then
             sed -i "s/^APP_KEY=.*/APP_KEY=${APP_KEY}/" .env
           else
@@ -72,24 +68,19 @@ jobs:
           fi
           
           echo "cleaning storage directories..."
-          find storage -name "*.log" -delete
-          find storage/framework/cache -name "*" -not -name ".gitignore" -delete
-          find storage/framework/sessions -name "*" -not -name ".gitignore" -delete
-          find storage/framework/views -name "*" -not -name ".gitignore" -delete
-
-      - name: Create archive
-        working-directory: app
-        run: |
-          zip -r "../dployr-${GITHUB_REF#refs/tags/}.zip" . \
-            -x ".git/*" \
-            -x "node_modules/*" \
-            -x ".env" \
-            -x "storage/logs/*"
+          find storage -name "*.log" -delete 2>/dev/null || true
+          find storage/framework/cache -name "*" -not -name ".gitignore" -delete 2>/dev/null || true
+          find storage/framework/sessions -name "*" -not -name ".gitignore" -delete 2>/dev/null || true
+          find storage/framework/views -name "*" -not -name ".gitignore" -delete 2>/dev/null || true
 
       - name: Read version from file
         working-directory: app
         id: version
         run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Create archive
+        working-directory: app
+        run: zip -r "../dployr-v${{ steps.version.outputs.version }}.zip" . 
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -97,7 +88,7 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           name: dployr ${{ steps.version.outputs.version }}
           files: |
-            ../dployr-${{ steps.version.outputs.version }}.zip
+            dployr-v${{ steps.version.outputs.version }}.zip
             LICENSE
           generate_release_notes: true
         env:

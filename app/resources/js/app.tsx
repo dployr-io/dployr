@@ -3,9 +3,13 @@ import '../css/app.css';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
-import { initializeTheme } from './hooks/use-appearance';
+import { initializeTheme } from '@/hooks/use-appearance';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import Wrapper from '@/wrapper';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const queryClient = new QueryClient();
 
 createInertiaApp({
     title: (title) => title ? `${title} - ${appName}` : appName,
@@ -13,7 +17,18 @@ createInertiaApp({
     setup({ el, App, props }) {
         const root = createRoot(el);
 
-        root.render(<App {...props} />);
+        root.render(
+            <QueryClientProvider client={queryClient}>
+                <App {...props} >
+                    {({ Component, key, props: pageProps }) => (
+                        <Wrapper>
+                            <Component {...pageProps} key={key} />
+                        </Wrapper>
+                    )}
+                </App>
+                <ReactQueryDevtools initialIsOpen={false} />
+            </QueryClientProvider>
+        );
     },
     progress: {
         color: '#4B5563',

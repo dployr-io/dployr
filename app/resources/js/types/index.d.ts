@@ -40,3 +40,19 @@ export interface User {
     updated_at: string;
     [key: string]: unknown; // This allows for additional properties...
 }
+
+export interface Project {
+    id: string;
+    name: string;
+    repository: string;
+    branch: string;
+    remote: string;
+    lastCommitMessage: string;
+}
+
+export interface ApiResponse {
+    success: boolean;
+    data:  any[] | Record<string, any>;
+    error?: string;
+}
+
