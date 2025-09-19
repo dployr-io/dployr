@@ -13,7 +13,7 @@ use App\Services\GitRepoService;
 class ProjectsController extends Controller 
 {
     /**
-     * Show the projects page.
+     * Show all projects page.
      */
     public function index()
     {
@@ -22,66 +22,42 @@ class ProjectsController extends Controller
                 [
                     'id' => $project->id,
                     'name' => $project->name,
-                    'remote' => $project->remote,
-                    'branch' => $project->branch,
-                    'repository' => $project->repository,
-                    'lastCommitMessage' => "This is the last commit message"
+                    'description' => $project->description,
                 ]
             ),
         ]);
     }
 
     /**
-     * Search for a remote repository.
-     * 
-     * @throws \Illuminate\Validation\ValidationException
-     * @throws \App\Exceptions\RepositorySearchException
+     * Show a project's page.
      */
-    public function search(Request $request) 
+    public function show(Project $project)
     {
-        $request->validate([
-            'remote_repo' => ['required', new RemoteRepo()],
+        return Inertia::render('projects/view-project', [
+            'project' => [
+                'id' => $project->id,
+                'name' => $project->name,
+                'description' => $project->description,
+            ],
         ]);
-
-        $repo_service = new GitRepoService();
-
-        try {
-            $response = $repo_service->search($request->remote_repo);
-
-            if (!$response->success) {
-                return back()->withInput()->with('error', $response->error['message'] ?? 'Failed to fetch repository.');
-            }
-            return back()->withInput()->with('data', $response->data['branches'] ?? []);
-        } catch (\RuntimeException $e) {
-            return back()->withInput()->with('error', $e->getMessage());
-        } catch (\Exception $e) {
-            $errorMessage = $e instanceof \Throwable ? $e->getMessage() : 'An unexpected error occurred.';
-            return back()->withInput()->with('error', $errorMessage ?: 'An unexpected error occurred.');
-        }
     }
 
-
     /**
-     * Handle an incoming new project request.
+     * Handle a new project request.
      *
      * @throws \Illuminate\Validation\ValidationException
      */
     public function store(Request $request): RedirectResponse 
     {
         $request->validate([
-            'remote_repo' => ['required', new RemoteRepo()],
-            'branch' => 'required',
+            'name' => ['required'],
         ]);
-
-        $parsed = GitRepoService::parse($request->remote_repo);
 
         Project::create([
-            'name' => $parsed['name'],
-            'repository' => $parsed['repository'],
-            'remote' => $parsed['remote'],
-            'branch' => $request->branch,
+            'name' => $request->name,
+            'description' => $request->description,
         ]);
 
-        return back()->with('status', __('Your project was created, and the import is now in progress.'));
+        return back()->with('success', __('Your project was created successfully.'));
     }      
 }

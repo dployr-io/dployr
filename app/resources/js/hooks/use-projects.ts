@@ -4,34 +4,22 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { z } from 'zod';
 
-export function useProjects(onSearchCallback?: () => void | null) {
-    const [branches, setBranches] = useState<string[]>([]);
-    const [searchComplete, setSearchComplete] = useState(false);
+export function useProjects(onCreateProjectCallback?: () => void | null) {
     const [error, setError] = useState<string>('');
-    const [remoteRepo, setRemoteRepo] = useState('');
-    const [selectedBranch, setSelectedBranch] = useState('');
+    const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
 
-    const formSchema = z
-        .object({
-            remote_repo: z.string().min(5, 'Repository URL is required'),
-            branch: z.string().optional(),
-        })
-        .refine((data) => {
-            if (branches.length > 0 && !data.branch) {
-                return false;
-            }
-            return true;
-        });
+    const formSchema = z.object({
+        name: z.string().min(3, 'Name with a minimum of three (3) characters is required'),
+        description: z.string().optional(),
+    });
 
     const validateForm = () => {
-        const result = formSchema.safeParse({
-            remote_repo: remoteRepo,
-            branch: selectedBranch,
-        });
+        const result = formSchema.safeParse({ name, description });
 
         if (!result.success) {
             const fieldErrors = result.error.flatten().fieldErrors;
-            setError(fieldErrors.remote_repo?.[0] || fieldErrors.branch?.[0] || 'Validation failed');
+            setError(fieldErrors.name?.[0] || fieldErrors.description?.[0] || 'Validation failed');
             return false;
         }
 
@@ -39,35 +27,13 @@ export function useProjects(onSearchCallback?: () => void | null) {
         return true;
     };
 
-    const getFormAction = () => {
-        return searchComplete ? '/projects' : '/projects/search';
-    };
-
     const getFormData = () => {
         if (!validateForm()) return {};
 
-        return searchComplete ? { remote_repo: remoteRepo, branch: selectedBranch } : { remote_repo: remoteRepo };
+        return { name, description };
     };
 
-    const handleFormSuccess = (page: any) => {
-        const data = page?.props?.flash?.data ?? [];
-        if (!searchComplete && Array.isArray(data) && data.length > 0) {
-            setBranches(data);
-            setSearchComplete(true);
-        } else if (searchComplete) {
-            if (onSearchCallback) {
-                onSearchCallback();
-            }
-        }
-    };
-
-    const reset = () => {
-        setRemoteRepo('');
-        setSelectedBranch('');
-        setBranches([]);
-        setSearchComplete(false);
-        setError('');
-    };
+    const handleFormSuccess = () => onCreateProjectCallback!();
 
     const projects = useQuery<Project[]>({
         queryKey: ['projects'],
@@ -85,18 +51,13 @@ export function useProjects(onSearchCallback?: () => void | null) {
     });
 
     return {
-        // State
         projects,
-        branches,
-        searchComplete,
+        name,
+        description,
         validationError: error,
-        remoteRepo,
-        selectedBranch,
 
-        // Actions
-        setRemoteRepo,
-        setSelectedBranch,
-        getFormAction,
+        setName,
+        setDescription,
         getFormData,
         handleFormSuccess,
     };

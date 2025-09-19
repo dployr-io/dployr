@@ -11,8 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('projects', function (Blueprint $table) {
-            $table->string('remote')->nullable();
+        Schema::create('projects', function (Blueprint $table) {
+            $table->ulid('id')->primary();
+            $table->string('name', 100);
+            $table->string('description', 100)->nullable();
+            $table->timestamps();
         });
     }
 
@@ -21,8 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('projects', function (Blueprint $table) {
-            $table->dropColumn('remote');
-        });
+        Schema::dropIfExists('projects');
     }
 };

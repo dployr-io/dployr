@@ -44,10 +44,16 @@ export interface User {
 export interface Project {
     id: string;
     name: string;
+    description: string;
+}
+
+export interface Remote {
+    id: string;
+    name: string;
     repository: string;
     branch: string;
     remote: string;
-    lastCommitMessage: string;
+    commit : string;
 }
 
 export interface ApiResponse {

@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 
-class Project extends Model
+class Remote extends Model
 {
     use HasUlids;
 
@@ -17,6 +17,11 @@ class Project extends Model
     protected $fillable = [
         'id',
         'name',
-        'description'
+        'remote',
+        'repository',
+        'branch',
+        'commit',
     ];
+
+    
 }

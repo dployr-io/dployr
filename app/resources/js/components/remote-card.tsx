@@ -1,7 +1,10 @@
-import type { Project } from "@/types";
+import type { Remote } from "@/types";
+import { Badge } from "./ui/badge";
+import { RxGithubLogo } from "react-icons/rx";
+import { FaGitlab } from "react-icons/fa6";
 import { Link } from "@inertiajs/react";
 
-export default function ProjectCard(project: Project) {
+export default function RemoteCard(project: Remote) {
     return (
         <Link
             href={`/projects/${project.id}`}
@@ -13,12 +16,17 @@ export default function ProjectCard(project: Project) {
                     src="img/default-project.png"
                 />
                 <div className="min-w-0 flex-1">
-                    <p className="truncate">{project.name}</p>
+                    <p className="truncate">{project.name}/{project.repository}</p>
                 </div>
             </div>
 
+            <Badge className="mb-2 w-fit">
+                {project.remote.includes('github') ? <RxGithubLogo /> : <FaGitlab />}
+                <span className="truncate max-w-36">{project.branch}</span>
+            </Badge>
+
             <p className="text-xs text-muted-foreground flex-1 line-clamp-1 overflow-hidden">
-                {project.description}
+                #{project.commit}
             </p>
         </Link>
     );

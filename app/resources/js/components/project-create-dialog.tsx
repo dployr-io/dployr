@@ -20,16 +20,13 @@ export default function ProjectCreateDialog({ open, setOpen }: Props) {
         queryClient.invalidateQueries({ queryKey: ['projects'] });
         setOpen(false);
     };
-    
+
     const {
-        branches,
-        searchComplete,
+        name,
+        description,
         validationError,
-        remoteRepo,
-        selectedBranch,
-        setRemoteRepo,
-        setSelectedBranch,
-        getFormAction,
+        setName,
+        setDescription,
         getFormData,
         handleFormSuccess,
     } = useProjects(onCreatedSuccess);
@@ -38,12 +35,12 @@ export default function ProjectCreateDialog({ open, setOpen }: Props) {
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Import Project</DialogTitle>
-                    <DialogDescription>Enter project details below to import to your library.</DialogDescription>
+                    <DialogTitle>Create Project</DialogTitle>
+                    <DialogDescription>Add a new project to your library.</DialogDescription>
                 </DialogHeader>
 
                 <Form
-                    action={getFormAction()}
+                    action="/projects"
                     transform={() => getFormData()}
                     method="post"
                     onSuccess={handleFormSuccess}
@@ -52,60 +49,34 @@ export default function ProjectCreateDialog({ open, setOpen }: Props) {
                     {({ processing, errors }) => (
                         <>
                             <div className="grid gap-3">
-                                <Label htmlFor="remote_repo">Remote Repository</Label>
+                                <Label htmlFor="name">Name</Label>
                                 <Input
-                                    id="remote_repo"
-                                    name="remote_repo"
-                                    placeholder="github.com/username/repository.git"
-                                    value={remoteRepo}
-                                    onChange={(e) => setRemoteRepo(e.target.value)}
+                                    id="name"
+                                    name="name"
+                                    placeholder="My awesome dployr project"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    tabIndex={1}
                                     disabled={processing}
                                 />
-                                {(validationError || errors.remote_repo) && (
-                                    <div className="text-sm text-destructive">{validationError || errors.remote_repo}</div>
+                                {(validationError || errors.name) && (
+                                    <div className="text-sm text-destructive">{validationError || errors.name}</div>
                                 )}
                             </div>
 
                             <div className="grid gap-3">
-                                {processing && (
-                                    <div className="flex justify-center">
-                                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                            {searchComplete ? 'Creating project...' : 'Fetching remote repository...'}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {branches.length > 0 && !processing && (
-                                    <>
-                                        <Label htmlFor="branch">Branch</Label>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button
-                                                    type="button"
-                                                    size="default"
-                                                    variant="outline"
-                                                    className="group min-w-40 text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent"
-                                                >
-                                                    {selectedBranch || 'Select branch'}
-                                                    <ChevronDown className="ml-auto size-4 transition-transform group-data-[state=open]:rotate-180" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent
-                                                className="w-[--radix-dropdown-menu-trigger-width] min-w-40 rounded-lg"
-                                                align="start"
-                                            >
-                                                {branches.map((branch, index) => (
-                                                    <div key={branch}>
-                                                        <DropdownMenuItem onClick={() => setSelectedBranch(branch)}>{branch}</DropdownMenuItem>
-                                                        {index < branches.length - 1 && <DropdownMenuSeparator />}
-                                                    </div>
-                                                ))}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                        <input type="hidden" name="branch" value={selectedBranch} />
-                                        {errors.branch && <div className="text-sm text-destructive">{errors.branch}</div>}
-                                    </>
+                                <Label htmlFor="description">Description</Label>
+                                <Input
+                                    id="description"
+                                    name="description"
+                                    placeholder="My app, my server, my rules!"
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    tabIndex={2}
+                                    disabled={processing}
+                                />
+                                {(validationError || errors.description) && (
+                                    <div className="text-sm text-destructive">{validationError || errors.description}</div>
                                 )}
                             </div>
 
@@ -113,9 +84,9 @@ export default function ProjectCreateDialog({ open, setOpen }: Props) {
                                 <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                                     Cancel
                                 </Button>
-                                <Button type="submit" disabled={processing || (searchComplete && !selectedBranch)}>
+                                <Button type="submit" disabled={processing}>
                                     {processing && <Loader2 className="h-4 w-4 animate-spin" />}
-                                    {processing ? (searchComplete ? 'Importing' : 'Searching') : searchComplete ? 'Import' : 'Search'}
+                                    {processing ? 'Creating' : 'Create'}
                                 </Button>
                             </div>
                         </>

@@ -1,6 +1,6 @@
 import ProjectCard from '@/components/project-card';
-
 import ProjectCreateDialog from '@/components/project-create-dialog';
+
 import { useProjects } from '@/hooks/use-projects';
 import AppLayout from '@/layouts/app-layout';
 import { projectsList } from '@/routes';
@@ -28,15 +28,7 @@ export default function Dashboard() {
 
                     <div className="grid w-full grid-cols-3 gap-3">
                         {projects?.data?.map((project: Project) => (
-                            <ProjectCard
-                                key={project.id}
-                                id={project.id}
-                                name={project.name}
-                                repository={project.repository}
-                                remote={project.remote}
-                                branch={project.branch}
-                                lastCommitMessage={project.lastCommitMessage}
-                            />
+                            <ProjectCard key={project.id} id={project.id} name={project.name} description={project.description} />
                         ))}
                         <div
                             className="flex flex-col gap-2 rounded-xl border border-sidebar-border/70 p-4 hover:cursor-pointer hover:border-accent-foreground md:min-h-min dark:border-sidebar-border dark:hover:border-muted-foreground"
@@ -44,10 +36,10 @@ export default function Dashboard() {
                         >
                             <div className="flex items-center gap-2">
                                 <PlusCircle size={20} className="text-muted-foreground" />
-                                <p>Import a Remote Project</p>
+                                <p>Create a New Project</p>
                             </div>
 
-                            <p className="text-sm text-muted-foreground">Click to add a remote project from git to your library</p>
+                            <p className="text-sm text-muted-foreground">Click to create a new project and deploy with dployr</p>
                         </div>
                     </div>
 
