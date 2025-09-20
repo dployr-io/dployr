@@ -7,15 +7,22 @@ use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Service;
+use App\Models\Project;
 
 class ServicesController extends Controller 
 {
     /**
      * Show all service creation page.
      */
-    public function index()
+    public function index(Project $project)
     {
-        return Inertia::render('projects/services/deploy-service');
+        return Inertia::render('projects/services/deploy-service', [
+            'project' => [
+                'id' => $project->id,
+                'name' => $project->name,
+                'description' => $project->description,
+            ],
+        ]);
     }
 
     /**

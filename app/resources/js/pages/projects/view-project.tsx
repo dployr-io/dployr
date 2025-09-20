@@ -1,16 +1,13 @@
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
-import { projectsList } from '@/routes';
-import type { BreadcrumbItem, Project, Service } from '@/types';
-import { Runtime } from '@/types';
+import { getRuntimeIcon } from '@/lib/runtime-icon';
+import { index, projectsList } from '@/routes';
+import type { BreadcrumbItem, Project, Service } from  '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, CirclePlus, Settings } from 'lucide-react';
 import { useState } from 'react';
-import { BiCustomize } from 'react-icons/bi';
-import { FaDocker, FaJava, FaNodeJs, FaPython } from 'react-icons/fa';
-import { FaGolang } from 'react-icons/fa6';
-import { SiDotnet, SiK3S, SiPhp, SiRubyonrails } from 'react-icons/si';
+
 
 const ViewProjectBreadcrumbs = (project: Project) => {
     const breadcrumbs: BreadcrumbItem[] = [
@@ -126,33 +123,6 @@ const services: Service[] = [
     },
 ];
 
-const runtimeIcon = (runtime: Runtime) => {
-    switch (runtime) {
-        case 'go':
-            return <FaGolang size={22} />;
-        case 'php':
-            return <SiPhp size={20} />;
-        case 'python':
-            return <FaPython size={16} />;
-        case 'node-js':
-            return <FaNodeJs size={16} />;
-        case 'ruby':
-            return <SiRubyonrails size={18} />;
-        case 'dotnet':
-            return <SiDotnet size={20} />;
-        case 'java':
-            return <FaJava size={20} />;
-        case 'docker':
-            return <FaDocker size={16} />;
-        case 'k3s':
-            return <SiK3S />;
-        case 'custom':
-            return <BiCustomize size={16} />;
-        default:
-            return <BiCustomize size={16} />;
-    }
-};
-
 export default function ViewProject() {
     const { props } = usePage();
     const project = props.project as Project;
@@ -197,7 +167,7 @@ export default function ViewProject() {
                                 className="flex items-center gap-2"
                                 asChild
                             >
-                                <Link href={`services`}>
+                                <Link href={index({ project: project.id }).url}>
                                     <CirclePlus className="h-4 w-4" />
                                     Deploy Service
                                 </Link>
@@ -236,7 +206,7 @@ export default function ViewProject() {
                                     </TableCell>
                                     <TableCell className="h-16 align-middle">
                                         <div className="flex items-center gap-2">
-                                            {runtimeIcon(service.runtime)}
+                                            {getRuntimeIcon(service.runtime)}
                                             <span>{service.runtime}</span>
                                         </div>
                                     </TableCell>

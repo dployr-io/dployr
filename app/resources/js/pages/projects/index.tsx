@@ -39,7 +39,7 @@ export default function Dashboard() {
                                 <p>Create a New Project</p>
                             </div>
 
-                            <p className="text-sm text-muted-foreground">Click to create a new project and deploy with dployr</p>
+                            <p className="text-sm text-muted-foreground">Click to create a new project and get started with deploying with dployr</p>
                         </div>
                     </div>
 

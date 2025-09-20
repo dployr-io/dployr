@@ -1,0 +1,1 @@
+export const runtimes = ['go', 'php', 'python', 'node-js', 'ruby', 'dotnet', 'java', 'docker', 'k3s', 'custom'] as const;

@@ -1,5 +1,7 @@
 import { InertiaLinkProps } from '@inertiajs/react';
 import { LucideIcon } from 'lucide-react';
+import { Runtime } from './';
+
 
 export interface Auth {
     user: User;
@@ -32,7 +34,7 @@ export interface SharedData {
 
 export interface ApiResponse {
     success: boolean;
-    data:  any[] | Record<string, any>;
+    data:  unknown[] | Record<string, unknown>;
     error?: string;
 }
 
@@ -62,9 +64,9 @@ export interface Remote {
     commit : string;
 }
 
-type Status = 'running' | 'stopped' | 'deploying';
-type Runtime = 'go' | 'php' | 'python' | 'node-js' | 'ruby' | 'dotnet' | 'java' | 'docker' | 'k3s' | 'custom'  
-type AddOn = 'next-js' | 'composer' | 'laravel' | 'hono' | 'bun'
+export type Status = 'running' | 'stopped' | 'deploying';
+
+export type AddOn = 'next-js' | 'composer' | 'laravel' | 'hono' | 'bun';
 
 export interface Service {
     id: string;
@@ -75,5 +77,7 @@ export interface Service {
     lastDeployed: Date;
 }
 
+export type Runtime = (typeof runtimes)[number];
 
-
+export type Status = 'running' | 'stopped' | 'deploying';
+export type AddOn = 'next-js' | 'composer' | 'laravel' | 'hono' | 'bun';

@@ -5,8 +5,9 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { logs, console, projectsList } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Logs, SquareChevronRight } from 'lucide-react';
+import { BookOpen, Container, Folder, FolderGit2, LayoutGrid, Logs, SquareChevronRight } from 'lucide-react';
 import AppLogo from './app-logo';
+import { NavSecondary } from './nav-secondary';
 
 const mainNavItems: NavItem[] = [
     {
@@ -19,12 +20,25 @@ const mainNavItems: NavItem[] = [
         href: logs(),
         icon: Logs,
     },
-     {
+    {
         title: 'Console',
         href: console(),
         icon: SquareChevronRight,
     },
 ];
+
+const secondaryNavItems: NavItem[] = [  
+    {
+        title: 'Remotes',
+        href: projectsList(),
+        icon: FolderGit2,
+    },
+    {
+        title: 'Images',
+        href: logs(),
+        icon: Container,
+    },
+]
 
 const footerNavItems: NavItem[] = [
     {
@@ -56,6 +70,8 @@ export function AppSidebar() {
 
             <SidebarContent>
                 <NavMain items={mainNavItems} />
+                <div className='h-4' />
+                <NavSecondary items={secondaryNavItems} />
             </SidebarContent>
 
             <SidebarFooter>
