@@ -130,7 +130,7 @@ export default function Logs() {
             <div className="flex min-h-0 h-full flex-col gap-4 overflow-y-hidden rounded-xl p-4">
                 <div className="flex min-h-0 flex-1 auto-rows-min gap-4 p-8">
                     <div className="flex min-h-0 w-full flex-1 flex-col gap-6">
-                        <div className="flex min-h-0 flex-1 flex-col overflow-hidden border border-sidebar-border">
+                        <div className="flex min-h-0 flex-1 flex-col overflow-hidden border rounded-xl border-sidebar-border">
                             <div className="flex flex-shrink-0 gap-2 p-2 bg-neutral-50 dark:bg-neutral-900">
                                 {/* Log Level Filter */}
                                 <DropdownMenu>

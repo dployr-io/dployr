@@ -132,7 +132,7 @@ export default function Console() {
                         <div className="flex min-h-0 flex-1 flex-col overflow-hidden border border-sidebar-border rounded-xl">
                             <div className="flex h-full min-h-0 flex-col">
                                 <div className="flex h-11 items-center justify-between border-b border-sidebar-border  px-4 py-2 bg-neutral-50 dark:bg-neutral-900">
-                                    <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300 ">Terminal Console</span>
+                                    <span className="text-sm font-medium text-muted-foreground ">Terminal Console</span>
                                 </div>
                                 <div
                                     ref={terminalRef}

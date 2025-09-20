@@ -65,10 +65,10 @@ export default function Config({ mustVerifyEmail, status }: { mustVerifyEmail: b
                 <div className="space-y-4">
                     <HeadingSmall title="Configuration settings" description="Update your dployr configuration settings" />
 
-                    <Table>
-                        <TableHeader className="gap-2 bg-neutral-50 p-2 dark:bg-neutral-900">
+                    <Table className='overflow-hidden rounded-t-lg'>
+                        <TableHeader className="gap-2 bg-neutral-50 p-2 dark:bg-neutral-900 rounded-t-xl ">
                             <TableRow>
-                                <TableHead className="w-[200px]">Key</TableHead>
+                                <TableHead className="w-[200px] ml">Key</TableHead>
                                 <TableHead>Last Updated</TableHead>
                                 <TableHead className="w-[100px] text-right"></TableHead>
                             </TableRow>

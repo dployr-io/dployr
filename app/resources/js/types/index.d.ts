@@ -30,6 +30,12 @@ export interface SharedData {
     [key: string]: unknown;
 }
 
+export interface ApiResponse {
+    success: boolean;
+    data:  any[] | Record<string, any>;
+    error?: string;
+}
+
 export interface User {
     id: string;
     name: string;
@@ -56,9 +62,18 @@ export interface Remote {
     commit : string;
 }
 
-export interface ApiResponse {
-    success: boolean;
-    data:  any[] | Record<string, any>;
-    error?: string;
+type Status = 'running' | 'stopped' | 'deploying';
+type Runtime = 'go' | 'php' | 'python' | 'node-js' | 'ruby' | 'dotnet' | 'java' | 'docker' | 'k3s' | 'custom'  
+type AddOn = 'next-js' | 'composer' | 'laravel' | 'hono' | 'bun'
+
+export interface Service {
+    id: string;
+    name: string;
+    status: Status;
+    runtime: Runtime;
+    region: string;
+    lastDeployed: Date;
 }
+
+
 

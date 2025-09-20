@@ -1,41 +1,32 @@
 <?php
 
-namespace App\Http\Controllers\Projects;
+namespace App\Http\Controllers\Projects\Services;
 
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use App\Http\Controllers\Controller;
-use App\Models\Project;
+use App\Models\Service;
 
-class ProjectsController extends Controller 
+class ServicesController extends Controller 
 {
     /**
-     * Show all projects page.
+     * Show all service creation page.
      */
     public function index()
     {
-        return Inertia::render('projects/index', [
-            'projects' => Project::all()->map( fn($project) => 
-                [
-                    'id' => $project->id,
-                    'name' => $project->name,
-                    'description' => $project->description,
-                ]
-            ),
-        ]);
+        return Inertia::render('projects/services/deploy-service');
     }
 
     /**
      * Show a project's page.
      */
-    public function show(Project $project)
+    public function show(Service $project)
     {
-        return Inertia::render('projects/view-project', [
-            'project' => [
+        return Inertia::render('projects/services/view-service', [
+            'service' => [
                 'id' => $project->id,
                 'name' => $project->name,
-                'description' => $project->description,
             ],
         ]);
     }
@@ -51,7 +42,7 @@ class ProjectsController extends Controller
             'name' => ['required'],
         ]);
 
-        Project::create([
+        Service::create([
             'name' => $request->name,
             'description' => $request->description,
         ]);
