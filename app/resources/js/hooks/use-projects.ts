@@ -47,7 +47,7 @@ export function useProjects(onCreateProjectCallback?: () => void | null) {
                     },
                 );
             }),
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 60 * 1000, // Every minute
     });
 
     return {

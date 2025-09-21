@@ -17,7 +17,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 export default function Dashboard() {
     const { projects } = useProjects();
-    const [isProjectsDialogOpen, setIsProjectsDialogOpen] = useState<boolean>(false);
+    const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -32,7 +32,7 @@ export default function Dashboard() {
                         ))}
                         <div
                             className="flex flex-col gap-2 rounded-xl border border-sidebar-border/70 p-4 hover:cursor-pointer hover:border-accent-foreground md:min-h-min dark:border-sidebar-border dark:hover:border-muted-foreground"
-                            onClick={() => setIsProjectsDialogOpen(true)}
+                            onClick={() => setIsDialogOpen(true)}
                         >
                             <div className="flex items-center gap-2">
                                 <PlusCircle size={20} className="text-muted-foreground" />
@@ -43,7 +43,7 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    <ProjectCreateDialog open={isProjectsDialogOpen} setOpen={(open) => setIsProjectsDialogOpen(open)} />
+                    <ProjectCreateDialog open={isDialogOpen} setOpen={(open) => setIsDialogOpen(open)} />
                 </div>
             </div>
         </AppLayout>

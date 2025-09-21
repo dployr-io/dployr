@@ -6,7 +6,7 @@ use App\Services\RemoteProviderServices\GithubService;
 use App\DTOs\ApiResponse;
 use App\Enums\RemoteType;
 
-class GitRepoService
+class GitRepoService extends GithubService
 {
     /**
      * Format url to a standard format.
@@ -65,40 +65,36 @@ class GitRepoService
         return [
             'name'       => $segments[0],
             'repository' => preg_replace('/\.git$/', '', $segments[1]),
-            'remote'     => $parts['host'],
+            'provider'     => $parts['host'],
         ];
-    }
+    }    
 
-    public function search(string $url): ApiResponse
+    protected function search(string $name, string $repository, string $provider): ApiResponse
     {
-        $formattedUrl = self::formatUrl($url);
-
-        $parsed = self::parse($formattedUrl);
-
-        if (self::getRemoteType($formattedUrl) == RemoteType::Github) 
+        if (self::getRemoteType($provider) == RemoteType::Github) 
         {
-            $githubService = new GithubService();
-            $remote_repo = $githubService->search($parsed['name'], $parsed['repository']);
-            
-            return new ApiResponse(true, [
-                'branches' => $remote_repo->branches,
-                'avatar_url' => $remote_repo->avatar_url,
-                'url' => $remote_repo->url,
-            ]);
+            return parent::search($name, $repository, $provider);   
         }
 
         return new ApiResponse(false, [], "Something went wrong");
     }
 
-    private static function getRemoteType(string $url): RemoteType
+    public function searchRepo(string $url): ApiResponse
     {
-        $host = parse_url($url, PHP_URL_HOST);
+        $formattedUrl = self::formatUrl($url);
 
-        return match($host) {
-            'github.com'   => RemoteType::Github,
-            'gitlab.com'   => RemoteType::Gitlab,
-            'bitbucket.org'=> RemoteType::BitBucket,
-            default        => throw new \InvalidArgumentException("Unsupported remote host: $host", 1),
-        };
+        $parsed = self::parse($formattedUrl);
+
+        return $this->search($parsed['name'], $parsed['repository'], $parsed['provider']);
+    }
+
+    public function getLatestCommitMessage(string $name, string $repository, string $provider): array
+    {
+        if (self::getRemoteType($provider) == RemoteType::Github) 
+        {
+            return parent::getLatestCommitMessage($name, $repository, $provider);   
+        }
+        
+        return [];
     }
 }

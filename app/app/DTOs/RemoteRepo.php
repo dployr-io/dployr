@@ -20,6 +20,9 @@ readonly class RemoteRepo
 
         /** URL to the repository avatar image */
         public string $avatar_url,
+
+        /** Last commit message */
+        public ?string $commit_message = null,
     ) {
     }
 }

@@ -2,18 +2,22 @@ import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { logs, console, projectsList } from '@/routes';
+import { logs, console, projectsList, remotesList } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Container, Folder, FolderGit2, LayoutGrid, Logs, SquareChevronRight } from 'lucide-react';
+import { BookOpen, Container, Factory, FileSliders, Folder, FolderGit2, Globe, LayoutGrid, Logs, SquareChevronRight } from 'lucide-react';
 import AppLogo from './app-logo';
-import { NavSecondary } from './nav-secondary';
 
 const mainNavItems: NavItem[] = [
     {
         title: 'Projects',
         href: projectsList(),
         icon: LayoutGrid,
+    },
+    {
+        title: 'Deployments',
+        href: projectsList(),
+        icon: Factory,
     },
     {
         title: 'Logs',
@@ -30,13 +34,18 @@ const mainNavItems: NavItem[] = [
 const secondaryNavItems: NavItem[] = [  
     {
         title: 'Remotes',
-        href: projectsList(),
+        href: remotesList(),
         icon: FolderGit2,
     },
     {
         title: 'Images',
         href: logs(),
         icon: Container,
+    },
+    {
+        title: 'Specs',
+        href: logs(),
+        icon: FileSliders,
     },
 ]
 
@@ -69,9 +78,9 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={mainNavItems} title='Platform' />
                 <div className='h-4' />
-                <NavSecondary items={secondaryNavItems} />
+                <NavMain items={secondaryNavItems} title='Resources' />
             </SidebarContent>
 
             <SidebarFooter>

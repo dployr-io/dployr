@@ -56,13 +56,17 @@ export interface Project {
 }
 
 export interface Remote {
+    description: string;
     id: string;
     name: string;
     repository: string;
     branch: string;
-    remote: string;
-    commit : string;
+    provider: string;
+    commit_message : string;
+    avatar_url: string;
 }
+
+export type ServiceSource = 'image' | 'remote';
 
 export type Status = 'running' | 'stopped' | 'deploying';
 
@@ -74,7 +78,8 @@ export interface Service {
     status: Status;
     runtime: Runtime;
     region: string;
-    lastDeployed: Date;
+    source: ServiceSource;
+    last_deployed: Date;
 }
 
 export type Runtime = (typeof runtimes)[number];

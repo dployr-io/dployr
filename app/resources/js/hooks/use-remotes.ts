@@ -1,4 +1,4 @@
-import type { Project, Remote } from '@/types';
+import type { Remote } from '@/types';
 import { router } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -13,7 +13,10 @@ export function useRemotes(onSearchCallback?: () => void | null) {
 
     const formSchema = z
         .object({
-            remote_repo: z.string().min(5, 'Repository URL is required'),
+            remote_repo: z
+                .string()
+                .min(1, 'Domain is required')
+                .regex(/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/, 'Please enter a valid remote address'),
             branch: z.string().optional(),
         })
         .refine((data) => {
@@ -40,7 +43,7 @@ export function useRemotes(onSearchCallback?: () => void | null) {
     };
 
     const getFormAction = () => {
-        return searchComplete ? '/projects/remotes' : '/projects/remotes/search';
+        return searchComplete ? '/resources/remotes' : '/resources/remotes/search';
     };
 
     const getFormData = () => {
@@ -69,24 +72,24 @@ export function useRemotes(onSearchCallback?: () => void | null) {
         setError('');
     };
 
-    const projects = useQuery<Remote[]>({
+    const remotes = useQuery<Remote[]>({
         queryKey: ['remotes'],
         queryFn: () =>
             new Promise((resolve) => {
                 router.get(
-                    '/projects/remotes',
+                    '/resources/remotes',
                     {},
                     {
                         onSuccess: (page) => resolve(page.props.remotes as Remote[]),
                     },
                 );
             }),
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 60 * 1000, // Every minute
     });
 
     return {
         // State
-        projects,
+        remotes,
         branches,
         searchComplete,
         validationError: error,

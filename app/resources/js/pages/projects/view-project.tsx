@@ -27,99 +27,111 @@ const ViewProjectBreadcrumbs = (project: Project) => {
 const services: Service[] = [
     {
         id: '1',
+        source: 'remote',
         name: 'releeva-web',
         status: 'running',
         runtime: 'custom',
         region: 'Africa/Lagos',
-        lastDeployed: new Date(),
+        last_deployed: new Date(),
     },
     {
         id: '2',
+        source: 'remote',
         name: 'api-gateway',
         status: 'running',
         runtime: 'node-js',
         region: 'America/NewYork',
-        lastDeployed: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+        last_deployed: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
     },
     {
         id: '3',
+        source: 'remote',
         name: 'user-service',
         status: 'stopped',
         runtime: 'python',
         region: 'Europe/London',
-        lastDeployed: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
+        last_deployed: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
     },
     {
         id: '4',
+        source: 'remote',
         name: 'notification-worker',
         status: 'running',
         runtime: 'ruby',
         region: 'Asia/Tokyo',
-        lastDeployed: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+        last_deployed: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
     },
     {
         id: '5',
+        source: 'remote',
         name: 'analytics-dashboard',
         status: 'deploying',
         runtime: 'php',
         region: 'Australia/Sydney',
-        lastDeployed: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
+        last_deployed: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
     },
     {
         id: '6',
+        source: 'remote',
         name: 'analytics-dashboard',
         status: 'deploying',
         runtime: 'java',
         region: 'Australia/Sydney',
-        lastDeployed: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
+        last_deployed: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
     },
     {
         id: '7',
+        source: 'remote',
         name: 'releeva-web',
         status: 'running',
         runtime: 'go',
         region: 'Africa/Lagos',
-        lastDeployed: new Date(),
+        last_deployed: new Date(),
     },
     {
         id: '8',
+        source: 'remote',
         name: 'api-gateway',
         status: 'running',
         runtime: 'node-js',
         region: 'America/NewYork',
-        lastDeployed: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+        last_deployed: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
     },
     {
         id: '9',
+        source: 'image',
         name: 'user-service',
         status: 'stopped',
         runtime: 'docker',
         region: 'Europe/London',
-        lastDeployed: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
+        last_deployed: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
     },
     {
         id: '10',
+        source: 'remote',
         name: 'notification-worker',
         status: 'running',
         runtime: 'dotnet',
         region: 'Asia/Tokyo',
-        lastDeployed: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+        last_deployed: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
     },
     {
         id: '15',
+        source: 'remote',
         name: 'analytics-dashboard',
         status: 'deploying',
         runtime: 'php',
         region: 'Australia/Sydney',
-        lastDeployed: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
+        last_deployed: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
     },
     {
         id: '16',
+        source: 'image',
         name: 'analytics-dashboard',
         status: 'deploying',
         runtime: 'k3s',
         region: 'Australia/Sydney',
-        lastDeployed: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
+        last_deployed: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
     },
 ];
 
@@ -212,7 +224,7 @@ export default function ViewProject() {
                                     </TableCell>
                                     <TableCell className="h-16 align-middle">{service.region}</TableCell>
                                     <TableCell className="h-16 w-[200px] text-right align-middle">
-                                        {service.lastDeployed instanceof Date ? service.lastDeployed.toLocaleString() : service.lastDeployed}
+                                        {service.last_deployed instanceof Date ? service.last_deployed.toLocaleString() : service.last_deployed}
                                     </TableCell>
                                 </TableRow>
                             ))}

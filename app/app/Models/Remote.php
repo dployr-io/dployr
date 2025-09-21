@@ -17,7 +17,7 @@ class Remote extends Model
     protected $fillable = [
         'id',
         'name',
-        'remote',
+        'provider',
         'repository',
         'branch',
         'commit',

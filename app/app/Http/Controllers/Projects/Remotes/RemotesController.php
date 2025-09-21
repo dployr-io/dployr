@@ -17,17 +17,22 @@ class RemotesController extends Controller
      */
     public function index()
     {
-        return Inertia::render('projects/remotes/index', [
-            'remotes' => Remote::all()->map( fn($remote) => 
-                [
+        
+        return Inertia::render('resources/remotes', [
+            'remotes' => Remote::all()->map( function($remote) { 
+                $repo_service = new GitRepoService();
+                $commit = $repo_service->getLatestCommitMessage($remote->name, $remote->repository, $remote->provider);
+                
+                return [
                     'id' => $remote->id,
                     'name' => $remote->name,
-                    'remote' => $remote->remote,
+                    'provider' => $remote->provider,
                     'branch' => $remote->branch,
                     'repository' => $remote->repository,
-                    'commit' => $remote->commit,
-                ]
-            ),
+                    'commit_message' => $commit['message'],
+                    'avatar_url' => $commit['avatar_url'],
+                ];
+            }),
         ]);
     }
 
@@ -36,14 +41,18 @@ class RemotesController extends Controller
      */
     public function show(Remote $remote)
     {
-        return Inertia::render('projects/remotes/view-remote', [
+        $repo_service = new GitRepoService();
+        $commit = $repo_service->getLatestCommitMessage($remote->name, $remote->repository, $remote->provider);
+
+        return Inertia::render('resources/remotes/view-remote', [
             'remote' => [
                 'id' => $remote->id,
                 'name' => $remote->name,
-                'remote' => $remote->remote,
+                'provider' => $remote->provider,
                 'branch' => $remote->branch,
                 'repository' => $remote->repository,
-                'commit' => $remote->commit,
+                'commit_message' => $commit['message'],
+                'avatar_url' => $commit['avatar_url'],
             ],
         ]);
     }
@@ -63,7 +72,7 @@ class RemotesController extends Controller
         $repo_service = new GitRepoService();
 
         try {
-            $response = $repo_service->search($request->remote_repo);
+            $response = $repo_service->searchRepo($request->remote_repo);
 
             if (!$response->success) {
                 return back()->withInput()->with('error', $response->error['message'] ?? 'Failed to fetch repository.');
@@ -95,9 +104,8 @@ class RemotesController extends Controller
         Remote::create([
             'name' => $parsed['name'],
             'repository' => $parsed['repository'],
-            'remote' => $parsed['remote'],
+            'provider' => $parsed['provider'],
             'branch' => $request->branch,
-            'commit' => $request->commit,
         ]);
 
         return back()->with('success', __('Your remote repository was added successfully.'));

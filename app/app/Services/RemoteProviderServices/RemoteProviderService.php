@@ -2,7 +2,8 @@
 
 namespace App\Services\RemoteProviderServices;
 
-use App\DTOs\RemoteRepo;
+use App\DTOs\ApiResponse;
+use App\Enums\RemoteType;
 
 abstract class RemoteProviderService {
     protected string $token;
@@ -16,7 +17,19 @@ abstract class RemoteProviderService {
      * @param string $name The repository name (e.g. "repo" in the above example)
      * @param string $repository The owner or organization name (e.g. "owner" in the above example)
      * @param string $token Personal access token (e.g. for GitHub, a PAT with appropriate permissions)
-     * @return RemoteRepo
+     * @return ApiResponse
      */
-    abstract public function search(string $name, string $repository): RemoteRepo;
+    abstract protected function search(string $name, string $repository, string $provider): ApiResponse;
+
+    abstract protected function getLatestCommitMessage(string $name, string $repository, string $provider): array;
+
+    protected static function getRemoteType(string $url): RemoteType
+    {
+        return match($url) {
+            'github.com'   => RemoteType::Github,
+            'gitlab.com'   => RemoteType::Gitlab,
+            'bitbucket.org'=> RemoteType::BitBucket,
+            default        => throw new \InvalidArgumentException("Unsupported remote host: $url", 1),
+        };
+    }
 }
