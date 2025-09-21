@@ -2,15 +2,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useRemotes } from '@/hooks/use-remotes';
 import { useServices } from '@/hooks/use-services';
 import AppLayout from '@/layouts/app-layout';
 import { getRuntimeIcon } from '@/lib/runtime-icon';
 import { projectsList, projectsShow } from '@/routes';
-import type { BreadcrumbItem, Project, Runtime, ServiceSource } from '@/types';
+import type { BreadcrumbItem, Project, Remote, Runtime, ServiceSource } from '@/types';
 import { runtimes } from '@/types/runtimes';
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
+import { FaGitlab } from 'react-icons/fa6';
+import { RxGithubLogo } from 'react-icons/rx';
 
 const ViewProjectBreadcrumbs = (project :Project) => {
     const breadcrumbs: BreadcrumbItem[] = [
@@ -42,6 +45,9 @@ const Page1BasicConfig = ({
     runtime,
     runtimeError,
     setRuntime,
+    remote,
+    remotes,
+    setRemote,
     buildCommand,
     buildCommandError,
     setBuildCommad,
@@ -49,7 +55,6 @@ const Page1BasicConfig = ({
     sourceError,
     setSource,
     onSourceValueChanged,
-    error,
     processing,
     errors,
 }: any) => (
@@ -81,6 +86,31 @@ const Page1BasicConfig = ({
                 </SelectContent>
             </Select>
             {(sourceError || errors.source) && <div className="text-sm text-destructive">{sourceError || errors.source}</div>}
+        </div>
+
+        <div className="grid gap-3">
+            <Label htmlFor="remote">Remote Repository</Label>
+            <Select value={remote} onValueChange={onSourceValueChanged}>
+                <SelectTrigger id="remote" disabled={processing}>
+                    <SelectValue>
+                        <div className="flex items-center gap-2">
+                            <span>{source === 'image' ? 'Docker Image' : source === 'remote' ? 'Remote Repository' : source}</span>
+                        </div>
+                    </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                    {Array.isArray(remotes) && remotes.map((item: Remote) => {
+                        return (
+                            <SelectItem key={item.id} value={`${item.name}/${item.repository}`}>
+                                <div className="flex items-center gap-2">
+                                    {item?.provider?.includes('github') ? <RxGithubLogo /> : <FaGitlab />}
+                                    <span>{`${item.name}/${item.repository}`}</span>
+                                </div>
+                            </SelectItem>
+                        );
+                    })}
+                </SelectContent>
+            </Select>
         </div>
 
         <div className="grid gap-3">
@@ -283,6 +313,8 @@ export default function DeployService() {
         rootDirError,
         runtime,
         runtimeError,
+        remote,
+        ciRemote,
         buildCommand,
         buildCommandError,
         source,
@@ -309,6 +341,10 @@ export default function DeployService() {
         skipToConfirmation,
         handleCreate,
     } = useServices(onCreatedSuccess);
+
+    const {
+        remotes
+    } = useRemotes();
 
     const getPageTitle = () => {
         switch (currentPage) {
@@ -350,6 +386,8 @@ export default function DeployService() {
                         runtime={runtime}
                         runtimeError={runtimeError}
                         setRuntime={setRuntime}
+                        remote={remote}
+                        remotes={remotes}
                         buildCommand={buildCommand}
                         buildCommandError={buildCommandError}
                         setBuildCommad={setBuildCommand}

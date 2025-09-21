@@ -1,4 +1,4 @@
-import type { Runtime, Service, ServiceSource } from '@/types';
+import type { Remote, Runtime, Service, ServiceSource } from '@/types';
 import { dnsProviders, runtimes } from '@/types/runtimes';
 import { router } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
@@ -8,14 +8,14 @@ import { z } from 'zod';
 interface ServiceFormState {
     currentPage: number;
     name: string;
-    rootDir: string;
-    outputDir: string;    
     runtime: Runtime;
-    remote: string;
-    ciRemote: string;
-    image: string;
-    spec: string;
-    buildCommand: string;
+    rootDir?: string | null;
+    outputDir?: string | null;    
+    remote?: Remote | null;
+    ciRemote?: Remote | null;
+    image?: string | null;
+    spec?: string | null;
+    buildCommand?: string | null;
     source: ServiceSource;
     port: string;
     domain: string;
@@ -38,8 +38,8 @@ type ServiceFormAction =
     | { type: 'SET_ROOT_DIR'; payload: string }
     | { type: 'SET_OUTPUT_DIR'; payload: string }
     | { type: 'SET_RUNTIME'; payload: Runtime }
-    | { type: 'SET_REMOTE'; payload: string }
-    | { type: 'SET_CI_REMOTE'; payload: string }
+    | { type: 'SET_REMOTE'; payload: Remote }
+    | { type: 'SET_CI_REMOTE'; payload: Remote }
     | { type: 'SET_IMAGE'; payload: string }
     | { type: 'SET_SPEC'; payload: string }
     | { type: 'SET_BUILD_COMMAND'; payload: string }
@@ -69,8 +69,8 @@ const initialState: ServiceFormState = {
     outputDir: '',
     runtime: 'node-js',
 
-    remote: '',
-    ciRemote: '',
+    remote: null,
+    ciRemote: null,
     image: '',
     spec: '',
 
@@ -365,8 +365,8 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         setRootDir: (value: string) => dispatch({ type: 'SET_ROOT_DIR', payload: value }),
         setOutputDir: (value: string) => dispatch({ type: 'SET_OUTPUT_DIR', payload: value }),
         setRuntime: (value: Runtime) => dispatch({ type: 'SET_RUNTIME', payload: value }),
-        setRemote: (value: string) => dispatch({ type: 'SET_REMOTE', payload: value }),
-        setCiRemote: (value: string) => dispatch({ type: 'SET_CI_REMOTE', payload: value }),
+        setRemote: (value: Remote) => dispatch({ type: 'SET_REMOTE', payload: value }),
+        setCiRemote: (value: Remote) => dispatch({ type: 'SET_CI_REMOTE', payload: value }),
         setImage: (value: string) => dispatch({ type: 'SET_IMAGE', payload: value }),
         setSpec: (value: string) => dispatch({ type: 'SET_SPEC', payload: value }),
         setBuildCommand: (value: string) => dispatch({ type: 'SET_BUILD_COMMAND', payload: value }),
