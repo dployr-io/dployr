@@ -1,4 +1,3 @@
-import { ulid } from 'ulid';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -7,6 +6,7 @@ import type { Remote, Runtime, ServiceSource } from '@/types';
 import { runtimes } from '@/types/runtimes';
 import { FaGitlab } from 'react-icons/fa6';
 import { RxGithubLogo } from 'react-icons/rx';
+import { ulid } from 'ulid';
 
 interface Props {
     // Form state
@@ -19,8 +19,8 @@ interface Props {
     runtimeError: string;
     remote?: Remote | null;
     remotes: Remote[];
-    buildCmd?: string | null;
-    buildCmdError: string;
+    runCmd?: string | null;
+    runCmdError: string;
     source: ServiceSource;
     processing: boolean;
     errors: any;
@@ -41,8 +41,8 @@ export function CreateServicePage1({
     runtimeError,
     remote,
     remotes,
-    buildCmd,
-    buildCmdError,
+    runCmd,
+    runCmdError,
     source,
     processing,
     errors,
@@ -92,7 +92,7 @@ export function CreateServicePage1({
                         onValueChange={(value: string) => {
                             const selected = remotes?.find((item: Remote) => `${item.name}/${item.repository}` === value);
                             if (selected) {
-                                onRemoteValueChanged(selected);         
+                                onRemoteValueChanged(selected);
                                 const suffix = ulid().slice(-4).toLowerCase();
                                 setField('name', `${selected?.repository}-${suffix}`);
                             }
@@ -175,23 +175,21 @@ export function CreateServicePage1({
                 {(runtimeError || errors.runtime) && <div className="text-sm text-destructive">{runtimeError || errors.runtime}</div>}
             </div>
 
-            {source === 'remote' && (
+            {source === 'remote' && runtime !== 'static' && (
                 <div className="grid gap-3">
-                    <Label htmlFor="build_command">
-                        Build Command <span className="text-destructive">*</span>
+                    <Label htmlFor="run_cmd">
+                        Run Command <span className="text-destructive">*</span>
                     </Label>
                     <Input
-                        id="build_command"
-                        name="build_command"
-                        placeholder="npm run build"
-                        value={buildCmd!}
-                        onChange={(e) => setField('buildCmd', e.target.value)}
+                        id="run_cmd"
+                        name="run_cmd"
+                        placeholder="npm run start"
+                        value={runCmd!}
+                        onChange={(e) => setField('runCmd', e.target.value)}
                         tabIndex={1}
                         disabled={processing}
                     />
-                    {(buildCmdError || errors.build_command) && (
-                        <div className="text-sm text-destructive">{buildCmdError || errors.build_command}</div>
-                    )}
+                    {(runCmdError || errors.run_cmd) && <div className="text-sm text-destructive">{runCmdError || errors.run_cmd}</div>}
                 </div>
             )}
 

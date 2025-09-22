@@ -15,9 +15,9 @@ interface ServiceFormState {
     ciRemote?: Remote | null;
     image?: string | null;
     spec?: string | null;
-    buildCmd?: string | null;
+    runCmd?: string | null;
     source: ServiceSource;
-    port: string;
+    port?: number | null;
     domain: string;
     dnsProvider: string;
     envVars: string;
@@ -26,8 +26,9 @@ interface ServiceFormState {
     nameError: string;
     remoteError: string;
     workingDirError: string;
+    outputDirError: string;
     runtimeError: string;
-    buildCmdError: string;
+    runCmdError: string;
     portError: string;
     domainError: string;
     dnsProviderError: string;
@@ -53,9 +54,9 @@ const initialState: ServiceFormState = {
     ciRemote: null,
     image: '',
     spec: '',
-    buildCmd: '',
+    runCmd: '',
     source: 'remote',
-    port: '',
+    port: null,
     domain: '',
     dnsProvider: '',
     envVars: '',
@@ -63,8 +64,9 @@ const initialState: ServiceFormState = {
     nameError: '',
     remoteError: '',
     workingDirError: '',
+    outputDirError: '',
     runtimeError: '',
-    buildCmdError: '',
+    runCmdError: '',
     portError: '',
     domainError: '',
     dnsProviderError: '',
@@ -90,8 +92,9 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
                 nameError: '',
                 remoteError: '',
                 workingDirError: '',
+                outputDirError: '',
                 runtimeError: '',
-                buildCmdError: '',
+                runCmdError: '',
                 portError: '',
                 domainError: '',
                 dnsProviderError: '',
@@ -104,8 +107,9 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
                 currentPage: Math.max(state.currentPage - 1, 1),
                 nameError: '',
                 workingDirError: '',
+                outputDirError: '',
                 runtimeError: '',
-                buildCmdError: '',
+                runCmdError: '',
                 portError: '',
                 domainError: '',
                 dnsProviderError: '',
@@ -116,8 +120,9 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
                 currentPage: 3,
                 nameError: '',
                 workingDirError: '',
+                outputDirError: '',
                 runtimeError: '',
-                buildCmdError: '',
+                runCmdError: '',
                 portError: '',
                 domainError: '',
                 dnsProviderError: '',
@@ -139,12 +144,13 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
     const page1Schema = z.object({
         name: z.string().min(3, 'Enter a name with at least three (3) characters'),
         workingDir: z.string().optional(),
+        outputDir: z.string().optional(),
         runtime: z.enum(runtimes, 'Select a supported runtime. Read the docs for more details.'),
-        buildCmd: z
+        runCmd: z
             .string()
             .optional()
             .refine((val) => !val || /[a-zA-Z]/.test(val), {
-                message: "Enter a valid build command",
+                message: 'Enter a valid build command',
             }),
     });
 
@@ -153,6 +159,7 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
             .string()
             .min(1, 'Port is required')
             .regex(/^\d+$/, 'Port must be a number')
+            .optional()
             .refine(
                 (val) => {
                     const num = Number(val);
@@ -163,7 +170,8 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         domain: z
             .string()
             .min(1, 'Domain is required')
-            .regex(/^(?!:\/\/)([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/, 'Enter a valid domain (e.g., domain.com)'),
+            .regex(/^(?!:\/\/)([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/, 'Enter a valid domain (e.g., domain.com)')
+            .optional(),
         dnsProvider: z.enum(dnsProviders, 'Select a supported DNS provider. Read the docs for more details.'),
     });
 
@@ -171,20 +179,21 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         dispatch({ type: 'CLEAR_ALL_ERRORS' });
         let hasErrors = false;
 
-        // Zod validation first
-        const zodResult = page1Schema.safeParse({
+        const result = page1Schema.safeParse({
             name: state.name,
             workingDir: state.workingDir,
+            outputDir: state.outputDir,
             runtime: state.runtime,
-            buildCmd: state.buildCmd,
+            runCmd: state.runCmd,
         });
 
-        if (!zodResult.success) {
-            const fieldErrors = zodResult.error.flatten().fieldErrors;
+        if (!result.success) {
+            const fieldErrors = result.error.flatten().fieldErrors;
             if (fieldErrors.name) dispatch({ type: 'SET_ERROR', payload: { field: 'nameError', value: fieldErrors.name[0] } });
             if (fieldErrors.workingDir) dispatch({ type: 'SET_ERROR', payload: { field: 'workingDirError', value: fieldErrors.workingDir[0] } });
+            if (fieldErrors.outputDir) dispatch({ type: 'SET_ERROR', payload: { field: 'outputDirError', value: fieldErrors.outputDir[0] } });
             if (fieldErrors.runtime) dispatch({ type: 'SET_ERROR', payload: { field: 'runtimeError', value: fieldErrors.runtime[0] } });
-            if (fieldErrors.buildCmd) dispatch({ type: 'SET_ERROR', payload: { field: 'buildCmdError', value: fieldErrors.buildCmd[0] } });
+            if (fieldErrors.runCmd) dispatch({ type: 'SET_ERROR', payload: { field: 'runCmdError', value: fieldErrors.runCmd[0] } });
             hasErrors = true;
         }
 
@@ -195,9 +204,10 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
 
         if (
             state.source === 'remote' &&
-            (!state.buildCmd || !/[a-zA-Z].*[a-zA-Z]/.test(state.buildCmd)) // Ensure there's at least 2 alphabetic characters
+            state.runtime !== 'static' &&
+            (!state.runCmd || !/[a-zA-Z].*[a-zA-Z]/.test(state.runCmd)) // Ensure there's at least 2 alphabetic characters
         ) {
-            dispatch({ type: 'SET_ERROR', payload: { field: 'buildCmdError', value: 'Enter a valid build command' } });
+            dispatch({ type: 'SET_ERROR', payload: { field: 'runCmdError', value: 'Enter a valid build command' } });
             hasErrors = true;
         }
 
@@ -211,6 +221,7 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
 
     const validatePage2 = () => {
         dispatch({ type: 'CLEAR_ALL_ERRORS' });
+        let hasErrors = false;
 
         const result = page2Schema.safeParse({
             port: state.port,
@@ -226,7 +237,12 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
             return false;
         }
 
-        return true;
+        if (state.runtime !== 'static' && Number(state.port) >= 1024 && Number(state.port) <= 9999) {
+            dispatch({ type: 'SET_ERROR', payload: { field: 'portError', value: 'Port must be between 1024 and 9999' } });
+            hasErrors = true;
+        }
+
+        return !hasErrors;
     };
 
     const validateCurrentPage = () => {
@@ -245,7 +261,7 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
             ciRemote: state.ciRemote,
             image: state.image,
             spec: state.spec,
-            buildCmd: state.buildCmd,
+            runCmd: state.runCmd,
             source: state.source,
             port: state.port,
             domain: state.domain,
@@ -265,7 +281,7 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
             ciRemote: state.ciRemote?.id || null,
             image: state.image,
             spec: state.spec,
-            buildCmd: state.buildCmd,
+            runCmd: state.runCmd,
             source: state.source,
             port: state.port,
             domain: state.domain,
@@ -338,7 +354,7 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         ciRemote: state.ciRemote,
         image: state.image,
         spec: state.spec,
-        buildCmd: state.buildCmd,
+        runCmd: state.runCmd,
         source: state.source,
         port: state.port,
         domain: state.domain,
@@ -350,8 +366,9 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         nameError: state.nameError,
         remoteError: state.remoteError,
         workingDirError: state.workingDirError,
+        outputDirError: state.outputDirError,
         runtimeError: state.runtimeError,
-        buildCmdError: state.buildCmdError,
+        runCmdError: state.runCmdError,
         portError: state.portError,
         domainError: state.domainError,
         dnsProviderError: state.dnsProviderError,
@@ -367,7 +384,7 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         setCiRemote: (value: Remote) => setField('ciRemote', value),
         setImage: (value: string) => setField('image', value),
         setSpec: (value: string) => setField('spec', value),
-        setBuildCommand: (value: string) => setField('buildCmd', value),
+        setBuildCommand: (value: string) => setField('runCmd', value),
         setSource: (value: ServiceSource) => setField('source', value),
         setPort: (value: string) => setField('port', value),
         setDomain: (value: string) => setField('domain', value),
@@ -380,7 +397,7 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         setRemoteError: (value: string) => setError('remoteError', value),
         setWorkingDirError: (value: string) => setError('workingDirError', value),
         setRuntimeError: (value: string) => setError('runtimeError', value),
-        setBuildCommandError: (value: string) => setError('buildCmdError', value),
+        setBuildCommandError: (value: string) => setError('runCmdError', value),
         setPortError: (value: string) => setError('portError', value),
         setDomainError: (value: string) => setError('domainError', value),
         setDnsProviderError: (value: string) => setError('dnsProviderError', value),

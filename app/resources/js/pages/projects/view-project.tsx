@@ -133,6 +133,15 @@ const services: Service[] = [
         region: 'Australia/Sydney',
         last_deployed: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
     },
+    {
+        id: '17',
+        source: 'remote',
+        name: 'web-server',
+        status: 'stopped',
+        runtime: 'static',
+        region: 'Australia/Sydney',
+        last_deployed: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
+    },
 ];
 
 export default function ViewProject() {

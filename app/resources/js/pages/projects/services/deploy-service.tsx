@@ -6,7 +6,7 @@ import { useRemotes } from '@/hooks/use-remotes';
 import { useServices } from '@/hooks/use-services';
 import AppLayout from '@/layouts/app-layout';
 import { projectsList, projectsShow } from '@/routes';
-import type { BreadcrumbItem, Project } from '@/types';
+import type { BreadcrumbItem, DnsProvider, Project } from '@/types';
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
@@ -52,8 +52,8 @@ export default function DeployService() {
         runtimeError,
         remote,
         ciRemote,
-        buildCmd,
-        buildCmdError,
+        runCmd,
+        runCmdError,
         source,
         port,
         portError,
@@ -117,8 +117,8 @@ export default function DeployService() {
                         runtimeError={runtimeError}
                         remote={remote}
                         remotes={remotes.data!}
-                        buildCmd={buildCmd}
-                        buildCmdError={buildCmdError}
+                        runCmd={runCmd}
+                        runCmdError={runCmdError}
                         source={source}
                         processing={processing}
                         errors={errors}
@@ -130,7 +130,8 @@ export default function DeployService() {
             case 2:
                 return (
                     <CreateServicePage2
-                        port={port}
+                        port={port!}
+                        runtime={runtime}
                         portError={portError}
                         domain={domain}
                         domainError={domainError}
@@ -148,7 +149,7 @@ export default function DeployService() {
         }
     };
 
-    const renderNavigationButtons = (processing: boolean) => {
+    const renderNavigationButtons = (processing: boolean, port: string, provider: DnsProvider) => {
         return (
             <div className="mt-8 flex gap-2">
                 <div className="ml-auto flex justify-end gap-2">
@@ -163,15 +164,16 @@ export default function DeployService() {
                     >
                         <Link href={currentPage === 1 ? projectsShow({ project: project.id }).url : ''}>{currentPage === 1 ? 'Cancel' : 'Back'}</Link>
                     </Button>
-                    {currentPage === 2 && (
-                        <Button type="button" variant="outline" onClick={skipToConfirmation} disabled={processing}>
-                            Skip
-                        </Button>
-                    )}
                     {currentPage < 3 ? (
-                        <Button type="button" onClick={nextPage} disabled={processing}>
-                            Next
-                        </Button>
+                        currentPage === 2 && ((runtime !== 'static' && port.length < 4) || !provider || domain.length < 4) ? (
+                            <Button type="button" variant="outline" onClick={skipToConfirmation} disabled={processing}>
+                                Skip
+                            </Button>
+                        ) : (
+                            <Button type="button" onClick={nextPage} disabled={processing}>
+                                Next
+                            </Button>
+                        )
                     ) : (
                         <Button type="button" onClick={handleCreate} disabled={processing}>
                             {processing && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -219,7 +221,7 @@ export default function DeployService() {
                             {({ processing, errors }) => (
                                 <>
                                     {renderCurrentPage(processing, errors)}
-                                    {renderNavigationButtons(processing)}
+                                    {renderNavigationButtons(processing, String(port), dnsProvider)}
                                 </>
                             )}
                         </Form>

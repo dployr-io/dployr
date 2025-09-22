@@ -1,11 +1,13 @@
 import type { Runtime } from "@/types";
 import { BiCustomize } from "react-icons/bi";
 import { FaDocker, FaPython, FaNodeJs, FaJava } from "react-icons/fa";
-import { FaGolang } from "react-icons/fa6";
+import { FaGolang, FaServer } from "react-icons/fa6";
 import { SiDotnet, SiK3S, SiPhp, SiRubyonrails } from "react-icons/si";
 
 export const getRuntimeIcon = (runtime: Runtime) => {
     switch (runtime) {
+        case 'static':
+            return <FaServer size={14} />;
         case 'go':
             return <FaGolang size={22} />;
         case 'php':

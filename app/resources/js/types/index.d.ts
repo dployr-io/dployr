@@ -1,6 +1,7 @@
 import { InertiaLinkProps } from '@inertiajs/react';
 import { LucideIcon } from 'lucide-react';
 import { Runtime } from './';
+import { dnsProviders } from './runtimes';
 
 
 export interface Auth {
@@ -70,8 +71,6 @@ export type ServiceSource = 'image' | 'remote';
 
 export type Status = 'running' | 'stopped' | 'deploying';
 
-export type AddOn = 'next-js' | 'composer' | 'laravel' | 'hono' | 'bun';
-
 export interface Service {
     id: string;
     name: string;
@@ -87,4 +86,5 @@ export interface Service {
 export type Runtime = (typeof runtimes)[number];
 
 export type Status = 'running' | 'stopped' | 'deploying';
-export type AddOn = 'next-js' | 'composer' | 'laravel' | 'hono' | 'bun';
+
+export type DnsProvider = (typeof dnsProviders)[number];
