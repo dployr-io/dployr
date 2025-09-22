@@ -1,8 +1,8 @@
-import type { Remote, Runtime, Service, ServiceSource } from '@/types';
+import type { BlueprintFormat, Remote, Runtime, Service, ServiceSource } from '@/types';
 import { dnsProviders, runtimes } from '@/types/runtimes';
 import { router } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
-import { useReducer } from 'react';
+import { useMemo, useReducer, useState } from 'react';
 import { z } from 'zod';
 
 interface ServiceFormState {
@@ -72,6 +72,7 @@ const initialState: ServiceFormState = {
     dnsProviderError: '',
 };
 
+
 function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction): ServiceFormState {
     switch (action.type) {
         case 'SET_CURRENT_PAGE':
@@ -140,6 +141,7 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
 
 export function useServices(onCreateServiceCallback?: () => void | null) {
     const [state, dispatch] = useReducer(serviceFormReducer, initialState);
+    const [blueprintFormat, setBlueprintFormat] = useState<BlueprintFormat>('yaml');
 
     const page1Schema = z.object({
         name: z.string().min(3, 'Enter a name with at least three (3) characters'),
@@ -155,11 +157,7 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
     });
 
     const page2Schema = z.object({
-        port: z
-            .number()
-            .min(1024, 'Port must be a minimum of 1024')
-            .max(9999, 'Port must be a maximum of 9999')
-            .optional(),
+        port: z.number().min(1024, 'Port must be a minimum of 1024').max(9999, 'Port must be a maximum of 9999').optional(),
         domain: z
             .string()
             .min(1, 'Domain is required')
@@ -290,6 +288,21 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         }
     };
 
+    const validateSkip = () => {
+        dispatch({ type: 'CLEAR_ALL_ERRORS' });
+
+        if (state.runtime === 'static') {
+            return true;
+        }
+
+        if (!state.port || state.port < 1024 || state.port > 9999) {
+            dispatch({ type: 'SET_ERROR', payload: { field: 'portError', value: 'Enter a valid port between 1024 and 9999' } });
+            return false;
+        }
+
+        return true;
+    };
+
     const prevPage = () => {
         dispatch({ type: 'PREV_PAGE' });
     };
@@ -335,6 +348,59 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         setField('remote', value);
     };
 
+    const blueprint = useMemo(() => {
+        const cleanConfig: any = {
+            name: state.name || 'my-dployr-app',
+            source: state.source,
+            runtime: state.runtime,
+        };
+
+        if (state.workingDir) cleanConfig.workingDir = state.workingDir;
+        if (state.runCmd) cleanConfig.runCmd = state.runCmd;
+        if (state.port) cleanConfig.port = Number(state.port);
+        if (state.domain) cleanConfig.domain = state.domain;
+        if (state.dnsProvider) cleanConfig.dnsProvider = state.dnsProvider;
+        if (state.remote) cleanConfig.remote = { id: state.remote.id };
+
+        return cleanConfig;
+    }, [state.name, state.source, state.runtime, state.workingDir, state.runCmd, state.port, state.domain, state.dnsProvider, state.remote]);
+
+    const yamlConfig = useMemo(() => {
+        const toYaml = (obj: any, indent = 0): string => {
+            const spaces = '  '.repeat(indent);
+            let yaml = '';
+
+            for (const [key, value] of Object.entries(obj)) {
+                if (value === null || value === undefined) continue;
+
+                yaml += `${spaces}${key}:`;
+
+                if (typeof value === 'object' && value !== null) {
+                    yaml += '\n' + toYaml(value, indent + 1);
+                } else if (typeof value === 'string') {
+                    yaml += ` "${value}"\n`;
+                } else {
+                    yaml += ` ${value}\n`;
+                }
+            }
+            return yaml;
+        };
+
+        return toYaml(blueprint);
+    }, [blueprint]);
+
+    const jsonConfig = useMemo(() => {
+        return JSON.stringify(blueprint, null, 2);
+    }, [blueprint]);
+
+    const handleBlueprintCopy = async () => {
+        try {
+            await navigator.clipboard.writeText(blueprintFormat === 'yaml' ? yamlConfig : jsonConfig);
+        } catch (err) {
+            console.error('Failed to copy to clipboard ', err);
+        }
+    };
+
     return {
         currentPage: state.currentPage,
         name: state.name,
@@ -352,6 +418,14 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         dnsProvider: state.dnsProvider,
         envVars: state.envVars,
         secrets: state.secrets,
+
+        // Blueprint helpers (Service page 3)
+        blueprintFormat,
+        previewBlueprint: blueprint,
+        yamlConfig,
+        jsonConfig,
+        handleBlueprintCopy,
+        setBlueprintFormat,
 
         // Error states
         nameError: state.nameError,
@@ -400,6 +474,7 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         onRemoteValueChanged,
         nextPage,
         prevPage,
+        validateSkip,
         skipToConfirmation,
         handleCreate,
         clearAllErrors: () => dispatch({ type: 'CLEAR_ALL_ERRORS' }),

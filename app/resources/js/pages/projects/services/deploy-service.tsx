@@ -1,15 +1,26 @@
 import { CreateServicePage1 } from '@/components/create-service/create-service-page-1';
 import { CreateServicePage2 } from '@/components/create-service/create-service-page-2';
 import { CreateServicePage3 } from '@/components/create-service/create-service-page-3';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useRemotes } from '@/hooks/use-remotes';
 import { useServices } from '@/hooks/use-services';
 import AppLayout from '@/layouts/app-layout';
 import { projectsList, projectsShow } from '@/routes';
-import type { BreadcrumbItem, DnsProvider, Project } from '@/types';
+import type { BlueprintFormat, BreadcrumbItem, DnsProvider, Project } from '@/types';
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
+import { useState } from 'react';
 
 const ViewProjectBreadcrumbs = (project: Project) => {
     const breadcrumbs: BreadcrumbItem[] = [
@@ -31,6 +42,7 @@ const ViewProjectBreadcrumbs = (project: Project) => {
 };
 
 export default function DeployService() {
+    const [showSkipDialog, setShowSkipDialog] = useState(false);
     const { props } = usePage();
     const project = props.project as Project;
     const breadcrumbs = ViewProjectBreadcrumbs(project);
@@ -61,7 +73,10 @@ export default function DeployService() {
         domainError,
         dnsProvider,
         dnsProviderError,
-
+        yamlConfig,
+        jsonConfig,
+        blueprintFormat,
+        
         // Unified handlers
         setField,
         getFormData,
@@ -70,8 +85,11 @@ export default function DeployService() {
         onRemoteValueChanged,
         nextPage,
         prevPage,
+        validateSkip,
         skipToConfirmation,
         handleCreate,
+        handleBlueprintCopy,
+        setBlueprintFormat,
     } = useServices();
 
     const { remotes } = useRemotes();
@@ -110,13 +128,13 @@ export default function DeployService() {
                         name={name}
                         nameError={nameError}
                         remoteError={remoteError}
-                        workingDir={workingDir}
+                        workingDir={workingDir!}
                         workingDirError={workingDirError}
                         runtime={runtime}
                         runtimeError={runtimeError}
                         remote={remote}
                         remotes={remotes.data!}
-                        runCmd={runCmd}
+                        runCmd={runCmd!}
                         runCmdError={runCmdError}
                         source={source}
                         processing={processing}
@@ -132,9 +150,9 @@ export default function DeployService() {
                         port={port!}
                         runtime={runtime}
                         portError={portError}
-                        domain={domain}
+                        domain={domain!}
                         domainError={domainError}
-                        dnsProvider={dnsProvider}
+                        dnsProvider={dnsProvider!}
                         dnsProviderError={dnsProviderError}
                         processing={processing}
                         errors={errors}
@@ -142,7 +160,16 @@ export default function DeployService() {
                     />
                 );
             case 3:
-                return <CreateServicePage3 formData={getFormData()} />;
+                return (
+                    <CreateServicePage3
+                        name={name}
+                        yamlConfig={yamlConfig}
+                        jsonConfig={jsonConfig}
+                        blueprintFormat={blueprintFormat}
+                        setBlueprintFormat={setBlueprintFormat}
+                        handleBlueprintCopy={handleBlueprintCopy}
+                    />
+                );
             default:
                 return null;
         }
@@ -165,9 +192,40 @@ export default function DeployService() {
                     </Button>
                     {currentPage < 3 ? (
                         currentPage === 2 && ((runtime !== 'static' && port.length < 4) || !provider || domain.length < 4) ? (
-                            <Button type="button" variant="outline" onClick={skipToConfirmation} disabled={processing}>
-                                Skip
-                            </Button>
+                            <>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                        if (validateSkip()) setShowSkipDialog(true);
+                                    }}
+                                    disabled={processing}
+                                >
+                                    Skip
+                                </Button>
+                                <AlertDialog open={showSkipDialog} onOpenChange={setShowSkipDialog}>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Proceed without HTTPS?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Your app will only be accessible over unsecured HTTP. You can enable HTTPS later, but it’s strongly
+                                                recommended to set it up now.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel onClick={() => setShowSkipDialog(false)}>Go back</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                onClick={() => {
+                                                    setShowSkipDialog(false);
+                                                    skipToConfirmation();
+                                                }}
+                                            >
+                                                Continue
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </>
                         ) : (
                             <Button type="button" onClick={nextPage} disabled={processing}>
                                 Next
@@ -187,45 +245,44 @@ export default function DeployService() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Project" />
-                <div className="flex h-full items-center flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-                    <div className="flex w-full max-w-4xl flex-col gap-6 px-9 py-6 ">
-                        <div className="flex items-start justify-between">
-                            <div className="flex flex-col gap-1">
-                                <p className="text-2xl font-black">{getPageTitle()}</p>
-                                <p className="text-sm font-normal text-muted-foreground">{getPageDescription()}</p>
-                            </div>
+            <div className="flex h-full flex-1 flex-col items-center gap-4 overflow-x-auto rounded-xl p-4">
+                <div className="flex w-full max-w-4xl flex-col gap-6 px-9 py-6">
+                    <div className="flex items-start justify-between">
+                        <div className="flex flex-col gap-1">
+                            <p className="text-2xl font-black">{getPageTitle()}</p>
+                            <p className="text-sm font-normal text-muted-foreground">{getPageDescription()}</p>
                         </div>
+                    </div>
 
-                        {currentPage !== 3 && (
-                            <div className="mb-4 flex justify-center">
-                                <div className="flex items-center space-x-2">
-                                    <div className="h-2 w-64 overflow-hidden rounded-full bg-muted">
-                                        <div
-                                            className="h-full bg-primary transition-all duration-300"
-                                            style={{
-                                                width: `${(currentPage / 3) * 100}%`,
-                                            }}
-                                        />
-                                    </div>
+                    {currentPage !== 3 && (
+                        <div className="mb-4 flex justify-center">
+                            <div className="flex items-center space-x-2">
+                                <div className="h-2 w-64 overflow-hidden rounded-full bg-muted">
+                                    <div
+                                        className="h-full bg-primary transition-all duration-300"
+                                        style={{
+                                            width: `${(currentPage / 3) * 100}%`,
+                                        }}
+                                    />
                                 </div>
                             </div>
+                        </div>
+                    )}
+                    <Form
+                        action={`/projects/${project.id}/services`}
+                        transform={() => getFormSubmissionData()}
+                        method="post"
+                        onSuccess={onCreatedSuccess}
+                    >
+                        {({ processing, errors }) => (
+                            <>
+                                {renderCurrentPage(processing, errors)}
+                                {renderNavigationButtons(processing, String(port), dnsProvider)}
+                            </>
                         )}
-                        <Form
-                            action={`/projects/${project.id}/services`}
-                            transform={() => getFormSubmissionData()}
-                            method="post"
-                            onSuccess={onCreatedSuccess}
-                        >
-                            {({ processing, errors }) => (
-                                <>
-                                    {renderCurrentPage(processing, errors)}
-                                    {renderNavigationButtons(processing, String(port), dnsProvider)}
-                                </>
-                            )}
-                        </Form>
-                    </div>
+                    </Form>
                 </div>
-            
+            </div>
         </AppLayout>
     );
 }

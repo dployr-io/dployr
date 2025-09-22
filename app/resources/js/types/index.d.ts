@@ -57,14 +57,13 @@ export interface Project {
 }
 
 export interface Remote {
-    description: string;
     id: string;
     name: string;
     repository: string;
     branch: string;
     provider: string;
-    commit_message : string;
-    avatar_url: string;
+    commit_message?: string | null;
+    avatar_url?: string | null;
 }
 
 export type ServiceSource = 'image' | 'remote';
@@ -88,3 +87,5 @@ export type Runtime = (typeof runtimes)[number];
 export type Status = 'running' | 'stopped' | 'deploying';
 
 export type DnsProvider = (typeof dnsProviders)[number];
+
+export type BlueprintFormat = 'yaml' | 'json';
