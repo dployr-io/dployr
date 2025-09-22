@@ -13,7 +13,7 @@ export default function RemoteCard(remote?: Remote) {
             <div className="flex gap-2 mb-2">
                 <img
                     className="h-6 w-6 bg-gra rounded-full flex-shrink-0"
-                    src={remote?.avatar_url}
+                    src={remote?.avatar_url || "../img/default-project.png"}
                 />
                 <div className="min-w-0 flex-1">
                     <p className="truncate">{remote?.name}/{remote?.repository}</p>

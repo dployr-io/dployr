@@ -77,6 +77,8 @@ export interface Service {
     name: string;
     status: Status;
     runtime: Runtime;
+    remote?: Remote | null;
+    ciRemote?: Remote | null; 
     region: string;
     source: ServiceSource;
     last_deployed: Date;

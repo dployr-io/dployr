@@ -20,17 +20,25 @@ class RemotesController extends Controller
         
         return Inertia::render('resources/remotes', [
             'remotes' => Remote::all()->map( function($remote) { 
-                $repo_service = new GitRepoService();
-                $commit = $repo_service->getLatestCommitMessage($remote->name, $remote->repository, $remote->provider);
                 
+                try {
+                    $repo_service = new GitRepoService();
+                    $commit = $repo_service->getLatestCommitMessage($remote->name, $remote->repository, $remote->provider);
+                    $commit_message = $commit['message'];
+                    $avatar_url = $commit['avatar_url'];
+                } catch (\RuntimeException $e) {
+                    $commit_message = 'Unable to fetch commit';
+                    $avatar_url = null;
+                }
+
                 return [
                     'id' => $remote->id,
                     'name' => $remote->name,
                     'provider' => $remote->provider,
                     'branch' => $remote->branch,
                     'repository' => $remote->repository,
-                    'commit_message' => $commit['message'],
-                    'avatar_url' => $commit['avatar_url'],
+                    'commit_message' => $commit_message,
+                    'avatar_url' => $avatar_url,
                 ];
             }),
         ]);
@@ -41,8 +49,15 @@ class RemotesController extends Controller
      */
     public function show(Remote $remote)
     {
-        $repo_service = new GitRepoService();
-        $commit = $repo_service->getLatestCommitMessage($remote->name, $remote->repository, $remote->provider);
+        try {
+            $repo_service = new GitRepoService();
+            $commit = $repo_service->getLatestCommitMessage($remote->name, $remote->repository, $remote->provider);
+            $commit_message = $commit['message'];
+            $avatar_url = $commit['avatar_url'];
+        } catch (\RuntimeException $e) {
+            $commit_message = 'Unable to fetch commit';
+            $avatar_url = null;
+        }
 
         return Inertia::render('resources/remotes/view-remote', [
             'remote' => [
@@ -51,8 +66,8 @@ class RemotesController extends Controller
                 'provider' => $remote->provider,
                 'branch' => $remote->branch,
                 'repository' => $remote->repository,
-                'commit_message' => $commit['message'],
-                'avatar_url' => $commit['avatar_url'],
+                'commit_message' => $commit_message,
+                'avatar_url' => $avatar_url,
             ],
         ]);
     }
@@ -68,10 +83,9 @@ class RemotesController extends Controller
         $request->validate([
             'remote_repo' => ['required', new RemoteRepo()],
         ]);
-
-        $repo_service = new GitRepoService();
-
+  
         try {
+            $repo_service = new GitRepoService();
             $response = $repo_service->searchRepo($request->remote_repo);
 
             if (!$response->success) {

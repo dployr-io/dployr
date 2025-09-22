@@ -1,21 +1,17 @@
+import { CreateServicePage1 } from '@/components/create-service/create-service-page-1';
+import { CreateServicePage2 } from '@/components/create-service/create-service-page-2';
+import { CreateServicePage3 } from '@/components/create-service/create-service-page-3';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRemotes } from '@/hooks/use-remotes';
 import { useServices } from '@/hooks/use-services';
 import AppLayout from '@/layouts/app-layout';
-import { getRuntimeIcon } from '@/lib/runtime-icon';
 import { projectsList, projectsShow } from '@/routes';
-import type { BreadcrumbItem, Project, Remote, Runtime, ServiceSource } from '@/types';
-import { runtimes } from '@/types/runtimes';
+import type { BreadcrumbItem, Project } from '@/types';
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
-import { FaGitlab } from 'react-icons/fa6';
-import { RxGithubLogo } from 'react-icons/rx';
 
-const ViewProjectBreadcrumbs = (project :Project) => {
+const ViewProjectBreadcrumbs = (project: Project) => {
     const breadcrumbs: BreadcrumbItem[] = [
         {
             title: 'Projects',
@@ -34,266 +30,6 @@ const ViewProjectBreadcrumbs = (project :Project) => {
     return breadcrumbs;
 };
 
-// Page 1: Basic Service Configuration
-const Page1BasicConfig = ({
-    name,
-    nameError,
-    setName,
-    rootDir,
-    rootDirError,
-    setRootDir,
-    runtime,
-    runtimeError,
-    setRuntime,
-    remote,
-    remotes,
-    setRemote,
-    buildCommand,
-    buildCommandError,
-    setBuildCommad,
-    source,
-    sourceError,
-    setSource,
-    onSourceValueChanged,
-    processing,
-    errors,
-}: any) => (
-    <div className="grid items-start gap-6">
-        <div className="grid gap-3">
-            <Label htmlFor="source">Source</Label>
-            <Select value={source} onValueChange={onSourceValueChanged}>
-                <SelectTrigger id="source" disabled={processing}>
-                    <SelectValue>
-                        <div className="flex items-center gap-2">
-                            <span>{source === 'image' ? 'Docker Image' : source === 'remote' ? 'Remote Repository' : source}</span>
-                        </div>
-                    </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                    {(['image', 'remote'] as ServiceSource[]).map((option) => {
-                        let label = '';
-                        if (option === 'image') label = 'Docker Image';
-                        else if (option === 'remote') label = 'Remote Repository';
-                        else label = option;
-                        return (
-                            <SelectItem key={option} value={option}>
-                                <div className="flex items-center gap-2">
-                                    <span>{label}</span>
-                                </div>
-                            </SelectItem>
-                        );
-                    })}
-                </SelectContent>
-            </Select>
-            {(sourceError || errors.source) && <div className="text-sm text-destructive">{sourceError || errors.source}</div>}
-        </div>
-
-        <div className="grid gap-3">
-            <Label htmlFor="remote">Remote Repository</Label>
-            <Select value={remote} onValueChange={onSourceValueChanged}>
-                <SelectTrigger id="remote" disabled={processing}>
-                    <SelectValue>
-                        <div className="flex items-center gap-2">
-                            <span>{source === 'image' ? 'Docker Image' : source === 'remote' ? 'Remote Repository' : source}</span>
-                        </div>
-                    </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                    {Array.isArray(remotes) && remotes.map((item: Remote) => {
-                        return (
-                            <SelectItem key={item.id} value={`${item.name}/${item.repository}`}>
-                                <div className="flex items-center gap-2">
-                                    {item?.provider?.includes('github') ? <RxGithubLogo /> : <FaGitlab />}
-                                    <span>{`${item.name}/${item.repository}`}</span>
-                                </div>
-                            </SelectItem>
-                        );
-                    })}
-                </SelectContent>
-            </Select>
-        </div>
-
-        <div className="grid gap-3">
-            <Label htmlFor="name">Name</Label>
-            <Input
-                id="name"
-                name="name"
-                placeholder="My awesome dployr project"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                tabIndex={1}
-                disabled={processing}
-            />
-            {(nameError || errors.name) && <div className="text-sm text-destructive">{nameError || errors.name}</div>}
-        </div>
-
-        <div className="grid gap-3">
-            <Label htmlFor="runtime">Runtime</Label>
-            <Select value={runtime} onValueChange={(value: Runtime) => setRuntime(value)}>
-                <SelectTrigger id="runtime" disabled={processing}>
-                    <SelectValue>
-                        <div className="flex items-center gap-2">
-                            {getRuntimeIcon(runtime)}
-                            <span>{runtime}</span>
-                        </div>
-                    </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                    {runtimes
-                        .filter((option) => {
-                            const isImage = source === 'image';
-                            const isRemote = source === 'remote';
-                            return isImage ? option === 'k3s' || option === 'docker' : isRemote ? option !== 'k3s' && option !== 'docker' : true;
-                        })
-                        .map((option) => (
-                            <SelectItem key={option} value={option}>
-                                <div className="flex items-center gap-2">
-                                    {getRuntimeIcon(option)}
-                                    <span>{option}</span>
-                                </div>
-                            </SelectItem>
-                        ))}
-                </SelectContent>
-            </Select>
-            {(runtimeError || errors.runtime) && <div className="text-sm text-destructive">{runtimeError || errors.runtime}</div>}
-        </div>
-
-        {source === 'remote' && (
-            <div className="grid gap-3">
-                <Label htmlFor="root_dir">Root Directory</Label>
-                <Input
-                    id="root_dir"
-                    name="root_dir"
-                    placeholder="src"
-                    value={rootDir}
-                    onChange={(e) => setRootDir(e.target.value)}
-                    tabIndex={2}
-                    disabled={processing}
-                />
-                {(rootDirError || errors.root_dir) && <div className="text-sm text-destructive">{rootDirError || errors.root_dir}</div>}
-            </div>
-        )}
-
-        {source === 'remote' && (
-            <div className="grid gap-3">
-                <Label htmlFor="build_command">Build Command</Label>
-                <Input
-                    id="build_command"
-                    name="build_command"
-                    placeholder="npm run build"
-                    value={buildCommand}
-                    onChange={(e) => setBuildCommad(e.target.value)}
-                    tabIndex={1}
-                    disabled={processing}
-                />
-                {(buildCommandError || errors.build_command) && (
-                    <div className="text-sm text-destructive">{buildCommandError || errors.build_command}</div>
-                )}
-            </div>
-        )}
-    </div>
-);
-
-// Page 2: Port, Domain, DNS Configuration
-const Page2NetworkConfig = ({
-    port,
-    portError,
-    setPort,
-    domain,
-    domainError,
-    setDomain,
-    dnsProvider,
-    dnsProviderError,
-    setDnsProvider,
-    processing,
-    errors,
-}: any) => (
-    <div className="grid items-start gap-6">
-        <div className="grid gap-3">
-            <Label htmlFor="port">Port</Label>
-            <Input
-                id="port"
-                name="port"
-                placeholder="3000"
-                value={port}
-                onChange={(e) => setPort(e.target.value)}
-                tabIndex={1}
-                disabled={processing}
-            />
-            {(portError || errors.port) && <div className="text-sm text-destructive">{portError || errors.port}</div>}
-        </div>
-
-        <div className="grid gap-3">
-            <Label htmlFor="domain">Domain</Label>
-            <Input
-                id="domain"
-                name="domain"
-                placeholder="myapp.example.com"
-                value={domain}
-                onChange={(e) => setDomain(e.target.value)}
-                tabIndex={2}
-                disabled={processing}
-            />
-            {(domainError || errors.domain) && <div className="text-sm text-destructive">{domainError || errors.domain}</div>}
-        </div>
-
-        <div className="grid gap-3">
-            <Label htmlFor="dns_provider">DNS Provider</Label>
-            <Select value={dnsProvider} onValueChange={setDnsProvider}>
-                <SelectTrigger id="dns_provider" disabled={processing}>
-                    <SelectValue placeholder="Select DNS provider" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="cloudflare">Cloudflare</SelectItem>
-                    <SelectItem value="aws-route53">AWS Route 53</SelectItem>
-                    <SelectItem value="google-cloud-dns">Google Cloud DNS</SelectItem>
-                    <SelectItem value="digitalocean">DigitalOcean</SelectItem>
-                </SelectContent>
-            </Select>
-            {(dnsProviderError || errors.dns_provider) && <div className="text-sm text-destructive">{dnsProviderError || errors.dns_provider}</div>}
-        </div>
-    </div>
-);
-
-// Page 3: Confirmation
-const Page3Confirmation = ({ formData }: any) => (
-    <div className="grid items-start gap-6">
-        <div className="rounded-lg bg-muted p-4">
-            <h3 className="mb-4 text-lg font-semibold">Summary</h3>
-            <div className="space-y-2 text-sm">
-                <div>
-                    <strong>Name:</strong> {formData.name}
-                </div>
-                <div>
-                    <strong>Source:</strong> {formData.source}
-                </div>
-                <div>
-                    <strong>Runtime:</strong> {formData.runtime}
-                </div>
-                {formData.rootDir && (
-                    <div>
-                        <strong>Root Directory:</strong> {formData.rootDir}
-                    </div>
-                )}
-                {formData.buildCommand && (
-                    <div>
-                        <strong>Build Command:</strong> {formData.buildCommand}
-                    </div>
-                )}
-                <div>
-                    <strong>Port:</strong> {formData.port}
-                </div>
-                <div>
-                    <strong>Domain:</strong> {formData.domain}
-                </div>
-                <div>
-                    <strong>DNS Provider:</strong> {formData.dnsProvider}
-                </div>
-            </div>
-        </div>
-    </div>
-);
-
 export default function DeployService() {
     const { props } = usePage();
     const project = props.project as Project;
@@ -309,14 +45,15 @@ export default function DeployService() {
         currentPage,
         name,
         nameError,
-        rootDir,
-        rootDirError,
+        remoteError,
+        workingDir,
+        workingDirError,
         runtime,
         runtimeError,
         remote,
         ciRemote,
-        buildCommand,
-        buildCommandError,
+        buildCmd,
+        buildCmdError,
         source,
         port,
         portError,
@@ -325,26 +62,20 @@ export default function DeployService() {
         dnsProvider,
         dnsProviderError,
 
-        setName,
-        setRootDir,
-        setRuntime,
-        setBuildCommand,
-        setSource,
-        setPort,
-        setDomain,
-        setDnsProvider,
+        // Unified handlers
+        setField,
         getFormData,
+        getFormSubmissionData,
         handleFormSuccess,
         onSourceValueChanged,
+        onRemoteValueChanged,
         nextPage,
         prevPage,
         skipToConfirmation,
         handleCreate,
     } = useServices(onCreatedSuccess);
 
-    const {
-        remotes
-    } = useRemotes();
+    const { remotes } = useRemotes();
 
     const getPageTitle = () => {
         switch (currentPage) {
@@ -376,46 +107,42 @@ export default function DeployService() {
         switch (currentPage) {
             case 1:
                 return (
-                    <Page1BasicConfig
+                    <CreateServicePage1
                         name={name}
                         nameError={nameError}
-                        setName={setName}
-                        rootDir={rootDir}
-                        rootDirError={rootDirError}
-                        setRootDir={setRootDir}
+                        remoteError={remoteError}
+                        workingDir={workingDir}
+                        workingDirError={workingDirError}
                         runtime={runtime}
                         runtimeError={runtimeError}
-                        setRuntime={setRuntime}
                         remote={remote}
-                        remotes={remotes}
-                        buildCommand={buildCommand}
-                        buildCommandError={buildCommandError}
-                        setBuildCommad={setBuildCommand}
+                        remotes={remotes.data!}
+                        buildCmd={buildCmd}
+                        buildCmdError={buildCmdError}
                         source={source}
-                        setSource={setSource}
-                        onSourceValueChanged={onSourceValueChanged}
                         processing={processing}
                         errors={errors}
+                        setField={setField}
+                        onSourceValueChanged={onSourceValueChanged}
+                        onRemoteValueChanged={onRemoteValueChanged}
                     />
                 );
             case 2:
                 return (
-                    <Page2NetworkConfig
+                    <CreateServicePage2
                         port={port}
                         portError={portError}
-                        setPort={setPort}
                         domain={domain}
                         domainError={domainError}
-                        setDomain={setDomain}
                         dnsProvider={dnsProvider}
                         dnsProviderError={dnsProviderError}
-                        setDnsProvider={setDnsProvider}
                         processing={processing}
                         errors={errors}
+                        setField={setField}
                     />
                 );
             case 3:
-                return <Page3Confirmation formData={getFormData()} />;
+                return <CreateServicePage3 formData={getFormData()} />;
             default:
                 return null;
         }
@@ -469,8 +196,8 @@ export default function DeployService() {
                             </div>
                         </div>
 
-                        {
-                            currentPage !== 3 && <div className="mb-4 flex justify-center">
+                        {currentPage !== 3 && (
+                            <div className="mb-4 flex justify-center">
                                 <div className="flex items-center space-x-2">
                                     <div className="h-2 w-64 overflow-hidden rounded-full bg-muted">
                                         <div
@@ -482,8 +209,13 @@ export default function DeployService() {
                                     </div>
                                 </div>
                             </div>
-                        }
-                        <Form action={`/projects/${project.id}/services`} transform={() => getFormData()} method="post" onSuccess={handleFormSuccess}>
+                        )}
+                        <Form
+                            action={`/projects/${project.id}/services`}
+                            transform={() => getFormSubmissionData()}
+                            method="post"
+                            onSuccess={handleFormSuccess}
+                        >
                             {({ processing, errors }) => (
                                 <>
                                     {renderCurrentPage(processing, errors)}
