@@ -17,7 +17,7 @@ class HttpService
      * @throws \RuntimeException        If the HTTP request fails.
      * @throws \InvalidArgumentException If the HTTP method is unsupported.
      */
-    static function makeRequest (string $method, string $url, array $headers, string $context) {
+    static function makeRequest (string $method, string $url, array $headers, ?string $context='request') {
         $http = \Http::withHeaders($headers);
 
         switch (strtolower($method)) {

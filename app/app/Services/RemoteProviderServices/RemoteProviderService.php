@@ -23,11 +23,11 @@ abstract class RemoteProviderService {
 
     abstract protected function getLatestCommitMessage(string $name, string $repository, string $provider): array;
 
-    protected static function getRemoteType(string $url): RemoteType
+    public static function getRemoteType(string $url): RemoteType
     {
         return match($url) {
-            'github.com'   => RemoteType::Github,
-            'gitlab.com'   => RemoteType::Gitlab,
+            'github.com'   => RemoteType::GitHub,
+            'gitlab.com'   => RemoteType::GitLab,
             'bitbucket.org'=> RemoteType::BitBucket,
             default        => throw new \InvalidArgumentException("Unsupported remote host: $url", 1),
         };

@@ -86,7 +86,7 @@ class RemotesController extends Controller
   
         try {
             $repo_service = new GitRepoService();
-            $response = $repo_service->searchRepo($request->remote_repo);
+            $response = $repo_service->searchRemote($request->remote_repo);
 
             if (!$response->success) {
                 return back()->withInput()->with('error', $response->error['message'] ?? 'Failed to fetch repository.');

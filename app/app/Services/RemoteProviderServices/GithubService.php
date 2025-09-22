@@ -8,7 +8,7 @@ use App\DTOs\ApiResponse;
 use App\Facades\AppConfig;
 use App\Enums\RemoteType;
 
-class GithubService extends RemoteProviderService {
+class GitHubService extends RemoteProviderService {
     public function __construct()
     {
         $token = AppConfig::get('github_token');
@@ -21,9 +21,9 @@ class GithubService extends RemoteProviderService {
         parent::__construct($token);
     }
 
-    protected function search(string $name, string $repository, string $provider): ApiResponse
+    public function search(string $name, string $repository, string $provider): ApiResponse
     {
-        if (parent::getRemoteType($provider) != RemoteType::Github)
+        if (parent::getRemoteType($provider) != RemoteType::GitHub)
         {
             throw new \InvalidArgumentException("Only GitHub provider is supported!", 1);
         }
@@ -46,9 +46,9 @@ class GithubService extends RemoteProviderService {
         ]);
     }
 
-    protected function getLatestCommitMessage(string $name, string $repository, string $provider): array
+    public function getLatestCommitMessage(string $name, string $repository, string $provider): array
     {
-        if (parent::getRemoteType($provider) != RemoteType::Github)
+        if (parent::getRemoteType($provider) != RemoteType::GitHub)
         {
             throw new \InvalidArgumentException("Only GitHub provider is supported!", 1);
         }

@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
-use App\Services\RemoteProviderServices\GithubService;
+use App\Services\RemoteProviderServices\GitHubService;
 use App\DTOs\ApiResponse;
 use App\Enums\RemoteType;
+use App\Services\RemoteProviderServices\GitLabService;
+use App\Services\RemoteProviderServices\RemoteProviderService;
 
-class GitRepoService extends GithubService
+class GitRepoService
 {
     /**
      * Format url to a standard format.
@@ -70,16 +72,21 @@ class GitRepoService extends GithubService
     }    
 
     protected function search(string $name, string $repository, string $provider): ApiResponse
-    {
-        if (self::getRemoteType($provider) == RemoteType::Github) 
+    { 
+        switch (RemoteProviderService::getRemoteType($provider))
         {
-            return parent::search($name, $repository, $provider);   
-        }
-
-        return new ApiResponse(false, [], "Something went wrong");
+            case RemoteType::GitHub: 
+                $gitHubService = new GitHubService(); 
+                return $gitHubService->search($name, $repository, $provider);   
+            case RemoteType::GitLab:
+                $gitLabService = new GitLabService();
+                return $gitLabService->search($name, $repository, $provider);
+            default:
+                return new ApiResponse(false, [], "Something went wrong");
+        }    
     }
 
-    public function searchRepo(string $url): ApiResponse
+    public function searchRemote(string $url): ApiResponse
     {
         $formattedUrl = self::formatUrl($url);
 
@@ -90,11 +97,16 @@ class GitRepoService extends GithubService
 
     public function getLatestCommitMessage(string $name, string $repository, string $provider): array
     {
-        if (self::getRemoteType($provider) == RemoteType::Github) 
+        switch (RemoteProviderService::getRemoteType($provider))
         {
-            return parent::getLatestCommitMessage($name, $repository, $provider);   
-        }
-        
-        return [];
+            case RemoteType::GitHub: 
+                $gitHubService = new GitHubService(); 
+                return $gitHubService->getLatestCommitMessage($name, $repository, $provider);   
+            case RemoteType::GitLab:
+                $gitLabService = new GitLabService();
+                return $gitLabService->getLatestCommitMessage($name, $repository, $provider);
+            default:
+                return [];
+        }               
     }
 }
