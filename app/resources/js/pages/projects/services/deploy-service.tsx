@@ -38,7 +38,7 @@ export default function DeployService() {
     const queryClient = useQueryClient();
 
     const onCreatedSuccess = () => {
-        queryClient.invalidateQueries({ queryKey: ['projects'] });
+        queryClient.invalidateQueries({ queryKey: ['services'] });
     };
 
     const {
@@ -66,14 +66,13 @@ export default function DeployService() {
         setField,
         getFormData,
         getFormSubmissionData,
-        handleFormSuccess,
         onSourceValueChanged,
         onRemoteValueChanged,
         nextPage,
         prevPage,
         skipToConfirmation,
         handleCreate,
-    } = useServices(onCreatedSuccess);
+    } = useServices();
 
     const { remotes } = useRemotes();
 
@@ -188,9 +187,8 @@ export default function DeployService() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Project" />
-            <div className="flex justify-around">
-                <div className="flex h-full max-w-4xl flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-                    <div className="flex w-full flex-col gap-6 px-9 py-6">
+                <div className="flex h-full items-center flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
+                    <div className="flex w-full max-w-4xl flex-col gap-6 px-9 py-6 ">
                         <div className="flex items-start justify-between">
                             <div className="flex flex-col gap-1">
                                 <p className="text-2xl font-black">{getPageTitle()}</p>
@@ -216,7 +214,7 @@ export default function DeployService() {
                             action={`/projects/${project.id}/services`}
                             transform={() => getFormSubmissionData()}
                             method="post"
-                            onSuccess={handleFormSuccess}
+                            onSuccess={onCreatedSuccess}
                         >
                             {({ processing, errors }) => (
                                 <>
@@ -227,7 +225,7 @@ export default function DeployService() {
                         </Form>
                     </div>
                 </div>
-            </div>
+            
         </AppLayout>
     );
 }

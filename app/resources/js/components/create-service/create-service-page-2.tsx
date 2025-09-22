@@ -40,8 +40,8 @@ export function CreateServicePage2({
                         id="port"
                         name="port"
                         placeholder="3000"
-                        value={String(port)}
-                        onChange={(e) => setField('port', e.target.value)}
+                        value={port || ''}
+                        onChange={(e) => setField('port', Number(e.target.value))}
                         tabIndex={1}
                         disabled={processing}
                     />

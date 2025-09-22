@@ -27,8 +27,7 @@ export default function ProjectCreateDialog({ open, setOpen }: Props) {
         setName,
         setDescription,
         getFormData,
-        handleFormSuccess,
-    } = useProjects(onCreatedSuccess);
+    } = useProjects();
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -42,7 +41,7 @@ export default function ProjectCreateDialog({ open, setOpen }: Props) {
                     action="/projects"
                     transform={() => getFormData()}
                     method="post"
-                    onSuccess={handleFormSuccess}
+                    onSuccess={() => onCreatedSuccess()}
                     className="grid items-start gap-6"
                 >
                     {({ processing, errors }) => (

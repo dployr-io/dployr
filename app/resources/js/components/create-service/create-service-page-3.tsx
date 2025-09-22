@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 
 interface Remote {
@@ -54,7 +54,7 @@ export function CreateServicePage3({ formData }: Props = {
 
     if (formData.workingDir) cleanConfig.workingDir = formData.workingDir;
     if (formData.runCmd) cleanConfig.runCmd = formData.runCmd;
-    if (formData.port) cleanConfig.port = formData.port;
+    if (formData.port) cleanConfig.port = Number(formData.port);
     if (formData.domain) cleanConfig.domain = formData.domain;
     if (formData.dnsProvider) cleanConfig.dnsProvider = formData.dnsProvider;
     if (formData.remote) cleanConfig.remote = formData.remote;

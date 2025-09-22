@@ -156,17 +156,10 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
 
     const page2Schema = z.object({
         port: z
-            .string()
-            .min(1, 'Port is required')
-            .regex(/^\d+$/, 'Port must be a number')
-            .optional()
-            .refine(
-                (val) => {
-                    const num = Number(val);
-                    return num >= 1024 && num <= 9999;
-                },
-                { message: 'Port must be between 1024 and 9999' },
-            ),
+            .number()
+            .min(1024, 'Port must be a minimum of 1024')
+            .max(9999, 'Port must be a maximum of 9999')
+            .optional(),
         domain: z
             .string()
             .min(1, 'Domain is required')
@@ -237,7 +230,7 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
             return false;
         }
 
-        if (state.runtime !== 'static' && Number(state.port) >= 1024 && Number(state.port) <= 9999) {
+        if (state.runtime !== 'static' && (state.port! < 1024 || state.port! > 9999)) {
             dispatch({ type: 'SET_ERROR', payload: { field: 'portError', value: 'Port must be between 1024 and 9999' } });
             hasErrors = true;
         }
@@ -290,8 +283,6 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
             secrets: state.secrets,
         };
     };
-
-    const handleFormSuccess = () => onCreateServiceCallback?.();
 
     const nextPage = () => {
         if (validateCurrentPage()) {
@@ -386,7 +377,7 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         setSpec: (value: string) => setField('spec', value),
         setBuildCommand: (value: string) => setField('runCmd', value),
         setSource: (value: ServiceSource) => setField('source', value),
-        setPort: (value: string) => setField('port', value),
+        setPort: (value: number) => setField('port', value),
         setDomain: (value: string) => setField('domain', value),
         setDnsProvider: (value: string) => setField('dnsProvider', value),
         setEnvVars: (value: string) => setField('envVars', value),
@@ -405,7 +396,6 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         // Utility functions
         getFormData,
         getFormSubmissionData,
-        handleFormSuccess,
         onSourceValueChanged,
         onRemoteValueChanged,
         nextPage,

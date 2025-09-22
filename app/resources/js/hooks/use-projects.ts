@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { z } from 'zod';
 
-export function useProjects(onCreateProjectCallback?: () => void | null) {
+export function useProjects() {
     const [error, setError] = useState<string>('');
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
@@ -33,8 +33,6 @@ export function useProjects(onCreateProjectCallback?: () => void | null) {
         return { name, description };
     };
 
-    const handleFormSuccess = () => onCreateProjectCallback!();
-
     const projects = useQuery<Project[]>({
         queryKey: ['projects'],
         queryFn: () =>
@@ -59,6 +57,5 @@ export function useProjects(onCreateProjectCallback?: () => void | null) {
         setName,
         setDescription,
         getFormData,
-        handleFormSuccess,
     };
 }
