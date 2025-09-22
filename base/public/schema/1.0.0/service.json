@@ -77,33 +77,47 @@
           "description": "Git provider (github, gitlab, etc.)"
         }
       },
-      "required": ["id", "name", "repository", "provider"],
       "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": ["id"]
+        },
+        {
+          "required": ["name", "repository", "provider"]
+        }
+      ],
       "default": null
     },
     "ciRemote": {
       "type": ["object", "null"],
-      "description": "CI/CD remote repository configuration",
+      "description": "Remote repository configuration",
       "properties": {
         "id": {
           "type": "string",
-          "description": "CI remote repository ID"
+          "description": "Remote repository ID"
         },
         "name": {
           "type": "string",
-          "description": "CI repository owner/organization name"
+          "description": "Repository owner/organization name"
         },
         "repository": {
           "type": "string",
-          "description": "CI repository name"
+          "description": "Repository name"
         },
         "provider": {
           "type": "string",
-          "description": "CI git provider"
+          "description": "Git provider (github, gitlab, etc.)"
         }
       },
-      "required": ["id", "name", "repository", "provider"],
       "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": ["id"]
+        },
+        {
+          "required": ["name", "repository", "provider"]
+        }
+      ],
       "default": null
     },
     "image": {
