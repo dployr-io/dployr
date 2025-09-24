@@ -1,19 +1,21 @@
 import BlueprintCard from '@/components/blueprint-card';
 
 import AppLayout from '@/layouts/app-layout';
-import { deploymentsShow } from '@/routes';
+import { deploymentsList, deploymentsShow } from '@/routes';
 import type { Blueprint, BreadcrumbItem } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 
-const ViewProjectBreadcrumbs = (blueprint: Blueprint) => {
+const ViewProjectBreadcrumbs = (blueprint?: Blueprint) => {
+    const config = typeof blueprint?.config === 'string' ? JSON.parse(blueprint.config) : blueprint?.config;
+
     const breadcrumbs: BreadcrumbItem[] = [
         {
             title: 'Deployments',
-            href: deploymentsShow(blueprint.id).url,
+            href: deploymentsList().url,
         },
         {
-            title: blueprint?.config.name || 'Service',
-            href: '',
+            title: config.name || 'Deployment',
+            href: blueprint && blueprint.id ? deploymentsShow(blueprint.id).url : '',
         },
     ];
 
@@ -22,7 +24,8 @@ const ViewProjectBreadcrumbs = (blueprint: Blueprint) => {
 
 export default function ViewDeployment() {
     const { props } = usePage();
-    const blueprint = props.blueprint as Blueprint;
+    const blueprint = (props.blueprint as Blueprint) || null;
+    
     const breadcrumbs = ViewProjectBreadcrumbs(blueprint);
 
     return (

@@ -13,7 +13,7 @@ class BlueprintsController extends Controller
      */
     public function index()
     {
-        return Inertia::render('projects/services/deployments/index', [
+        return Inertia::render('deployments/index', [
             'blueprints' => Blueprint::all()->map( fn($blueprint) => 
                 [
                     'id' => $blueprint->id,
@@ -29,7 +29,7 @@ class BlueprintsController extends Controller
      */
     public function show(Blueprint $blueprint)
     {
-        return Inertia::render('projects/services/deployments/view-deployment', [
+        return Inertia::render('deployments/view-deployment', [
             'blueprint' => [
                 'id' => $blueprint->id,
                 'config' => $blueprint->config,

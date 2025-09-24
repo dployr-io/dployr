@@ -26,8 +26,8 @@ export default function Deployments() {
                     </div>
 
                     <div className="grid w-full grid-cols-3 gap-3">
-                        {deployments?.data?.map((service) => (
-                            <BlueprintCard key={service.id} id={service.id} config={service.config} status={service.status} />
+                        {deployments?.data?.map((blueprint) => (
+                            <BlueprintCard key={blueprint.id} id={blueprint.id} config={blueprint.config} status={blueprint.status} />
                         ))}
                     </div>
                 </div>

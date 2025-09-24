@@ -58,21 +58,23 @@ class ServicesController extends Controller
      * @throws \Illuminate\Validation\ValidationException
      */
     public function store(Request $request): RedirectResponse 
-    {
+    {   
         $request->validate([
-            'name' => ['required'],
+            'name' => ['required', 'string'],
             'source' => ['required', 'in:remote,image'],
             'runtime' => ['required', 'in:static,go,php,python,node-js,ruby,dotnet,java,docker,k3s,custom'],
-            'run_cmd' => ['required_unless:runtime,static,docker,k3s'],
-            'port' => ['required_unless:runtime,static,docker,k3s', 'integer'],
-            'working_dir',
-            'output_dir',
-            'image',
-            'spec',
-            'env_vars',
-            'secrets',
-            'remote_id',
-            'ci_remote_id',
+            'run_cmd' => ['required_unless:runtime,static,docker,k3s', 'nullable', 'string'],
+            'port' => ['required_unless:runtime,static,docker,k3s', 'nullable', 'integer'],
+            'working_dir' => ['nullable', 'string'],
+            'output_dir' => ['nullable', 'string'],
+            'image' => ['nullable', 'string'],
+            'spec' => ['nullable', 'string'],  
+            'env_vars' => ['nullable', 'array'],
+            'secrets' => ['nullable', 'array'],
+            'remote' => ['nullable', 'string'],
+            'ci_remote' => ['nullable', 'string'],
+            'domain' => ['nullable', 'string'],
+            'dns_provider' => ['nullable', 'string'],
         ]);
 
         $config = array_filter([
@@ -87,8 +89,10 @@ class ServicesController extends Controller
             'spec' => $request->input('spec'),
             'env_vars' => $request->input('env_vars'),
             'secrets' => $request->input('secrets'),
-            'remote_id' => $request->input('remote_id'),
-            'ci_remote_id' => $request->input('ci_remote_id'),
+            'remote' => $request->input('remote'),
+            'ci_remote' => $request->input('ci_remote'),
+            'domain' => $request->input('domain'),
+            'dns_provider' => $request->input('dns_provider'),
         ], fn($value) => $value !== null);
 
         Blueprint::create([

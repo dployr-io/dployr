@@ -244,19 +244,19 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
     const getFormData = () => {
         return {
             name: state.name,
-            workingDir: state.workingDir,
-            outputDir: state.outputDir,
+            working_dir: state.workingDir,
+            output_dir: state.outputDir,
             runtime: state.runtime,
             remote: state.remote,
-            ciRemote: state.ciRemote,
+            ci_remote: state.ciRemote,
             image: state.image,
             spec: state.spec,
-            runCmd: state.runCmd,
+            run_cmd: state.runCmd,
             source: state.source,
             port: state.port,
             domain: state.domain,
-            dnsProvider: state.dnsProvider,
-            envVars: state.envVars,
+            dns_provider: state.dnsProvider,
+            env_vars: state.envVars,
             secrets: state.secrets,
         };
     };
@@ -264,19 +264,19 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
     const getFormSubmissionData = () => {
         return {
             name: state.name,
-            workingDir: state.workingDir,
-            outputDir: state.outputDir,
+            working_dir: state.workingDir,
+            output_dir: state.outputDir,
             runtime: state.runtime,
             remote: state.remote?.id || null,
-            ciRemote: state.ciRemote?.id || null,
+            ci_remote: state.ciRemote?.id || null,
             image: state.image,
             spec: state.spec,
-            runCmd: state.runCmd,
+            run_cmd: state.runCmd,
             source: state.source,
             port: state.port,
             domain: state.domain,
-            dnsProvider: state.dnsProvider,
-            envVars: state.envVars,
+            dns_provider: state.dnsProvider,
+            env_vars: state.envVars,
             secrets: state.secrets,
         };
     };
@@ -384,7 +384,7 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         queryFn: () =>
             new Promise((resolve, reject) => {
                 router.get(
-                    '/projects/services/deployments',
+                    '/deployments',
                     {},
                     {
                         onSuccess: (page) => {

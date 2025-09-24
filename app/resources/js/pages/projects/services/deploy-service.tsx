@@ -42,10 +42,11 @@ const ViewProjectBreadcrumbs = (project?: Project) => {
 };
 
 export default function DeployService() {
-    const [showSkipDialog, setShowSkipDialog] = useState(false);
     const { props } = usePage();
     const project = (props.project as Project) || null;
     const breadcrumbs = ViewProjectBreadcrumbs(project);
+    
+    const [showSkipDialog, setShowSkipDialog] = useState(false);
 
     const queryClient = useQueryClient();
 
