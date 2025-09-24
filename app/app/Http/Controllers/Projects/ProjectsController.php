@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Projects;
 
+use App\Models\Service;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
@@ -31,12 +32,28 @@ class ProjectsController extends Controller
      */
     public function show(Project $project)
     {
-        return Inertia::render('projects/view-project', [
+        return Inertia::render('projects/services/index', [
             'project' => [
                 'id' => $project->id,
                 'name' => $project->name,
                 'description' => $project->description,
             ],
+            'services' => $project->services->map(fn($service) => [
+                'id' => $service->id,
+                'name' => $service->name,
+                'source' => $service->source,
+                'runtime' => $service->runtime,
+                'run_cmd' => $service->run_cmd,
+                'port' => $service->port,
+                'working_dir' => $service->working_dir,
+                'output_dir' => $service->output_dir,
+                'image' => $service->image,
+                'spec' => $service->spec,
+                'env_vars' => $service->env_vars,
+                'secrets' => $service->secrets,
+                'remote_id' => $service->remote_id,
+                'ci_remote_id' => $service->ci_remote_id,
+            ]),
         ]);
     }
 

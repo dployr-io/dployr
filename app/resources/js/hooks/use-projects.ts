@@ -1,4 +1,4 @@
-import type { Project } from '@/types';
+import type { Project, Service } from '@/types';
 import { router } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';

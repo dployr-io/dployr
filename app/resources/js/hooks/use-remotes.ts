@@ -1,15 +1,16 @@
 import type { Remote } from '@/types';
 import { router } from '@inertiajs/react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { z } from 'zod';
 
-export function useRemotes(onSearchCallback?: () => void | null) {
+export function useRemotes(setOpen?: (open: boolean) => void) {
     const [branches, setBranches] = useState<string[]>([]);
     const [searchComplete, setSearchComplete] = useState(false);
     const [error, setError] = useState<string>('');
     const [remoteRepo, setRemoteRepo] = useState('');
     const [selectedBranch, setSelectedBranch] = useState('');
+    const queryClient = useQueryClient();
 
     const formSchema = z
         .object({
@@ -58,9 +59,8 @@ export function useRemotes(onSearchCallback?: () => void | null) {
             setBranches(data);
             setSearchComplete(true);
         } else if (searchComplete) {
-            if (onSearchCallback) {
-                onSearchCallback();
-            }
+            queryClient.invalidateQueries({ queryKey: ['remotes'] });
+            setOpen!(false);
         }
     };
 

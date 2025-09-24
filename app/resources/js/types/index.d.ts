@@ -68,7 +68,7 @@ export interface Remote {
 
 export type ServiceSource = 'image' | 'remote';
 
-export type Status = 'running' | 'stopped' | 'deploying';
+export type Status = 'pending' | 'in_progress' | 'failed' | 'completed';
 
 export interface Service {
     id: string;
@@ -82,9 +82,13 @@ export interface Service {
     last_deployed: Date;
 }
 
-export type Runtime = (typeof runtimes)[number];
+export interface Blueprint {
+    id: string;
+    config: Partial<Service>;
+    status: Status;
+}
 
-export type Status = 'running' | 'stopped' | 'deploying';
+export type Runtime = (typeof runtimes)[number];
 
 export type DnsProvider = (typeof dnsProviders)[number];
 

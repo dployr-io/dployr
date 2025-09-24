@@ -26,16 +26,15 @@ export default function Remotes() {
             <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <div className="flex w-full flex-col gap-6 px-9 py-6">
                     <div className="flex flex-col gap-1">
-                            <p className="text-2xl font-black">Remote Repositories</p>
-                            <p className="text-sm font-normal text-muted-foreground">Manage your remote repositories</p>
-                        </div>  
+                        <p className="text-2xl font-black">Remote Repositories</p>
+                        <p className="text-sm font-normal text-muted-foreground">Manage your remote repositories</p>
+                    </div>
 
                     <div className="grid w-full grid-cols-3 gap-3">
                         {remotes?.data?.map((remote: Remote) => (
                             <RemoteCard
                                 key={remote.id}
                                 id={remote.id}
-                                description={remote.description}
                                 name={remote.name}
                                 repository={remote.repository}
                                 branch={remote.branch}
@@ -53,12 +52,10 @@ export default function Remotes() {
                                 <p>Import a New Repository</p>
                             </div>
 
-                            <p className="text-sm text-muted-foreground">
-                                Click to import a new remote repository to your library 
-                            </p>
+                            <p className="text-sm text-muted-foreground">Click to import a new remote repository to your library</p>
                         </div>
                     </div>
-                    
+
                     <RemoteAddDialog open={isDialogOpen} setOpen={setIsDialogOpen} />
                 </div>
             </div>

@@ -15,22 +15,22 @@ import { Button } from '@/components/ui/button';
 import { useRemotes } from '@/hooks/use-remotes';
 import { useServices } from '@/hooks/use-services';
 import AppLayout from '@/layouts/app-layout';
-import { projectsList, projectsShow } from '@/routes';
+import { deploymentsList, projectsList, projectsShow } from '@/routes';
 import type { BlueprintFormat, BreadcrumbItem, DnsProvider, Project } from '@/types';
-import { Form, Head, Link, usePage } from '@inertiajs/react';
+import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 
-const ViewProjectBreadcrumbs = (project: Project) => {
+const ViewProjectBreadcrumbs = (project?: Project) => {
     const breadcrumbs: BreadcrumbItem[] = [
         {
             title: 'Projects',
             href: projectsList().url,
         },
         {
-            title: project?.name || 'Project',
-            href: projectsShow(project.id).url,
+            title: project && project.id ? (project.name || 'Project') : 'Project',
+            href: project && project.id ? projectsShow({ project: project.id }).url : '',
         },
         {
             title: 'New Service',
@@ -44,13 +44,14 @@ const ViewProjectBreadcrumbs = (project: Project) => {
 export default function DeployService() {
     const [showSkipDialog, setShowSkipDialog] = useState(false);
     const { props } = usePage();
-    const project = props.project as Project;
+    const project = (props.project as Project) || null;
     const breadcrumbs = ViewProjectBreadcrumbs(project);
 
     const queryClient = useQueryClient();
 
     const onCreatedSuccess = () => {
         queryClient.invalidateQueries({ queryKey: ['services'] });
+        router.visit(deploymentsList().url);
     };
 
     const {
@@ -87,7 +88,6 @@ export default function DeployService() {
         prevPage,
         validateSkip,
         skipToConfirmation,
-        handleCreate,
         handleBlueprintCopy,
         setBlueprintFormat,
     } = useServices();
@@ -188,7 +188,15 @@ export default function DeployService() {
                             }
                         }}
                     >
-                        <Link href={currentPage === 1 ? projectsShow({ project: project.id }).url : ''}>{currentPage === 1 ? 'Cancel' : 'Back'}</Link>
+                        <Link
+                            href={
+                                currentPage === 1
+                                    ? (project && project.id ? projectsShow({ project: project.id }).url : projectsList().url)
+                                    : ''
+                            }
+                        >
+                            {currentPage === 1 ? 'Cancel' : 'Back'}
+                        </Link>
                     </Button>
                     {currentPage < 3 ? (
                         currentPage === 2 && ((runtime !== 'static' && port.length < 4) || !provider || domain.length < 4) ? (
@@ -232,7 +240,7 @@ export default function DeployService() {
                             </Button>
                         )
                     ) : (
-                        <Button type="button" onClick={handleCreate} disabled={processing}>
+                        <Button type="submit" disabled={processing}>
                             {processing && <Loader2 className="h-4 w-4 animate-spin" />}
                             {processing ? 'Deploying' : 'Deploy'}
                         </Button>
@@ -269,7 +277,7 @@ export default function DeployService() {
                         </div>
                     )}
                     <Form
-                        action={`/projects/${project.id}/services`}
+                        action={`/projects/${project && project.id ? project.id : ''}/services`}
                         transform={() => getFormSubmissionData()}
                         method="post"
                         onSuccess={onCreatedSuccess}

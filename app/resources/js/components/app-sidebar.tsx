@@ -2,7 +2,7 @@ import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { logs, console, projectsList, remotesList } from '@/routes';
+import { logs, console, projectsList, remotesList, deploymentsList } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
 import { BookOpen, Container, Factory, FileSliders, Folder, FolderGit2, Globe, LayoutGrid, Logs, SquareChevronRight } from 'lucide-react';
@@ -16,7 +16,7 @@ const mainNavItems: NavItem[] = [
     },
     {
         title: 'Deployments',
-        href: projectsList(),
+        href: deploymentsList(),
         icon: Factory,
     },
     {

@@ -14,13 +14,6 @@ interface Props {
 }
 
 export default function RemoteAddDialog({ open, setOpen }: Props) {
-    const queryClient = useQueryClient();
-
-    const onCreatedSuccess = () => {
-        queryClient.invalidateQueries({ queryKey: ['remotes'] });
-        setOpen(false);
-    };
-
     const {
         branches,
         searchComplete,
@@ -32,7 +25,7 @@ export default function RemoteAddDialog({ open, setOpen }: Props) {
         getFormAction,
         getFormData,
         handleFormSuccess,
-    } = useRemotes(onCreatedSuccess);
+    } = useRemotes(setOpen);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>

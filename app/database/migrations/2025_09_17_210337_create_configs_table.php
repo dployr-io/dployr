@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('configs', function (Blueprint $table) {
             $table->id();
             $table->string('key', 100)->unique();
-            $table->text('value', 1000)->nullable();
+            $table->text('value')->nullable();
             $table->string('description', 100)->nullable();
             $table->timestamps();
         });

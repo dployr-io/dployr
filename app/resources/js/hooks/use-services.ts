@@ -1,4 +1,4 @@
-import type { BlueprintFormat, Remote, Runtime, Service, ServiceSource } from '@/types';
+import type { Blueprint, BlueprintFormat, Project, Remote, Runtime, Service, ServiceSource } from '@/types';
 import { dnsProviders, runtimes } from '@/types/runtimes';
 import { router } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
@@ -71,7 +71,6 @@ const initialState: ServiceFormState = {
     domainError: '',
     dnsProviderError: '',
 };
-
 
 function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction): ServiceFormState {
     switch (action.type) {
@@ -311,27 +310,6 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         dispatch({ type: 'SKIP_TO_CONFIRMATION' });
     };
 
-    const handleCreate = () => {
-        const formData = getFormData();
-        alert(JSON.stringify(formData, null, 2));
-        onCreateServiceCallback?.();
-    };
-
-    const services = useQuery<Service[]>({
-        queryKey: ['projects'],
-        queryFn: () =>
-            new Promise((resolve) => {
-                router.get(
-                    '/projects',
-                    {},
-                    {
-                        onSuccess: (page) => resolve(page.props.services as Service[]),
-                    },
-                );
-            }),
-        staleTime: 5 * 60 * 1000,
-    });
-
     const setField = (field: string, value: any) => {
         dispatch({ type: 'SET_FIELD', payload: { field, value } });
     };
@@ -401,6 +379,28 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         }
     };
 
+    const deployments = useQuery<Blueprint[]>({
+        queryKey: ['deployments'],
+        queryFn: () =>
+            new Promise((resolve, reject) => {
+                router.get(
+                    '/projects/services/deployments',
+                    {},
+                    {
+                        onSuccess: (page) => {
+                            const blueprints = page.props.blueprints as Blueprint[];
+                            resolve(blueprints || []);
+                        },
+                        onError: (errors) => {
+                            console.error('Failed to fetch deployments:', errors);
+                            resolve([]);
+                        },
+                    },
+                );
+            }),
+        staleTime: 5 * 60 * 1000,
+    });
+
     return {
         currentPage: state.currentPage,
         name: state.name,
@@ -418,6 +418,9 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         dnsProvider: state.dnsProvider,
         envVars: state.envVars,
         secrets: state.secrets,
+
+        // Deployments
+        deployments,
 
         // Blueprint helpers (Service page 3)
         blueprintFormat,
@@ -476,7 +479,6 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         prevPage,
         validateSkip,
         skipToConfirmation,
-        handleCreate,
         clearAllErrors: () => dispatch({ type: 'CLEAR_ALL_ERRORS' }),
     };
 }

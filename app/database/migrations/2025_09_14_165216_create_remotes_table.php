@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('name', 100);
             $table->string('repository', 100);
             $table->string('branch', 100);
-            $table->string('commit', 100)->nullable();
+            $table->string('provider');
             $table->timestamps();
         });
     }

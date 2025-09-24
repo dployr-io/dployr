@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Process;
-use App\Jobs\ExecuteCmdJob;
+use App\Jobs\ExecuteCmd;
 use App\DTOs\CmdResult;
 
 class CmdService
@@ -68,7 +68,7 @@ class CmdService
      */
     private function executeAsync(string $command, array $options): CmdResult
     {
-        ExecuteCmdJob::dispatch($command, $options);
+        ExecuteCmd::dispatch($command, $options);
         
         return new CmdResult(
             command: $command,
