@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Services\RemoteProviderServices;
+namespace App\Services\RemoteProviderService;
 
-use App\Services\GitRepoService;
+use App\Services\CmdService;
 use App\Services\HttpService;
 use App\DTOs\ApiResponse;
 use App\Facades\AppConfig;
@@ -65,5 +65,22 @@ class GitHubService extends RemoteProviderService {
             "message" => $commitsData[0]['commit']['message'], 
             "avatar_url" => $commitsData[0]['author']['avatar_url'],
         ];
+    }
+
+    public function clone(string $name, string $repository, string $provider, string $local_dir) 
+    {
+        if (parent::getRemoteType($provider) != RemoteType::GitHub)
+        {
+            throw new \InvalidArgumentException("Only GitHab provider is supported!", 1);
+        }
+
+        $cmd = "git clone https://{$this->token}@github.com/$name/$repository $local_dir";
+
+        $result = CmdService::execute($cmd);        
+        
+        if ($result->exitCode !== 0) 
+        {
+            throw new \RuntimeException($result->errorOutput);
+        } 
     }
 }

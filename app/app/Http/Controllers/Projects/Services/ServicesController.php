@@ -10,6 +10,7 @@ use App\Models\Service;
 use App\Models\Project;
 use App\Models\Blueprint;
 use App\Enums\JobStatus;
+use App\Jobs\Services\ProcessBlueprint;
 
 class ServicesController extends Controller 
 {
@@ -99,6 +100,8 @@ class ServicesController extends Controller
             'status' => JobStatus::PENDING,
             'config' => json_encode($config),
         ]);
+
+        ProcessBlueprint::dispatch($config);
 
         return back()->with('info', __('Creating service '.$request->name.' in progress.'));
     }      

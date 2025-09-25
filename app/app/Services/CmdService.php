@@ -14,7 +14,7 @@ class CmdService
      * @param array $options
      * @return CmdResult
      */
-    public function execute(string $command, array $options = []): CmdResult
+    public static function execute(string $command, array $options = []): CmdResult
     {
         $options = array_merge([
             'timeout' => 300, // 5 minutes default
@@ -24,10 +24,10 @@ class CmdService
         ], $options);
 
         if ($options['async']) {
-            return $this->executeAsync($command, $options);
+            return self::executeAsync($command, $options);
         }
 
-        return $this->executeSync($command, $options);
+        return self::executeSync($command, $options);
     }
 
     /**
@@ -37,7 +37,7 @@ class CmdService
      * @param array $options
      * @return CmdResult
      */
-    private function executeSync(string $command, array $options): CmdResult
+    private static function executeSync(string $command, array $options): CmdResult
     {
         $process = Process::timeout($options['timeout']);
         
@@ -66,7 +66,7 @@ class CmdService
      * @param array $options
      * @return CmdResult
      */
-    private function executeAsync(string $command, array $options): CmdResult
+    private static function executeAsync(string $command, array $options): CmdResult
     {
         ExecuteCmd::dispatch($command, $options);
         

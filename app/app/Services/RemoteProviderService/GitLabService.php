@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Services\RemoteProviderServices;
+namespace App\Services\RemoteProviderService;
 
+use App\Services\CmdService;
 use App\Services\HttpService;
 use App\DTOs\ApiResponse;
 use App\Facades\AppConfig;
@@ -52,7 +53,7 @@ class GitLabService extends RemoteProviderService {
             throw new \InvalidArgumentException("Only GitLab provider is supported!", 1);
         }
 
-        $baseUrl = "https://gitlab.com/api/v4/projects/{$name}%2F{$repository}";
+        $baseUrl = "https://gitlab.com/api/v4/projects/$name%2F$repository";
         $headers = [
             'Authorization' => "Bearer {$this->token}",
             'Accept'        => 'application/json',
@@ -61,11 +62,28 @@ class GitLabService extends RemoteProviderService {
         $repoData = HttpService::makeRequest('get', $baseUrl, $headers, 'repository');
 
         $commitHeaders = $headers;
-        $commitsData = HttpService::makeRequest('get', "{$baseUrl}/repository/commits", $commitHeaders, 'commits');
+        $commitsData = HttpService::makeRequest('get', "$baseUrl/repository/commits", $commitHeaders, 'commits');
 
         return [
             "message" => $commitsData[0]['message'], 
             "avatar_url" => $repoData['namespace']['avatar_url'] ?? '',
         ];
+    }
+
+    public function clone(string $name, string $repository, string $provider, string $local_dir) 
+    {
+        if (parent::getRemoteType($provider) != RemoteType::GitLab)
+        {
+            throw new \InvalidArgumentException("Only GitLab provider is supported!", 1);
+        }
+
+        $cmd = "git clone https://oauth2:{$this->token}@gitlab.com/$name/$repository $local_dir";
+
+        $result = CmdService::execute($cmd);        
+        
+        if ($result->exitCode !== 0) 
+        {
+            throw new \RuntimeException($result->errorOutput);
+        } 
     }
 }

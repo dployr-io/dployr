@@ -9,7 +9,7 @@ export default function BlueprintCard(blueprint: Blueprint) {
 
     return (
         <Link
-            href={`/projects/services/deployments/${blueprint.id}`}
+            href={`/deployments/${blueprint.id}`}
             className="flex h-28 flex-col justify-between rounded-xl border border-sidebar-border/70 p-4 no-underline hover:cursor-pointer hover:border-muted-foreground dark:border-sidebar-border dark:hover:border-muted-foreground"
         >
             <div>

@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Services\RemoteProviderServices\GitHubService;
 use App\DTOs\ApiResponse;
 use App\Enums\RemoteType;
-use App\Services\RemoteProviderServices\GitLabService;
-use App\Services\RemoteProviderServices\RemoteProviderService;
+use App\Services\RemoteProviderService\GitHubService;
+use App\Services\RemoteProviderService\GitLabService;
+use App\Services\RemoteProviderService\RemoteProviderService;
 
 class GitRepoService
 {
@@ -108,5 +108,20 @@ class GitRepoService
             default:
                 return [];
         }               
+    }
+
+    public function cloneRepo(string $name, string $repository, string $provider, string $local_dir)
+    {
+        switch (RemoteProviderService::getRemoteType($provider))
+        {
+            case RemoteType::GitHub: 
+                $gitHubService = new GitHubService(); 
+                return $gitHubService->clone($name, $repository, $provider, $local_dir);   
+            case RemoteType::GitLab:
+                $gitLabService = new GitLabService();
+                return $gitLabService->clone($name, $repository, $provider, $local_dir);
+            default:
+                return;
+        }      
     }
 }
