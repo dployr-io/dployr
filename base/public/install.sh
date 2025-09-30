@@ -180,17 +180,17 @@ configure_dployr() {
     # sed -i "s|^APP_ENV=.*|APP_ENV=production|" .env
 
     #TODO: Move this to a separate method
-    # Setup PHP-FPM to run as caddy user
-    sed -i 's/^user = .*/user = caddy/' /etc/php/8.3/fpm/pool.d/www.conf
+    # Setup PHP-FPM to run as dployr user
+    sed -i 's/^user = .*/user = dployr/' /etc/php/8.3/fpm/pool.d/www.conf
     sed -i 's/^group = .*/group = caddy/' /etc/php/8.3/fpm/pool.d/www.conf
-    sed -i 's/^;*listen.owner = .*/listen.owner = caddy/' /etc/php/8.3/fpm/pool.d/www.conf
+    sed -i 's/^;*listen.owner = .*/listen.owner = dployr/' /etc/php/8.3/fpm/pool.d/www.conf
     sed -i 's/^;*listen.group = .*/listen.group = caddy/' /etc/php/8.3/fpm/pool.d/www.conf
 
     log_info "Running database migrations..."
     sudo -u dployr php artisan migrate --graceful --force
     sudo -u dployr php artisan db:seed 
 
-    sudo chown -R www-data:caddy storage database
+    systemctl restart php8.3-fpm
  
     log_success "Environment configured successfully"
     touch "$flag_file"
