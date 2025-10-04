@@ -54,7 +54,7 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve --port=7879\" \"php artisan queue:listen --tries=1\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
         ],
         "dev:ssr": [
             "npm run build:ssr",
@@ -64,6 +64,14 @@
         "test": [
             "@php artisan config:clear --ansi",
             "@php artisan test"
+        ],
+        "sync": [
+            "npm run build",
+            "wsl -d Ubuntu-22.04 -u root -e sh -c \"rsync -av --delete /mnt/c/Workspace/dployr/app/public/build/ /home/dployr/public/build/\"",
+            "wsl -d Ubuntu-22.04 -u root -e sh -c \"rsync -av --delete /mnt/c/Workspace/dployr/app/app/ /home/dployr/app/\"",
+            "wsl -d Ubuntu-22.04 -u root -e sh -c \"systemctl restart dployr\"",
+            "wsl -d Ubuntu-22.04 -u root -e sh -c \"systemctl restart php8.3-fpm\"",
+            "wsl -d Ubuntu-22.04 -u root -e sh -c \"systemctl restart caddy\""
         ]
     },
     "extra": {
