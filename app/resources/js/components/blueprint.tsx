@@ -16,7 +16,7 @@ export function Blueprint({ name, yamlConfig, jsonConfig, blueprintFormat, setBl
         <>
             <div className="mb-4 flex items-center justify-between">
                 <div className="flex w-full items-center justify-end gap-2">
-                    <div className="flex items-center rounded-md bg-background p-1">
+                    <div className="flex items-center rounded-md bg-background gap-1 p-1">
                         <Button
                             type="button"
                             variant={blueprintFormat === 'yaml' ? 'default' : 'ghost'}

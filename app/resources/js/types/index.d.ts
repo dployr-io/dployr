@@ -103,3 +103,10 @@ export type Runtime = (typeof runtimes)[number];
 export type DnsProvider = (typeof dnsProviders)[number];
 
 export type BlueprintFormat = 'yaml' | 'json';
+
+export interface Log {
+    id: string;
+    message: string;
+    level?: 'info' | 'warning' | 'error';
+    timestamp?: string;
+}

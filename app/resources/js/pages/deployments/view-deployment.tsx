@@ -1,14 +1,15 @@
 import { Blueprint as BlueprintSection } from '@/components/blueprint';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useLogs } from '@/hooks/use-logs';
 import { useServices } from '@/hooks/use-services';
 import AppLayout from '@/layouts/app-layout';
 import { toJson, toYaml } from '@/lib/utils';
 import { deploymentsList, deploymentsShow } from '@/routes';
-import type { Blueprint, BreadcrumbItem } from '@/types';
+import type { Blueprint, BreadcrumbItem, Log } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 import { Loader2 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const ViewProjectBreadcrumbs = (blueprint?: Blueprint) => {
     const config = JSON.parse(blueprint!.config as string);
@@ -27,14 +28,21 @@ const ViewProjectBreadcrumbs = (blueprint?: Blueprint) => {
     return breadcrumbs;
 };
 
+function LogEntry({ log }: { log: Log }) {
+    return (
+        <div className="border-b border-accent px-4 py-2 last:border-0">
+            <p className="text-sm text-muted-foreground">{log.message}</p>
+        </div>
+    );
+}
+
 export default function ViewDeployment() {
     const { props } = usePage();
     const blueprint = (props.blueprint as Blueprint) || null;
     const config = JSON.parse(blueprint.config as string);
     const breadcrumbs = ViewProjectBreadcrumbs(blueprint);
 
-    const [logs, setLogs] = useState([]);
-    const logsEndRef = useRef<HTMLDivElement | null>(null);
+    const { logs, logsEndRef } = useLogs();
 
     const { blueprintFormat, setBlueprintFormat } = useServices();
 
@@ -45,8 +53,8 @@ export default function ViewDeployment() {
             if (!blueprint) return;
             await navigator.clipboard.writeText(blueprintFormat === 'yaml' ? yamlConfig : jsonConfig);
         } catch (err) {}
-    }
-    
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Projects" />
@@ -74,7 +82,7 @@ export default function ViewDeployment() {
                                                 <p className="text-sm text-muted-foreground">Retrieving logs</p>
                                             </div>
                                         ) : (
-                                            logs?.map((log) => <LogEntry key={log.id} log={log} />)
+                                            logs?.map((log: Log) => <LogEntry key={log.id} log={log} />)
                                         )}
                                         <div ref={logsEndRef} />
                                     </div>
