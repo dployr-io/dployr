@@ -31,23 +31,19 @@ export function CreateServicePage2({
 }: Props) {
     return (
         <div className="grid items-start gap-6">
-            {runtime !== 'static' && (
-                <div className="grid gap-3">
-                    <Label htmlFor="port">
-                        Port <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                        id="port"
-                        name="port"
-                        placeholder="3000"
-                        value={port || ''}
-                        onChange={(e) => setField('port', Number(e.target.value))}
-                        tabIndex={1}
-                        disabled={processing}
-                    />
-                    {(portError || errors.port) && <div className="text-sm text-destructive">{portError || errors.port}</div>}
-                </div>
-            )}
+            <div className="grid gap-3">
+                <Label htmlFor="port">Port{runtime !== 'static' && <span className="text-destructive">*</span>}</Label>
+                <Input
+                    id="port"
+                    name="port"
+                    placeholder="3000"
+                    value={port || ''}
+                    onChange={(e) => setField('port', Number(e.target.value))}
+                    tabIndex={1}
+                    disabled={processing}
+                />
+                {(portError || errors.port) && <div className="text-sm text-destructive">{portError || errors.port}</div>}
+            </div>
 
             <div className="grid gap-3">
                 <Label htmlFor="domain">Domain</Label>

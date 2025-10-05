@@ -48,8 +48,18 @@ export function useProjects() {
         staleTime: 60 * 1000, // Every minute
     });
 
+    const defaultProject = (() => {
+        const storedProjectId = localStorage.getItem('current_project');
+        if (storedProjectId && projects.data) {
+            const savedProject = projects.data.find(p => p.id === storedProjectId);
+            if (savedProject) return savedProject;
+        }
+        return projects.data && projects.data.length > 0 ? projects.data[0] : null;
+    })();
+
     return {
         projects,
+        defaultProject,
         name,
         description,
         validationError: error,

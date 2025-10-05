@@ -12,11 +12,12 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { useFlashToast } from '@/hooks/use-flash-toast';
 import { useRemotes } from '@/hooks/use-remotes';
 import { useServices } from '@/hooks/use-services';
 import AppLayout from '@/layouts/app-layout';
 import { deploymentsList, projectsList, projectsShow } from '@/routes';
-import type { BlueprintFormat, BreadcrumbItem, DnsProvider, Project } from '@/types';
+import type { BreadcrumbItem, DnsProvider, Project } from '@/types';
 import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
@@ -29,7 +30,7 @@ const ViewProjectBreadcrumbs = (project?: Project) => {
             href: projectsList().url,
         },
         {
-            title: project && project.id ? (project.name || 'Project') : 'Project',
+            title: project && project.id ? project.name || 'Project' : 'Project',
             href: project && project.id ? projectsShow({ project: project.id }).url : '',
         },
         {
@@ -44,8 +45,10 @@ const ViewProjectBreadcrumbs = (project?: Project) => {
 export default function DeployService() {
     const { props } = usePage();
     const project = (props.project as Project) || null;
+
+    const { type } = useFlashToast();
     const breadcrumbs = ViewProjectBreadcrumbs(project);
-    
+
     const [showSkipDialog, setShowSkipDialog] = useState(false);
 
     const queryClient = useQueryClient();
@@ -75,9 +78,8 @@ export default function DeployService() {
         domainError,
         dnsProvider,
         dnsProviderError,
-        yamlConfig,
-        jsonConfig,
         blueprintFormat,
+        runCmdPlaceholder,
         
         // Unified handlers
         setField,
@@ -85,12 +87,15 @@ export default function DeployService() {
         getFormSubmissionData,
         onSourceValueChanged,
         onRemoteValueChanged,
+        onRuntimeValueChanged,
         nextPage,
         prevPage,
         validateSkip,
         skipToConfirmation,
         handleBlueprintCopy,
         setBlueprintFormat,
+        yamlConfig,
+        jsonConfig,
     } = useServices();
 
     const { remotes } = useRemotes();
@@ -140,9 +145,11 @@ export default function DeployService() {
                         source={source}
                         processing={processing}
                         errors={errors}
+                        runCmdPlaceholder={runCmdPlaceholder}
                         setField={setField}
                         onSourceValueChanged={onSourceValueChanged}
                         onRemoteValueChanged={onRemoteValueChanged}
+                        onRuntimeValueChanged={onRuntimeValueChanged}
                     />
                 );
             case 2:
@@ -190,11 +197,7 @@ export default function DeployService() {
                         }}
                     >
                         <Link
-                            href={
-                                currentPage === 1
-                                    ? (project && project.id ? projectsShow({ project: project.id }).url : projectsList().url)
-                                    : ''
-                            }
+                            href={currentPage === 1 ? (project && project.id ? projectsShow({ project: project.id }).url : projectsList().url) : ''}
                         >
                             {currentPage === 1 ? 'Cancel' : 'Back'}
                         </Link>
@@ -226,7 +229,17 @@ export default function DeployService() {
                                             <AlertDialogAction
                                                 onClick={() => {
                                                     setShowSkipDialog(false);
-                                                    skipToConfirmation();
+                                                    const payload = { port };
+                                                    router.post('/projects/services/check-port', payload, {
+                                                        onSuccess: () => {
+                                                            skipToConfirmation();
+                                                        },
+                                                        onError: (errors) => {
+                                                            if (errors.port) {
+                                                                setField('portError', errors.port);
+                                                            }
+                                                        },
+                                                    });
                                                 }}
                                             >
                                                 Continue
@@ -278,7 +291,7 @@ export default function DeployService() {
                         </div>
                     )}
                     <Form
-                        action={`/projects/${project && project.id ? project.id : ''}/services`}
+                        action={currentPage === 2 ? '/projects/services/check-port' : `/projects/${project && project.id ? project.id : ''}/services`}
                         transform={() => getFormSubmissionData()}
                         method="post"
                         onSuccess={onCreatedSuccess}

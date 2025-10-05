@@ -76,7 +76,15 @@ export interface Service {
     status: Status;
     runtime: Runtime;
     remote?: Remote | null;
-    ciRemote?: Remote | null; 
+    ci_remote?: Remote | null; 
+    run_cmd?: string | null;
+    working_dir?: string | null;
+    env_vars?: Record<string, string> | null;
+    build_cmd?: string | null;
+    image?: string | null;
+    port?: number | null;
+    dns_provider?: DnsProvider | null;
+    domain?: string | null;
     region: string;
     source: ServiceSource;
     last_deployed: Date;
@@ -86,6 +94,8 @@ export interface Blueprint {
     id: string;
     config: Partial<Service>;
     status: Status;
+    created_at: Date;
+    updated_at: Date;
 }
 
 export type Runtime = (typeof runtimes)[number];

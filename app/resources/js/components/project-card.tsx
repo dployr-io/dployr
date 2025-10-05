@@ -5,6 +5,7 @@ export default function ProjectCard(project: Project) {
     return (
         <Link
             href={`/projects/${project.id}`}
+            onClick={() => localStorage.setItem('current_project', project.id.toString())}
             className="rounded-xl border border-sidebar-border/70 p-4 hover:cursor-pointer hover:border-muted-foreground dark:hover:border-muted-foreground h-28 flex flex-col dark:border-sidebar-border no-underline"
         >
             <div className="flex gap-2 mb-2">

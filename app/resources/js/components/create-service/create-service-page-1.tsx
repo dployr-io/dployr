@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { getRuntimeIcon } from '@/lib/runtime-icon';
 import type { Remote, Runtime, ServiceSource } from '@/types';
 import { runtimes } from '@/types/runtimes';
+import { on } from 'events';
 import { FaGitlab } from 'react-icons/fa6';
 import { RxGithubLogo } from 'react-icons/rx';
 import { ulid } from 'ulid';
@@ -24,11 +25,13 @@ interface Props {
     source: ServiceSource;
     processing: boolean;
     errors: any;
+    runCmdPlaceholder?: string;
 
     // Unified handlers
     setField: (field: string, value: any) => void;
     onSourceValueChanged: (arg0: ServiceSource) => void;
     onRemoteValueChanged: (arg0: Remote) => void;
+    onRuntimeValueChanged: (arg0: Runtime) => void;
 }
 
 export function CreateServicePage1({
@@ -46,9 +49,11 @@ export function CreateServicePage1({
     source,
     processing,
     errors,
+    runCmdPlaceholder,
     setField,
     onSourceValueChanged,
     onRemoteValueChanged,
+    onRuntimeValueChanged,
 }: Props) {
     return (
         <div className="grid items-start gap-6">
@@ -146,7 +151,7 @@ export function CreateServicePage1({
                 <Label htmlFor="runtime">
                     Runtime <span className="text-destructive">*</span>
                 </Label>
-                <Select value={runtime} onValueChange={(value: Runtime) => setField('runtime', value)}>
+                <Select value={runtime} onValueChange={onRuntimeValueChanged}>
                     <SelectTrigger id="runtime" disabled={processing}>
                         <SelectValue>
                             <div className="flex items-center gap-2">
@@ -175,15 +180,15 @@ export function CreateServicePage1({
                 {(runtimeError || errors.runtime) && <div className="text-sm text-destructive">{runtimeError || errors.runtime}</div>}
             </div>
 
-            {source === 'remote' && runtime !== 'static' && (
+            {source === 'remote' && (
                 <div className="grid gap-3">
                     <Label htmlFor="run_cmd">
-                        Run Command <span className="text-destructive">*</span>
+                        {runtime === 'static' ? 'Build Command' : 'Run Command'} {runtime !== 'static' && <span className="text-destructive">*</span>}
                     </Label>
                     <Input
                         id="run_cmd"
                         name="run_cmd"
-                        placeholder="npm run start"
+                        placeholder={runCmdPlaceholder}
                         value={runCmd!}
                         onChange={(e) => setField('runCmd', e.target.value)}
                         tabIndex={1}

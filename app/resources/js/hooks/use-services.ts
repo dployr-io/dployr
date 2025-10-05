@@ -1,4 +1,5 @@
-import type { Blueprint, BlueprintFormat, Project, Remote, Runtime, Service, ServiceSource } from '@/types';
+import { toJson, toYaml } from '@/lib/utils';
+import type { Blueprint, BlueprintFormat, Remote, Runtime, Service, ServiceSource } from '@/types';
 import { dnsProviders, runtimes } from '@/types/runtimes';
 import { router } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
@@ -32,6 +33,7 @@ interface ServiceFormState {
     portError: string;
     domainError: string;
     dnsProviderError: string;
+    runCmdPlaceholder?: string;
 }
 
 type ServiceFormAction =
@@ -70,6 +72,7 @@ const initialState: ServiceFormState = {
     portError: '',
     domainError: '',
     dnsProviderError: '',
+    runCmdPlaceholder: 'npm run start',
 };
 
 function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction): ServiceFormState {
@@ -326,57 +329,68 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         setField('remote', value);
     };
 
-    const blueprint = useMemo(() => {
-        const cleanConfig: any = {
+    const onRuntimeValueChanged = (value: Runtime) => {
+        setField('runtime', value);
+
+        switch (value) {
+            case 'node-js':
+                setField('runCmdPlaceholder', 'npm run start');
+                break;
+            case 'python':
+                setField('runCmdPlaceholder', 'python app.py');
+                break;
+            case 'ruby':
+                setField('runCmdPlaceholder', 'ruby app.rb');
+                break;
+            case 'php':
+                setField('runCmdPlaceholder', 'php -S localhost:8000 -t public');
+                break;
+            case 'go':
+                setField('runCmdPlaceholder', './app');
+                break;
+            case 'static':
+                setField('runCmdPlaceholder', 'npm run build');
+                setField('port', 80);
+                break;
+            default:
+                setField('runCmdPlaceholder', 'npm run start');
+        }
+    };
+
+    const config = useMemo(() => {
+        const cleanConfig: Partial<Service> = {
             name: state.name || 'my-dployr-app',
             source: state.source,
             runtime: state.runtime,
         };
 
-        if (state.workingDir) cleanConfig.workingDir = state.workingDir;
-        if (state.runCmd) cleanConfig.runCmd = state.runCmd;
+        if (state.workingDir) cleanConfig.working_dir = state.workingDir;
+        if (state.runCmd) cleanConfig.run_cmd = state.runCmd;
         if (state.port) cleanConfig.port = Number(state.port);
         if (state.domain) cleanConfig.domain = state.domain;
-        if (state.dnsProvider) cleanConfig.dnsProvider = state.dnsProvider;
-        if (state.remote) cleanConfig.remote = { id: state.remote.id };
+        if (state.dnsProvider) cleanConfig.dns_provider = state.dnsProvider;
+        if (state.remote) cleanConfig.remote = state.remote;
 
         return cleanConfig;
     }, [state.name, state.source, state.runtime, state.workingDir, state.runCmd, state.port, state.domain, state.dnsProvider, state.remote]);
 
     const yamlConfig = useMemo(() => {
-        const toYaml = (obj: any, indent = 0): string => {
-            const spaces = '  '.repeat(indent);
-            let yaml = '';
-
-            for (const [key, value] of Object.entries(obj)) {
-                if (value === null || value === undefined) continue;
-
-                yaml += `${spaces}${key}:`;
-
-                if (typeof value === 'object' && value !== null) {
-                    yaml += '\n' + toYaml(value, indent + 1);
-                } else if (typeof value === 'string') {
-                    yaml += ` "${value}"\n`;
-                } else {
-                    yaml += ` ${value}\n`;
-                }
-            }
-            return yaml;
-        };
-
-        return toYaml(blueprint);
-    }, [blueprint]);
+        return toYaml(config);
+    }, [config]);
 
     const jsonConfig = useMemo(() => {
-        return JSON.stringify(blueprint, null, 2);
-    }, [blueprint]);
+        return toJson(config);
+    }, [config]);
+
+    const currentBlueprint: Blueprint | null = localStorage.getItem('current_blueprint')
+        ? JSON.parse(localStorage.getItem('current_blueprint') as string)
+        : null;
 
     const handleBlueprintCopy = async () => {
         try {
+            if (!currentBlueprint) return;
             await navigator.clipboard.writeText(blueprintFormat === 'yaml' ? yamlConfig : jsonConfig);
-        } catch (err) {
-            console.error('Failed to copy to clipboard ', err);
-        }
+        } catch (err) {}
     };
 
     const deployments = useQuery<Blueprint[]>({
@@ -401,6 +415,29 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         staleTime: 5 * 60 * 1000,
     });
 
+    const getServices = (id: string) =>
+        useQuery<Service[]>({
+            queryKey: ['services'],
+            queryFn: () =>
+                new Promise((resolve, reject) => {
+                    router.get(
+                        `/projects/${id}`,
+                        {},
+                        {
+                            onSuccess: (page) => {
+                                const services = page.props.services as Service[];
+                                resolve(services || []);
+                            },
+                            onError: (errors) => {
+                                console.error('Failed to fetch services:', errors);
+                                resolve([]);
+                            },
+                        },
+                    );
+                }),
+            staleTime: 5 * 60 * 1000,
+        });
+
     return {
         currentPage: state.currentPage,
         name: state.name,
@@ -418,13 +455,15 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         dnsProvider: state.dnsProvider,
         envVars: state.envVars,
         secrets: state.secrets,
+        runCmdPlaceholder: state.runCmdPlaceholder,
 
-        // Deployments
+        // Page assets
         deployments,
+        getServices,
 
         // Blueprint helpers (Service page 3)
         blueprintFormat,
-        previewBlueprint: blueprint,
+        config,
         yamlConfig,
         jsonConfig,
         handleBlueprintCopy,
@@ -475,6 +514,7 @@ export function useServices(onCreateServiceCallback?: () => void | null) {
         getFormSubmissionData,
         onSourceValueChanged,
         onRemoteValueChanged,
+        onRuntimeValueChanged,
         nextPage,
         prevPage,
         validateSkip,

@@ -1,9 +1,10 @@
+import { StatusChip } from '@/components/status-chip';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useServices } from '@/hooks/use-services';
 import AppLayout from '@/layouts/app-layout';
 import { getRuntimeIcon } from '@/lib/runtime-icon';
-import { servicesList, projectsList } from '@/routes';
+import { projectsList, servicesList } from '@/routes';
 import type { BreadcrumbItem, Project, Service } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, CirclePlus, Settings } from 'lucide-react';
@@ -27,15 +28,16 @@ const ViewProjectBreadcrumbs = (project?: Project) => {
 export default function Services() {
     const { props } = usePage();
     const project = (props.project as Project) || null;
-    const services = (props.services as Service[]) || [];
-    
+    const { getServices } = useServices();
+    const services = getServices(project?.id).data as Service[];
+
     const breadcrumbs = ViewProjectBreadcrumbs(project);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
-    const totalPages = Math.ceil((services.length ?? 0) / itemsPerPage);
+    const totalPages = Math.ceil((services?.length ?? 0) / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    const paginatedServices = services.slice(startIndex, endIndex);
+    const paginatedServices = services?.slice(startIndex, endIndex);
 
     const goToPage = (page: number) => {
         setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -67,13 +69,7 @@ export default function Services() {
                                 Configure
                             </Button>
                             <Button className="flex items-center gap-2" asChild>
-                                <Link
-                                    href={
-                                        project && project.id
-                                            ? servicesList({ project: project.id }).url
-                                            : '#'
-                                    }
-                                >
+                                <Link href={project && project.id ? servicesList({ project: project.id }).url : '#'}>
                                     <CirclePlus className="h-4 w-4" />
                                     Deploy Service
                                 </Link>
@@ -92,49 +88,54 @@ export default function Services() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {paginatedServices.map((service) => (
-                                <TableRow key={service.id} className="h-16">
-                                    <TableCell className="h-16 align-middle font-medium">{service.name}</TableCell>
-                                    <TableCell className="h-16 align-middle">
-                                        <span
-                                            className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${(() => {
-                                                switch (service.status) {
-                                                    case 'completed':
-                                                        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-                                                    case 'pending':
-                                                        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
-                                                    case 'failed':
-                                                        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-                                                    case 'in_progress':
-                                                        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-                                                    default:
-                                                        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
-                                                }
-                                            })()}`}
-                                        >
-                                            {service.status.charAt(0).toUpperCase() + service.status.slice(1)}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell className="h-16 align-middle">
-                                        <div className="flex items-center gap-2">
-                                            {getRuntimeIcon(service.runtime)}
-                                            <span>{service.runtime}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="h-16 align-middle">{service.region}</TableCell>
-                                    <TableCell className="h-16 w-[200px] text-right align-middle">
-                                        {service.last_deployed instanceof Date ? service.last_deployed.toLocaleString() : service.last_deployed}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
+                            {paginatedServices && paginatedServices.length > 0
+                                ? paginatedServices.map((service) => (
+                                      <TableRow key={service.id} className="h-16">
+                                          <TableCell className="h-16 align-middle font-medium">{service.name}</TableCell>
+                                          <TableCell className="h-16 align-middle">
+                                              <StatusChip status={service.status} />
+                                          </TableCell>
+                                          <TableCell className="h-16 align-middle">
+                                              <div className="flex items-center gap-2">
+                                                  {getRuntimeIcon(service.runtime)}
+                                                  <span>{service.runtime}</span>
+                                              </div>
+                                          </TableCell>
+                                          <TableCell className="h-16 align-middle">{service.region}</TableCell>
+                                          <TableCell className="h-16 w-[200px] text-right align-middle">
+                                              {service.last_deployed instanceof Date ? service.last_deployed.toLocaleString() : service.last_deployed}
+                                          </TableCell>
+                                      </TableRow>
+                                  ))
+                                : Array.from({ length: 3 }).map((_, idx) => (
+                                      <TableRow key={`skeleton-${idx}`} className="h-16">
+                                          <TableCell className="h-16 max-w-[240px] overflow-hidden align-middle font-medium">
+                                              <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                                          </TableCell>
+                                          <TableCell className="h-16 align-middle">
+                                              <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+                                          </TableCell>
+                                          <TableCell className="h-16 align-middle">
+                                              <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+                                          </TableCell>
+                                          <TableCell className="h-16 max-w-[320px] overflow-hidden align-middle">
+                                              <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+                                          </TableCell>
+                                          <TableCell className="h-16 w-[200px] overflow-hidden text-right align-middle">
+                                              <div className="ml-auto h-4 w-24 animate-pulse rounded bg-muted" />
+                                          </TableCell>
+                                      </TableRow>
+                                  ))}
                         </TableBody>
                     </Table>
 
                     <div className="flex items-center justify-between px-2 py-4">
                         <div className="text-sm text-muted-foreground">
-                            {services.length === 0
+                            {(services ?? []).length === 0
                                 ? 'No services found'
-                                : `Showing ${startIndex + 1} to ${Math.min(endIndex, services.length)} of ${services.length} services`}{' '}
+                                : services!.length === 1
+                                  ? 'Showing 1 of 1 service'
+                                  : `Showing ${startIndex + 1} to ${Math.min(endIndex, services?.length)} of ${services?.length} services`}{' '}
                         </div>
                         <div className="flex items-center space-x-2">
                             <Button
