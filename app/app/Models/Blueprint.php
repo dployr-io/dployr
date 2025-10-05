@@ -17,7 +17,7 @@ class Blueprint extends Model
     protected $fillable = [
         'id',
         'config',
-        'status',
+        'status', // e.g., 'pending', 'completed', 'in_progress', 'failed'
     ];
 
     public function services() 

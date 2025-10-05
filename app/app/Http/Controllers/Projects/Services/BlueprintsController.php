@@ -19,6 +19,8 @@ class BlueprintsController extends Controller
                     'id' => $blueprint->id,
                     'config' => $blueprint->config,
                     'status' => $blueprint->status,
+                    'created_at' => $blueprint->created_at,
+                    'updated_at' => $blueprint->updated_at,
                 ],
             ),
         ]);
@@ -34,6 +36,8 @@ class BlueprintsController extends Controller
                 'id' => $blueprint->id,
                 'config' => $blueprint->config,
                 'status' => $blueprint->status,
+                'created_at' => $blueprint->created_at,
+                'updated_at' => $blueprint->updated_at,
             ],
         ]);
     }  

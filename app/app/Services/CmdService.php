@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\Process;
 use App\Jobs\ExecuteCmd;
 use App\DTOs\CmdResult;
+use Log;
 
 class CmdService
 {
@@ -50,6 +51,12 @@ class CmdService
         }
 
         $result = $process->run($command);
+
+        if ($result->successful()) {
+            Log::info("$command => " . $result->output());
+        } else {
+            Log::error("$command => " . $result->errorOutput());
+        }
 
         return new CmdResult(
             command: $command,

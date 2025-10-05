@@ -11,6 +11,7 @@ use App\Models\Project;
 use App\Models\Blueprint;
 use App\Enums\JobStatus;
 use App\Jobs\Services\ProcessBlueprint;
+use App\Services\CaddyService;
 
 class ServicesController extends Controller 
 {
@@ -51,6 +52,21 @@ class ServicesController extends Controller
                 'ci_remote_id' => $service->ci_remote_id,
             ],
         ]);
+    }
+
+    public function checkPort(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'port' => ['required', 'integer', 'min:1', 'max:65535'],
+        ]);
+
+        $port = $request->input('port');
+
+        if (CaddyService::checkPort($port)) {
+            return back()->withInput()->withErrors(['port' => __('Port ' . $port . ' is already in use. Choose another port.')]);
+        }
+
+        return back()->withInput();
     }
 
     /**
@@ -96,12 +112,12 @@ class ServicesController extends Controller
             'dns_provider' => $request->input('dns_provider'),
         ], fn($value) => $value !== null);
 
-        Blueprint::create([
+        $blueprint = Blueprint::create([
             'status' => JobStatus::PENDING,
             'config' => json_encode($config),
         ]);
 
-        ProcessBlueprint::dispatch($config);
+        ProcessBlueprint::dispatch($blueprint);
 
         return back()->with('info', __('Creating service '.$request->name.' in progress.'));
     }      

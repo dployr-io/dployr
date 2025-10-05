@@ -27,6 +27,7 @@ return new class extends Migration
             $table->foreignUlid('project_id')->nullable()->constrained('projects')->nullOnDelete();
             $table->foreignUlid('remote_id')->nullable()->constrained('remotes')->nullOnDelete();
             $table->foreignUlid('ci_remote_id')->nullable()->constrained('remotes')->nullOnDelete();
+            $table->timestamps();
         });
     }
 
