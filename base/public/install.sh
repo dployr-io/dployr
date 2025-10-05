@@ -335,7 +335,7 @@ After=network.target php8.3-fpm.service
 Type=simple
 ExecStart=/usr/bin/php /home/dployr/artisan queue:work --sleep=3 --tries=3 --max-time=3600
 Restart=on-failure
-User=dployr
+User=root
 Group=www-data
 WorkingDirectory=/home/dployr
 StandardOutput=append:/var/log/dployr.log
