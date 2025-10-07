@@ -77,7 +77,14 @@ create_dployr_user() {
     fi
     
     cat > /etc/sudoers.d/dployr << EOF
-dployr ALL=(ALL) NOPASSWD: /bin/systemctl start dployr, /bin/systemctl stop dployr, /bin/systemctl restart dployr, /bin/systemctl reload nginx, /bin/systemctl restart nginx
+dployr ALL=(ALL) NOPASSWD: /bin/systemctl start dployr
+dployr ALL=(ALL) NOPASSWD: /bin/systemctl stop dployr
+dployr ALL=(ALL) NOPASSWD: /bin/systemctl restart dployr
+dployr ALL=(ALL) NOPASSWD: /bin/systemctl restart caddy
+dployr ALL=(ALL) NOPASSWD: /bin/systemctl reload caddy
+dployr ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/caddy/Caddyfile
+dployr ALL=(ALL) NOPASSWD: /bin/chown caddy\:caddy *
+dployr ALL=(ALL) NOPASSWD: /bin/chmod * *
 EOF
     
     chmod 440 /etc/sudoers.d/dployr
@@ -391,7 +398,12 @@ EOF
         return 1
     fi
 
-    if ! chmod 644 /etc/caddy/Caddyfile; then
+    if ! usermod -aG caddy dployr; then
+        handle_error "Permission error" "Failed to add dployr to caddy group"
+        return 1
+    fi
+
+    if ! chmod 664 /etc/caddy/Caddyfile; then
         handle_error "Permission error" "Failed to set Caddyfile permissions"
         return 1
     fi
