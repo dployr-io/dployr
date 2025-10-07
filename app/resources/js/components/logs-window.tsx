@@ -2,32 +2,27 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Log, LogLevel } from '@/types';
+import type { Log, LogLevel } from '@/types';
+import { logLevels } from '@/types/runtimes';
 import { ChevronDown } from 'lucide-react';
 
 interface Props {
     logs: Log[];
     filteredLogs: Log[];
-    selectedLevel: 'all' | LogLevel;
-    setSelectedLevel: (level: 'all' | LogLevel) => void;
+    selectedLevel: 'ALL' | LogLevel;
+    setSelectedLevel: (level: 'ALL' | LogLevel) => void;
     searchQuery: string;
     setSearchQuery: (query: string) => void;
     logsEndRef: React.RefObject<HTMLDivElement | null>;
 }
 
-const logLevels: Record<LogLevel, string> = {
-    info: 'Info',
-    warning: 'Warning',
-    error: 'Error',
-};
-
 const LogEntry = ({ log }: { log: Log }) => {
     return (
         <div className="flex items-start gap-3 border-b p-3">
-            <div className="flex items-center gap-2">
+            <div className="flex gap-2">
                 {log.datetime && (
                     <span
-                        className={`text-xs ${(() => {
+                        className={`text-xs min-w-16 whitespace-nowrap ${(() => {
                             switch (log.level_name) {
                                 case 'INFO':
                                     return 'text-muted-foreground';
@@ -38,6 +33,8 @@ const LogEntry = ({ log }: { log: Log }) => {
                                 case 'ALERT':
                                 case 'EMERGENCY':
                                     return 'text-red-500';
+                                default:
+                                    return 'text-muted-foreground';
                             }
                         })()}`}
                     >
@@ -45,7 +42,7 @@ const LogEntry = ({ log }: { log: Log }) => {
                     </span>
                 )}
                 <span
-                    className={`text-sm ${(() => {
+                    className={`text-xs ${(() => {
                         switch (log.level_name) {
                             case 'INFO':
                                 return 'text-muted-foreground';
@@ -56,6 +53,8 @@ const LogEntry = ({ log }: { log: Log }) => {
                             case 'ALERT':
                             case 'EMERGENCY':
                                 return 'text-red-500';
+                            default:
+                                return 'text-muted-foreground';
                         }
                     })()}`}
                 >
@@ -78,18 +77,23 @@ export function LogsWindow({ logs, filteredLogs, selectedLevel, setSelectedLevel
                             variant={'outline'}
                             className="group min-w-40 text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent"
                         >
-                            {selectedLevel === 'all' ? 'All logs' : logLevels[selectedLevel]}
+                            {selectedLevel === 'ALL'
+                                ? 'All logs'
+                                : (logLevels[selectedLevel]
+                                    ? logLevels[selectedLevel].charAt(0).toUpperCase() + logLevels[selectedLevel].slice(1).toLowerCase()
+                                    : selectedLevel.charAt(0).toUpperCase() + selectedLevel.slice(1).toLowerCase())
+                            }
                             <ChevronDown className="ml-auto size-4 transition-transform group-data-[state=open]:rotate-180" />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-40 rounded-lg" align="start">
-                        <DropdownMenuItem onClick={() => setSelectedLevel('info')}>Info</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSelectedLevel('INFO')}>Info</DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setSelectedLevel('warning')}>Warning</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSelectedLevel('WARNING')}>Warning</DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setSelectedLevel('error')}>Error</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSelectedLevel('ERROR')}>Error</DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setSelectedLevel('all')}>All logs</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSelectedLevel('ALL')}>All logs</DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
 

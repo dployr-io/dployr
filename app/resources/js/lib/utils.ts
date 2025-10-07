@@ -1,6 +1,7 @@
 import { Log, LogLevel } from '@/types';
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Merge Tailwind and custom class names.
@@ -70,7 +71,7 @@ export function toJson(obj: Record<string, any>): string {
  * defaults to INFO level_name.
  */
 export function parseLog(raw: string): Log {
-    const id = crypto.randomUUID();
+    const id = uuidv4();
     if (!raw) return { id, message: '', level_name: 'INFO' };
 
     try {

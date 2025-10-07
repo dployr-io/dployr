@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 export function useLogs(filterItem?: Blueprint | Service | null) {
     const [logs, setLogs] = useState<Log[]>([]);
     const [filteredLogs, setFilteredLogs] = useState<Log[]>([]);
-    const [selectedLevel, setSelectedLevel] = useState<'all' | LogLevel>('all');
+    const [selectedLevel, setSelectedLevel] = useState<'ALL' | LogLevel>('ALL');
     const [searchQuery, setSearchQuery] = useState('');
     const logsEndRef = useRef<HTMLDivElement | null>(null);
     const hasSeenValidLog = useRef(false);
@@ -34,9 +34,10 @@ export function useLogs(filterItem?: Blueprint | Service | null) {
                     const status = filterItem.status;
 
                     if (status === 'completed' || status === 'failed') {
-                        const updatedTime = new Date(filterItem.updated_at).getTime();
+                        const logTimeInSecs = Math.floor(new Date(logTime).getTime() / 1000);
+                        const updatedTimeInSecs = Math.floor(new Date(filterItem.updated_at).getTime() / 1000);
 
-                        if (logTime > updatedTime) {
+                        if (logTimeInSecs > updatedTimeInSecs) {
                             return;
                         }
                     }
@@ -71,8 +72,8 @@ export function useLogs(filterItem?: Blueprint | Service | null) {
     useEffect(() => {
         let filtered = logs;
 
-        if (selectedLevel !== 'all') {
-            filtered = filtered.filter((log) => log.level === selectedLevel);
+        if (selectedLevel !== 'ALL') {
+            filtered = filtered.filter((log) => log.level_name === selectedLevel);
         }
 
         if (searchQuery) {

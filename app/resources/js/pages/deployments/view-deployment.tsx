@@ -6,7 +6,7 @@ import { useServices } from '@/hooks/use-services';
 import AppLayout from '@/layouts/app-layout';
 import { toJson, toYaml } from '@/lib/utils';
 import { deploymentsList, deploymentsShow } from '@/routes';
-import type { Blueprint, BreadcrumbItem, Log } from '@/types';
+import type { Blueprint, BreadcrumbItem } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 
 const ViewProjectBreadcrumbs = (blueprint?: Blueprint) => {
@@ -32,15 +32,7 @@ export default function ViewDeployment() {
     const config = JSON.parse(blueprint.config as string);
     const breadcrumbs = ViewProjectBreadcrumbs(blueprint);
 
-    const { 
-        logs, 
-        filteredLogs, 
-        selectedLevel, 
-        searchQuery, 
-        logsEndRef, 
-        setSelectedLevel, 
-        setSearchQuery,
-    } = useLogs(blueprint);
+    const { logs, filteredLogs, selectedLevel, searchQuery, logsEndRef, setSelectedLevel, setSearchQuery } = useLogs(blueprint);
 
     const { blueprintFormat, setBlueprintFormat } = useServices();
 
@@ -56,38 +48,40 @@ export default function ViewDeployment() {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Projects" />
-            <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-                <div className="flex w-full flex-col gap-6 px-9 py-6">
+            <div className="flex h-full min-h-0 flex-col gap-4 rounded-xl p-4">
+                <div className="flex min-h-0 flex-1 auto-rows-min flex-col gap-6  px-9 py-6">
                     <div className="flex flex-col gap-1">
                         <p className="text-xl font-semibold">{config?.name || 'Deployment'}</p>
                     </div>
-                    <Tabs defaultValue="logs">
-                        <TabsList>
-                            <TabsTrigger value="logs">Logs</TabsTrigger>
-                            <TabsTrigger value="blueprint">Blueprint</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="logs">
-                            <LogsWindow
-                                logs={logs}
-                                filteredLogs={filteredLogs}
-                                selectedLevel={selectedLevel}
-                                searchQuery={searchQuery}
-                                logsEndRef={logsEndRef}
-                                setSelectedLevel={setSelectedLevel}
-                                setSearchQuery={setSearchQuery}
-                            />
-                        </TabsContent>
-                        <TabsContent value="blueprint">
-                            <BlueprintSection
-                                name={config.name}
-                                blueprintFormat={blueprintFormat}
-                                yamlConfig={yamlConfig}
-                                jsonConfig={jsonConfig}
-                                setBlueprintFormat={setBlueprintFormat}
-                                handleBlueprintCopy={handleBlueprintCopy}
-                            />
-                        </TabsContent>
-                    </Tabs>
+                    <div className="flex flex-1 min-h-0">
+                        <Tabs defaultValue="logs" className="flex flex-col w-full min-h-0">
+                            <TabsList className='self-start'>
+                                <TabsTrigger value="logs">Logs</TabsTrigger>
+                                <TabsTrigger value="blueprint">Blueprint</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="logs" className='flex min-h-0 flex-1 flex-col'>
+                                <LogsWindow
+                                    logs={logs}
+                                    filteredLogs={filteredLogs}
+                                    selectedLevel={selectedLevel}
+                                    searchQuery={searchQuery}
+                                    logsEndRef={logsEndRef}
+                                    setSelectedLevel={setSelectedLevel}
+                                    setSearchQuery={setSearchQuery}
+                                />
+                            </TabsContent>
+                            <TabsContent value="blueprint">
+                                <BlueprintSection
+                                    name={config.name}
+                                    blueprintFormat={blueprintFormat}
+                                    yamlConfig={yamlConfig}
+                                    jsonConfig={jsonConfig}
+                                    setBlueprintFormat={setBlueprintFormat}
+                                    handleBlueprintCopy={handleBlueprintCopy}
+                                />
+                            </TabsContent>
+                        </Tabs>
+                    </div>
                 </div>
             </div>
         </AppLayout>
