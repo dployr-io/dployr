@@ -82,7 +82,10 @@ dployr ALL=(ALL) NOPASSWD: /bin/systemctl stop dployr
 dployr ALL=(ALL) NOPASSWD: /bin/systemctl restart dployr
 dployr ALL=(ALL) NOPASSWD: /bin/systemctl restart caddy
 dployr ALL=(ALL) NOPASSWD: /bin/systemctl reload caddy
+dployr ALL=(ALL) NOPASSWD: /bin/systemctl restart php8.3-fpm
+dployr ALL=(ALL) NOPASSWD: /bin/systemctl reload php8.3-fpm
 dployr ALL=(ALL) NOPASSWD: /usr/bin/tee /etc/caddy/Caddyfile
+dployr ALL=(ALL) NOPASSWD: /usr/bin/caddy validate --config /etc/caddy/Caddyfile
 dployr ALL=(ALL) NOPASSWD: /bin/chown caddy\:caddy *
 dployr ALL=(ALL) NOPASSWD: /bin/chmod * *
 EOF
@@ -342,7 +345,7 @@ After=network.target php8.3-fpm.service
 Type=simple
 ExecStart=/usr/bin/php /home/dployr/artisan queue:work --sleep=3 --tries=3 --max-time=3600
 Restart=on-failure
-User=root
+User=dployr
 Group=www-data
 WorkingDirectory=/home/dployr
 StandardOutput=append:/var/log/dployr.log
@@ -364,6 +367,8 @@ setup_caddy() {
     
     APP_FOLDER="/home/dployr"
 
+#TODO: Add admin email for certbot auto-renewal email 
+# e.g email: dployr@yourdomain.com
     cat > /etc/caddy/Caddyfile << EOF
 {
     auto_https disable_redirects
@@ -390,20 +395,45 @@ setup_caddy() {
         X-XSS-Protection "1; mode=block"
     }
 }
+
+import sites-enabled/*.conf
 EOF
 
     log_info "Setting up permissions..."
-    if ! chown caddy:caddy /etc/caddy/Caddyfile; then
+    if ! chown root:root /etc/caddy/Caddyfile; then
         handle_error "Permission error" "Failed to set Caddyfile ownership"
         return 1
     fi
 
-    if ! usermod -aG caddy dployr; then
+     if ! usermod -aG caddy dployr; then
         handle_error "Permission error" "Failed to add dployr to caddy group"
         return 1
     fi
 
-    if ! chmod 664 /etc/caddy/Caddyfile; then
+    if ! mkdir -p /etc/caddy/sites-enabled; then 
+        handle_error "Permission error" "Failed to create sites-enabled folder"
+        return 1
+    fi
+
+    if ! chown -R caddy:caddy /etc/caddy/sites-enabled; then
+        handle_error "Permission error" "Failed to set Caddyfile ownership"
+        return 1
+    fi
+
+    # NOTE: Ensure you don't assume that you can merge the next two commands below
+    # The recursive method will lead to open permissions
+    # for the caddy folder - you don't want that
+    if ! chmod 755 /etc/caddy; then 
+        handle_error "Permission error" "Failed to set permissions for caddy sites-enabled configurations"
+        return 1
+    fi
+
+    if ! chmod -R 755 /etc/caddy/sites-enabled; then 
+        handle_error "Permission error" "Failed to set permissions for caddy sites-enabled configurations"
+        return 1
+    fi
+
+    if ! chmod 644 /etc/caddy/Caddyfile; then
         handle_error "Permission error" "Failed to set Caddyfile permissions"
         return 1
     fi
