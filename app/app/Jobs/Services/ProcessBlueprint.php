@@ -56,9 +56,18 @@ class ProcessBlueprint implements ShouldQueue
             }
             EOF;
 
-            CaddyService::append($newBlock);
+            CaddyService::newConfig($serviceName, $newBlock);
 
-            CmdService::execute($runCmd, ['working_directory' => $path]);
+            if ($runCmd !== null) 
+            {
+                $cmd = CmdService::execute($runCmd, ['working_directory' => $path]);
+                $result = $cmd->successful;
+
+                if (!$result)
+                {
+                    throw new \RuntimeException("Run command failed: {$runCmd}");
+                }
+            }
 
             CaddyService::restart();
             

@@ -21,22 +21,64 @@ class CaddyService
         return trim($result);
     }
 
-    public static function append(string $block): bool
+    public static function newConfig(string $serviceName, string $block)
     {
-        $caddyfile = self::config();
-        $newContent = $caddyfile . "\n\n" . trim(str_replace(["\r\n", "\r"], "\n", $block));
+        $baseConfig = '/etc/caddy/Caddyfile';
+        $sitesDir = '/etc/caddy/sites-enabled';
+        $filePath = "$sitesDir/{$serviceName}.conf";
+
+        if (!is_dir($sitesDir)) {
+            mkdir($sitesDir, 0750, true);
+        }
+
+        $block = trim(str_replace(["\r\n", "\r"], "\n", $block));
+
+        // Write to a temporary file
         $tmp = tempnam(sys_get_temp_dir(), 'caddy');
-        file_put_contents($tmp, $newContent);
-        CmdService::execute("chown caddy:caddy $tmp");
-        CmdService::execute("chmod 644 $tmp");
-        $result = rename($tmp, '/etc/caddy/Caddyfile');
+        file_put_contents($tmp, $block);
+
+        // Set ownership and permissions
+        $result = CmdService::execute("chown caddy:caddy $tmp");
+
+        if (!$result->successful)
+        {
+            unlink($tmp);
+            throw new \RuntimeException("Failed to modify ownership for temporary config file {$tmp}, while deploying service {$serviceName}", 1);
+        }
+
+        $result = CmdService::execute("chmod 644 $tmp");
+
+        if (!$result->successful)
+        {
+            unlink($tmp);
+            throw new \RuntimeException("Failed to modify permissions for temporary config file {$tmp}, while deploying service {$serviceName}", 1);
+        }
         
+        $result = rename($tmp, $filePath);
+
         if (!$result) {
             unlink($tmp);
-            throw new \RuntimeException("Failed to update Caddyfile", 1);
+            throw new \RuntimeException("Failed to create site config for {$serviceName}", 1);
         }
-        return $result;
+
+        $result = CmdService::execute("caddy validate --config {$baseConfig}");
+
+        if (!$result->successful) 
+        {
+            unlink($tmp);
+      
+                \Log::warning("Rolling back config. No changes was made.");
+                $_result = rename($filePath, unlink($tmp));
+
+                if (!$_result)
+                {
+                    throw new \RuntimeException("Failed to rollback to a known working configration. Access may break!");
+                }
+     
+            throw new \RuntimeException("Failed to update caddy config for {$serviceName}. {$result->errorOutput}", 1);
+        }
     }
+
 
     public static function checkPort(int $port): bool
     {
