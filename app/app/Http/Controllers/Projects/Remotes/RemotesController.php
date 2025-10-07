@@ -16,8 +16,7 @@ class RemotesController extends Controller
      * Show all remotes page.
      */
     public function index()
-    {
-        
+    { 
         return Inertia::render('resources/remotes', [
             'remotes' => Remote::all()->map( function($remote) { 
                 

@@ -88,6 +88,8 @@ export interface Service {
     region: string;
     source: ServiceSource;
     last_deployed: Date;
+    created_at: Date;
+    updated_at: Date;
 }
 
 export interface Blueprint {
@@ -104,9 +106,16 @@ export type DnsProvider = (typeof dnsProviders)[number];
 
 export type BlueprintFormat = 'yaml' | 'json';
 
+export type LogChannel = 'production' | 'local';
+
+export type LogLevel = (typeof logLevels)[number];
+
 export interface Log {
     id: string;
     message: string;
-    level?: 'info' | 'warning' | 'error';
-    timestamp?: string;
+    level?: Number | null;
+    level_name?: LogLevel | null;
+    datetime?: Date | null;
+    channe?: LogChannel;
+    context?: Record<string, any> | null;
 }

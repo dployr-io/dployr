@@ -1,40 +1,25 @@
 <?php
 
-namespace App\Http\Controllers\Projects\Services;
+namespace App\Http\Controllers\Logs;
 
+use App\Http\Controllers\Controller;
+use App\Services\LogStreamService;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class LogsController 
+class LogsController extends Controller
 {
     /**
      * Stream logs from a deployment
      */
-    public function logs(): StreamedResponse
+    public function stream(): StreamedResponse
     {
-        return new StreamedResponse(function () {
-            $logFile = '/home/dployr/storage/logs/laravel.log';
-            $lines = array_slice(file($logFile), -100);
-            $handle = popen("tail -f -n 0 $logFile", 'r');
-
-            foreach ($lines as $line) {
-                echo json_encode(['message' => trim($line)]) . "\n\n";
-                ob_flush();
-                flush();
-            }
-            while (!feof($handle)) {
-                $line = fgets($handle);
-                if ($line) {
-                    echo json_encode(['message' => trim($line)]) . "\n\n";
-                    ob_flush();
-                    flush();
-                }
-            }
-            pclose($handle);
-        }, 200, [
+        return new StreamedResponse(
+        fn() => LogStreamService::stream('logs/laravel.log'), 
+        200, 
+        [
             'Content-Type' => 'text/event-stream',
             'Cache-Control' => 'no-cache',
             'X-Accel-Buffering' => 'no',
         ]);
     }
 }
-?>

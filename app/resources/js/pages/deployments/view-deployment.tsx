@@ -1,5 +1,5 @@
 import { Blueprint as BlueprintSection } from '@/components/blueprint';
-import { Separator } from '@/components/ui/separator';
+import { LogsWindow } from '@/components/logs-window';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLogs } from '@/hooks/use-logs';
 import { useServices } from '@/hooks/use-services';
@@ -8,8 +8,6 @@ import { toJson, toYaml } from '@/lib/utils';
 import { deploymentsList, deploymentsShow } from '@/routes';
 import type { Blueprint, BreadcrumbItem, Log } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
-import { Loader2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
 
 const ViewProjectBreadcrumbs = (blueprint?: Blueprint) => {
     const config = JSON.parse(blueprint!.config as string);
@@ -28,21 +26,21 @@ const ViewProjectBreadcrumbs = (blueprint?: Blueprint) => {
     return breadcrumbs;
 };
 
-function LogEntry({ log }: { log: Log }) {
-    return (
-        <div className="border-b border-accent px-4 py-2 last:border-0">
-            <p className="text-sm text-muted-foreground">{log.message}</p>
-        </div>
-    );
-}
-
 export default function ViewDeployment() {
     const { props } = usePage();
     const blueprint = (props.blueprint as Blueprint) || null;
     const config = JSON.parse(blueprint.config as string);
     const breadcrumbs = ViewProjectBreadcrumbs(blueprint);
 
-    const { logs, logsEndRef } = useLogs();
+    const { 
+        logs, 
+        filteredLogs, 
+        selectedLevel, 
+        searchQuery, 
+        logsEndRef, 
+        setSelectedLevel, 
+        setSearchQuery,
+    } = useLogs(blueprint);
 
     const { blueprintFormat, setBlueprintFormat } = useServices();
 
@@ -69,28 +67,15 @@ export default function ViewDeployment() {
                             <TabsTrigger value="blueprint">Blueprint</TabsTrigger>
                         </TabsList>
                         <TabsContent value="logs">
-                            <div className="mt-8 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-sidebar-border">
-                                <div className="flex flex-shrink-0 gap-2 bg-neutral-50 p-2 dark:bg-neutral-900">
-                                    <p className="text-xs font-medium text-muted-foreground">Startup Logs</p>
-                                </div>
-                                <Separator />
-                                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                                    <div className="min-h-0 flex-1 overflow-y-auto">
-                                        {logs?.length === 0 ? (
-                                            <div className="flex h-120 items-center justify-center gap-1">
-                                                <Loader2 width={12} height={12} className="animate-spin" />
-                                                <p className="text-sm text-muted-foreground">Retrieving logs</p>
-                                            </div>
-                                        ) : (
-                                            logs?.map((log: Log) => <LogEntry key={log.id} log={log} />)
-                                        )}
-                                        <div ref={logsEndRef} />
-                                    </div>
-                                    <div className="border-t border-accent bg-neutral-50 p-2 text-center text-xs text-muted-foreground dark:bg-neutral-800">
-                                        {logs.length > 0 ? `Showing ${logs.length} of ${logs.length} log entries` : 'No logs yet'}
-                                    </div>
-                                </div>
-                            </div>
+                            <LogsWindow
+                                logs={logs}
+                                filteredLogs={filteredLogs}
+                                selectedLevel={selectedLevel}
+                                searchQuery={searchQuery}
+                                logsEndRef={logsEndRef}
+                                setSelectedLevel={setSelectedLevel}
+                                setSearchQuery={setSearchQuery}
+                            />
                         </TabsContent>
                         <TabsContent value="blueprint">
                             <BlueprintSection

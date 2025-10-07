@@ -1,3 +1,4 @@
+import { Log, LogLevel } from '@/types';
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -31,7 +32,7 @@ export function toYaml(obj: Record<string, any>): string {
         }
         return value;
     });
-    
+
     const yamlLines: string[] = [];
     function processObject(o: Record<string, any>, indent: number) {
         for (const key in o) {
@@ -60,6 +61,33 @@ export function toJson(obj: Record<string, any>): string {
         }
         return value;
     });
-    
+
     return JSON.stringify(parsed, null, 2);
+}
+
+/** Parse a log line into a Log object.
+ * e.g.: [2025-10-07 02:14:06] local.ERROR: Something went wrong {"context":"value"}
+ * defaults to INFO level_name.
+ */
+export function parseLog(raw: string): Log {
+    const id = crypto.randomUUID();
+    if (!raw) return { id, message: '', level_name: 'INFO' };
+
+    try {
+        const logData = JSON.parse(JSON.parse(raw).message);
+
+        if (logData.level_name && logData.message) {
+            return {
+                id,
+                message: logData.message,
+                level: parseInt(logData.level),
+                level_name: logData.level_name.toUpperCase() as LogLevel,
+                datetime: logData.datetime ? new Date(logData.datetime) : undefined,
+                context: logData.context,
+            };
+        }
+        
+    } catch {}
+
+    return { id, message: raw, level_name: 'INFO' };
 }

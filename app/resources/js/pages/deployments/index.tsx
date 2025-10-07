@@ -90,14 +90,14 @@ export default function Deployments() {
                                 </EmptyMedia>
                                 <EmptyTitle>No Deployments Yet</EmptyTitle>
                                 <EmptyDescription>
-                                    You haven&apos;t created any deployments yet. Get started by creating your first service.
+                                    You don&apos;t have any deployments yet. Get started by deploying your first service.
                                 </EmptyDescription>
                             </EmptyHeader>
                             <EmptyContent>
                                 <div className="flex gap-2">
                                     <Button>
                                         <Link href={defaultProject && defaultProject.id ? servicesList({ project: defaultProject.id }).url : '#'}>
-                                            Create Service
+                                            Deploy Service
                                         </Link>
                                     </Button>
                                     <Button variant="link" asChild className="text-muted-foreground" size="sm">

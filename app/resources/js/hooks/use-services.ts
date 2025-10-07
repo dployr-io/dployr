@@ -1,5 +1,5 @@
 import { toJson, toYaml } from '@/lib/utils';
-import type { Blueprint, BlueprintFormat, Remote, Runtime, Service, ServiceSource } from '@/types';
+import type { Blueprint, BlueprintFormat, DnsProvider, Remote, Runtime, Service, ServiceSource } from '@/types';
 import { dnsProviders, runtimes } from '@/types/runtimes';
 import { router } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
@@ -20,7 +20,7 @@ interface ServiceFormState {
     source: ServiceSource;
     port?: number | null;
     domain: string;
-    dnsProvider: string;
+    dnsProvider?: DnsProvider | null;
     envVars: string;
     secrets: string;
     // Error states
@@ -60,7 +60,7 @@ const initialState: ServiceFormState = {
     source: 'remote',
     port: null,
     domain: '',
-    dnsProvider: '',
+    dnsProvider: null,
     envVars: '',
     secrets: '',
     nameError: '',

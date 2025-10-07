@@ -53,9 +53,19 @@ class CmdService
         $result = $process->run($command);
 
         if ($result->successful()) {
-            Log::info("$command => " . $result->output());
+            $output = $result->output();
+            $message = $command;
+            if ($output !== null && $output !== '') {
+                $message .= ' => ' . $output;
+            }
+            Log::info($message);
         } else {
-            Log::error("$command => " . $result->errorOutput());
+            $errorOutput = $result->errorOutput();
+            $message = $command;
+            if ($errorOutput !== null && $errorOutput !== '') {
+                $message .= ' => ' . $errorOutput;
+            }
+            Log::error($message);
         }
 
         return new CmdResult(
