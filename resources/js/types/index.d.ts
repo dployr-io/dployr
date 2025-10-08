@@ -1,6 +1,6 @@
 import { InertiaLinkProps } from '@inertiajs/react';
 import { LucideIcon } from 'lucide-react';
-import { Runtime } from './';
+import { Runtime } from '.';
 import { dnsProviders } from './runtimes';
 
 
