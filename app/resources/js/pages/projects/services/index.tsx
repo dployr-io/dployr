@@ -5,8 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useServices } from '@/hooks/use-services';
 import AppLayout from '@/layouts/app-layout';
 import { getRuntimeIcon } from '@/lib/runtime-icon';
-import { projectsIndex, servicesList } from '@/routes';
-import type { BreadcrumbItem, Project, Service } from '@/types';
+import { projectsIndex, servicesIndex } from '@/routes';
+import type { BreadcrumbItem, Project } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { ArrowUpRightIcon, ChevronLeft, ChevronRight, CirclePlus, Hexagon, Settings } from 'lucide-react';
 import { useState } from 'react';
@@ -30,12 +30,12 @@ export default function Services() {
     const { props } = usePage();
     const project = (props.project as Project) || null;
     const { getServices } = useServices();
-    const services = getServices(project?.id).data as Service[];
+    const { data: services, isLoading } = getServices(project?.id || undefined);
 
     const breadcrumbs = ViewProjectBreadcrumbs(project);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
-    const totalPages = Math.ceil((services?.length ?? 0) / itemsPerPage);
+    const totalPages = Math.max(1, Math.ceil((services?.length ?? 0) / itemsPerPage));
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const paginatedServices = services?.slice(startIndex, endIndex);
@@ -70,7 +70,7 @@ export default function Services() {
                                 Configure
                             </Button>
                             <Button className="flex items-center gap-2" asChild>
-                                <Link href={project && project.id ? servicesList({ project: project.id }).url : '#'}>
+                                <Link href={project && project.id ? servicesIndex({ project: project.id }).url : '#'}>
                                     <CirclePlus className="h-4 w-4" />
                                     Deploy Service
                                 </Link>
@@ -79,7 +79,7 @@ export default function Services() {
                     </div>
 
                     {paginatedServices && paginatedServices.length === 0 ? (
-                        <div className="flex flex-1 items-center justify-center min-h-[400px]">
+                        <div className="flex min-h-[400px] flex-1 items-center justify-center">
                             <Empty>
                                 <EmptyHeader>
                                     <EmptyMedia variant="icon">
@@ -91,9 +91,11 @@ export default function Services() {
                                     </EmptyDescription>
                                 </EmptyHeader>
                                 <EmptyContent>
-                                    <div className="flex gap-2 justify-center">
+                                    <div className="flex justify-center gap-2">
                                         <Button>
-                                            <Link href={project && project.id ? servicesList({ project: project.id }).url : '#'}>Deploy Service</Link>
+                                            <Link href={project && project.id ? servicesIndex({ project: project.id }).url : '#'}>
+                                                Deploy Service
+                                            </Link>
                                         </Button>
                                         <Button variant="link" asChild className="text-muted-foreground" size="sm">
                                             <Link href="#">
@@ -117,8 +119,8 @@ export default function Services() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {paginatedServices && paginatedServices.length > 0
-                                        ? paginatedServices.map((service) => (
+                                    {!isLoading 
+                                        ? paginatedServices!.map((service) => (
                                               <TableRow key={service.id} className="h-16">
                                                   <TableCell className="h-16 align-middle font-medium">{service.name}</TableCell>
                                                   <TableCell className="h-16 align-middle">
@@ -166,7 +168,7 @@ export default function Services() {
                                         ? 'No services found'
                                         : services!.length === 1
                                           ? 'Showing 1 of 1 service'
-                                          : `Showing ${startIndex + 1} to ${Math.min(endIndex, services?.length)} of ${services?.length} services`}{' '}
+                                          : `Showing ${startIndex + 1} to ${Math.min(endIndex, services?.length ?? 0)} of ${services?.length ?? 0} services`}{' '}
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <Button

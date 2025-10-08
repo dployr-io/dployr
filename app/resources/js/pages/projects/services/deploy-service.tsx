@@ -16,7 +16,7 @@ import { useFlashToast } from '@/hooks/use-flash-toast';
 import { useRemotes } from '@/hooks/use-remotes';
 import { useServiceForm } from '@/hooks/use-service-form';
 import AppLayout from '@/layouts/app-layout';
-import { deploymentsList, projectsIndex, projectsShow } from '@/routes';
+import { deploymentsIndex, projectsIndex, projectsShow } from '@/routes';
 import type { BreadcrumbItem, DnsProvider, Project } from '@/types';
 import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -55,7 +55,7 @@ export default function DeployService() {
 
     const onCreatedSuccess = () => {
         queryClient.invalidateQueries({ queryKey: ['services'] });
-        router.visit(deploymentsList().url);
+        router.visit(deploymentsIndex().url);
     };
 
     const {

@@ -9,7 +9,7 @@ import { useRemotes } from '@/hooks/use-remotes';
 
 import AppLayout from '@/layouts/app-layout';
 import { getRuntimeIcon } from '@/lib/runtime-icon';
-import { deploymentsIndex, deploymentsShow, servicesList } from '@/routes';
+import { deploymentsIndex, deploymentsShow, servicesIndex } from '@/routes';
 import type { BreadcrumbItem, Service } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowUpRightIcon, ChevronLeft, ChevronRight, Factory } from 'lucide-react';
@@ -97,7 +97,7 @@ export default function Deployments() {
                             <EmptyContent>
                                 <div className="flex gap-2">
                                     <Button>
-                                        <Link href={defaultProject && defaultProject.id ? servicesList({ project: defaultProject.id }).url : '#'}>
+                                        <Link href={defaultProject && defaultProject.id ? servicesIndex({ project: defaultProject.id }).url : '#'}>
                                             Deploy Service
                                         </Link>
                                     </Button>
