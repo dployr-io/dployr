@@ -2,27 +2,50 @@ import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { logs, console, projectsList } from '@/routes';
+import { console, deploymentsIndex, logs, projectsIndex, remotesIndex } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, Logs, SquareChevronRight } from 'lucide-react';
+import { BookOpen, Container, Factory, FileSliders, Folder, FolderGit2, LayoutGrid, Logs, SquareChevronRight } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
     {
         title: 'Projects',
-        href: projectsList(),
+        href: projectsIndex(),
         icon: LayoutGrid,
+    },
+    {
+        title: 'Deployments',
+        href: deploymentsIndex(),
+        icon: Factory,
     },
     {
         title: 'Logs',
         href: logs(),
         icon: Logs,
     },
-     {
+    {
         title: 'Console',
         href: console(),
         icon: SquareChevronRight,
+    },
+];
+
+const secondaryNavItems: NavItem[] = [
+    {
+        title: 'Remotes',
+        href: remotesIndex(),
+        icon: FolderGit2,
+    },
+    {
+        title: 'Images',
+        href: logs(),
+        icon: Container,
+    },
+    {
+        title: 'Specs',
+        href: logs(),
+        icon: FileSliders,
     },
 ];
 
@@ -46,7 +69,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={projectsList()} prefetch>
+                            <Link href={projectsIndex()} prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -55,7 +78,9 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={mainNavItems} title="Platform" />
+                <div className="h-4" />
+                <NavMain items={secondaryNavItems} title="Resources" />
             </SidebarContent>
 
             <SidebarFooter>

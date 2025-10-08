@@ -2,86 +2,87 @@
 
 namespace App\Http\Controllers\Projects;
 
+use App\Models\Service;
+use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
-use App\Rules\RemoteRepo;
-use App\Services\GitRepoService;
 
 class ProjectsController extends Controller 
 {
     /**
-     * Show the projects page.
+     * Show all projects page.
      */
     public function index()
     {
-        return Inertia::render('projects/index', [
-            'projects' => Project::all()->map( fn($project) => 
+        return Inertia::render('projects/index');
+    }
+
+    /**
+     * Fetch all projects 
+     * @return JsonResponse
+     */
+    public function fetch(): JsonResponse
+    {
+        return response()->json( 
+            Project::all()->map( fn($project) => 
                 [
                     'id' => $project->id,
                     'name' => $project->name,
-                    'remote' => $project->remote,
-                    'branch' => $project->branch,
-                    'repository' => $project->repository,
-                    'lastCommitMessage' => "This is the last commit message"
+                    'description' => $project->description,
                 ]
             ),
-        ]);
+        );
     }
 
     /**
-     * Search for a remote repository.
-     * 
-     * @throws \Illuminate\Validation\ValidationException
-     * @throws \App\Exceptions\RepositorySearchException
+     * Show a project's page.
      */
-    public function search(Request $request) 
+    public function show(Project $project)
     {
-        $request->validate([
-            'remote_repo' => ['required', new RemoteRepo()],
+        return Inertia::render('projects/services/index', [
+            'project' => [
+                'id' => $project->id,
+                'name' => $project->name,
+                'description' => $project->description,
+            ],
+            'services' => $project->services->map(fn($service) => [
+                'id' => $service->id,
+                'name' => $service->name,
+                'source' => $service->source,
+                'runtime' => $service->runtime,
+                'run_cmd' => $service->run_cmd,
+                'port' => $service->port,
+                'working_dir' => $service->working_dir,
+                'output_dir' => $service->output_dir,
+                'image' => $service->image,
+                'spec' => $service->spec,
+                'env_vars' => $service->env_vars,
+                'secrets' => $service->secrets,
+                'remote_id' => $service->remote_id,
+                'ci_remote_id' => $service->ci_remote_id,
+            ]),
         ]);
-
-        $repo_service = new GitRepoService();
-
-        try {
-            $response = $repo_service->search($request->remote_repo);
-
-            if (!$response->success) {
-                return back()->withInput()->with('error', $response->error['message'] ?? 'Failed to fetch repository.');
-            }
-            return back()->withInput()->with('data', $response->data['branches'] ?? []);
-        } catch (\RuntimeException $e) {
-            return back()->withInput()->with('error', $e->getMessage());
-        } catch (\Exception $e) {
-            $errorMessage = $e instanceof \Throwable ? $e->getMessage() : 'An unexpected error occurred.';
-            return back()->withInput()->with('error', $errorMessage ?: 'An unexpected error occurred.');
-        }
     }
 
-
     /**
-     * Handle an incoming new project request.
+     * Handle a new project request.
      *
      * @throws \Illuminate\Validation\ValidationException
      */
     public function store(Request $request): RedirectResponse 
     {
         $request->validate([
-            'remote_repo' => ['required', new RemoteRepo()],
-            'branch' => 'required',
+            'name' => ['required'],
         ]);
-
-        $parsed = GitRepoService::parse($request->remote_repo);
 
         Project::create([
-            'name' => $parsed['name'],
-            'repository' => $parsed['repository'],
-            'remote' => $parsed['remote'],
-            'branch' => $request->branch,
+            'name' => $request->name,
+            'description' => $request->description,
         ]);
 
-        return back()->with('status', __('Your project was created, and the import is now in progress.'));
+        return back()->with('success', __('Your project was created successfully.'));
     }      
 }

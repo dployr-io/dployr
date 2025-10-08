@@ -3,8 +3,9 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Process;
-use App\Jobs\ExecuteCmdJob;
+use App\Jobs\ExecuteCmd;
 use App\DTOs\CmdResult;
+use Log;
 
 class CmdService
 {
@@ -14,7 +15,7 @@ class CmdService
      * @param array $options
      * @return CmdResult
      */
-    public function execute(string $command, array $options = []): CmdResult
+    public static function execute(string $command, array $options = []): CmdResult
     {
         $options = array_merge([
             'timeout' => 300, // 5 minutes default
@@ -24,10 +25,10 @@ class CmdService
         ], $options);
 
         if ($options['async']) {
-            return $this->executeAsync($command, $options);
+            return self::executeAsync($command, $options);
         }
 
-        return $this->executeSync($command, $options);
+        return self::executeSync($command, $options);
     }
 
     /**
@@ -37,7 +38,7 @@ class CmdService
      * @param array $options
      * @return CmdResult
      */
-    private function executeSync(string $command, array $options): CmdResult
+    private static function executeSync(string $command, array $options): CmdResult
     {
         $process = Process::timeout($options['timeout']);
         
@@ -50,6 +51,22 @@ class CmdService
         }
 
         $result = $process->run($command);
+
+        if ($result->successful()) {
+            $output = $result->output();
+            $message = $command;
+            if ($output !== null && $output !== '') {
+                $message .= ' => ' . $output;
+            }
+            Log::info($message);
+        } else {
+            $errorOutput = $result->errorOutput();
+            $message = $command;
+            if ($errorOutput !== null && $errorOutput !== '') {
+                $message .= ' => ' . $errorOutput;
+            }
+            Log::error($message);
+        }
 
         return new CmdResult(
             command: $command,
@@ -66,9 +83,9 @@ class CmdService
      * @param array $options
      * @return CmdResult
      */
-    private function executeAsync(string $command, array $options): CmdResult
+    private static function executeAsync(string $command, array $options): CmdResult
     {
-        ExecuteCmdJob::dispatch($command, $options);
+        ExecuteCmd::dispatch($command, $options);
         
         return new CmdResult(
             command: $command,

@@ -35,4 +35,6 @@ export function useFlashToast() {
       }
     });
   }, [flash]);
+
+  return { type: flash?.type }
 }

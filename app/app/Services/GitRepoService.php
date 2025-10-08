@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
-use App\Services\RemoteProviderServices\GithubService;
 use App\DTOs\ApiResponse;
 use App\Enums\RemoteType;
+use App\Services\RemoteProviderService\GitHubService;
+use App\Services\RemoteProviderService\GitLabService;
+use App\Services\RemoteProviderService\RemoteProviderService;
 
 class GitRepoService
 {
@@ -65,40 +67,61 @@ class GitRepoService
         return [
             'name'       => $segments[0],
             'repository' => preg_replace('/\.git$/', '', $segments[1]),
-            'remote'     => $parts['host'],
+            'provider'     => $parts['host'],
         ];
+    }    
+
+    protected function search(string $name, string $repository, string $provider): ApiResponse
+    { 
+        switch (RemoteProviderService::getRemoteType($provider))
+        {
+            case RemoteType::GitHub: 
+                $gitHubService = new GitHubService(); 
+                return $gitHubService->search($name, $repository, $provider);   
+            case RemoteType::GitLab:
+                $gitLabService = new GitLabService();
+                return $gitLabService->search($name, $repository, $provider);
+            default:
+                return new ApiResponse(false, [], "Something went wrong");
+        }    
     }
 
-    public function search(string $url): ApiResponse
+    public function searchRemote(string $url): ApiResponse
     {
         $formattedUrl = self::formatUrl($url);
 
         $parsed = self::parse($formattedUrl);
 
-        if (self::getRemoteType($formattedUrl) == RemoteType::Github) 
-        {
-            $githubService = new GithubService();
-            $remote_repo = $githubService->search($parsed['name'], $parsed['repository']);
-            
-            return new ApiResponse(true, [
-                'branches' => $remote_repo->branches,
-                'avatar_url' => $remote_repo->avatar_url,
-                'url' => $remote_repo->url,
-            ]);
-        }
-
-        return new ApiResponse(false, [], "Something went wrong");
+        return $this->search($parsed['name'], $parsed['repository'], $parsed['provider']);
     }
 
-    private static function getRemoteType(string $url): RemoteType
+    public function getLatestCommitMessage(string $name, string $repository, string $provider): array
     {
-        $host = parse_url($url, PHP_URL_HOST);
+        switch (RemoteProviderService::getRemoteType($provider))
+        {
+            case RemoteType::GitHub: 
+                $gitHubService = new GitHubService(); 
+                return $gitHubService->getLatestCommitMessage($name, $repository, $provider);   
+            case RemoteType::GitLab:
+                $gitLabService = new GitLabService();
+                return $gitLabService->getLatestCommitMessage($name, $repository, $provider);
+            default:
+                return [];
+        }               
+    }
 
-        return match($host) {
-            'github.com'   => RemoteType::Github,
-            'gitlab.com'   => RemoteType::Gitlab,
-            'bitbucket.org'=> RemoteType::BitBucket,
-            default        => throw new \InvalidArgumentException("Unsupported remote host: $host", 1),
-        };
+    public function cloneRepo(string $name, string $repository, string $provider, string $local_dir)
+    {
+        switch (RemoteProviderService::getRemoteType($provider))
+        {
+            case RemoteType::GitHub: 
+                $gitHubService = new GitHubService(); 
+                return $gitHubService->clone($name, $repository, $provider, $local_dir);   
+            case RemoteType::GitLab:
+                $gitLabService = new GitLabService();
+                return $gitLabService->clone($name, $repository, $provider, $local_dir);
+            default:
+                return;
+        }      
     }
 }

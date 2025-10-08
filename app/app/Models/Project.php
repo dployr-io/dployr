@@ -17,10 +17,11 @@ class Project extends Model
     protected $fillable = [
         'id',
         'name',
-        'remote',
-        'repository',
-        'branch',
+        'description'
     ];
 
-    
+    public function services() 
+    {
+        return $this->hasMany(Service::class);
+    }
 }

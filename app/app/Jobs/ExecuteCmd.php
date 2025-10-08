@@ -7,7 +7,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Log;
 
-class ExecuteCmdJob implements ShouldQueue
+class ExecuteCmd implements ShouldQueue
 {
     use Queueable;
     
