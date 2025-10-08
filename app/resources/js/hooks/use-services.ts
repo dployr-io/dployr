@@ -1,22 +1,16 @@
 import type { Service } from '@/types';
-import { router } from '@inertiajs/react';
 import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 
 export function useServices() {
-    const getServices = (id: string) =>
+    const getServices = (projectId: string) =>
         useQuery<Service[]>({
             queryKey: ['services'],
-            queryFn: () =>
-                new Promise((resolve, reject) => {
-                    router.get(
-                        `/projects/${id}`,
-                        {},
-                        {
-                            onSuccess: (page) => resolve(page.props.services as Service[]),
-                            onError: (errors) => reject(errors),
-                        },
-                    );
-                }),
+            queryFn: async () => {
+                const response = await axios.get(`/projects/${projectId}/fetch`);
+                return response.data;
+            },
+
             staleTime: 5 * 60 * 1000,
         });
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Projects\Services;
 
+use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
@@ -27,6 +28,31 @@ class ServicesController extends Controller
                 'description' => $project->description,
             ],
         ]);
+    }
+
+    /* Fetch all services for a given project */
+    public function fetch(Project $project): JsonResponse
+    {
+        return response()->json(
+            Service::where('project_id', $project->id)
+                ->get()
+                ->map(fn ($service) => [
+                    'id' => $service->id,
+                    'name' => $service->name,
+                    'source' => $service->source,
+                    'runtime' => $service->runtime,
+                    'run_cmd' => $service->run_cmd,
+                    'port' => $service->port,
+                    'working_dir' => $service->working_dir,
+                    'output_dir' => $service->output_dir,
+                    'image' => $service->image,
+                    'spec' => $service->spec,
+                    'env_vars' => $service->env_vars,
+                    'secrets' => $service->secrets,
+                    'remote_id' => $service->remote_id,
+                    'ci_remote_id' => $service->ci_remote_id,
+                ])
+        );
     }
 
     /**
