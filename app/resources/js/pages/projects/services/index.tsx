@@ -5,17 +5,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useServices } from '@/hooks/use-services';
 import AppLayout from '@/layouts/app-layout';
 import { getRuntimeIcon } from '@/lib/runtime-icon';
-import { projectsList, servicesList } from '@/routes';
+import { projectsIndex, servicesList } from '@/routes';
 import type { BreadcrumbItem, Project, Service } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowUpRightIcon, ChevronLeft, ChevronRight, CirclePlus, Factory, Hexagon, Settings } from 'lucide-react';
+import { ArrowUpRightIcon, ChevronLeft, ChevronRight, CirclePlus, Hexagon, Settings } from 'lucide-react';
 import { useState } from 'react';
 
 const ViewProjectBreadcrumbs = (project?: Project) => {
     const breadcrumbs: BreadcrumbItem[] = [
         {
             title: 'Projects',
-            href: projectsList().url,
+            href: projectsIndex().url,
         },
         {
             title: project && project.name ? project.name : 'Project',

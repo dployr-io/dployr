@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Projects\Services;
 
 use App\Models\Blueprint;
+use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use App\Http\Controllers\Controller;
 
@@ -13,8 +14,17 @@ class BlueprintsController extends Controller
      */
     public function index()
     {
-        return Inertia::render('deployments/index', [
-            'blueprints' => Blueprint::all()->map( fn($blueprint) => 
+        return Inertia::render('deployments/index');
+    }
+
+    /**
+     * Fetch all blueprints
+     * @return JsonResponse
+     */
+    public function fetch(): JsonResponse
+    {
+        return response()->json(
+            Blueprint::all()->map( fn($blueprint) => 
                 [
                     'id' => $blueprint->id,
                     'config' => $blueprint->config,
@@ -22,8 +32,8 @@ class BlueprintsController extends Controller
                     'created_at' => $blueprint->created_at,
                     'updated_at' => $blueprint->updated_at,
                 ],
-            ),
-        ]);
+            )
+        );
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Projects;
 
 use App\Models\Service;
+use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
@@ -16,15 +17,24 @@ class ProjectsController extends Controller
      */
     public function index()
     {
-        return Inertia::render('projects/index', [
-            'projects' => Project::all()->map( fn($project) => 
+        return Inertia::render('projects/index');
+    }
+
+    /**
+     * Fetch all projects 
+     * @return JsonResponse
+     */
+    public function fetch(): JsonResponse
+    {
+        return response()->json( 
+            Project::all()->map( fn($project) => 
                 [
                     'id' => $project->id,
                     'name' => $project->name,
                     'description' => $project->description,
                 ]
             ),
-        ]);
+        );
     }
 
     /**

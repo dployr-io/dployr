@@ -14,9 +14,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { useFlashToast } from '@/hooks/use-flash-toast';
 import { useRemotes } from '@/hooks/use-remotes';
-import { useServices } from '@/hooks/use-services';
+import { useServiceForm } from '@/hooks/use-service-form';
 import AppLayout from '@/layouts/app-layout';
-import { deploymentsList, projectsList, projectsShow } from '@/routes';
+import { deploymentsList, projectsIndex, projectsShow } from '@/routes';
 import type { BreadcrumbItem, DnsProvider, Project } from '@/types';
 import { Form, Head, Link, router, usePage } from '@inertiajs/react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -27,7 +27,7 @@ const ViewProjectBreadcrumbs = (project?: Project) => {
     const breadcrumbs: BreadcrumbItem[] = [
         {
             title: 'Projects',
-            href: projectsList().url,
+            href: projectsIndex().url,
         },
         {
             title: project && project.id ? project.name || 'Project' : 'Project',
@@ -96,9 +96,9 @@ export default function DeployService() {
         setBlueprintFormat,
         yamlConfig,
         jsonConfig,
-    } = useServices();
+    } = useServiceForm();
 
-    const { remotes } = useRemotes();
+    const { remotes, isLoading: isRemotesLoading } = useRemotes();
 
     const getPageTitle = () => {
         switch (currentPage) {
@@ -139,7 +139,8 @@ export default function DeployService() {
                         runtime={runtime}
                         runtimeError={runtimeError}
                         remote={remote}
-                        remotes={remotes.data!}
+                        isRemotesLoading={isRemotesLoading}
+                        remotes={remotes || []}
                         runCmd={runCmd!}
                         runCmdError={runCmdError}
                         source={source}
@@ -197,7 +198,7 @@ export default function DeployService() {
                         }}
                     >
                         <Link
-                            href={currentPage === 1 ? (project && project.id ? projectsShow({ project: project.id }).url : projectsList().url) : ''}
+                            href={currentPage === 1 ? (project && project.id ? projectsShow({ project: project.id }).url : projectsIndex().url) : ''}
                         >
                             {currentPage === 1 ? 'Cancel' : 'Back'}
                         </Link>
@@ -299,7 +300,7 @@ export default function DeployService() {
                         {({ processing, errors }) => (
                             <>
                                 {renderCurrentPage(processing, errors)}
-                                {renderNavigationButtons(processing, String(port), dnsProvider)}
+                                {renderNavigationButtons(processing, String(port), dnsProvider!)}
                             </>
                         )}
                     </Form>

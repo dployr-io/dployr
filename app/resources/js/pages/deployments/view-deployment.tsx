@@ -2,10 +2,10 @@ import { Blueprint as BlueprintSection } from '@/components/blueprint';
 import { LogsWindow } from '@/components/logs-window';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLogs } from '@/hooks/use-logs';
-import { useServices } from '@/hooks/use-services';
+import { useServiceForm } from '@/hooks/use-service-form';
 import AppLayout from '@/layouts/app-layout';
 import { toJson, toYaml } from '@/lib/utils';
-import { deploymentsList, deploymentsShow } from '@/routes';
+import { deploymentsIndex, deploymentsShow } from '@/routes';
 import type { Blueprint, BreadcrumbItem } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 
@@ -15,7 +15,7 @@ const ViewProjectBreadcrumbs = (blueprint?: Blueprint) => {
     const breadcrumbs: BreadcrumbItem[] = [
         {
             title: 'Deployments',
-            href: deploymentsList().url,
+            href: deploymentsIndex().url,
         },
         {
             title: config.name || 'Deployment',
@@ -32,9 +32,17 @@ export default function ViewDeployment() {
     const config = JSON.parse(blueprint.config as string);
     const breadcrumbs = ViewProjectBreadcrumbs(blueprint);
 
-    const { logs, filteredLogs, selectedLevel, searchQuery, logsEndRef, setSelectedLevel, setSearchQuery } = useLogs(blueprint);
+    const { 
+        logs,
+        filteredLogs, 
+        selectedLevel, 
+        searchQuery, 
+        logsEndRef, 
+        setSelectedLevel, 
+        setSearchQuery 
+    } = useLogs(blueprint);
 
-    const { blueprintFormat, setBlueprintFormat } = useServices();
+    const { blueprintFormat, setBlueprintFormat } = useServiceForm();
 
     const yamlConfig = toYaml(config);
     const jsonConfig = toJson(config);

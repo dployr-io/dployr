@@ -2,8 +2,13 @@
 
 use App\Http\Controllers\Projects\Services\BlueprintsController;
 
-Route::middleware(['auth', 'verified'])->group(function() {
-    Route::get('deployments', [BlueprintsController::class, 'index'])->name('deploymentsList');
+Route::middleware(['auth', 'verified'])->prefix('deployments')->group(function() {
+    // Show all blueprints page
+    Route::get('/', [BlueprintsController::class, 'index'])->name('deploymentsIndex');
+
+    // JSON blueprints
+    Route::get('/fetch', [BlueprintsController::class, 'fetch'])->name('deploymentsList');
  
-    Route::get('deployments/{blueprint}', [BlueprintsController::class, 'show'])->name('deploymentsShow');
+    // View a single blueprint's page
+    Route::get('/{blueprint}', [BlueprintsController::class, 'show'])->name('deploymentsShow');
 });

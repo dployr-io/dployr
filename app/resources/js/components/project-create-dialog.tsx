@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useProjects } from '@/hooks/use-projects';
+import { useProjectForm } from '@/hooks/use-project-form';
 import { Form } from '@inertiajs/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
@@ -27,7 +27,7 @@ export default function ProjectCreateDialog({ open, setOpen }: Props) {
         setName,
         setDescription,
         getFormData,
-    } = useProjects();
+    } = useProjectForm();
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>

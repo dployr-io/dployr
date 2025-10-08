@@ -92,3 +92,14 @@ export function parseLog(raw: string): Log {
 
     return { id, message: raw, level_name: 'INFO' };
 }
+
+/** Tiny wrapper for fetch api to timeout requests and avoid zombie processes */
+export function fetchWithTimeout(url: string, options = {}, timeout = 10000) {
+  return Promise.race([
+    fetch(url, options),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Request timed out')), timeout)
+    ),
+  ]);
+}
+

@@ -1,9 +1,10 @@
 import RemoteAddDialog from '@/components/remote-add-dialog';
 import RemoteCard from '@/components/remote-card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 import { useRemotes } from '@/hooks/use-remotes';
 import AppLayout from '@/layouts/app-layout';
-import { remotesList } from '@/routes';
+import { remotesIndex } from '@/routes';
 import type { BreadcrumbItem, Remote } from '@/types';
 import { Head } from '@inertiajs/react';
 import { PlusCircle } from 'lucide-react';
@@ -12,12 +13,12 @@ import { useState } from 'react';
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Remotes',
-        href: remotesList().url,
+        href: remotesIndex().url,
     },
 ];
 
 export default function Remotes() {
-    const { remotes } = useRemotes();
+    const { remotes, isLoading } = useRemotes();
     const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
 
     return (
@@ -31,18 +32,37 @@ export default function Remotes() {
                     </div>
 
                     <div className="grid w-full grid-cols-3 gap-3">
-                        {remotes?.data?.map((remote: Remote) => (
-                            <RemoteCard
-                                key={remote.id}
-                                id={remote.id}
-                                name={remote.name}
-                                repository={remote.repository}
-                                branch={remote.branch}
-                                provider={remote.provider}
-                                commit_message={remote.commit_message}
-                                avatar_url={remote.avatar_url}
-                            />
-                        ))}
+                        {isLoading ? (
+                            <>
+                                <div className="flex flex-col gap-2 rounded-xl border border-sidebar-border/70 p-4 dark:border-sidebar-border">
+                                    <div className="mb-2 flex items-center gap-2">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                                            <Skeleton className="h-8 w-8 rounded-full bg-muted-foreground/20" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <Skeleton className="h-4 w-24 rounded bg-muted-foreground/20" />
+                                        </div>
+                                    </div>
+                                    <Skeleton className="mb-1 h-3 w-32 rounded bg-muted-foreground/20" />
+                                    <Skeleton className="h-3 w-20 rounded bg-muted-foreground/20" />
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                {remotes?.map((remote: Remote) => (
+                                    <RemoteCard
+                                        key={remote.id}
+                                        id={remote.id}
+                                        name={remote.name}
+                                        repository={remote.repository}
+                                        branch={remote.branch}
+                                        provider={remote.provider}
+                                        commit_message={remote.commit_message}
+                                        avatar_url={remote.avatar_url}
+                                    />
+                                ))}
+                            </>
+                        )}
                         <div
                             className="flex flex-col gap-2 rounded-xl border border-sidebar-border/70 p-4 hover:cursor-pointer hover:border-accent-foreground md:min-h-min dark:border-sidebar-border dark:hover:border-muted-foreground"
                             onClick={() => setIsDialogOpen(true)}
@@ -51,7 +71,6 @@ export default function Remotes() {
                                 <PlusCircle size={20} className="text-muted-foreground" />
                                 <p>Import a New Repository</p>
                             </div>
-
                             <p className="text-sm text-muted-foreground">Click to import a new remote repository to your library</p>
                         </div>
                     </div>

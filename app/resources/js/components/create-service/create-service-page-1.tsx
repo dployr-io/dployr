@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { getRuntimeIcon } from '@/lib/runtime-icon';
 import type { Remote, Runtime, ServiceSource } from '@/types';
 import { runtimes } from '@/types/runtimes';
-import { on } from 'events';
+import { Loader2 } from 'lucide-react';
 import { FaGitlab } from 'react-icons/fa6';
 import { RxGithubLogo } from 'react-icons/rx';
 import { ulid } from 'ulid';
@@ -20,6 +20,7 @@ interface Props {
     runtimeError: string;
     remote?: Remote | null;
     remotes: Remote[];
+    isRemotesLoading: boolean;
     runCmd?: string | null;
     runCmdError: string;
     source: ServiceSource;
@@ -44,6 +45,7 @@ export function CreateServicePage1({
     runtimeError,
     remote,
     remotes,
+    isRemotesLoading,
     runCmd,
     runCmdError,
     source,
@@ -103,18 +105,28 @@ export function CreateServicePage1({
                             }
                         }}
                     >
-                        <SelectTrigger id="remote" disabled={processing}>
+                        <SelectTrigger id="remote" disabled={processing || isRemotesLoading}>
                             <SelectValue>
                                 <div className="flex items-center gap-2">
-                                    {remote && (remote?.provider?.includes('github') ? <RxGithubLogo /> : <FaGitlab />)}
-                                    <span className={!remote ? 'text-muted-foreground' : undefined}>
-                                        {remote ? `${remote.name}/${remote.repository}` : 'Select a remote repository'}
-                                    </span>
+                                    {isRemotesLoading ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            <span className="text-muted-foreground">Retrieving remotes...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {remote && (remote?.provider?.includes('github') ? <RxGithubLogo /> : <FaGitlab />)}
+                                            <span className={!remote ? 'text-muted-foreground' : undefined}>
+                                                {remote ? `${remote.name}/${remote.repository}` : 'Select a remote repository'}
+                                            </span>
+                                        </>
+                                    )}
                                 </div>
                             </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             {Array.isArray(remotes) &&
+                                !isRemotesLoading &&
                                 remotes.map((item: Remote) => {
                                     return (
                                         <SelectItem key={item.id} value={`${item.name}/${item.repository}`}>
@@ -151,12 +163,12 @@ export function CreateServicePage1({
                 <Label htmlFor="runtime">
                     Runtime <span className="text-destructive">*</span>
                 </Label>
-                <Select value={runtime} onValueChange={onRuntimeValueChanged}>
+                <Select value={runtime ?? "Select a runtime"} onValueChange={onRuntimeValueChanged}>
                     <SelectTrigger id="runtime" disabled={processing}>
                         <SelectValue>
                             <div className="flex items-center gap-2">
                                 {getRuntimeIcon(runtime)}
-                                <span>{runtime && runtime.trim() !== '' ? runtime : 'Select a runtime'}</span>
+                                <span>{runtime}</span>
                             </div>
                         </SelectValue>
                     </SelectTrigger>

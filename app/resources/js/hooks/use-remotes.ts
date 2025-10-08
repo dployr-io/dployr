@@ -1,7 +1,7 @@
 import type { Remote } from '@/types';
-import { router } from '@inertiajs/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import axios from 'axios';
 import { z } from 'zod';
 
 export function useRemotes(setOpen?: (open: boolean) => void) {
@@ -72,24 +72,19 @@ export function useRemotes(setOpen?: (open: boolean) => void) {
         setError('');
     };
 
-    const remotes = useQuery<Remote[]>({
+    const { data, isLoading } = useQuery<Remote[]>({
         queryKey: ['remotes'],
-        queryFn: () =>
-            new Promise((resolve) => {
-                router.get(
-                    '/resources/remotes',
-                    {},
-                    {
-                        onSuccess: (page) => resolve(page.props.remotes as Remote[]),
-                    },
-                );
-            }),
+        queryFn: async () => {
+            const response = await axios.get('/resources/remotes/fetch');
+            return response.data; 
+        },
         staleTime: 60 * 1000, // Every minute
     });
 
     return {
         // State
-        remotes,
+        remotes: data,
+        isLoading,
         branches,
         searchComplete,
         validationError: error,

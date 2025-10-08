@@ -1,14 +1,15 @@
 import { StatusChip } from '@/components/status-chip';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useDeployments } from '@/hooks/use-deployments';
 import { useProjects } from '@/hooks/use-projects';
 import { useRemotes } from '@/hooks/use-remotes';
 
-import { useServices } from '@/hooks/use-services';
 import AppLayout from '@/layouts/app-layout';
 import { getRuntimeIcon } from '@/lib/runtime-icon';
-import { deploymentsList, deploymentsShow, servicesList } from '@/routes';
+import { deploymentsIndex, deploymentsShow, servicesList } from '@/routes';
 import type { BreadcrumbItem, Service } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowUpRightIcon, ChevronLeft, ChevronRight, Factory } from 'lucide-react';
@@ -25,16 +26,16 @@ const formatWithoutSuffix = (value: number, unit: string): string => {
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Deployments',
-        href: deploymentsList().url,
+        href: deploymentsIndex().url,
     },
 ];
 export default function Deployments() {
-    const { deployments } = useServices();
+    const { deployments, isLoading: isDeploymentsLoading } = useDeployments();
     const { defaultProject } = useProjects();
-    const deploymentsData = deployments.data;
+    const deploymentsData = deployments;
 
-    const { remotes } = useRemotes();
-    const remotesData = remotes.data || [];
+    const { remotes, isLoading: isRemotesLoading } = useRemotes();
+    const remotesData = remotes || [];
 
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
@@ -122,7 +123,7 @@ export default function Deployments() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {normalizedDeployments && normalizedDeployments.length > 0
+                                    {!isDeploymentsLoading
                                         ? normalizedDeployments.map((deployment) => (
                                               <TableRow
                                                   key={deployment.id}
@@ -171,12 +172,24 @@ export default function Deployments() {
                                                   </TableCell>
                                                   <TableCell className="h-16 max-w-[320px] overflow-hidden align-middle">
                                                       <div className="flex min-w-0 items-center gap-2">
-                                                          {deployment.config?.remote?.provider?.includes('github') ? <RxGithubLogo /> : <FaGitlab />}
-                                                          <span className="truncate">
-                                                              {deployment.config?.remote
-                                                                  ? `${deployment.config.remote.name}/${deployment.config.remote.repository}`
-                                                                  : '-'}
-                                                          </span>
+                                                          {isRemotesLoading ? (
+                                                              <div className="max-w-[320px]overflow-hidden align-middle">
+                                                                  <Skeleton className="h-4 w-40" />
+                                                              </div>
+                                                          ) : (
+                                                              <>
+                                                                  {deployment.config?.remote?.provider?.includes('github') ? (
+                                                                      <RxGithubLogo />
+                                                                  ) : (
+                                                                      <FaGitlab />
+                                                                  )}
+                                                                  <span className="truncate">
+                                                                      {deployment.config?.remote
+                                                                          ? `${deployment.config.remote.name}/${deployment.config.remote.repository}`
+                                                                          : '-'}
+                                                                  </span>
+                                                              </>
+                                                          )}
                                                       </div>
                                                   </TableCell>
                                                   <TableCell className="h-16 w-[200px] overflow-hidden text-right align-middle">
@@ -187,22 +200,22 @@ export default function Deployments() {
                                         : Array.from({ length: 3 }).map((_, idx) => (
                                               <TableRow key={`skeleton-${idx}`} className="h-16">
                                                   <TableCell className="h-16 max-w-[240px] overflow-hidden align-middle font-medium">
-                                                      <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                                                      <Skeleton className="h-4 w-32" />
                                                   </TableCell>
                                                   <TableCell className="h-16 align-middle">
-                                                      <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+                                                      <Skeleton className="h-4 w-16" />
                                                   </TableCell>
                                                   <TableCell className="h-16 align-middle">
-                                                      <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+                                                      <Skeleton className="h-4 w-16" />
                                                   </TableCell>
                                                   <TableCell className="h-16 align-middle">
-                                                      <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+                                                      <Skeleton className="h-4 w-20" />
                                                   </TableCell>
                                                   <TableCell className="h-16 max-w-[320px] overflow-hidden align-middle">
-                                                      <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+                                                      <Skeleton className="h-4 w-40" />
                                                   </TableCell>
                                                   <TableCell className="h-16 w-[200px] overflow-hidden text-right align-middle">
-                                                      <div className="ml-auto h-4 w-24 animate-pulse rounded bg-muted" />
+                                                      <Skeleton className="ml-auto h-4 w-24" />
                                                   </TableCell>
                                               </TableRow>
                                           ))}

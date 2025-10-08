@@ -1,5 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
-import { projectsList } from '@/routes';
+import { projectsIndex } from '@/routes';
 import type { BreadcrumbItem, Project } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 
@@ -8,7 +8,7 @@ const ViewProjectBreadcrumbs = (project: Project) => {
     const breadcrumbs: BreadcrumbItem[] = [
         {
             title: 'Projects',
-            href: projectsList().url,
+            href: projectsIndex().url,
         },
         {
             title: project?.name || 'Project',
@@ -19,15 +19,10 @@ const ViewProjectBreadcrumbs = (project: Project) => {
     return breadcrumbs;
 };
 
-
-
-
 export default function ConfigureProject() {
     const { props } = usePage();
     const project = props.project as Project;
     const breadcrumbs = ViewProjectBreadcrumbs(project);
-
-
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
