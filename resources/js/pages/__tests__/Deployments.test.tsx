@@ -87,12 +87,8 @@ describe('Deployments', () => {
         });
 
         render(<Deployments />);
-
-        await waitFor(() => {
-            expect(screen.getByText('my-deployment')).toBeInTheDocument();
-        });
-
-        expect(screen.getByText('node-js')).toBeInTheDocument();
+        expect(await screen.findByText('my-deployment')).toBeInTheDocument();
+        expect(await screen.findByText('node-js')).toBeInTheDocument();
     });
 
     test('empty state shows correct buttons', () => {

@@ -1,6 +1,5 @@
-import { useProjects } from '@/hooks/use-projects';
 import Dashboard from '@/pages/projects/index';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
 vi.mock('@/hooks/use-projects', () => ({
@@ -8,7 +7,11 @@ vi.mock('@/hooks/use-projects', () => ({
 }));
 
 vi.mock('@/components/project-card', () => ({
-    default: ({ name }: { name: string }) => <div data-testid="project-card">{name}</div>,
+    default: ({ project }: { project: { name: string; description: string } }) => (
+        <div data-testid="project-card">
+            {project.name} - {project.description}
+        </div>
+    ),
 }));
 
 vi.mock('@/components/project-create-dialog', () => ({
@@ -23,6 +26,8 @@ vi.mock('@inertiajs/react', () => ({
     Head: ({ title }: { title: string }) => <title>{title}</title>,
 }));
 
+import { useProjects } from '@/hooks/use-projects';
+
 describe('Dashboard', () => {
     test('renders loading skeletons when isLoading is true', () => {
         (useProjects as vi.Mock).mockReturnValue({
@@ -32,15 +37,14 @@ describe('Dashboard', () => {
 
         render(<Dashboard />);
 
-        // skeletons should appear
         expect(screen.getAllByText(/^create a new project/i)).toBeTruthy();
     });
 
     test('renders project cards when projects are loaded', async () => {
         (useProjects as vi.Mock).mockReturnValue({
             projects: [
-                { id: 1, name: 'Project A', description: 'Desc A' },
-                { id: 2, name: 'Project B', description: 'Desc B' },
+                { id: '1', name: 'Project A', description: 'Desc A' },
+                { id: '2', name: 'Project B', description: 'Desc B' },
             ],
             isLoading: false,
         });
@@ -49,7 +53,8 @@ describe('Dashboard', () => {
 
         const cards = await screen.findAllByTestId('project-card');
         expect(cards).toHaveLength(2);
-        expect(screen.getByText('Project A')).toBeInTheDocument();
+        await screen.findByText((content) => content.includes('Project A'));
+        await screen.findByText((content) => content.includes('Desc A'));
     });
 
     test('opens dialog when "Create a New Project" is clicked', async () => {
@@ -63,8 +68,6 @@ describe('Dashboard', () => {
         const button = screen.getByText(/^Create a New Project/i);
         fireEvent.click(button);
 
-        await waitFor(() => {
-            expect(screen.getByTestId('dialog')).toBeInTheDocument();
-        });
+        expect(await screen.findByTestId('dialog')).toBeInTheDocument();
     });
 });
