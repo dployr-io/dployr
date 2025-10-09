@@ -10,6 +10,7 @@ require __DIR__.'/services.php';
 require __DIR__.'/blueprints.php';
 require __DIR__.'/remotes.php';
 require __DIR__.'/images.php';
+require __DIR__.'/specs.php';
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
 require __DIR__.'/logs.php';

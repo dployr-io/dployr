@@ -30,46 +30,20 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 export default function Deployments() {
-    const { deployments, isLoading: isDeploymentsLoading } = useDeployments();
+    const { 
+        deployments, 
+        isLoading: isDeploymentsLoading, 
+        normalizedDeployments, 
+        currentPage,
+        totalPages, 
+        startIndex,
+        endIndex,
+        goToPage,
+        goToNextPage,
+        goToPreviousPage,
+    } = useDeployments();
     const { defaultProject } = useProjects();
-    const deploymentsData = deployments;
-
-    const { remotes, isLoading: isRemotesLoading } = useRemotes();
-    const remotesData = remotes || [];
-
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 8;
-    const totalPages = Math.ceil((deploymentsData?.length ?? 0) / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const paginatedDeployments = deploymentsData?.slice(startIndex, endIndex);
-
-    const normalizedDeployments = useMemo(
-        () =>
-            (paginatedDeployments || []).map((deployment) => {
-                let config = deployment?.config ?? {};
-                config = JSON.parse(config as string);
-                const remote = (config as Partial<Service>)?.remote;
-                let resolvedRemote = remote;
-                if (remote) {
-                    resolvedRemote = remotesData.find((r) => r) || remote;
-                }
-                return { ...deployment, config: { ...config, remote: resolvedRemote } };
-            }),
-        [paginatedDeployments, remotesData],
-    );
-
-    const goToPage = (page: number) => {
-        setCurrentPage(Math.max(1, Math.min(page, totalPages)));
-    };
-
-    const goToPreviousPage = () => {
-        setCurrentPage((prev) => Math.max(1, prev - 1));
-    };
-
-    const goToNextPage = () => {
-        setCurrentPage((prev) => Math.min(totalPages, prev + 1));
-    };
+    const { isLoading: isRemotesLoading } = useRemotes();
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -83,7 +57,7 @@ export default function Deployments() {
                         </div>
                     </div>
 
-                    {deploymentsData?.length === 0 ? (
+                    {deployments?.length === 0 ? (
                         <Empty>
                             <EmptyHeader>
                                 <EmptyMedia variant="icon">
@@ -224,11 +198,11 @@ export default function Deployments() {
 
                             <div className="flex items-center justify-between px-2 py-4">
                                 <div className="text-sm text-muted-foreground">
-                                    {(deploymentsData || []).length === 0
+                                    {(deployments || []).length === 0
                                         ? 'No deployments found'
-                                        : deploymentsData!.length === 1
+                                        : deployments!.length === 1
                                           ? 'Showing 1 of 1 deployment'
-                                          : `Showing ${startIndex + 1} to ${Math.min(endIndex, (deploymentsData || []).length || 0)} of ${(deploymentsData || []).length} deployments`}{' '}
+                                          : `Showing ${startIndex + 1} to ${Math.min(endIndex, (deployments || []).length || 0)} of ${(deployments || []).length} deployments`}{' '}
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <Button

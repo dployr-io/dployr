@@ -2,7 +2,7 @@ import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { console, deploymentsIndex, logs, projectsIndex, remotesIndex, imagesIndex } from '@/routes';
+import { console, deploymentsIndex, logs, projectsIndex, remotesIndex, imagesIndex, specsIndex } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
 import { BookOpen, Container, Factory, FileSliders, Folder, FolderGit2, LayoutGrid, Logs, SquareChevronRight } from 'lucide-react';
@@ -44,7 +44,7 @@ const secondaryNavItems: NavItem[] = [
     },
     {
         title: 'Specs',
-        href: logs(),
+        href: specsIndex({ query: { spec: true } }).url,
         icon: FileSliders,
     },
 ];

@@ -22,15 +22,21 @@ class BlueprintsController extends Controller
      */
     public function fetch(): JsonResponse
     {
+        $query = Blueprint::query();
+
+        if (request()->query('spec')) {
+            $query->where('spec', true);
+        }
+
         return response()->json(
-            Blueprint::all()->map(fn ($blueprint) => [
+            $query->get()->map(fn ($blueprint) => [
                 'id' => $blueprint->id,
                 'config' => $blueprint->config,
                 'status' => $blueprint->status,
+                'spec' => $blueprint->spec,
                 'created_at' => $blueprint->created_at,
                 'updated_at' => $blueprint->updated_at,
-            ],
-            )
+            ])
         );
     }
 
