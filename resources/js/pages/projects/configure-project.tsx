@@ -3,7 +3,6 @@ import { projectsIndex } from '@/routes';
 import type { BreadcrumbItem, Project } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 
-
 const ViewProjectBreadcrumbs = (project: Project) => {
     const breadcrumbs: BreadcrumbItem[] = [
         {
@@ -33,7 +32,7 @@ export default function ConfigureProject() {
                         <div className="flex flex-col gap-1">
                             <p className="text-2xl font-black">Configure your Project</p>
                             <p className="text-sm font-normal text-muted-foreground">Configure your new project</p>
-                        </div>    
+                        </div>
                     </div>
                 </div>
             </div>

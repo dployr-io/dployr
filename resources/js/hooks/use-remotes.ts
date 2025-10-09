@@ -1,7 +1,7 @@
 import type { Remote } from '@/types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
 import axios from 'axios';
+import { useState } from 'react';
 import { z } from 'zod';
 
 export function useRemotes(setOpen?: (open: boolean) => void) {
@@ -76,7 +76,7 @@ export function useRemotes(setOpen?: (open: boolean) => void) {
         queryKey: ['remotes'],
         queryFn: async () => {
             const response = await axios.get('/resources/remotes/fetch');
-            return response.data; 
+            return response.data;
         },
         staleTime: 60 * 1000, // Every minute
     });

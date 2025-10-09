@@ -13,15 +13,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function Logs() {
-    const { 
-        logs, 
-        filteredLogs, 
-        selectedLevel, 
-        searchQuery, 
-        logsEndRef, 
-        setSelectedLevel, 
-        setSearchQuery 
-    } = useLogs();
+    const { logs, filteredLogs, selectedLevel, searchQuery, logsEndRef, setSelectedLevel, setSearchQuery } = useLogs();
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

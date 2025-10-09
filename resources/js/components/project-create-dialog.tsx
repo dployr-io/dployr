@@ -20,14 +20,7 @@ export default function ProjectCreateDialog({ open, setOpen }: Props) {
         setOpen(false);
     };
 
-    const {
-        name,
-        description,
-        validationError,
-        setName,
-        setDescription,
-        getFormData,
-    } = useProjectForm();
+    const { name, description, validationError, setName, setDescription, getFormData } = useProjectForm();
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -57,9 +50,7 @@ export default function ProjectCreateDialog({ open, setOpen }: Props) {
                                     tabIndex={1}
                                     disabled={processing}
                                 />
-                                {(validationError || errors.name) && (
-                                    <div className="text-sm text-destructive">{validationError || errors.name}</div>
-                                )}
+                                {(validationError || errors.name) && <div className="text-sm text-destructive">{validationError || errors.name}</div>}
                             </div>
 
                             <div className="grid gap-3">

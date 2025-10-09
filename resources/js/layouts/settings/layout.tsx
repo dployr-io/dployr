@@ -1,4 +1,3 @@
-import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -42,8 +41,8 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
     const { version }: any = usePage().props;
 
     return (
-        <div className="flex flex-1 flex-col px-4 py-6 items-center">
-            <div className="flex flex-col w-full max-w-6xl lg:flex-row lg:space-x-12">
+        <div className="flex flex-1 flex-col items-center px-4 py-6">
+            <div className="flex w-full max-w-6xl flex-col lg:flex-row lg:space-x-12">
                 <aside className="w-full max-w-xl lg:w-48">
                     <nav className="flex flex-col space-y-1 space-x-0">
                         {sidebarNavItems.map((item, index) => (
@@ -68,7 +67,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                 <Separator className="my-6 lg:hidden" />
 
                 <div className="flex-1">
-                    <section className="space-y-12 w-full">{children}</section>
+                    <section className="w-full space-y-12">{children}</section>
                 </div>
             </div>
             <div className="mt-auto flex w-full justify-center">

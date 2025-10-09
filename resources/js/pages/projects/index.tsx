@@ -46,7 +46,7 @@ export default function Dashboard() {
                         ) : (
                             <>
                                 {projects?.map((project: Project) => (
-                                    <ProjectCard key={project.id} id={project.id} name={project.name} description={project.description} />
+                                    <ProjectCard key={project.id} project={project} />
                                 ))}
                             </>
                         )}

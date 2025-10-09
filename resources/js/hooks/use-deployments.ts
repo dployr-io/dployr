@@ -7,7 +7,7 @@ export function useDeployments() {
         queryKey: ['deployments'],
         queryFn: async () => {
             const response = await axios.get('/deployments/fetch');
-            return response.data; 
+            return response.data;
         },
         staleTime: 5 * 60 * 1000,
     });

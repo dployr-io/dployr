@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRemotes } from '@/hooks/use-remotes';
 import { Form } from '@inertiajs/react';
-import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, Loader2 } from 'lucide-react';
 
 interface Props {

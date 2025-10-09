@@ -22,7 +22,7 @@ const LogEntry = ({ log }: { log: Log }) => {
             <div className="flex gap-2">
                 {log.datetime && (
                     <span
-                        className={`text-xs min-w-16 whitespace-nowrap ${(() => {
+                        className={`min-w-16 text-xs whitespace-nowrap ${(() => {
                             switch (log.level_name) {
                                 case 'INFO':
                                     return 'text-muted-foreground';
@@ -79,10 +79,9 @@ export function LogsWindow({ logs, filteredLogs, selectedLevel, setSelectedLevel
                         >
                             {selectedLevel === 'ALL'
                                 ? 'All logs'
-                                : (logLevels[selectedLevel]
-                                    ? logLevels[selectedLevel].charAt(0).toUpperCase() + logLevels[selectedLevel].slice(1).toLowerCase()
-                                    : selectedLevel.charAt(0).toUpperCase() + selectedLevel.slice(1).toLowerCase())
-                            }
+                                : logLevels[selectedLevel]
+                                  ? logLevels[selectedLevel].charAt(0).toUpperCase() + logLevels[selectedLevel].slice(1).toLowerCase()
+                                  : selectedLevel.charAt(0).toUpperCase() + selectedLevel.slice(1).toLowerCase()}
                             <ChevronDown className="ml-auto size-4 transition-transform group-data-[state=open]:rotate-180" />
                         </Button>
                     </DropdownMenuTrigger>

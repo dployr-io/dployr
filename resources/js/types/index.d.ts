@@ -3,7 +3,6 @@ import { LucideIcon } from 'lucide-react';
 import { Runtime } from '.';
 import { dnsProviders } from './runtimes';
 
-
 export interface Auth {
     user: User;
 }
@@ -35,7 +34,7 @@ export interface SharedData {
 
 export interface ApiResponse {
     success: boolean;
-    data:  unknown[] | Record<string, unknown>;
+    data: unknown[] | Record<string, unknown>;
     error?: string;
 }
 
@@ -76,7 +75,7 @@ export interface Service {
     status: Status;
     runtime: Runtime;
     remote?: Remote | null;
-    ci_remote?: Remote | null; 
+    ci_remote?: Remote | null;
     run_cmd?: string | null;
     working_dir?: string | null;
     env_vars?: Record<string, string> | null;
@@ -113,7 +112,7 @@ export type LogLevel = (typeof logLevels)[number];
 export interface Log {
     id: string;
     message: string;
-    level?: Number | null;
+    level?: number | null;
     level_name?: LogLevel | null;
     datetime?: Date | null;
     channe?: LogChannel;
