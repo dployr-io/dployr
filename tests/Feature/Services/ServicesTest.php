@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Enums\JobStatus;
 use App\Jobs\Services\ProcessBlueprint;
-use App\Models\Blueprint;
 use App\Models\Project;
 use App\Models\Service;
 use App\Models\User;
@@ -19,7 +18,7 @@ class ServicesTest extends TestCase
     use DatabaseMigrations;
 
     // Ensure all static tests are cleaned-up after
-    public function tearDown(): void
+    protected function tearDown(): void
     {
         \Mockery::close();
         parent::tearDown();
@@ -31,13 +30,11 @@ class ServicesTest extends TestCase
         $project = Project::factory()->create();
 
         $this->get(route('servicesIndex', $project))
-            ->assertInertia(fn (Assert $page) =>
-                $page->component('projects/services/deploy-service')
-                    ->has('project', fn ($p) =>
-                        $p->where('id', $project->id)
-                          ->where('name', $project->name)
-                          ->etc()
-                    )
+            ->assertInertia(fn (Assert $page) => $page->component('projects/services/deploy-service')
+                ->has('project', fn ($p) => $p->where('id', $project->id)
+                    ->where('name', $project->name)
+                    ->etc()
+                )
             )
             ->assertOk();
     }
@@ -53,8 +50,8 @@ class ServicesTest extends TestCase
             ->assertOk()
             ->assertJsonStructure([
                 '*' => [
-                    'id', 'name', 'source', 'runtime', 'run_cmd', 'port', 
-                ]
+                    'id', 'name', 'source', 'runtime', 'run_cmd', 'port',
+                ],
             ])
             ->assertJsonCount(2);
     }
@@ -73,7 +70,7 @@ class ServicesTest extends TestCase
     public function test_it_returns_error_if_port_is_in_use()
     {
         $this->actingAs(User::factory()->create());
-        \Mockery::mock('alias:' . CaddyService::class)
+        \Mockery::mock('alias:'.CaddyService::class)
             ->shouldReceive('checkPort')
             ->once()
             ->andReturn(true);
@@ -86,7 +83,7 @@ class ServicesTest extends TestCase
     {
         $this->actingAs(User::factory()->create());
 
-        \Mockery::mock('alias:' . CaddyService::class)
+        \Mockery::mock('alias:'.CaddyService::class)
             ->shouldReceive('checkPort')
             ->once()
             ->andReturn(false);

@@ -65,6 +65,9 @@
             "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
+        "lint": [
+            "vendor/bin/pint --test"
+        ],
         "sync": [
             "npm run build",
             "wsl -d Ubuntu-22.04 -u root -e sh -c \"rsync -av --delete /mnt/c/Workspace/dployr/app/public/build/ /home/dployr/public/build/\"",

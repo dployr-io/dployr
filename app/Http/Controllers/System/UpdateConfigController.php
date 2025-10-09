@@ -3,18 +3,16 @@
 namespace App\Http\Controllers\System;
 
 use App\Models\Config;
-use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Controller;
 
 class UpdateConfigController extends Controller
 {
     /**
      * Update a config value. Creates new entry if key is missing.
-     * @param \Illuminate\Http\Request $request
-     * @return RedirectResponse
      */
-    public function store(Request $request): RedirectResponse 
+    public function store(Request $request): RedirectResponse
     {
         $request->validate([
             '*' => [function ($attribute, $value, $fail) use ($request) {

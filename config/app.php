@@ -128,7 +128,7 @@ return [
     | App version
     |--------------------------------------------------------------------------
     |
-    | This is the single source of truth for the application's version, based 
+    | This is the single source of truth for the application's version, based
     | the VERSION file. It follows semantic versioning style.
     |
     | E.g 1.2.3

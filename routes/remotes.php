@@ -2,12 +2,11 @@
 
 use App\Http\Controllers\Projects\Remotes\RemotesController;
 
-
 Route::middleware(['auth', 'verified'])->prefix('resources/remotes')->group(function () {
     // All remotes page
     Route::get('/', [RemotesController::class, 'index'])->name('remotesIndex');
 
-    // Fetch details about a new remote url 
+    // Fetch details about a new remote url
     Route::post('/search', [RemotesController::class, 'search'])->name('remotesSearch');
 
     // JSON resources

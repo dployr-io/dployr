@@ -17,7 +17,7 @@ class ProjectsTest extends TestCase
 
     public function test_authenticated_users_can_visit_the_dashboard()
     {
-        $this->actingAs( User::factory()->create());
+        $this->actingAs(User::factory()->create());
 
         $this->get(route('projectsIndex'))->assertOk();
     }
@@ -32,7 +32,7 @@ class ProjectsTest extends TestCase
         ]);
 
         $response
-            ->assertRedirect() 
+            ->assertRedirect()
             ->assertSessionHas('success', 'Your project was created successfully.');
 
         $this->assertDatabaseHas('projects', [

@@ -16,11 +16,11 @@ class RemoteRepo implements ValidationRule
     {
         $normalized = strtolower($value);
 
-        // Allow http(s), (www.), github.com/gitlab.com 
+        // Allow http(s), (www.), github.com/gitlab.com
         $pattern = '/^(https?:\/\/)?(www\.)?(github\.com|gitlab\.com)\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/';
-    
-        if (!preg_match($pattern, $normalized)) {
-            $fail("Remote repository must be a valid github or gitlab url");
+
+        if (! preg_match($pattern, $normalized)) {
+            $fail('Remote repository must be a valid github or gitlab url');
         }
     }
 }

@@ -4,13 +4,13 @@ namespace App\Jobs;
 
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
 
 class ExecuteCmd implements ShouldQueue
 {
     use Queueable;
-    
+
     public function __construct(
         private string $command,
         private array $options = []
@@ -19,12 +19,12 @@ class ExecuteCmd implements ShouldQueue
     public function handle(): void
     {
         $process = Process::timeout($this->options['timeout'] ?? 300);
-        
+
         if (isset($this->options['working_directory'])) {
             $process = $process->path($this->options['working_directory']);
         }
 
-        if (!empty($this->options['environment'])) {
+        if (! empty($this->options['environment'])) {
             $process = $process->env($this->options['environment']);
         }
 

@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Models\Project;
+use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
-use Tests\TestCase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\TestCase;
 
 class DashboardTest extends TestCase
 {
@@ -17,7 +17,7 @@ class DashboardTest extends TestCase
         $this->actingAs(User::factory()->create());
 
         $this->get(route('projectsList'))->assertJsonStructure([
-           '*' => [ 'id', 'name', 'description'],
+            '*' => ['id', 'name', 'description'],
         ]);
     }
 
@@ -28,15 +28,12 @@ class DashboardTest extends TestCase
         $project = Project::factory()->create();
 
         $this->get(route('projectsShow', $project))
-            ->assertInertia(fn (Assert $page) =>
-                $page->component('projects/services/index')
-                    ->has('project', fn (Assert $p) =>
-                        $p->where('id', $project->id)
-                        ->where('name', $project->name)
-                        ->where('description', $project->description)
-                        ->etc() 
+            ->assertInertia(fn (Assert $page) => $page->component('projects/services/index')
+                ->has('project', fn (Assert $p) => $p->where('id', $project->id)
+                    ->where('name', $project->name)
+                    ->where('description', $project->description)
+                    ->etc()
                 )
-        );
+            );
     }
-
 }

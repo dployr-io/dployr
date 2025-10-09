@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 class Remote extends Model
 {
     /** @use HasFactory<\Database\Factories\RemoteFactory> */
-    use HasUlids, HasFactory;
+    use HasFactory, HasUlids;
 
     /**
      * The attributes that are mass assignable.

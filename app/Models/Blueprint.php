@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 class Blueprint extends Model
 {
     /** @use HasFactory<\Database\Factories\BlueprintFactory> */
-    use HasUlids, HasFactory;
+    use HasFactory, HasUlids;
 
     /**
      * The attributes that are mass assignable.
@@ -22,7 +22,7 @@ class Blueprint extends Model
         'status', // e.g., 'pending', 'completed', 'in_progress', 'failed'
     ];
 
-    public function services() 
+    public function services()
     {
         return $this->hasMany(Service::class);
     }

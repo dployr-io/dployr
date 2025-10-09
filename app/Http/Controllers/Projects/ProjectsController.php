@@ -2,15 +2,14 @@
 
 namespace App\Http\Controllers\Projects;
 
-use App\Models\Service;
-use Illuminate\Http\JsonResponse;
-use Inertia\Inertia;
-use Illuminate\Http\Request;
-use Illuminate\Http\RedirectResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
 
-class ProjectsController extends Controller 
+class ProjectsController extends Controller
 {
     /**
      * Show all projects page.
@@ -21,18 +20,16 @@ class ProjectsController extends Controller
     }
 
     /**
-     * Fetch all projects 
-     * @return JsonResponse
+     * Fetch all projects
      */
     public function fetch(): JsonResponse
     {
-        return response()->json( 
-            Project::all()->map( fn($project) => 
-                [
-                    'id' => $project->id,
-                    'name' => $project->name,
-                    'description' => $project->description,
-                ]
+        return response()->json(
+            Project::all()->map(fn ($project) => [
+                'id' => $project->id,
+                'name' => $project->name,
+                'description' => $project->description,
+            ]
             ),
         );
     }
@@ -48,7 +45,7 @@ class ProjectsController extends Controller
                 'name' => $project->name,
                 'description' => $project->description,
             ],
-            'services' => $project->services->map(fn($service) => [
+            'services' => $project->services->map(fn ($service) => [
                 'id' => $service->id,
                 'name' => $service->name,
                 'source' => $service->source,
@@ -72,7 +69,7 @@ class ProjectsController extends Controller
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function store(Request $request): RedirectResponse 
+    public function store(Request $request): RedirectResponse
     {
         $request->validate([
             'name' => ['required'],
@@ -84,5 +81,5 @@ class ProjectsController extends Controller
         ]);
 
         return back()->with('success', __('Your project was created successfully.'));
-    }      
+    }
 }

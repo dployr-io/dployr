@@ -2,7 +2,8 @@
 
 namespace App\Enums;
 
-enum RemoteType {
+enum RemoteType
+{
     case GitHub;
     case GitLab;
     case BitBucket;

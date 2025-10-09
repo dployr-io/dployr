@@ -2,18 +2,15 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Process;
-use App\Jobs\ExecuteCmd;
 use App\DTOs\CmdResult;
+use App\Jobs\ExecuteCmd;
+use Illuminate\Support\Facades\Process;
 use Log;
 
 class CmdService
 {
     /**
      * Execute a command using the process api
-     * @param string $command
-     * @param array $options
-     * @return CmdResult
      */
     public static function execute(string $command, array $options = []): CmdResult
     {
@@ -32,21 +29,18 @@ class CmdService
     }
 
     /**
-     * Command is executued in the same process. 
+     * Command is executued in the same process.
      * This results to a blocking request.
-     * @param string $command
-     * @param array $options
-     * @return CmdResult
      */
     private static function executeSync(string $command, array $options): CmdResult
     {
         $process = Process::timeout($options['timeout']);
-        
+
         if ($options['working_directory']) {
             $process = $process->path($options['working_directory']);
         }
 
-        if (!empty($options['environment'])) {
+        if (! empty($options['environment'])) {
             $process = $process->env($options['environment']);
         }
 
@@ -56,14 +50,14 @@ class CmdService
             $output = $result->output();
             $message = $command;
             if ($output !== null && $output !== '') {
-                $message .= ' => ' . $output;
+                $message .= ' => '.$output;
             }
             Log::info($message);
         } else {
             $errorOutput = $result->errorOutput();
             $message = $command;
             if ($errorOutput !== null && $errorOutput !== '') {
-                $message .= ' => ' . $errorOutput;
+                $message .= ' => '.$errorOutput;
             }
             Log::error($message);
         }
@@ -79,14 +73,11 @@ class CmdService
 
     /**
      * Command is dispached to a background worker.
-     * @param string $command
-     * @param array $options
-     * @return CmdResult
      */
     private static function executeAsync(string $command, array $options): CmdResult
     {
         ExecuteCmd::dispatch($command, $options);
-        
+
         return new CmdResult(
             command: $command,
             exitCode: null,

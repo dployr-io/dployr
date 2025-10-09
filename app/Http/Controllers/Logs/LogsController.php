@@ -14,12 +14,12 @@ class LogsController extends Controller
     public function stream(): StreamedResponse
     {
         return new StreamedResponse(
-        fn() => LogStreamService::stream('logs/laravel.log'), 
-        200, 
-        [
-            'Content-Type' => 'text/event-stream',
-            'Cache-Control' => 'no-cache',
-            'X-Accel-Buffering' => 'no',
-        ]);
+            fn () => LogStreamService::stream('logs/laravel.log'),
+            200,
+            [
+                'Content-Type' => 'text/event-stream',
+                'Cache-Control' => 'no-cache',
+                'X-Accel-Buffering' => 'no',
+            ]);
     }
 }

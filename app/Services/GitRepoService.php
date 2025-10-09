@@ -15,24 +15,21 @@ class GitRepoService
      * e.g http://foo.bar -> https://foo.bar |
      *     https://www.foo.bar -> https://foo.bar |
      *     foo.bar -> https://foo.bar
-     * 
-     * @param string $url
-     * @return string|null
      */
     protected static function formatUrl(string $url): ?string
     {
         $url = strtolower(trim($url));
 
         // Maintain http/https
-        if (!preg_match('#^https?://#', $url)) {
-            $url = 'https://' . ltrim($url, '/');
+        if (! preg_match('#^https?://#', $url)) {
+            $url = 'https://'.ltrim($url, '/');
         }
 
         // Remove www. after scheme
         $url = preg_replace('#^https?://www\.#', 'https://', $url);
 
         // Validate URL
-        if (!filter_var($url, FILTER_VALIDATE_URL)) {
+        if (! filter_var($url, FILTER_VALIDATE_URL)) {
             return null; // invalid URL
         }
 
@@ -41,11 +38,9 @@ class GitRepoService
         return $url;
     }
 
-    
     /**
      * Extract info about a remote repository
-     * 
-     * @param string $url
+     *
      * @return array{name: string, remote: mixed|string, repository: array|null}
      */
     public static function parse(string $url): ?array
@@ -54,7 +49,7 @@ class GitRepoService
 
         $parts = parse_url($formattedUrl);
 
-        if (!isset($parts['host'], $parts['path'])) {
+        if (! isset($parts['host'], $parts['path'])) {
             return null;
         }
 
@@ -65,25 +60,26 @@ class GitRepoService
         }
 
         return [
-            'name'       => $segments[0],
+            'name' => $segments[0],
             'repository' => preg_replace('/\.git$/', '', $segments[1]),
-            'provider'     => $parts['host'],
+            'provider' => $parts['host'],
         ];
-    }    
+    }
 
     protected function search(string $name, string $repository, string $provider): ApiResponse
-    { 
-        switch (RemoteProviderService::getRemoteType($provider))
-        {
-            case RemoteType::GitHub: 
-                $gitHubService = new GitHubService(); 
-                return $gitHubService->search($name, $repository, $provider);   
+    {
+        switch (RemoteProviderService::getRemoteType($provider)) {
+            case RemoteType::GitHub:
+                $gitHubService = new GitHubService;
+
+                return $gitHubService->search($name, $repository, $provider);
             case RemoteType::GitLab:
-                $gitLabService = new GitLabService();
+                $gitLabService = new GitLabService;
+
                 return $gitLabService->search($name, $repository, $provider);
             default:
-                return new ApiResponse(false, [], "Something went wrong");
-        }    
+                return new ApiResponse(false, [], 'Something went wrong');
+        }
     }
 
     public function searchRemote(string $url): ApiResponse
@@ -97,31 +93,33 @@ class GitRepoService
 
     public function getLatestCommitMessage(string $name, string $repository, string $provider): array
     {
-        switch (RemoteProviderService::getRemoteType($provider))
-        {
-            case RemoteType::GitHub: 
-                $gitHubService = new GitHubService(); 
-                return $gitHubService->getLatestCommitMessage($name, $repository, $provider);   
+        switch (RemoteProviderService::getRemoteType($provider)) {
+            case RemoteType::GitHub:
+                $gitHubService = new GitHubService;
+
+                return $gitHubService->getLatestCommitMessage($name, $repository, $provider);
             case RemoteType::GitLab:
-                $gitLabService = new GitLabService();
+                $gitLabService = new GitLabService;
+
                 return $gitLabService->getLatestCommitMessage($name, $repository, $provider);
             default:
                 return [];
-        }               
+        }
     }
 
     public function cloneRepo(string $name, string $repository, string $provider, string $local_dir)
     {
-        switch (RemoteProviderService::getRemoteType($provider))
-        {
-            case RemoteType::GitHub: 
-                $gitHubService = new GitHubService(); 
-                return $gitHubService->clone($name, $repository, $provider, $local_dir);   
+        switch (RemoteProviderService::getRemoteType($provider)) {
+            case RemoteType::GitHub:
+                $gitHubService = new GitHubService;
+
+                return $gitHubService->clone($name, $repository, $provider, $local_dir);
             case RemoteType::GitLab:
-                $gitLabService = new GitLabService();
+                $gitLabService = new GitLabService;
+
                 return $gitLabService->clone($name, $repository, $provider, $local_dir);
             default:
                 return;
-        }      
+        }
     }
 }

@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Models\Blueprint;
+use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
-use Tests\TestCase;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\TestCase;
 
 class BlueprintsTest extends TestCase
 {
@@ -17,8 +17,7 @@ class BlueprintsTest extends TestCase
         $this->actingAs(User::factory()->create());
 
         $this->get(route('deploymentsIndex'))
-            ->assertInertia(fn (Assert $page) =>
-                $page->component('deployments/index')
+            ->assertInertia(fn (Assert $page) => $page->component('deployments/index')
             )
             ->assertOk();
     }
@@ -34,7 +33,7 @@ class BlueprintsTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonStructure([
-                '*' => ['id', 'config', 'status', 'created_at', 'updated_at']
+                '*' => ['id', 'config', 'status', 'created_at', 'updated_at'],
             ])
             ->assertJsonCount(3);
     }
@@ -46,14 +45,12 @@ class BlueprintsTest extends TestCase
         $blueprint = Blueprint::factory()->create();
 
         $this->get(route('deploymentsShow', $blueprint))
-            ->assertInertia(fn (Assert $page) =>
-                $page->component('deployments/view-deployment')
-                    ->has('blueprint', fn ($bp) =>
-                        $bp
-                            ->where('id', $blueprint->id)
-                            ->where('status', 'pending')
-                            ->etc()
-                    )
+            ->assertInertia(fn (Assert $page) => $page->component('deployments/view-deployment')
+                ->has('blueprint', fn ($bp) => $bp
+                    ->where('id', $blueprint->id)
+                    ->where('status', 'pending')
+                    ->etc()
+                )
             )
             ->assertOk();
     }
