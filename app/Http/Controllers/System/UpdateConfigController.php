@@ -37,7 +37,7 @@ class UpdateConfigController extends Controller
         ];
 
         foreach ($keys as $key) {
-            if ($request->has($key)) {
+            if ($request->filled($key)) {
                 Config::updateOrCreate(
                     ['key' => $key],
                     ['value' => $request->input($key)]
