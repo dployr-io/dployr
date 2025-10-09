@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Projects\Remotes;
+namespace App\Http\Controllers\Projects\Resources;
 
 use App\Http\Controllers\Controller;
 use App\Models\Remote;

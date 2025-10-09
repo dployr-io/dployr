@@ -65,6 +65,11 @@ export interface Remote {
     avatar_url?: string | null;
 }
 
+export interface DockerImage {
+    id: string;
+    name: string;
+}
+
 export type ServiceSource = 'image' | 'remote';
 
 export type Status = 'pending' | 'in_progress' | 'failed' | 'completed';

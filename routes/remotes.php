@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Projects\Remotes\RemotesController;
+use App\Http\Controllers\Projects\Resources\RemotesController;
 
 Route::middleware(['auth', 'verified'])->prefix('resources/remotes')->group(function () {
     // All remotes page
