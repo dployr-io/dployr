@@ -56,7 +56,7 @@ export default function Dashboard() {
                         >
                             <div className="flex items-center gap-2">
                                 <PlusCircle size={20} className="text-muted-foreground" />
-                                <p>Create a New Project</p>
+                                <p>Create a new project</p>
                             </div>
 
                             <p className="text-sm text-muted-foreground">Click to create a new project and get started with deploying with dployr</p>

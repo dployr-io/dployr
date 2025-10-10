@@ -57,7 +57,7 @@ describe('Dashboard', () => {
         await screen.findByText((content) => content.includes('Desc A'));
     });
 
-    test('opens dialog when "Create a New Project" is clicked', async () => {
+    test('opens dialog when "Create a new project" is clicked', async () => {
         (useProjects as vi.Mock).mockReturnValue({
             projects: [],
             isLoading: false,
@@ -65,7 +65,7 @@ describe('Dashboard', () => {
 
         render(<Dashboard />);
 
-        const button = screen.getByText(/^Create a New Project/i);
+        const button = screen.getByText(/^Create a new project/i);
         fireEvent.click(button);
 
         expect(await screen.findByTestId('dialog')).toBeInTheDocument();

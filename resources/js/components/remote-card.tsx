@@ -4,7 +4,11 @@ import { FaGitlab } from 'react-icons/fa6';
 import { RxGithubLogo } from 'react-icons/rx';
 import { Badge } from './ui/badge';
 
-export default function RemoteCard(remote?: Remote) {
+interface Props {
+    remote?: Remote;
+}
+
+export default function RemoteCard({ remote }: Props) {
     return (
         <Link
             href={`/projects/${remote?.id}`}

@@ -51,8 +51,7 @@ export default function Image() {
                                 {images?.map((image: DockerImage) => (
                                     <ImageCard
                                         key={image.id}
-                                        id={image.id} 
-                                        name={image.name}                                  
+                                        image={image}                                  
                                     />
                                 ))}
                             </>
