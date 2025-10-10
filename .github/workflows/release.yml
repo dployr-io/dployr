@@ -38,22 +38,18 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install PHP dependencies
-        working-directory: app
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
       - name: Install pnpm
         run: npm install -g pnpm
 
       - name: Install Node dependencies
-        working-directory: app
         run: pnpm i
 
       - name: Build frontend assets
-        working-directory: app
         run: pnpm run build
 
       - name: Prepare release
-        working-directory: app
         run: |
           echo "removing development files..."
           rm -rf tests .github .cache builds .config .local node_modules phpunit.xml eslint.config.js .editorconfig .gitattributes .gitignore .prettierrc .prettierignore resources/css resources/js
@@ -74,12 +70,13 @@ jobs:
           find storage/framework/views -name "*" -not -name ".gitignore" -delete 2>/dev/null || true
 
       - name: Read version from file
-        working-directory: app
         id: version
-        run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+        run: |
+          VERSION=$(php -r "echo trim(file_get_contents('VERSION'));")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Using version: $VERSION"
 
       - name: Create archive
-        working-directory: app
         run: zip -r "../dployr-v${{ steps.version.outputs.version }}.zip" . 
 
       - name: Create Release

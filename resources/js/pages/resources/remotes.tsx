@@ -52,13 +52,7 @@ export default function Remotes() {
                                 {remotes?.map((remote: Remote) => (
                                     <RemoteCard
                                         key={remote.id}
-                                        id={remote.id}
-                                        name={remote.name}
-                                        repository={remote.repository}
-                                        branch={remote.branch}
-                                        provider={remote.provider}
-                                        commit_message={remote.commit_message}
-                                        avatar_url={remote.avatar_url}
+                                        remote={remote}
                                     />
                                 ))}
                             </>
@@ -69,7 +63,7 @@ export default function Remotes() {
                         >
                             <div className="flex items-center gap-2">
                                 <PlusCircle size={20} className="text-muted-foreground" />
-                                <p>Import a New Repository</p>
+                                <p>Import a new repository</p>
                             </div>
                             <p className="text-sm text-muted-foreground">Click to import a new remote repository to your library</p>
                         </div>

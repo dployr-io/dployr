@@ -2,8 +2,8 @@
 
 namespace App\Facades;
 
-use Illuminate\Support\Facades\Facade;
 use App\Services\CmdService;
+use Illuminate\Support\Facades\Facade;
 
 class Command extends Facade
 {

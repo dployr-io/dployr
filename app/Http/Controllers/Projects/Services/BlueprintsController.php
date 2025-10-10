@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Projects\Services;
 
+use App\Http\Controllers\Controller;
 use App\Models\Blueprint;
 use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
-use App\Http\Controllers\Controller;
 
-class BlueprintsController extends Controller 
+class BlueprintsController extends Controller
 {
     /**
      * Show deployments page
@@ -19,20 +19,24 @@ class BlueprintsController extends Controller
 
     /**
      * Fetch all blueprints
-     * @return JsonResponse
      */
     public function fetch(): JsonResponse
     {
+        $query = Blueprint::query();
+
+        if (request()->query('spec')) {
+            $query->where('spec', true);
+        }
+
         return response()->json(
-            Blueprint::all()->map( fn($blueprint) => 
-                [
-                    'id' => $blueprint->id,
-                    'config' => $blueprint->config,
-                    'status' => $blueprint->status,
-                    'created_at' => $blueprint->created_at,
-                    'updated_at' => $blueprint->updated_at,
-                ],
-            )
+            $query->get()->map(fn ($blueprint) => [
+                'id' => $blueprint->id,
+                'config' => $blueprint->config,
+                'status' => $blueprint->status,
+                'spec' => $blueprint->spec,
+                'created_at' => $blueprint->created_at,
+                'updated_at' => $blueprint->updated_at,
+            ])
         );
     }
 
@@ -50,5 +54,5 @@ class BlueprintsController extends Controller
                 'updated_at' => $blueprint->updated_at,
             ],
         ]);
-    }  
+    }
 }

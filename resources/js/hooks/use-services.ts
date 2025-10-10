@@ -16,7 +16,7 @@ export function useServices() {
 
         return {
             data: query.data,
-            isLoading: query.isLoading
+            isLoading: query.isLoading,
         };
     };
 

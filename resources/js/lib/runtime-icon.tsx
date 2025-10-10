@@ -1,8 +1,8 @@
-import type { Runtime } from "@/types";
-import { BiCustomize } from "react-icons/bi";
-import { FaDocker, FaPython, FaNodeJs, FaJava } from "react-icons/fa";
-import { FaGolang, FaServer } from "react-icons/fa6";
-import { SiDotnet, SiK3S, SiPhp, SiRubyonrails } from "react-icons/si";
+import type { Runtime } from '@/types';
+import { BiCustomize } from 'react-icons/bi';
+import { FaDocker, FaJava, FaNodeJs, FaPython } from 'react-icons/fa';
+import { FaGolang, FaServer } from 'react-icons/fa6';
+import { SiDotnet, SiK3S, SiPhp, SiRubyonrails } from 'react-icons/si';
 
 export const getRuntimeIcon = (runtime: Runtime) => {
     switch (runtime) {
@@ -31,4 +31,4 @@ export const getRuntimeIcon = (runtime: Runtime) => {
         default:
             return <BiCustomize size={16} />;
     }
-};      
+};

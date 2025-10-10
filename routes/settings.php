@@ -2,9 +2,9 @@
 
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
+use App\Models\Config;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use \App\Models\Config;
 
 Route::middleware('auth')->group(function () {
     Route::redirect('settings', '/settings/profile');
@@ -24,6 +24,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('settings/config', function () {
         $configs = Config::all()->pluck('value', 'key');
+
         return Inertia::render('settings/config', ['config' => $configs]);
     })->name('config');
 });

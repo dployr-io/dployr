@@ -2,19 +2,19 @@
 
 namespace App\Http\Controllers\Projects\Services;
 
-use Illuminate\Http\JsonResponse;
-use Inertia\Inertia;
-use Illuminate\Http\Request;
-use Illuminate\Http\RedirectResponse;
-use App\Http\Controllers\Controller;
-use App\Models\Service;
-use App\Models\Project;
-use App\Models\Blueprint;
 use App\Enums\JobStatus;
+use App\Http\Controllers\Controller;
 use App\Jobs\Services\ProcessBlueprint;
+use App\Models\Blueprint;
+use App\Models\Project;
+use App\Models\Service;
 use App\Services\CaddyService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
 
-class ServicesController extends Controller 
+class ServicesController extends Controller
 {
     /**
      * Show service creation page.
@@ -89,7 +89,7 @@ class ServicesController extends Controller
         $port = $request->input('port');
 
         if (CaddyService::checkPort($port)) {
-            return back()->withInput()->withErrors(['port' => __('Port ' . $port . ' is already in use. Choose another port.')]);
+            return back()->withInput()->withErrors(['port' => __('Port '.$port.' is already in use. Choose another port.')]);
         }
 
         return back()->withInput();
@@ -100,8 +100,8 @@ class ServicesController extends Controller
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function store(Request $request): RedirectResponse 
-    {   
+    public function store(Request $request): RedirectResponse
+    {
         $request->validate([
             'name' => ['required', 'string'],
             'source' => ['required', 'in:remote,image'],
@@ -111,7 +111,7 @@ class ServicesController extends Controller
             'working_dir' => ['nullable', 'string'],
             'output_dir' => ['nullable', 'string'],
             'image' => ['nullable', 'string'],
-            'spec' => ['nullable', 'string'],  
+            'spec' => ['nullable', 'string'],
             'env_vars' => ['nullable', 'array'],
             'secrets' => ['nullable', 'array'],
             'remote' => ['nullable', 'string'],
@@ -136,7 +136,7 @@ class ServicesController extends Controller
             'ci_remote' => $request->input('ci_remote'),
             'domain' => $request->input('domain'),
             'dns_provider' => $request->input('dns_provider'),
-        ], fn($value) => $value !== null);
+        ], fn ($value) => $value !== null);
 
         $blueprint = Blueprint::create([
             'status' => JobStatus::PENDING,
@@ -146,5 +146,5 @@ class ServicesController extends Controller
         ProcessBlueprint::dispatch($blueprint);
 
         return back()->with('info', __('Creating service '.$request->name.' in progress.'));
-    }      
+    }
 }

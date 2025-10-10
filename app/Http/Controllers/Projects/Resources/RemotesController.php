@@ -1,23 +1,23 @@
 <?php
 
-namespace App\Http\Controllers\Projects\Remotes;
+namespace App\Http\Controllers\Projects\Resources;
 
-use Illuminate\Http\JsonResponse;
-use Inertia\Inertia;
-use Illuminate\Http\Request;
-use Illuminate\Http\RedirectResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Remote;
 use App\Rules\RemoteRepo;
 use App\Services\GitRepoService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
 
-class RemotesController extends Controller 
+class RemotesController extends Controller
 {
     /**
      * Show all remotes page.
      */
     public function index()
-    { 
+    {
         return Inertia::render('resources/remotes');
     }
 
@@ -29,9 +29,6 @@ class RemotesController extends Controller
      * - all: (optional, boolean) If true, return all remotes; otherwise, paginate (20 per page).
      *
      * Each remote includes its latest commit message and avatar URL if available.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
      */
     public function fetch(Request $request): JsonResponse
     {
@@ -45,7 +42,7 @@ class RemotesController extends Controller
             ? $query->get()
             : $query->paginate(20);
 
-        $repoService = new GitRepoService();
+        $repoService = new GitRepoService;
 
         $remotes = $remotes->map(function ($remote) use ($repoService) {
             try {
@@ -86,7 +83,7 @@ class RemotesController extends Controller
     public function show(Remote $remote)
     {
         try {
-            $repo_service = new GitRepoService();
+            $repo_service = new GitRepoService;
             $commit = $repo_service->getLatestCommitMessage($remote->name, $remote->repository, $remote->provider);
             $commit_message = $commit['message'];
             $avatar_url = $commit['avatar_url'];
@@ -110,42 +107,43 @@ class RemotesController extends Controller
 
     /**
      * Search for a remote repository.
-     * 
+     *
      * @throws \Illuminate\Validation\ValidationException
      * @throws \App\Exceptions\RepositorySearchException
      */
-    public function search(Request $request) 
+    public function search(Request $request)
     {
         $request->validate([
-            'remote_repo' => ['required', new RemoteRepo()],
+            'remote_repo' => ['required', new RemoteRepo],
         ]);
-  
+
         try {
-            $repo_service = new GitRepoService();
+            $repo_service = new GitRepoService;
             $response = $repo_service->searchRemote($request->remote_repo);
 
-            if (!$response->success) {
+            if (! $response->success) {
                 return back()->withInput()->with('error', $response->error['message'] ?? 'Failed to fetch repository.');
             }
+
             return back()->withInput()->with('data', $response->data['branches'] ?? []);
         } catch (\RuntimeException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         } catch (\Exception $e) {
             $errorMessage = $e instanceof \Throwable ? $e->getMessage() : 'An unexpected error occurred.';
+
             return back()->withInput()->with('error', $errorMessage ?: 'An unexpected error occurred.');
         }
     }
-
 
     /**
      * Handle a new remote request.
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function store(Request $request): RedirectResponse 
+    public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'remote_repo' => ['required', new RemoteRepo()],
+            'remote_repo' => ['required', new RemoteRepo],
             'branch' => 'required',
         ]);
 
@@ -159,5 +157,5 @@ class RemotesController extends Controller
         ]);
 
         return back()->with('success', __('Your remote repository was added successfully.'));
-    }      
+    }
 }

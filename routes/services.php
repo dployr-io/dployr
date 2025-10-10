@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\Projects\Services\ServicesController;
 
-Route::middleware(['auth', 'verified'])->group(function() {
+Route::middleware(['auth', 'verified'])->group(function () {
     // Project's services page
     Route::get('projects/{project}/services', [ServicesController::class, 'deploy'])->name('servicesIndex');
 

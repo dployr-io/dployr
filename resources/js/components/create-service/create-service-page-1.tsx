@@ -163,7 +163,7 @@ export function CreateServicePage1({
                 <Label htmlFor="runtime">
                     Runtime <span className="text-destructive">*</span>
                 </Label>
-                <Select value={runtime ?? "Select a runtime"} onValueChange={onRuntimeValueChanged}>
+                <Select value={runtime ?? 'Select a runtime'} onValueChange={onRuntimeValueChanged}>
                     <SelectTrigger id="runtime" disabled={processing}>
                         <SelectValue>
                             <div className="flex items-center gap-2">

@@ -2,18 +2,18 @@ import AppLayout from '@/layouts/app-layout';
 import { console } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
-import { useEffect, useRef, useState } from 'react';
-import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
-import DOMPurify from 'dompurify'
+import DOMPurify from 'dompurify';
+import { useEffect, useRef } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Console',
         href: console().url,
     },
-]
+];
 
 export default function Console() {
     const terminalRef = useRef<HTMLDivElement>(null);
@@ -116,27 +116,27 @@ export default function Console() {
             scrollbar-width: thin;
             scrollbar-color: #525252 #262626;
         }
-    `
+    `;
 
     const sanitizedData = () => ({
-        __html: DOMPurify.sanitize(terminalScrollbarHTML)
-      })
+        __html: DOMPurify.sanitize(terminalScrollbarHTML),
+    });
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Logs" />
             <style dangerouslySetInnerHTML={sanitizedData()} />
-            <div className="flex min-h-0 h-full flex-col gap-4 overflow-y-hidden rounded-xl p-4">
+            <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-hidden rounded-xl p-4">
                 <div className="flex min-h-0 flex-1 auto-rows-min gap-4 p-8">
                     <div className="flex min-h-0 w-full flex-1 flex-col gap-6">
-                        <div className="flex min-h-0 flex-1 flex-col overflow-hidden border border-sidebar-border rounded-xl">
+                        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-sidebar-border">
                             <div className="flex h-full min-h-0 flex-col">
-                                <div className="flex h-11 items-center justify-between border-b border-sidebar-border  px-4 py-2 bg-neutral-50 dark:bg-neutral-900">
-                                    <span className="text-sm font-medium text-muted-foreground ">Terminal Console</span>
+                                <div className="flex h-11 items-center justify-between border-b border-sidebar-border bg-neutral-50 px-4 py-2 dark:bg-neutral-900">
+                                    <span className="text-sm font-medium text-muted-foreground">Terminal Console</span>
                                 </div>
                                 <div
                                     ref={terminalRef}
-                                    className="flex-1 px-2 min-h-0 bg-neutral-950 terminal-scrollbar"
+                                    className="terminal-scrollbar min-h-0 flex-1 bg-neutral-950 px-2"
                                     onClick={() => terminal.current?.focus()}
                                 />
                             </div>

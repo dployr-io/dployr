@@ -119,7 +119,7 @@ export default function Services() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {!isLoading 
+                                    {!isLoading
                                         ? paginatedServices!.map((service) => (
                                               <TableRow key={service.id} className="h-16">
                                                   <TableCell className="h-16 align-middle font-medium">{service.name}</TableCell>

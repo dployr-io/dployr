@@ -7,7 +7,7 @@ export function useProjects() {
         queryKey: ['projects'],
         queryFn: async () => {
             const response = await axios.get('/projects/fetch');
-            return response.data; 
+            return response.data;
         },
         staleTime: 60 * 1000, // Every minute
     });

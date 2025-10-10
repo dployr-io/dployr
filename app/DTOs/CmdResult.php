@@ -15,16 +15,16 @@ readonly class CmdResult
 
     public function failed(): bool
     {
-        return !$this->successful;
+        return ! $this->successful;
     }
 
     public function hasOutput(): bool
     {
-        return !empty($this->output);
+        return ! empty($this->output);
     }
 
     public function hasError(): bool
     {
-        return !empty($this->errorOutput);
+        return ! empty($this->errorOutput);
     }
 }

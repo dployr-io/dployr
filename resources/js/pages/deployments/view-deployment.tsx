@@ -32,15 +32,7 @@ export default function ViewDeployment() {
     const config = JSON.parse(blueprint.config as string);
     const breadcrumbs = ViewProjectBreadcrumbs(blueprint);
 
-    const { 
-        logs,
-        filteredLogs, 
-        selectedLevel, 
-        searchQuery, 
-        logsEndRef, 
-        setSelectedLevel, 
-        setSearchQuery 
-    } = useLogs(blueprint);
+    const { logs, filteredLogs, selectedLevel, searchQuery, logsEndRef, setSelectedLevel, setSearchQuery } = useLogs(blueprint);
 
     const { blueprintFormat, setBlueprintFormat } = useServiceForm();
 
@@ -57,17 +49,17 @@ export default function ViewDeployment() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Projects" />
             <div className="flex h-full min-h-0 flex-col gap-4 rounded-xl p-4">
-                <div className="flex min-h-0 flex-1 auto-rows-min flex-col gap-6  px-9 py-6">
+                <div className="flex min-h-0 flex-1 auto-rows-min flex-col gap-6 px-9 py-6">
                     <div className="flex flex-col gap-1">
                         <p className="text-xl font-semibold">{config?.name || 'Deployment'}</p>
                     </div>
-                    <div className="flex flex-1 min-h-0">
-                        <Tabs defaultValue="logs" className="flex flex-col w-full min-h-0">
-                            <TabsList className='self-start'>
+                    <div className="flex min-h-0 flex-1">
+                        <Tabs defaultValue="logs" className="flex min-h-0 w-full flex-col">
+                            <TabsList className="self-start">
                                 <TabsTrigger value="logs">Logs</TabsTrigger>
                                 <TabsTrigger value="blueprint">Blueprint</TabsTrigger>
                             </TabsList>
-                            <TabsContent value="logs" className='flex min-h-0 flex-1 flex-col'>
+                            <TabsContent value="logs" className="flex min-h-0 flex-1 flex-col">
                                 <LogsWindow
                                     logs={logs}
                                     filteredLogs={filteredLogs}

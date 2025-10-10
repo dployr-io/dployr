@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('blueprints', function (Blueprint $table) {
             $table->ulid('id')->primary();
             $table->json('config');
-            $table->string('status');
+            $table->string('status')->default('pending'); // pending, in_progress, completed
+            $table->boolean('spec')->default(false);
             $table->timestamps();
         });
     }

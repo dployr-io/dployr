@@ -45,9 +45,9 @@ export function useLogs(filterItem?: Blueprint | Service | null) {
                     // This log is in range, mark that we've seen a valid log
                     hasSeenValidLog.current = true;
                 } else {
-                    // Log has no timestamp - only include if 
+                    // Log has no timestamp - only include if
                     // we've already seen a valid log in range
-                    // This is useful in tracking stack traces that 
+                    // This is useful in tracking stack traces that
                     // sometimes get broken into chucks in transit
                     if (!hasSeenValidLog.current) {
                         return;

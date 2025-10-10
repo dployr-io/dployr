@@ -4,9 +4,9 @@ namespace App\Services;
 
 class DirectoryService
 {
-    public static function setupFolder(string $path) : bool 
+    public static function setupFolder(string $path): bool
     {
-        $cmd = "mkdir -p {$path}";  
+        $cmd = "mkdir -p {$path}";
 
         $result = CmdService::execute($cmd);
 

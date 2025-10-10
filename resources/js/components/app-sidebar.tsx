@@ -2,10 +2,22 @@ import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { console, deploymentsIndex, logs, projectsIndex, remotesIndex } from '@/routes';
+import { console, deploymentsIndex, imagesIndex, logs, projectsIndex, remotesIndex, specsIndex, notificationsIndex, resourceManagerIndex } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Container, Factory, FileSliders, Folder, FolderGit2, LayoutGrid, Logs, SquareChevronRight } from 'lucide-react';
+import {
+    Bell,
+    BookOpen,
+    CircleGauge,
+    Container,
+    Factory,
+    FileSliders,
+    FolderGit2,
+    LayoutGrid,
+    Logs,
+    MessageCircleQuestion,
+    SquareChevronRight,
+} from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -33,31 +45,41 @@ const mainNavItems: NavItem[] = [
 
 const secondaryNavItems: NavItem[] = [
     {
+        title: 'Resources',
+        href: resourceManagerIndex(),
+        icon: CircleGauge,
+    },
+    {
         title: 'Remotes',
         href: remotesIndex(),
         icon: FolderGit2,
     },
     {
         title: 'Images',
-        href: logs(),
+        href: imagesIndex(),
         icon: Container,
     },
     {
         title: 'Specs',
-        href: logs(),
+        href: specsIndex({ query: { spec: true } }).url,
         icon: FileSliders,
     },
 ];
 
 const footerNavItems: NavItem[] = [
     {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
+        title: 'Notifications',
+        href: notificationsIndex(),
+        icon: Bell,
     },
     {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
+        title: 'Support',
+        href: 'https://dployr.io/support',
+        icon: MessageCircleQuestion,
+    },
+    {
+        title: 'Docs',
+        href: 'https://dployr.io/docs',
         icon: BookOpen,
     },
 ];
