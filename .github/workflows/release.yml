@@ -74,7 +74,7 @@ jobs:
         run: |
           VERSION=$(php -r "echo trim(file_get_contents('VERSION'));")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Debug: Using version $VERSION"
+          echo "Using version: $VERSION"
 
       - name: Create archive
         run: zip -r "../dployr-v${{ steps.version.outputs.version }}.zip" . 
