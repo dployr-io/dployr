@@ -71,7 +71,10 @@ jobs:
 
       - name: Read version from file
         id: version
-        run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+        run: |
+          VERSION=$(php -r "echo trim(file_get_contents('VERSION'));")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Debug: Using version $VERSION"
 
       - name: Create archive
         run: zip -r "../dployr-v${{ steps.version.outputs.version }}.zip" . 
