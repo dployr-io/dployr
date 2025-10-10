@@ -26,7 +26,6 @@ class Service extends Model
         'working_dir',
         'output_dir',
         'image',
-        'spec',
         'env_vars',
         'secrets',
         'remote_id',
