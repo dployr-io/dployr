@@ -85,8 +85,8 @@ if (version_compare($newVersion, $currentVersion, '<=')) {
 
 file_put_contents('VERSION', $newVersion . PHP_EOL);
 echo "Bumped version from $currentVersion to $newVersion\n";
-exec('git tag ' . escapeshellarg($newVersion));
+exec('git tag ' . escapeshellarg("v$newVersion"));
 exec('git add -A');
 exec('git commit -m ' . escapeshellarg($options['message']));
-exec('git push origin ' . escapeshellarg($newVersion));
+exec('git push origin ' . escapeshellarg("v$newVersion"));
 echo "Successfully released version $newVersion\n";
