@@ -59,7 +59,7 @@ jobs:
         run: php artisan key:generate
 
       - name: Backend tests
-        run: ./vendor/bin/phpunit
+        run: composer run test
 
       - name: Frontend tests
         run: pnpm run test
