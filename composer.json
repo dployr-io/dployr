@@ -75,7 +75,11 @@
             "wsl -d Ubuntu-22.04 -u root -e sh -c \"systemctl restart dployr\"",
             "wsl -d Ubuntu-22.04 -u root -e sh -c \"systemctl restart php8.3-fpm\"",
             "wsl -d Ubuntu-22.04 -u root -e sh -c \"systemctl restart caddy\""
-        ]
+        ],
+        "release": "@php scripts/release.php"
+    },
+    "scripts-descriptions": {
+        "release": "Bumps minor version, and pushes new release. Usage: composer release [version] [message]"
     },
     "extra": {
         "laravel": {
