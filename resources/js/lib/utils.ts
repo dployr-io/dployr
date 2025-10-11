@@ -21,7 +21,7 @@ export function toWordUpperCase(value: string) {
         .join(' ');
 }
 
-export function toYaml(obj: Record<string, any>): string {
+export function toYaml(obj: Record<string, unknown>): string {
     // Parse nested JSON strings first
     const parsed = JSON.parse(JSON.stringify(obj), (key, value) => {
         if (typeof value === 'string') {
@@ -35,13 +35,13 @@ export function toYaml(obj: Record<string, any>): string {
     });
 
     const yamlLines: string[] = [];
-    function processObject(o: Record<string, any>, indent: number) {
+    function processObject(o: Record<string, unknown>, indent: number) {
         for (const key in o) {
             const value = o[key];
             const indentation = '  '.repeat(indent);
             if (typeof value === 'object' && value !== null) {
                 yamlLines.push(`${indentation}${key}:`);
-                processObject(value, indent + 1);
+                processObject(value as Record<string, unknown>, indent + 1);
             } else {
                 yamlLines.push(`${indentation}${key}: ${value}`);
             }
@@ -51,7 +51,7 @@ export function toYaml(obj: Record<string, any>): string {
     return yamlLines.join('\n');
 }
 
-export function toJson(obj: Record<string, any>): string {
+export function toJson(obj: Record<string, unknown>): string {
     const parsed = JSON.parse(JSON.stringify(obj), (key, value) => {
         if (typeof value === 'string') {
             try {
@@ -87,7 +87,9 @@ export function parseLog(raw: string): Log {
                 context: logData.context,
             };
         }
-    } catch {}
+    } catch (error) {
+        console.error((error as Error).message || 'An unknown error occoured while parsing log');
+    }
 
     return { id, message: raw, level_name: 'INFO' };
 }

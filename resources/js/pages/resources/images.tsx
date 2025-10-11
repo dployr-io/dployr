@@ -1,4 +1,5 @@
 import ImageAddDialog from '@/components/image-add-dialog';
+import ImageCard from '@/components/image-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useImages } from '@/hooks/use-images';
 import AppLayout from '@/layouts/app-layout';
@@ -7,7 +8,6 @@ import type { BreadcrumbItem, DockerImage } from '@/types';
 import { Head } from '@inertiajs/react';
 import { PlusCircle } from 'lucide-react';
 import { useState } from 'react';
-import ImageCard from '@/components/image-card';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -49,10 +49,7 @@ export default function Image() {
                         ) : (
                             <>
                                 {images?.map((image: DockerImage) => (
-                                    <ImageCard
-                                        key={image.id}
-                                        image={image}                                  
-                                    />
+                                    <ImageCard key={image.id} image={image} />
                                 ))}
                             </>
                         )}

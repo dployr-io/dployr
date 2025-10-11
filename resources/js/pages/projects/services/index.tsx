@@ -2,6 +2,7 @@ import { StatusChip } from '@/components/status-chip';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
 import { useServices } from '@/hooks/use-services';
 import AppLayout from '@/layouts/app-layout';
 import { getRuntimeIcon } from '@/lib/runtime-icon';
@@ -29,9 +30,7 @@ const ViewProjectBreadcrumbs = (project?: Project) => {
 export default function Services() {
     const { props } = usePage();
     const project = (props.project as Project) || null;
-    const { getServices } = useServices();
-    const { data: services, isLoading } = getServices(project?.id || undefined);
-
+    const { services, isLoading } = useServices(project?.id);
     const breadcrumbs = ViewProjectBreadcrumbs(project);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;

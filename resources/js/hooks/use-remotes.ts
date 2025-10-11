@@ -17,7 +17,7 @@ export function useRemotes(setOpen?: (open: boolean) => void) {
             remote_repo: z
                 .string()
                 .min(1, 'Domain is required')
-                .regex(/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/, 'Please enter a valid remote address'),
+                .regex(/^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/, 'Please enter a valid remote address'),
             branch: z.string().optional(),
         })
         .refine((data) => {
@@ -53,8 +53,9 @@ export function useRemotes(setOpen?: (open: boolean) => void) {
         return searchComplete ? { remote_repo: remoteRepo, branch: selectedBranch } : { remote_repo: remoteRepo };
     };
 
-    const handleFormSuccess = (page: any) => {
-        const data = page?.props?.flash?.data ?? [];
+    const handleFormSuccess = (page: unknown) => {
+        const pageData = page as { props?: { flash?: { data?: string[] } } };
+        const data = pageData?.props?.flash?.data ?? [];
         if (!searchComplete && Array.isArray(data) && data.length > 0) {
             setBranches(data);
             setSearchComplete(true);
@@ -62,14 +63,6 @@ export function useRemotes(setOpen?: (open: boolean) => void) {
             queryClient.invalidateQueries({ queryKey: ['remotes'] });
             setOpen!(false);
         }
-    };
-
-    const reset = () => {
-        setRemoteRepo('');
-        setSelectedBranch('');
-        setBranches([]);
-        setSearchComplete(false);
-        setError('');
     };
 
     const { data, isLoading } = useQuery<Remote[]>({
@@ -83,7 +76,7 @@ export function useRemotes(setOpen?: (open: boolean) => void) {
 
     return {
         // State
-        remotes: data,
+        remotes: data || [],
         isLoading,
         branches,
         searchComplete,

@@ -7,6 +7,7 @@ class CaddyService
     public static function status(): bool
     {
         $result = CmdService::execute('systemctl is-active caddy');
+
         return $result->output === 'active';
     }
 
@@ -18,6 +19,7 @@ class CaddyService
         if (! $result) {
             throw new \RuntimeException("Caddyfile not found or inaccessible in $path", 1);
         }
+
         return trim($result);
     }
 
@@ -26,13 +28,13 @@ class CaddyService
         $baseConfig = '/etc/caddy/Caddyfile';
         $sitesDir = '/etc/caddy/sites-enabled';
         $filePath = "$sitesDir/{$serviceName}.conf";
-        
+
         if (! is_dir($sitesDir)) {
             mkdir($sitesDir, 0750, true);
         }
 
         $block = trim(str_replace(["\r\n", "\r"], "\n", $block));
-        $tmp = tempnam(sys_get_temp_dir() . "/dployr", 'caddy');
+        $tmp = tempnam(sys_get_temp_dir().'/dployr', 'caddy');
         file_put_contents($tmp, $block);
         $result = CmdService::execute("chown caddy:caddy $tmp");
 
@@ -70,6 +72,7 @@ class CaddyService
     {
         $caddyfile = self::config();
         $pattern = "/^\\s*:$port\\b/m";
+
         return preg_match($pattern, $caddyfile) === 1;
     }
 

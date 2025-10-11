@@ -42,7 +42,9 @@ export default function ViewDeployment() {
         try {
             if (!blueprint) return;
             await navigator.clipboard.writeText(blueprintFormat === 'yaml' ? yamlConfig : jsonConfig);
-        } catch (err) {}
+        } catch {
+            return;
+        }
     };
 
     return (

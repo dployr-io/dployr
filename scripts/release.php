@@ -6,9 +6,9 @@
  * If version is not provided, automatically bumps patch version number.
  * This script expects a VERSION file in the project's root.
  */
-
-function showHelp() {
-    echo <<<HELP
+function showHelp()
+{
+    echo <<<'HELP'
 Usage: composer release [OPTIONS]
 
 Options:
@@ -34,17 +34,17 @@ $options = [
 $args = array_slice($argv, 1);
 for ($i = 0; $i < count($args); $i++) {
     $arg = $args[$i];
-    
+
     if ($arg === '-h' || $arg === '--help') {
         showHelp();
     } elseif ($arg === '-v' || $arg === '--version') {
-        if (!isset($args[$i + 1])) {
+        if (! isset($args[$i + 1])) {
             echo "Error: --version requires a value\n\n";
             showHelp();
         }
         $options['version'] = $args[++$i];
     } elseif ($arg === '-m' || $arg === '--message') {
-        if (!isset($args[$i + 1])) {
+        if (! isset($args[$i + 1])) {
             echo "Error: --message requires a value\n\n";
             showHelp();
         }
@@ -54,7 +54,7 @@ for ($i = 0; $i < count($args); $i++) {
         showHelp();
     }
 }
-if (!file_exists('VERSION')) {
+if (! file_exists('VERSION')) {
     echo "Error: VERSION file not found in current directory\n";
     exit(1);
 }
@@ -64,15 +64,15 @@ $currentVersion = trim(file_get_contents('VERSION'));
 if ($options['version']) {
     $newVersion = $options['version'];
 } else {
-    list($major, $minor, $patch) = explode('.', $currentVersion);
-    $newVersion = $major . '.' . $minor . '.' . ($patch + 1);
+    [$major, $minor, $patch] = explode('.', $currentVersion);
+    $newVersion = $major.'.'.$minor.'.'.($patch + 1);
 }
-if (!preg_match('/^\d+\.\d+\.\d+$/', $newVersion)) {
+if (! preg_match('/^\d+\.\d+\.\d+$/', $newVersion)) {
     echo "Error: Version must be in format X.Y.Z\n";
     exit(1);
 }
 
-list($newMajor, $newMinor, $newPatch) = explode('.', $newVersion);
+[$newMajor, $newMinor, $newPatch] = explode('.', $newVersion);
 
 if ($newMajor > 9 || $newMinor > 99 || $newPatch > 999) {
     echo "Error: Version cannot exceed 9.99.999\n";
@@ -83,11 +83,11 @@ if (version_compare($newVersion, $currentVersion, '<=')) {
     exit(1);
 }
 
-file_put_contents('VERSION', $newVersion . PHP_EOL);
+file_put_contents('VERSION', $newVersion.PHP_EOL);
 echo "Bumped version from $currentVersion to $newVersion\n";
 
 exec('git add -A');
-exec('git commit -m ' . escapeshellarg($options['message']));
+exec('git commit -m '.escapeshellarg($options['message']));
 exec('git push');
 
 echo "Successfully released version $newVersion\n";

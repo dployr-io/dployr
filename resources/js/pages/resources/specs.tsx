@@ -1,10 +1,10 @@
+import SpecCard from '@/components/spec-card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useDeployments } from '@/hooks/use-deployments';
 import AppLayout from '@/layouts/app-layout';
 import { specsIndex } from '@/routes';
 import type { Blueprint, BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
-import SpecCard from '@/components/spec-card';
-import { useDeployments } from '@/hooks/use-deployments';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -45,10 +45,7 @@ export default function Specs() {
                         ) : (
                             <>
                                 {normalizedDeployments?.map((blueprint: Blueprint) => (
-                                    <SpecCard
-                                        key={blueprint.id}
-                                        blueprint={blueprint}                               
-                                    />
+                                    <SpecCard key={blueprint.id} blueprint={blueprint} />
                                 ))}
                             </>
                         )}

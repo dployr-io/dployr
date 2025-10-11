@@ -36,7 +36,7 @@ interface ServiceFormState {
 
 type ServiceFormAction =
     | { type: 'SET_CURRENT_PAGE'; payload: number }
-    | { type: 'SET_FIELD'; payload: { field: string; value: any } }
+    | { type: 'SET_FIELD'; payload: { field: string; value: unknown } }
     | { type: 'SET_ERROR'; payload: { field: string; value: string } }
     | { type: 'CLEAR_ALL_ERRORS' }
     | { type: 'NEXT_PAGE' }
@@ -77,7 +77,7 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
     switch (action.type) {
         case 'SET_CURRENT_PAGE':
             return { ...state, currentPage: action.payload };
-        case 'SET_FIELD':
+        case 'SET_FIELD': {
             const { field, value } = action.payload;
             const errorField = `${field}Error` as keyof ServiceFormState;
             return {
@@ -85,6 +85,7 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
                 [field]: value,
                 ...(errorField in state && { [errorField]: '' }),
             };
+        }
         case 'SET_ERROR':
             return { ...state, [action.payload.field]: action.payload.value };
         case 'CLEAR_ALL_ERRORS':
@@ -139,7 +140,7 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
     }
 }
 
-export function useServiceForm(onCreateServiceCallback?: () => void | null) {
+export function useServiceForm() {
     const [state, dispatch] = useReducer(serviceFormReducer, initialState);
     const [blueprintFormat, setBlueprintFormat] = useState<BlueprintFormat>('yaml');
 
@@ -311,7 +312,7 @@ export function useServiceForm(onCreateServiceCallback?: () => void | null) {
         dispatch({ type: 'SKIP_TO_CONFIRMATION' });
     };
 
-    const setField = (field: string, value: any) => {
+    const setField = (field: string, value: unknown) => {
         dispatch({ type: 'SET_FIELD', payload: { field, value } });
     };
 
@@ -331,27 +332,34 @@ export function useServiceForm(onCreateServiceCallback?: () => void | null) {
         setField('runtime', value);
 
         switch (value) {
-            case 'node-js':
+            case 'node-js': {
                 setField('runCmdPlaceholder', 'npm run start');
                 break;
-            case 'python':
+            }
+            case 'python': {
                 setField('runCmdPlaceholder', 'python app.py');
                 break;
-            case 'ruby':
+            }
+            case 'ruby': {
                 setField('runCmdPlaceholder', 'ruby app.rb');
                 break;
-            case 'php':
+            }
+            case 'php': {
                 setField('runCmdPlaceholder', 'php -S localhost:8000 -t public');
                 break;
-            case 'go':
+            }
+            case 'go': {
                 setField('runCmdPlaceholder', './app');
                 break;
-            case 'static':
+            }
+            case 'static': {
                 setField('runCmdPlaceholder', 'npm run build');
                 setField('port', 80);
                 break;
-            default:
+            }
+            default: {
                 setField('runCmdPlaceholder', 'npm run start');
+            }
         }
     };
 
@@ -388,7 +396,9 @@ export function useServiceForm(onCreateServiceCallback?: () => void | null) {
         try {
             if (!currentBlueprint) return;
             await navigator.clipboard.writeText(blueprintFormat === 'yaml' ? yamlConfig : jsonConfig);
-        } catch (err) {}
+        } catch (error) {
+            console.error((error as Error).message || 'An unknown error occoured while retrieving blueprints');
+        }
     };
 
     return {

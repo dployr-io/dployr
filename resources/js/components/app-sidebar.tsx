@@ -2,7 +2,17 @@ import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { console, deploymentsIndex, imagesIndex, logs, projectsIndex, remotesIndex, specsIndex, notificationsIndex, resourceManagerIndex } from '@/routes';
+import {
+    console,
+    deploymentsIndex,
+    imagesIndex,
+    logs,
+    notificationsIndex,
+    projectsIndex,
+    remotesIndex,
+    resourceManagerIndex,
+    specsIndex,
+} from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
 import {

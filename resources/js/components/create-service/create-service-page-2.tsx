@@ -13,8 +13,8 @@ interface Props {
     dnsProvider: string;
     dnsProviderError: string;
     processing: boolean;
-    errors: any;
-    setField: (field: string, value: any) => void;
+    errors: Record<string, string>;
+    setField: (field: string, value: unknown) => void;
 }
 
 export function CreateServicePage2({

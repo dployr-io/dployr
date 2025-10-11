@@ -10,14 +10,13 @@ export function useImages(setOpen?: (open: boolean) => void) {
     const [imageRegistry, setImageRegistry] = useState('');
     const queryClient = useQueryClient();
 
-    const formSchema = z
-        .object({
-            image_registry: z
-                .string()
-                .min(1, 'Domain is required')
-                .regex(/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/, 'Please enter a valid docker image registry'),
-            branch: z.string().optional(),
-        })
+    const formSchema = z.object({
+        image_registry: z
+            .string()
+            .min(1, 'Domain is required')
+            .regex(/^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/, 'Please enter a valid docker image registry'),
+        branch: z.string().optional(),
+    });
 
     const validateForm = () => {
         const result = formSchema.safeParse({
@@ -44,8 +43,9 @@ export function useImages(setOpen?: (open: boolean) => void) {
         return { image_registry: imageRegistry };
     };
 
-    const handleFormSuccess = (page: any) => {
-        const data = page?.props?.flash?.data ?? [];
+    const handleFormSuccess = (page: unknown) => {
+        const pageData = page as { props?: { flash?: { data?: unknown[] } } };
+        const data = pageData?.props?.flash?.data ?? [];
         if (!searchComplete && Array.isArray(data) && data.length > 0) {
             setSearchComplete(true);
         } else if (searchComplete) {

@@ -2,30 +2,29 @@
 
 namespace App\Services;
 
-use JsonSchema\Validator;
-use JsonSchema\Constraints\Constraint;
-use App\Services\HttpService;
 use Illuminate\Support\Facades\Cache;
+use JsonSchema\Constraints\Constraint;
+use JsonSchema\Validator;
 
 abstract class SchemaValidatorService
 {
     public function __construct(
-        protected string $schema_url, 
-        protected string $cache_key, 
+        protected string $schema_url,
+        protected string $cache_key,
         protected int $cache_ttl
     ) {}
 
     /**
      * Validate the blueprint config against the JSON schema
      *
-     * @param array $config The config array to validate
+     * @param  array  $config  The config array to validate
      * @return array Returns ['valid' => bool, 'errors' => array]
      */
     public function validate(array $config): array
     {
         $schema = $this->getSchema();
         $configObject = json_decode(json_encode($config));
-        $validator = new Validator();
+        $validator = new Validator;
         $validator->validate(
             $configObject,
             $schema,
@@ -35,7 +34,7 @@ abstract class SchemaValidatorService
         if ($validator->isValid()) {
             return [
                 'valid' => true,
-                'errors' => []
+                'errors' => [],
             ];
         }
         $errors = [];
@@ -46,17 +45,17 @@ abstract class SchemaValidatorService
                 'constraint' => $error['constraint'] ?? null,
             ];
         }
+
         return [
             'valid' => false,
-            'errors' => $errors
+            'errors' => $errors,
         ];
     }
 
     /**
      * Get validation errors as a formatted string
      *
-     * @param array $errors The errors array from validate()
-     * @return string
+     * @param  array  $errors  The errors array from validate()
      */
     public function formatErrors(array $errors): string
     {
@@ -72,17 +71,16 @@ abstract class SchemaValidatorService
     /**
      * Fetch and cache the JSON schema
      *
-     * @return object
      * @throws \RuntimeException
      */
     private function getSchema(): object
     {
-        $schema = Cache::remember($this->cache_key,  $this->cache_ttl, function () {
+        $schema = Cache::remember($this->cache_key, $this->cache_ttl, function () {
             try {
                 return HttpService::makeRequest('get', $this->schema_url);
             } catch (\Exception $e) {
                 throw new \RuntimeException(
-                    "Unable to fetch schema from " . $this->schema_url . ": " . $e->getMessage()
+                    'Unable to fetch schema from '.$this->schema_url.': '.$e->getMessage()
                 );
             }
         });
