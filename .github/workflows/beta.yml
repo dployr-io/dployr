@@ -80,19 +80,36 @@ jobs:
       - name: Build frontend assets
         run: pnpm run build
 
-      - name: Prepare release
+      - name: Create release archive
         run: |
-          echo "removing development files..."
-          rm -rf tests .github .cache builds .config .local node_modules phpunit.xml eslint.config.js .editorconfig .gitattributes .gitignore .prettierrc .prettierignore resources/css resources/js
-          
-          echo "cleaning storage directories..."
-          find storage -name "*.log" -delete 2>/dev/null || true
-          find storage/framework/cache -name "*" -not -name ".gitignore" -delete 2>/dev/null || true
-          find storage/framework/sessions -name "*" -not -name ".gitignore" -delete 2>/dev/null || true
-          find storage/framework/views -name "*" -not -name ".gitignore" -delete 2>/dev/null || true
+          echo "Creating release zip with dev files excluded..."
+          zip -r "dployr-v${{ steps.version.outputs.version }}.zip" . \
+            -x \
+              "dev/*" \
+              "tests/*" \
+              ".git/*" \
+              ".github/*" \
+              ".cache/*" \
+              "builds/*" \
+              ".config/*" \
+              ".local/*" \
+              "node_modules/*" \
+              "phpunit.xml" \
+              "eslint.config.js" \
+              ".editorconfig" \
+              ".gitattributes" \
+              ".gitignore" \
+              ".prettierrc" \
+              ".prettierignore" \
+              "resources/css/*" \
+              "resources/js/*" \
+              "storage/*.log" \
+              "storage/framework/cache/*" \
+              "storage/framework/sessions/*" \
+              "storage/framework/views/*"
 
-      - name: Create archive
-        run: zip -r "../dployr-v${{ steps.version.outputs.version }}.zip" . 
+          # Optional: list contents for verification
+          unzip -l "dployr-v${{ steps.version.outputs.version }}.zip"
 
       - name: Create tag
         run: |
@@ -106,7 +123,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
-          name: dployr ${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
           files: |
             dployr-v${{ steps.version.outputs.version }}.zip
             LICENSE
