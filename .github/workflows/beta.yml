@@ -1,8 +1,8 @@
-name: Beta
+name: release-beta
 
 on:
   workflow_run:
-    workflows: ["Test"]
+    workflows: ["tests", "linter"]
     types: [completed]
   push:
     branches: ["beta"]
@@ -14,9 +14,7 @@ permissions:
 
 jobs:
   release:
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'beta'
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
