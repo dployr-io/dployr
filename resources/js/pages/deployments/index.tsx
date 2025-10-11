@@ -10,10 +10,9 @@ import { useRemotes } from '@/hooks/use-remotes';
 import AppLayout from '@/layouts/app-layout';
 import { getRuntimeIcon } from '@/lib/runtime-icon';
 import { deploymentsIndex, deploymentsShow, servicesIndex } from '@/routes';
-import type { BreadcrumbItem, Service } from '@/types';
+import type { BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowUpRightIcon, ChevronLeft, ChevronRight, Factory } from 'lucide-react';
-import { useMemo, useState } from 'react';
 import { FaGitlab } from 'react-icons/fa6';
 import { RxGithubLogo } from 'react-icons/rx';
 import TimeAgo from 'react-timeago';
@@ -30,12 +29,12 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 export default function Deployments() {
-    const { 
-        deployments, 
-        isLoading: isDeploymentsLoading, 
-        normalizedDeployments, 
+    const {
+        deployments,
+        isLoading: isDeploymentsLoading,
+        normalizedDeployments,
         currentPage,
-        totalPages, 
+        totalPages,
         startIndex,
         endIndex,
         goToPage,

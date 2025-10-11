@@ -2,7 +2,7 @@ import type { DockerImage } from '@/types';
 import { Link } from '@inertiajs/react';
 
 interface Props {
-    image: DockerImage
+    image: DockerImage;
 }
 
 export default function ImageCard({ image }: Props) {
@@ -13,9 +13,7 @@ export default function ImageCard({ image }: Props) {
         >
             <div className="mb-2 flex gap-2">
                 <div className="min-w-0 flex-1">
-                    <p className="truncate">
-                        {image.name}
-                    </p>
+                    <p className="truncate">{image.name}</p>
                 </div>
             </div>
         </Link>

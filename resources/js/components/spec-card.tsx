@@ -2,10 +2,10 @@ import type { Blueprint } from '@/types';
 import { Link } from '@inertiajs/react';
 
 interface Props {
-    blueprint?: Blueprint
+    blueprint?: Blueprint;
 }
 
-export default function SpecCard({ blueprint }: Props ) {
+export default function SpecCard({ blueprint }: Props) {
     return (
         <Link
             href={`/projects/${blueprint?.id}`}
@@ -13,9 +13,7 @@ export default function SpecCard({ blueprint }: Props ) {
         >
             <div className="mb-2 flex gap-2">
                 <div className="min-w-0 flex-1">
-                    <p className="truncate">
-                        {blueprint?.config.name}
-                    </p>
+                    <p className="truncate">{blueprint?.config.name}</p>
                 </div>
             </div>
         </Link>

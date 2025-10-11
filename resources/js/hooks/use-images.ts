@@ -10,14 +10,13 @@ export function useImages(setOpen?: (open: boolean) => void) {
     const [imageRegistry, setImageRegistry] = useState('');
     const queryClient = useQueryClient();
 
-    const formSchema = z
-        .object({
-            image_registry: z
-                .string()
-                .min(1, 'Domain is required')
-                .regex(/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/, 'Please enter a valid docker image registry'),
-            branch: z.string().optional(),
-        })
+    const formSchema = z.object({
+        image_registry: z
+            .string()
+            .min(1, 'Domain is required')
+            .regex(/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/, 'Please enter a valid docker image registry'),
+        branch: z.string().optional(),
+    });
 
     const validateForm = () => {
         const result = formSchema.safeParse({

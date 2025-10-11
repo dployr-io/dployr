@@ -50,10 +50,7 @@ export default function Remotes() {
                         ) : (
                             <>
                                 {remotes?.map((remote: Remote) => (
-                                    <RemoteCard
-                                        key={remote.id}
-                                        remote={remote}
-                                    />
+                                    <RemoteCard key={remote.id} remote={remote} />
                                 ))}
                             </>
                         )}
