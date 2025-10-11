@@ -39,7 +39,7 @@ jobs:
             NEXT_NUM=$((LAST_NUM + 1))
             NEW_TAG="v${VERSION}-beta.${NEXT_NUM}"
           fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$NEW_TAG" >> $GITHUB_OUTPUT
 
       - name: Check if tag already exists
         run: |
