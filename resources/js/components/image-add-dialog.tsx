@@ -12,7 +12,8 @@ interface Props {
 }
 
 export default function ImageAddDialog({ open, setOpen }: Props) {
-    const { searchComplete, validationError, remoteRepo, selectedBranch, setRemoteRepo, getFormAction, getFormData, handleFormSuccess } = useRemotes(setOpen);
+    const { searchComplete, validationError, remoteRepo, selectedBranch, setRemoteRepo, getFormAction, getFormData, handleFormSuccess } =
+        useRemotes(setOpen);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
