@@ -17,10 +17,8 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Config({ mustVerifyEmail, status }: { mustVerifyEmail: boolean; status?: string }) {
-    const { auth } = usePage<SharedData>().props;
+export default function Config() {
     const { config }: Record<string, any> = usePage().props;
-
     const [editingKey, setEditingKey] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<string>('');
 
@@ -75,8 +73,28 @@ export default function Config({ mustVerifyEmail, status }: { mustVerifyEmail: b
                         </TableHeader>
                         <TableBody>
                             {Object.entries(config || {}).map(([key, value]) => {
-                                const isSet = value !== null && value !== undefined && value !== '';
-                                const lastUpdated = isSet ? (value as any)?.updated_at || 'Recently' : null;
+                                const isSet =
+                                    value !== null &&
+                                    value !== undefined &&
+                                    value !== '' &&
+                                    value !== false &&
+                                    value !== 0;
+                                
+                                let lastUpdated: string | null = null;
+                                if (isSet) {
+                                    if (
+                                        typeof value === 'object' &&
+                                        value !== null &&
+                                        Object.prototype.hasOwnProperty.call(value, 'updated_at') &&
+                                        typeof (value as { updated_at?: unknown }).updated_at === 'string'
+                                    ) {
+                                        lastUpdated = (value as { updated_at: string }).updated_at;
+                                    } else {
+                                        lastUpdated = 'Recently';
+                                    }
+                                } else {
+                                    lastUpdated = null;
+                                }
 
                                 return (
                                     <TableRow key={key}>

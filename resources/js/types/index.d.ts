@@ -121,5 +121,5 @@ export interface Log {
     level_name?: LogLevel | null;
     datetime?: Date | null;
     channe?: LogChannel;
-    context?: Record<string, any> | null;
+    context?: Record<string, unknown> | null;
 }

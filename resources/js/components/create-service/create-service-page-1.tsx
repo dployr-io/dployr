@@ -25,7 +25,7 @@ interface Props {
     runCmdError: string;
     source: ServiceSource;
     processing: boolean;
-    errors: any;
+    errors: Record<string, string>;
     runCmdPlaceholder?: string;
 
     // Unified handlers

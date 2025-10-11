@@ -13,13 +13,11 @@ interface Props {
 
 export default function ImageAddDialog({ open, setOpen }: Props) {
     const {
-        branches,
         searchComplete,
         validationError,
         remoteRepo,
         selectedBranch,
         setRemoteRepo,
-        setSelectedBranch,
         getFormAction,
         getFormData,
         handleFormSuccess,

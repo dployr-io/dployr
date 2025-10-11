@@ -17,7 +17,7 @@ export function useRemotes(setOpen?: (open: boolean) => void) {
             remote_repo: z
                 .string()
                 .min(1, 'Domain is required')
-                .regex(/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/, 'Please enter a valid remote address'),
+                .regex(/^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\/\w .-]*)*\/?$/, 'Please enter a valid remote address'),
             branch: z.string().optional(),
         })
         .refine((data) => {
@@ -64,14 +64,6 @@ export function useRemotes(setOpen?: (open: boolean) => void) {
         }
     };
 
-    const reset = () => {
-        setRemoteRepo('');
-        setSelectedBranch('');
-        setBranches([]);
-        setSearchComplete(false);
-        setError('');
-    };
-
     const { data, isLoading } = useQuery<Remote[]>({
         queryKey: ['remotes'],
         queryFn: async () => {
@@ -83,7 +75,7 @@ export function useRemotes(setOpen?: (open: boolean) => void) {
 
     return {
         // State
-        remotes: data,
+        remotes: data || [],
         isLoading,
         branches,
         searchComplete,

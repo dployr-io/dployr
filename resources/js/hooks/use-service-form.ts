@@ -36,7 +36,7 @@ interface ServiceFormState {
 
 type ServiceFormAction =
     | { type: 'SET_CURRENT_PAGE'; payload: number }
-    | { type: 'SET_FIELD'; payload: { field: string; value: any } }
+    | { type: 'SET_FIELD'; payload: { field: string; value: unknown } }
     | { type: 'SET_ERROR'; payload: { field: string; value: string } }
     | { type: 'CLEAR_ALL_ERRORS' }
     | { type: 'NEXT_PAGE' }
@@ -139,7 +139,7 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
     }
 }
 
-export function useServiceForm(onCreateServiceCallback?: () => void | null) {
+export function useServiceForm() {
     const [state, dispatch] = useReducer(serviceFormReducer, initialState);
     const [blueprintFormat, setBlueprintFormat] = useState<BlueprintFormat>('yaml');
 
@@ -311,7 +311,7 @@ export function useServiceForm(onCreateServiceCallback?: () => void | null) {
         dispatch({ type: 'SKIP_TO_CONFIRMATION' });
     };
 
-    const setField = (field: string, value: any) => {
+    const setField = (field: string, value: unknown) => {
         dispatch({ type: 'SET_FIELD', payload: { field, value } });
     };
 
@@ -388,7 +388,9 @@ export function useServiceForm(onCreateServiceCallback?: () => void | null) {
         try {
             if (!currentBlueprint) return;
             await navigator.clipboard.writeText(blueprintFormat === 'yaml' ? yamlConfig : jsonConfig);
-        } catch (err) {}
+        } catch (error) {
+            console.error((error as Error).message || "An unknown error occoured while retrieving blueprints")
+        }
     };
 
     return {

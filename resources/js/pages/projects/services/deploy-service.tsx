@@ -45,14 +45,9 @@ const ViewProjectBreadcrumbs = (project?: Project) => {
 export default function DeployService() {
     const { props } = usePage();
     const project = (props.project as Project) || null;
-
-    const { type } = useFlashToast();
     const breadcrumbs = ViewProjectBreadcrumbs(project);
-
     const [showSkipDialog, setShowSkipDialog] = useState(false);
-
     const queryClient = useQueryClient();
-
     const onCreatedSuccess = () => {
         queryClient.invalidateQueries({ queryKey: ['services'] });
         router.visit(deploymentsIndex().url);
@@ -68,7 +63,6 @@ export default function DeployService() {
         runtime,
         runtimeError,
         remote,
-        ciRemote,
         runCmd,
         runCmdError,
         source,
@@ -83,7 +77,6 @@ export default function DeployService() {
 
         // Unified handlers
         setField,
-        getFormData,
         getFormSubmissionData,
         onSourceValueChanged,
         onRemoteValueChanged,
@@ -126,7 +119,7 @@ export default function DeployService() {
         }
     };
 
-    const renderCurrentPage = (processing: boolean, errors: any) => {
+    const renderCurrentPage = (processing: boolean, errors: Record<string, string>) => {
         switch (currentPage) {
             case 1:
                 return (

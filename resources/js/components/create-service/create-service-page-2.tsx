@@ -13,7 +13,7 @@ interface Props {
     dnsProvider: string;
     dnsProviderError: string;
     processing: boolean;
-    errors: any;
+    errors: Record<string, string>;
     setField: (field: string, value: any) => void;
 }
 

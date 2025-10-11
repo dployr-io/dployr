@@ -38,7 +38,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
     }
 
     const currentPath = window.location.pathname;
-    const { version }: any = usePage().props;
+    const { version } = usePage().props;
 
     return (
         <div className="flex flex-1 flex-col items-center px-4 py-6">
@@ -71,7 +71,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                 </div>
             </div>
             <div className="mt-auto flex w-full justify-center">
-                <p className="text-xs text-muted-foreground">Version {version}</p>
+                <p className="text-xs text-muted-foreground">Version {(version as string)}</p>
             </div>
         </div>
     );

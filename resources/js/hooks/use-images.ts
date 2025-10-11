@@ -14,7 +14,7 @@ export function useImages(setOpen?: (open: boolean) => void) {
         image_registry: z
             .string()
             .min(1, 'Domain is required')
-            .regex(/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/, 'Please enter a valid docker image registry'),
+            .regex(/^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\/\w .-]*)*\/?$/, 'Please enter a valid docker image registry'),
         branch: z.string().optional(),
     });
 
