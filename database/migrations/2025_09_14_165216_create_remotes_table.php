@@ -17,7 +17,8 @@ return new class extends Migration
             $table->string('repository', 100);
             $table->string('branch', 100);
             $table->string('provider');
-            $table->timestamps();
+            $table->timestamp('created_at')->useCurrent();
+            $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate();
         });
     }
 

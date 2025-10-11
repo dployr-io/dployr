@@ -21,6 +21,7 @@ class Service extends Model
         'name',
         'source',
         'runtime',
+        'runtime_version',
         'run_cmd',
         'port',
         'working_dir',

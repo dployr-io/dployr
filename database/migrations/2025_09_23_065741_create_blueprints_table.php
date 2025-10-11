@@ -16,7 +16,8 @@ return new class extends Migration
             $table->json('config');
             $table->string('status')->default('pending'); // pending, in_progress, completed
             $table->boolean('spec')->default(false);
-            $table->timestamps();
+            $table->timestamp('created_at')->useCurrent();
+            $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate();
         });
     }
 
