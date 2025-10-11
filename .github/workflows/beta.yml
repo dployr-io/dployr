@@ -33,11 +33,11 @@ jobs:
           EXISTING=$(git tag | grep -E "^v${VERSION}-beta\.[0-9]+$" | sort -V | tail -n 1 || true)
 
           if [ -z "$EXISTING" ]; then
-            NEW_TAG="v${VERSION}-beta.1"
+            NEW_TAG="${VERSION}-beta.1"
           else
             LAST_NUM=$(echo "$EXISTING" | sed -E 's/^v[0-9]+\.[0-9]+\.[0-9]+-beta\.([0-9]+)$/\1/')
             NEXT_NUM=$((LAST_NUM + 1))
-            NEW_TAG="v${VERSION}-beta.${NEXT_NUM}"
+            NEW_TAG="${VERSION}-beta.${NEXT_NUM}"
           fi
           echo "version=$NEW_TAG" >> $GITHUB_OUTPUT
 
