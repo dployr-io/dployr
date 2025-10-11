@@ -88,7 +88,7 @@ export function parseLog(raw: string): Log {
             };
         }
     } catch (error) {
-        console.error((error as Error).message || "An unknown error occoured while parsing log")
+        console.error((error as Error).message || 'An unknown error occoured while parsing log');
     }
 
     return { id, message: raw, level_name: 'INFO' };

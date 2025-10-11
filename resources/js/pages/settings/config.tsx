@@ -73,12 +73,7 @@ export default function Config() {
                         </TableHeader>
                         <TableBody>
                             {Object.entries(config || {}).map(([key, value]) => {
-                                const isSet =
-                                    value !== null &&
-                                    value !== undefined &&
-                                    value !== '' &&
-                                    value !== false &&
-                                    value !== 0;
+                                const isSet = value !== null && value !== undefined && value !== '' && value !== false && value !== 0;
 
                                 let lastUpdated: string | null = null;
                                 if (isSet) {

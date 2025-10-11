@@ -397,7 +397,7 @@ export function useServiceForm() {
             if (!currentBlueprint) return;
             await navigator.clipboard.writeText(blueprintFormat === 'yaml' ? yamlConfig : jsonConfig);
         } catch (error) {
-            console.error((error as Error).message || "An unknown error occoured while retrieving blueprints")
+            console.error((error as Error).message || 'An unknown error occoured while retrieving blueprints');
         }
     };
 

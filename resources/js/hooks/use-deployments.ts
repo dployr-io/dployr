@@ -17,7 +17,7 @@ export function useDeployments() {
                 });
                 return response.data;
             } catch (error) {
-                console.error((error as Error).message || "An unknown error occoured while retrieving deployments")
+                console.error((error as Error).message || 'An unknown error occoured while retrieving deployments');
             }
         },
         staleTime: 5 * 60 * 1000,

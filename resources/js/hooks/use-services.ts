@@ -18,4 +18,3 @@ export function useServices(projectId?: string) {
         isLoading: query.isLoading,
     };
 }
-

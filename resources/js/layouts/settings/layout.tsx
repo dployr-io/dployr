@@ -71,7 +71,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                 </div>
             </div>
             <div className="mt-auto flex w-full justify-center">
-                <p className="text-xs text-muted-foreground">Version {(version as string)}</p>
+                <p className="text-xs text-muted-foreground">Version {version as string}</p>
             </div>
         </div>
     );
