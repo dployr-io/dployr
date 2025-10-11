@@ -25,11 +25,11 @@ interface Props {
     runCmdError: string;
     source: ServiceSource;
     processing: boolean;
-    errors: any;
+    errors: Record<string, string>;
     runCmdPlaceholder?: string;
 
     // Unified handlers
-    setField: (field: string, value: any) => void;
+    setField: (field: string, value: unknown) => void;
     onSourceValueChanged: (arg0: ServiceSource) => void;
     onRemoteValueChanged: (arg0: Remote) => void;
     onRuntimeValueChanged: (arg0: Runtime) => void;

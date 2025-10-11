@@ -11,7 +11,7 @@ interface Props {
     handleBlueprintCopy: () => void;
 }
 
-export function Blueprint({ name, yamlConfig, jsonConfig, blueprintFormat, setBlueprintFormat, handleBlueprintCopy }: Props) {
+export function Blueprint({ yamlConfig, jsonConfig, blueprintFormat, setBlueprintFormat, handleBlueprintCopy }: Props) {
     return (
         <>
             <div className="mb-4 flex items-center justify-between">

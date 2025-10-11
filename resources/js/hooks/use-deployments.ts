@@ -11,21 +11,19 @@ export function useDeployments() {
     const { data: deployments, isLoading } = useQuery<Blueprint[]>({
         queryKey: ['deployments', spec],
         queryFn: async () => {
-            try {                
+            try {
                 const response = await axios.get('/deployments/fetch', {
-                    params: Object.fromEntries(params)
+                    params: Object.fromEntries(params),
                 });
                 return response.data;
             } catch (error) {
-                
+                console.error((error as Error).message || 'An unknown error occoured while retrieving deployments');
             }
         },
         staleTime: 5 * 60 * 1000,
     });
-    
 
     const { remotes } = useRemotes();
-    const remotesData = remotes || [];
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
     const totalPages = Math.ceil((deployments?.length ?? 0) / itemsPerPage);
@@ -41,11 +39,11 @@ export function useDeployments() {
                 const remote = (config as Partial<Service>)?.remote;
                 let resolvedRemote = remote;
                 if (remote) {
-                    resolvedRemote = remotesData.find((r) => r) || remote;
+                    resolvedRemote = remotes.find((r) => r) || remote;
                 }
                 return { ...deployment, config: { ...config, remote: resolvedRemote } };
             }),
-        [paginatedDeployments, remotesData],
+        [paginatedDeployments, remotes],
     );
 
     const goToPage = (page: number) => {

@@ -1,11 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRemotes } from '@/hooks/use-remotes';
 import { Form } from '@inertiajs/react';
-import { ChevronDown, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 interface Props {
     open: boolean;
@@ -13,18 +12,8 @@ interface Props {
 }
 
 export default function ImageAddDialog({ open, setOpen }: Props) {
-    const {
-        branches,
-        searchComplete,
-        validationError,
-        remoteRepo,
-        selectedBranch,
-        setRemoteRepo,
-        setSelectedBranch,
-        getFormAction,
-        getFormData,
-        handleFormSuccess,
-    } = useRemotes(setOpen);
+    const { searchComplete, validationError, remoteRepo, selectedBranch, setRemoteRepo, getFormAction, getFormData, handleFormSuccess } =
+        useRemotes(setOpen);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
