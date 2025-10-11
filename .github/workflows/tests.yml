@@ -58,6 +58,12 @@ jobs:
       - name: Generate Application Key
         run: php artisan key:generate
 
+      - name: Lint Backend
+        run: vendor/bin/pint --test
+
+      - name: Lint Frontend
+        run: pnpm run format:check && pnpm run lint
+
       - name: Backend tests
         run: ./vendor/bin/phpunit
 
