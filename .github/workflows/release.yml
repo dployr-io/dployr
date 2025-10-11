@@ -1,13 +1,16 @@
-name: release-beta
+name: release
 
 on:
   workflow_run:
     workflows: ["tests"]
     types: [completed]
 
+permissions:
+  contents: write
+
 jobs:
   release:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'beta' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'master' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,15 +28,11 @@ jobs:
         id: version
         run: |
           VERSION=$(php -r "echo trim(file_get_contents('VERSION'));")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          EXISTING=$(git tag | grep -E "^v${VERSION}-beta\.[0-9]+$" | sort -V | tail -n 1 || true)
+          echo "Detected version: $VERSION"
 
-          if [ -z "$EXISTING" ]; then
-            NEW_TAG="v${VERSION}-beta.1"
-          else
-            LAST_NUM=$(echo "$EXISTING" | sed -E 's/^v[0-9]+\.[0-9]+\.[0-9]+-beta\.([0-9]+)$/\1/')
-            NEXT_NUM=$((LAST_NUM + 1))
-            NEW_TAG="v${VERSION}-beta.${NEXT_NUM}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9\.]+)?$ ]]; then
+            echo "Invalid version format in VERSION file: $VERSION"
+            exit 1
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
@@ -107,6 +106,6 @@ jobs:
             dployr-v${{ steps.version.outputs.version }}.zip
             LICENSE
           generate_release_notes: true
-          make_latest: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
