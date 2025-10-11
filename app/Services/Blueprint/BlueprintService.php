@@ -2,6 +2,7 @@
 
 namespace App\Services\Blueprint;
 
+use App\DTOs\Spec;
 use App\Models\Blueprint;
 use App\Models\Remote;
 use App\Models\Service;
@@ -11,13 +12,11 @@ use App\Services\CmdService;
 use App\Services\DirectoryService;
 use App\Services\GitRepoService;
 use Illuminate\Support\Facades\Log;
-use App\Services\Blueprint\BlueprintValidatorService;
-use App\DTOs\Spec;
 
 class BlueprintService
 {
     protected const BASE_PATH = '/home/dployr/services';
-    
+
     public function __construct(
         private Blueprint $blueprint,
     ) {
@@ -31,13 +30,15 @@ class BlueprintService
 
     private function validateBlueprint()
     {
-        $validator = new BlueprintValidatorService();
+        $validator = new BlueprintValidatorService;
+
         return $validator->validate($this->parseConfig());
     }
 
     private function getAttributes(): Spec
     {
         $config = $this->parseConfig();
+
         return new Spec(
             id: $this->blueprint->id,
             serviceName: $config['name'],
@@ -54,16 +55,15 @@ class BlueprintService
             runCmd: $config['run_cmd'] ?? null,
         );
     }
-    
+
     public function processBlueprint()
-    {   
+    {
         $validation = $this->validateBlueprint();
         $spec = $this->getAttributes();
-        $path = rtrim(self::BASE_PATH, '/') . '/' . $spec->serviceName . '/' . ltrim($workingDir ?? '', '/');
-        
+        $path = rtrim(self::BASE_PATH, '/').'/'.$spec->serviceName.'/'.ltrim($workingDir ?? '', '/');
+
         try {
-            if (! $validation['valid'])
-            {
+            if (! $validation['valid']) {
                 throw new \RuntimeException($validation['errors']);
             }
 
@@ -75,7 +75,7 @@ class BlueprintService
             // setup runtime
 
             $remoteService = new GitRepoService;
-            $remoteService->cloneRepo($remote->name, $remote->repository, $remote->provider, $this->$path."/".$spec->serviceName);
+            $remoteService->cloneRepo($remote->name, $remote->repository, $remote->provider, $this->$path.'/'.$spec->serviceName);
 
             $newBlock = <<<EOF
             :$spec->port {
