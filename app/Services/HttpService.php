@@ -16,9 +16,15 @@ class HttpService
      * @throws \RuntimeException If the HTTP request fails.
      * @throws \InvalidArgumentException If the HTTP method is unsupported.
      */
-    public static function makeRequest(string $method, string $url, array $headers, ?string $context = 'request')
+    public static function makeRequest(string $method, string $url, array $headers = [], ?string $context = 'request')
     {
-        $http = \Http::withHeaders($headers);
+        $defaultHeaders = [
+            'Accept' => 'application/json',
+        ];
+
+        $allHeaders = array_merge($defaultHeaders, $headers);
+
+        $http = \Http::withHeaders($allHeaders);
 
         switch (strtolower($method)) {
             case 'get':

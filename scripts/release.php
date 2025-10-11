@@ -89,7 +89,6 @@ echo "Bumped version from $currentVersion to $newVersion\n";
 exec('git add -A');
 exec('git commit -m ' . escapeshellarg($options['message']));
 exec('git push');
-exec('git tag ' . escapeshellarg("v$newVersion"));
 exec('git push origin ' . escapeshellarg("v$newVersion"));
 
 echo "Successfully released version $newVersion\n";

@@ -2,13 +2,9 @@ name: tests
 
 on:
   push:
-    branches:
-      - develop
-      - main
+    branches: ["*"]
   pull_request:
-    branches:
-      - develop
-      - main
+    branches: ["*"]
 
 jobs:
   ci:
@@ -17,28 +13,44 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: 8.4
+          php-version: '8.3'
           tools: composer:v2
           coverage: xdebug
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite, dom, filter, gd, iconv, json, mbstring, pdo
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
-      - name: Install Node Dependencies
-        run: npm ci
+      - name: Get composer cache directory
+        id: composer-cache
+        run: cd app && echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
-      - name: Install Dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
 
-      - name: Build Assets
-        run: npm run build
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install Node dependencies
+        run: pnpm i
+
+      - name: Build frontend assets
+        run: pnpm run build
 
       - name: Copy Environment File
         run: cp .env.example .env
@@ -46,5 +58,8 @@ jobs:
       - name: Generate Application Key
         run: php artisan key:generate
 
-      - name: Tests
+      - name: Backend tests
         run: ./vendor/bin/phpunit
+
+      - name: Frontend tests
+        run: pnpm run test

@@ -46,6 +46,30 @@ import { useProjects } from '@/hooks/use-projects';
 import { useRemotes } from '@/hooks/use-remotes';
 import { router } from '@inertiajs/react';
 
+const deployments = [
+    {
+        id: '1',
+        status: 'completed',
+        created_at: new Date('2024-01-01T10:00:00Z').toISOString(),
+        updated_at: new Date('2024-01-01T10:05:00Z').toISOString(),
+        config: {
+            name: 'my-deployment',
+            runtime: 'node-js',
+            remote: { provider: 'github', name: 'org', repository: 'repo' },
+            run_cmd: 'npm start',
+        },
+    },
+];
+
+const remotes = [
+    {
+        id: 'r1',
+        name: 'org',
+        provider: 'github',
+        repository: 'repo',
+    },
+] as Remote[];
+
 describe('Deployments', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -53,20 +77,8 @@ describe('Deployments', () => {
 
     test('renders deployments table', async () => {
         (useDeployments as vi.Mock).mockReturnValue({
-            deployments: [
-                {
-                    id: '1',
-                    status: 'completed',
-                    created_at: new Date('2024-01-01T10:00:00Z').toISOString(),
-                    updated_at: new Date('2024-01-01T10:05:00Z').toISOString(),
-                    config: JSON.stringify({
-                        name: 'my-deployment',
-                        runtime: 'node-js',
-                        remote: { provider: 'github', name: 'org', repository: 'repo' },
-                        run_cmd: 'npm start',
-                    }),
-                },
-            ],
+            deployments: deployments,
+            normalizedDeployments: deployments,
             isLoading: false,
         });
 
@@ -75,14 +87,7 @@ describe('Deployments', () => {
         });
 
         (useRemotes as vi.Mock).mockReturnValue({
-            remotes: [
-                {
-                    id: 'r1',
-                    name: 'org',
-                    provider: 'github',
-                    repository: 'repo',
-                },
-            ] as Remote[],
+            remotes: remotes,
             isLoading: false,
         });
 
@@ -113,20 +118,8 @@ describe('Deployments', () => {
 
     test('clicking a deployment calls routes to its page when clicked', async () => {
         (useDeployments as vi.Mock).mockReturnValue({
-            deployments: [
-                {
-                    id: '1',
-                    status: 'completed',
-                    created_at: new Date('2024-01-01T10:00:00Z').toISOString(),
-                    updated_at: new Date('2024-01-01T10:05:00Z').toISOString(),
-                    config: JSON.stringify({
-                        name: 'my-deployment',
-                        runtime: 'node-js',
-                        remote: { provider: 'github', name: 'org', repository: 'repo' },
-                        run_cmd: 'npm start',
-                    }),
-                },
-            ],
+            deployments: deployments,
+            normalizedDeployments: deployments,
             isLoading: false,
         });
 
@@ -135,14 +128,7 @@ describe('Deployments', () => {
         });
 
         (useRemotes as vi.Mock).mockReturnValue({
-            remotes: [
-                {
-                    id: 'r1',
-                    name: 'org',
-                    provider: 'github',
-                    repository: 'repo',
-                },
-            ] as Remote[],
+            remotes: remotes,
             isLoading: false,
         });
 

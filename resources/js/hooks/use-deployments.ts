@@ -11,13 +11,18 @@ export function useDeployments() {
     const { data: deployments, isLoading } = useQuery<Blueprint[]>({
         queryKey: ['deployments', spec],
         queryFn: async () => {
-            const response = await axios.get('/deployments/fetch', {
-                params: Object.fromEntries(params)
-            });
-            return response.data;
+            try {                
+                const response = await axios.get('/deployments/fetch', {
+                    params: Object.fromEntries(params)
+                });
+                return response.data;
+            } catch (error) {
+                
+            }
         },
         staleTime: 5 * 60 * 1000,
     });
+    
 
     const { remotes } = useRemotes();
     const remotesData = remotes || [];

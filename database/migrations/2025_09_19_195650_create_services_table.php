@@ -16,19 +16,20 @@ return new class extends Migration
             $table->string('name');
             $table->string('source');
             $table->string('runtime');
-            $table->string('run_cmd');
+            $table->string('runtime_version')->nullable();
+            $table->string('run_cmd')->nullable();
             $table->integer('port');
             $table->string('working_dir')->nullable();
             $table->string('output_dir')->nullable();
             $table->string('image')->nullable();
-            $table->json('spec')->nullable();
             $table->json('env_vars')->nullable();
             $table->json('secrets')->nullable();
             $table->string('status')->default('maintenance'); // running, stopped, failed, degraded, maintenance
             $table->foreignUlid('project_id')->nullable()->constrained('projects')->nullOnDelete();
             $table->foreignUlid('remote_id')->nullable()->constrained('remotes')->nullOnDelete();
             $table->foreignUlid('ci_remote_id')->nullable()->constrained('remotes')->nullOnDelete();
-            $table->timestamps();
+            $table->timestamp('created_at')->useCurrent();
+            $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate();
         });
     }
 

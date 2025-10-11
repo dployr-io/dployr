@@ -16,7 +16,8 @@ return new class extends Migration
             $table->string('key', 100)->unique();
             $table->text('value')->nullable();
             $table->string('description', 100)->nullable();
-            $table->timestamps();
+            $table->timestamp('created_at')->useCurrent();
+            $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate();
         });
     }
 
