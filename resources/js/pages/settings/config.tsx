@@ -6,7 +6,7 @@ import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { toWordUpperCase } from '@/lib/utils';
 import { config } from '@/routes';
-import { type BreadcrumbItem, type SharedData } from '@/types';
+import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
@@ -18,7 +18,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function Config() {
-    const { config }: Record<string, any> = usePage().props;
+    const { config }: Record<string, unknown> = usePage().props;
     const [editingKey, setEditingKey] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<string>('');
 
@@ -79,7 +79,7 @@ export default function Config() {
                                     value !== '' &&
                                     value !== false &&
                                     value !== 0;
-                                
+
                                 let lastUpdated: string | null = null;
                                 if (isSet) {
                                     if (

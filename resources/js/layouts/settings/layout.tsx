@@ -32,13 +32,13 @@ const sidebarNavItems: NavItem[] = [
 ];
 
 export default function SettingsLayout({ children }: PropsWithChildren) {
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+    const { version } = usePage().props;
+
     // When server-side rendering, we only render the layout on the client...
     if (typeof window === 'undefined') {
         return null;
     }
-
-    const currentPath = window.location.pathname;
-    const { version } = usePage().props;
 
     return (
         <div className="flex flex-1 flex-col items-center px-4 py-6">

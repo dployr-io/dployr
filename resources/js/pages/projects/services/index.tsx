@@ -2,7 +2,7 @@ import { StatusChip } from '@/components/status-chip';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useProjects } from '@/hooks/use-projects';
+
 import { useServices } from '@/hooks/use-services';
 import AppLayout from '@/layouts/app-layout';
 import { getRuntimeIcon } from '@/lib/runtime-icon';
@@ -120,44 +120,44 @@ export default function Services() {
                                 <TableBody>
                                     {!isLoading
                                         ? paginatedServices!.map((service) => (
-                                              <TableRow key={service.id} className="h-16">
-                                                  <TableCell className="h-16 align-middle font-medium">{service.name}</TableCell>
-                                                  <TableCell className="h-16 align-middle">
-                                                      <StatusChip status={service.status} />
-                                                  </TableCell>
-                                                  <TableCell className="h-16 align-middle">
-                                                      <div className="flex items-center gap-2">
-                                                          {getRuntimeIcon(service.runtime)}
-                                                          <span>{service.runtime}</span>
-                                                      </div>
-                                                  </TableCell>
-                                                  <TableCell className="h-16 align-middle">{service.region}</TableCell>
-                                                  <TableCell className="h-16 w-[200px] text-right align-middle">
-                                                      {service.last_deployed instanceof Date
-                                                          ? service.last_deployed.toLocaleString()
-                                                          : service.last_deployed}
-                                                  </TableCell>
-                                              </TableRow>
-                                          ))
+                                            <TableRow key={service.id} className="h-16">
+                                                <TableCell className="h-16 align-middle font-medium">{service.name}</TableCell>
+                                                <TableCell className="h-16 align-middle">
+                                                    <StatusChip status={service.status} />
+                                                </TableCell>
+                                                <TableCell className="h-16 align-middle">
+                                                    <div className="flex items-center gap-2">
+                                                        {getRuntimeIcon(service.runtime)}
+                                                        <span>{service.runtime}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="h-16 align-middle">{service.region}</TableCell>
+                                                <TableCell className="h-16 w-[200px] text-right align-middle">
+                                                    {service.last_deployed instanceof Date
+                                                        ? service.last_deployed.toLocaleString()
+                                                        : service.last_deployed}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
                                         : Array.from({ length: 3 }).map((_, idx) => (
-                                              <TableRow key={`skeleton-${idx}`} className="h-16">
-                                                  <TableCell className="h-16 max-w-[240px] overflow-hidden align-middle font-medium">
-                                                      <div className="h-4 w-32 animate-pulse rounded bg-muted" />
-                                                  </TableCell>
-                                                  <TableCell className="h-16 align-middle">
-                                                      <div className="h-4 w-16 animate-pulse rounded bg-muted" />
-                                                  </TableCell>
-                                                  <TableCell className="h-16 align-middle">
-                                                      <div className="h-4 w-20 animate-pulse rounded bg-muted" />
-                                                  </TableCell>
-                                                  <TableCell className="h-16 max-w-[320px] overflow-hidden align-middle">
-                                                      <div className="h-4 w-40 animate-pulse rounded bg-muted" />
-                                                  </TableCell>
-                                                  <TableCell className="h-16 w-[200px] overflow-hidden text-right align-middle">
-                                                      <div className="ml-auto h-4 w-24 animate-pulse rounded bg-muted" />
-                                                  </TableCell>
-                                              </TableRow>
-                                          ))}
+                                            <TableRow key={`skeleton-${idx}`} className="h-16">
+                                                <TableCell className="h-16 max-w-[240px] overflow-hidden align-middle font-medium">
+                                                    <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                                                </TableCell>
+                                                <TableCell className="h-16 align-middle">
+                                                    <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+                                                </TableCell>
+                                                <TableCell className="h-16 align-middle">
+                                                    <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+                                                </TableCell>
+                                                <TableCell className="h-16 max-w-[320px] overflow-hidden align-middle">
+                                                    <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+                                                </TableCell>
+                                                <TableCell className="h-16 w-[200px] overflow-hidden text-right align-middle">
+                                                    <div className="ml-auto h-4 w-24 animate-pulse rounded bg-muted" />
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
                                 </TableBody>
                             </Table>
 
@@ -166,8 +166,8 @@ export default function Services() {
                                     {(services ?? []).length === 0
                                         ? 'No services found'
                                         : services!.length === 1
-                                          ? 'Showing 1 of 1 service'
-                                          : `Showing ${startIndex + 1} to ${Math.min(endIndex, services?.length ?? 0)} of ${services?.length ?? 0} services`}{' '}
+                                            ? 'Showing 1 of 1 service'
+                                            : `Showing ${startIndex + 1} to ${Math.min(endIndex, services?.length ?? 0)} of ${services?.length ?? 0} services`}{' '}
                                 </div>
                                 <div className="flex items-center space-x-2">
                                     <Button

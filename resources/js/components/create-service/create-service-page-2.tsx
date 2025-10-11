@@ -14,7 +14,7 @@ interface Props {
     dnsProviderError: string;
     processing: boolean;
     errors: Record<string, string>;
-    setField: (field: string, value: any) => void;
+    setField: (field: string, value: unknown) => void;
 }
 
 export function CreateServicePage2({
