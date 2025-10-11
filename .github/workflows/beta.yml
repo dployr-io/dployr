@@ -13,9 +13,10 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'beta' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout latest beta
         uses: actions/checkout@v4
         with:
+          ref: beta
           fetch-depth: 0
 
       - name: Setup PHP
