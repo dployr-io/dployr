@@ -41,7 +41,7 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install PHP dependencies
-        run: composer install --no-dev --optimize-autoloader --no-interaction
+        run: composer install --no-interaction --prefer-dist
 
       - name: Install pnpm
         run: npm install -g pnpm
@@ -59,7 +59,7 @@ jobs:
         run: php artisan key:generate
 
       - name: Backend tests
-        run: composer run test
+        run: ./vendor/bin/phpunit
 
       - name: Frontend tests
         run: pnpm run test
