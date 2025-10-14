@@ -13,9 +13,10 @@ return new class extends Migration
     {
         Schema::create('blueprints', function (Blueprint $table) {
             $table->ulid('id')->primary();
-            $table->json('config');
+            $table->json('config')->default('{}');
             $table->string('status')->default('pending'); // pending, in_progress, completed
-            $table->boolean('spec')->default(false);
+            $table->boolean('save_spec')->default(false);
+            $table->json('metadata')->default('{}');
             $table->timestamp('created_at')->useCurrent();
             $table->timestamp('updated_at')->useCurrent()->useCurrentOnUpdate();
         });

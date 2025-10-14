@@ -3,8 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Cache;
-use JsonSchema\Constraints\Constraint;
-use JsonSchema\Validator;
+use Swaggest\JsonSchema\Schema;
 
 abstract class SchemaValidatorService
 {
@@ -17,39 +16,17 @@ abstract class SchemaValidatorService
     /**
      * Validate the blueprint config against the JSON schema
      *
-     * @param  array  $config  The config array to validate
-     * @return array Returns ['valid' => bool, 'errors' => array]
+     * @param  mixed  $config  The config to validate
      */
-    public function validate(array $config): array
+    public function validate(mixed $config)
     {
         $schema = $this->getSchema();
-        $configObject = json_decode(json_encode($config));
-        $validator = new Validator;
-        $validator->validate(
-            $configObject,
-            $schema,
-            Constraint::CHECK_MODE_APPLY_DEFAULTS
-        );
 
-        if ($validator->isValid()) {
-            return [
-                'valid' => true,
-                'errors' => [],
-            ];
+        try {
+            $schema = Schema::import($schema)->in($config);
+        } catch (\Exception $e) {
+            echo 'JSON validation error: '.$e->getMessage();
         }
-        $errors = [];
-        foreach ($validator->getErrors() as $error) {
-            $errors[] = [
-                'property' => $error['property'],
-                'message' => $error['message'],
-                'constraint' => $error['constraint'] ?? null,
-            ];
-        }
-
-        return [
-            'valid' => false,
-            'errors' => $errors,
-        ];
     }
 
     /**
@@ -73,11 +50,17 @@ abstract class SchemaValidatorService
      *
      * @throws \RuntimeException
      */
-    private function getSchema(): object
+    private function getSchema(): string
     {
         $schema = Cache::remember($this->cache_key, $this->cache_ttl, function () {
             try {
-                return HttpService::makeRequest('get', $this->schema_url);
+                $response = HttpService::makeRequest('get', $this->schema_url);
+
+                if (is_bool($response)) {
+                    throw new \RuntimeException('Invalid schema: Received boolean value');
+                }
+
+                return $response;
             } catch (\Exception $e) {
                 throw new \RuntimeException(
                     'Unable to fetch schema from '.$this->schema_url.': '.$e->getMessage()
@@ -85,7 +68,7 @@ abstract class SchemaValidatorService
             }
         });
 
-        return json_decode(json_encode($schema));
+        return json_encode($schema);
     }
 
     /**

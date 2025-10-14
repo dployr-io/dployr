@@ -93,7 +93,7 @@ describe('RemoteAddDialog', () => {
 
         render(<RemoteAddDialog open={true} setOpen={setOpen} />);
 
-        expect(screen.getByText(/^Fetching remote repository.../)).toBeInTheDocument();
+        expect(screen.getByText(/^Fetching remote repository/)).toBeInTheDocument();
     });
 
     test('renders branch dropdown when branches exist', async () => {

@@ -88,7 +88,9 @@ class ServicesController extends Controller
 
         $port = $request->input('port');
 
-        if (CaddyService::checkPort($port)) {
+        $caddy = new CaddyService;
+
+        if ($caddy->checkPort($port)) {
             return back()->withInput()->withErrors(['port' => __('Port '.$port.' is already in use. Choose another port.')]);
         }
 
@@ -100,7 +102,7 @@ class ServicesController extends Controller
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, Project $project): RedirectResponse
     {
         $request->validate([
             'name' => ['required', 'string'],
@@ -138,9 +140,14 @@ class ServicesController extends Controller
             'dns_provider' => $request->input('dns_provider'),
         ], fn ($value) => $value !== null);
 
+        $metadata = array_filter([
+            'project_id' => $project->id,
+        ], fn ($value) => $value !== null);
+
         $blueprint = Blueprint::create([
             'status' => JobStatus::PENDING,
-            'config' => json_encode($config),
+            'config' => $config,
+            'metadata' => $metadata,
         ]);
 
         ProcessBlueprint::dispatch($blueprint);

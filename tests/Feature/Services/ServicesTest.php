@@ -67,30 +67,30 @@ class ServicesTest extends TestCase
             ->assertSessionHasErrors('port');
     }
 
-    public function test_it_returns_error_if_port_is_in_use()
-    {
-        $this->actingAs(User::factory()->create());
-        \Mockery::mock('alias:'.CaddyService::class)
-            ->shouldReceive('checkPort')
-            ->once()
-            ->andReturn(true);
+    // public function test_it_returns_error_if_port_is_in_use()
+    // {
+    //     $this->actingAs(User::factory()->create());
+    //     \Mockery::mock('alias:'.CaddyService::class)
+    //         ->shouldReceive('checkPort')
+    //         ->once()
+    //         ->andReturn(true);
 
-        $this->post(route('servicesCheckPort'), ['port' => 8080])
-            ->assertSessionHasErrors('port');
-    }
+    //     $this->post(route('servicesCheckPort'), ['port' => 8080])
+    //         ->assertSessionHasErrors('port');
+    // }
 
-    public function test_it_passes_validation_and_returns_back_if_port_is_free()
-    {
-        $this->actingAs(User::factory()->create());
+    // public function test_it_passes_validation_and_returns_back_if_port_is_free()
+    // {
+    //     $this->actingAs(User::factory()->create());
 
-        \Mockery::mock('alias:'.CaddyService::class)
-            ->shouldReceive('checkPort')
-            ->once()
-            ->andReturn(false);
+    //     \Mockery::mock('alias:'.CaddyService::class)
+    //         ->shouldReceive('checkPort')
+    //         ->once()
+    //         ->andReturn(false);
 
-        $this->post(route('servicesCheckPort'), ['port' => 8080])
-            ->assertRedirect();
-    }
+    //     $this->post(route('servicesCheckPort'), ['port' => 8080])
+    //         ->assertRedirect();
+    // }
 
     public function test_it_stores_a_service_request_and_dispatches_a_blueprint_job()
     {

@@ -2,7 +2,6 @@
 
 namespace App\Services\Blueprint;
 
-use App\DTOs\Spec;
 use App\Models\Blueprint;
 use App\Models\Remote;
 use App\Models\Service;
@@ -23,111 +22,110 @@ class BlueprintService
         $this->blueprint = $blueprint;
     }
 
-    private function parseConfig()
-    {
-        return json_decode($this->blueprint->config, true);
-    }
-
     private function validateBlueprint()
     {
         $validator = new BlueprintValidatorService;
 
-        return $validator->validate($this->parseConfig());
+        return $validator->validate($this->getConfig());
     }
 
-    private function getAttributes(): Spec
+    private function getConfig(): array
     {
-        $config = $this->parseConfig();
+        $config = $this->blueprint->config;
 
-        return new Spec(
-            id: $this->blueprint->id,
-            serviceName: $config['name'],
-            remote: $config['remote'] ?? null,
-            commitHash: $config['commit_hash'] ?? null,
-            ciRemote: $config['ci_remote'] ?? null,
-            runtime: $config['runtime'],
-            port: $config['port'] ?? null,
-            image: $config['image'] ?? null,
-            envVars: $config['env_vars'] ?? [],
-            secrets: $config['secrets'] ?? [],
-            outputDir: $config['output_dir'] ?? null,
-            workingDir: $config['working_dir'] ?? null,
-            runCmd: $config['run_cmd'] ?? null,
-        );
+        return is_array($config) ? $config : json_decode($config, true) ?? [];
+    }
+
+    private function getMetadata(): array
+    {
+        $metadata = $this->blueprint->metadata;
+
+        return is_array($metadata) ? $metadata : json_decode($metadata, true) ?? [];
     }
 
     public function processBlueprint()
     {
-        $validation = $this->validateBlueprint();
-        $spec = $this->getAttributes();
-        $path = rtrim(self::BASE_PATH, '/').'/'.$spec->serviceName.'/'.ltrim($workingDir ?? '', '/');
-
         try {
-            if (! $validation['valid']) {
-                throw new \RuntimeException($validation['errors']);
-            }
+            // TODO: Ensure validation is done on the blueprint to
+            // be sure that the runtime selected, matches the right resource
+            $this->validateBlueprint();
+
+            $config = $this->getConfig();
+            $metadata = $this->getMetadata();
+            $path = rtrim(self::BASE_PATH, '/').'/'.$config['name'].'/';
+            $publicPath = $path.ltrim($config['working_dir'] ?? '', '/');
+
+            Log::info('Blueprint config validation successful');
 
             $this->blueprint->updateOrFail(['status' => 'in_progress']);
 
-            $remote = Remote::findOrFail($spec->remote->id);
             DirectoryService::setupFolder($path);
 
             // setup runtime
+            $remoteId = $config['remote'];
+            $remote = Remote::findOrFail($remoteId);
 
             $remoteService = new GitRepoService;
-            $remoteService->cloneRepo($remote->name, $remote->repository, $remote->provider, $this->$path.'/'.$spec->serviceName);
+            $remoteService->cloneRepo($remote->name, $remote->repository, $remote->provider, $path);
+
+            $port = $config['port'];
 
             $newBlock = <<<EOF
-            :$spec->port {
-                root * $path/dist
+            :$port {
+                root * $publicPath
                 file_server
             }
             EOF;
 
-            CaddyService::newConfig($spec->serviceName, $newBlock);
+            $caddy = new CaddyService;
+            $caddy->newConfig($config['name'], $newBlock);
+            $runCmd = $config['run_cmd'] ?? null;
 
-            if ($spec->runCmd !== null) {
-                $cmd = CmdService::execute($spec->runCmd, ['working_directory' => $path]);
+            if ($runCmd !== null) {
+                $cmd = CmdService::execute($runCmd, ['working_directory' => $path]);
                 $result = $cmd->successful;
 
                 if (! $result) {
-                    throw new \RuntimeException("Run command failed: {$spec->runCmd}");
+                    throw new \RuntimeException("Run command failed: $runCmd");
                 }
             }
 
-            CaddyService::restart();
-
+            $caddy->restart();
             $result = $this->blueprint->updateOrFail(['status' => 'completed']);
 
             if (! $result) {
-                throw new \RuntimeException("Failed to update blueprint status for ID $spec->id", 1);
+                throw new \RuntimeException("Failed to update blueprint status for ID {$this->blueprint->id}", 1);
             }
 
             $service = Service::create(CleanParseService::withoutNulls(
                 [
-                    'name' => $spec->serviceName,
-                    'source' => $remote->repository,
-                    'runtime' => $spec->runtime,
-                    'run_cmd' => $spec->runCmd,
-                    'port' => $spec->port,
-                    'working_dir' => $spec->workingDir,
-                    'output_dir' => $spec->outputDir,
-                    'image' => $spec->image,
-                    'env_vars' => $spec->envVars,
-                    'secrets' => $spec->secrets,
+                    'name' => $config['name'],
+                    'source' => $config['source'],
+                    'runtime' => $config['runtime'],
+                    'runtime_version' => $config['runtime_version'] ?? null,
+                    'run_cmd' => $config['run_cmd'] ?? null,
+                    'port' => $config['port'],
+                    'working_dir' => $config['working_dir'] ?? null,
+                    'output_dir' => $config['output_dir'] ?? null,
+                    'image' => $config['image'] ?? null,
+                    // 'env_vars' => $spec->envVars,
+                    // 'secrets' => $spec->secrets,
                     'remote_id' => $remote->id,
-                    'ci_remote_id' => $spec->ciRemote->id,
+                    'ci_remote_id' => $config['ci_remote'] ?? null,
+                    'project_id' => $metadata['project_id'] ?? null,
                 ]
             ));
 
-            Log::info("Successfully created service $spec->serviceName. ID: ".$service->id);
+            Log::info('Successfully created service '.$config['name'].' ID: '.$service->id);
         } catch (\RuntimeException $e) {
             $this->blueprint->updateOrFail(['status' => 'failed']);
-            Log::error("Runtime exception on service $spec->serviceName: ".$e->getMessage());
+            $config = $this->getConfig();
+            Log::error('Runtime exception on service '.$config['name'].' '.$e->getMessage());
         } catch (\Exception $e) {
             $this->blueprint->updateOrFail(['status' => 'failed']);
+            $config = $this->getConfig();
             $errorMessage = $e instanceof \Throwable ? $e->getMessage() : 'An unexpected error occurred.';
-            Log::error("Failed to create service $spec->serviceName: ".$errorMessage);
+            Log::error('Failed to create service '.$config['name']." $errorMessage");
         }
     }
 }

@@ -12,6 +12,7 @@ readonly class Spec
         public ?Remote $remote,
         public ?string $commitHash,
         public ?Remote $ciRemote,
+        public string $source,
         public string $runtime,
         public ?int $port,
         public ?string $image,

@@ -10,15 +10,13 @@ import type { Blueprint, BreadcrumbItem } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 
 const ViewProjectBreadcrumbs = (blueprint?: Blueprint) => {
-    const config = JSON.parse(blueprint!.config as string);
-
     const breadcrumbs: BreadcrumbItem[] = [
         {
             title: 'Deployments',
             href: deploymentsIndex().url,
         },
         {
-            title: config.name || 'Deployment',
+            title: blueprint!.config.name || 'Deployment',
             href: blueprint && blueprint.id ? deploymentsShow(blueprint.id).url : '',
         },
     ];
@@ -29,11 +27,9 @@ const ViewProjectBreadcrumbs = (blueprint?: Blueprint) => {
 export default function ViewDeployment() {
     const { props } = usePage();
     const blueprint = (props.blueprint as Blueprint) || null;
-    const config = JSON.parse(blueprint.config as string);
+    const config = blueprint.config;
     const breadcrumbs = ViewProjectBreadcrumbs(blueprint);
-
     const { logs, filteredLogs, selectedLevel, searchQuery, logsEndRef, setSelectedLevel, setSearchQuery } = useLogs(blueprint);
-
     const { blueprintFormat, setBlueprintFormat } = useServiceForm();
 
     const yamlConfig = toYaml(config);
@@ -74,7 +70,7 @@ export default function ViewDeployment() {
                             </TabsContent>
                             <TabsContent value="blueprint">
                                 <BlueprintSection
-                                    name={config.name}
+                                    name={config.name!}
                                     blueprintFormat={blueprintFormat}
                                     yamlConfig={yamlConfig}
                                     jsonConfig={jsonConfig}

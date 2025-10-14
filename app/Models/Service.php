@@ -31,6 +31,7 @@ class Service extends Model
         'secrets',
         'remote_id',
         'ci_remote_id',
+        'project_id',
     ];
 
     public function remote()
