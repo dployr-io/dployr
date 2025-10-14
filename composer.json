@@ -13,7 +13,8 @@
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
-        "laravel/wayfinder": "^0.1.9"
+        "laravel/wayfinder": "^0.1.9",
+        "swaggest/json-schema": "^0.12.43"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -72,12 +73,11 @@
             "vendor/bin/pint --test"
         ],
         "sync": [
-            "npm run build",
-            "wsl -d Ubuntu-22.04 -u root -e sh -c \"rsync -av --delete /mnt/c/Workspace/dployr/app/public/build/ /home/dployr/public/build/\"",
-            "wsl -d Ubuntu-22.04 -u root -e sh -c \"rsync -av --delete /mnt/c/Workspace/dployr/app/app/ /home/dployr/app/\"",
-            "wsl -d Ubuntu-22.04 -u root -e sh -c \"systemctl restart dployr\"",
-            "wsl -d Ubuntu-22.04 -u root -e sh -c \"systemctl restart php8.3-fpm\"",
-            "wsl -d Ubuntu-22.04 -u root -e sh -c \"systemctl restart caddy\""
+            "pnpm run build",
+            "wsl -d Ubuntu-22.04 -u dployr -e sh -c \"rsync -av --chown=dployr:caddy /mnt/c/Workspace/dployr/public/build/ /home/dployr/public/build/\"",
+            "wsl -d Ubuntu-22.04 -u dployr -e sh -c \"rsync -av --chown=dployr:caddy /mnt/c/Workspace/dployr/public/build/manifest.json /home/dployr/public/build/manifest.json\"",
+            "wsl -d Ubuntu-22.04 -u dployr -e sh -c \"rsync -av --chown=dployr:caddy /mnt/c/Workspace/dployr/app/ /home/dployr/app/\"",
+            "wsl -d Ubuntu-22.04 -u root -e sh -c \"systemctl restart php8.3-fpm caddy dployr\""
         ],
         "release": "@php scripts/release.php"
     },
