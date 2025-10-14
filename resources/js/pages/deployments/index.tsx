@@ -9,6 +9,7 @@ import { useRemotes } from '@/hooks/use-remotes';
 
 import AppLayout from '@/layouts/app-layout';
 import { getRuntimeIcon } from '@/lib/runtime-icon';
+import { toast } from '@/lib/toast';
 import { deploymentsIndex, deploymentsShow, servicesIndex } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -32,7 +33,7 @@ export default function Deployments() {
     const {
         deployments,
         isLoading: isDeploymentsLoading,
-        normalizedDeployments,
+        paginatedDeployments,
         currentPage,
         totalPages,
         startIndex,
@@ -69,7 +70,11 @@ export default function Deployments() {
                             </EmptyHeader>
                             <EmptyContent>
                                 <div className="flex gap-2">
-                                    <Button>
+                                    <Button
+                                        onClick={() => {
+                                            if (!defaultProject) toast.error('You need to first create a project to deploy');
+                                        }}
+                                    >
                                         <Link href={defaultProject && defaultProject.id ? servicesIndex({ project: defaultProject.id }).url : '#'}>
                                             Deploy Service
                                         </Link>
@@ -92,12 +97,12 @@ export default function Deployments() {
                                         <TableHead className="h-14 align-middle">Status</TableHead>
                                         <TableHead className="h-14 align-middle">Runtime</TableHead>
                                         <TableHead className="h-14 align-middle">Remote</TableHead>
-                                        <TableHead className="h-14 w-[200px] text-right align-middle">Run Command</TableHead>
+                                        <TableHead className="h-14 w-[200px] text-right align-middle whitespace-nowrap">Run Command</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {!isDeploymentsLoading
-                                        ? normalizedDeployments.map((deployment) => (
+                                        ? paginatedDeployments.map((deployment) => (
                                               <TableRow
                                                   key={deployment.id}
                                                   className="h-16 cursor-pointer"

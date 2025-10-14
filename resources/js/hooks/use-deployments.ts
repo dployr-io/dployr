@@ -29,22 +29,7 @@ export function useDeployments() {
     const totalPages = Math.ceil((deployments?.length ?? 0) / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    const paginatedDeployments = deployments?.slice(startIndex, endIndex);
-
-    const normalizedDeployments = useMemo(
-        () =>
-            (paginatedDeployments || []).map((deployment) => {
-                let config = deployment?.config ?? {};
-                config = JSON.parse(config as string);
-                const remote = (config as Partial<Service>)?.remote;
-                let resolvedRemote = remote;
-                if (remote) {
-                    resolvedRemote = remotes.find((r) => r) || remote;
-                }
-                return { ...deployment, config: { ...config, remote: resolvedRemote } };
-            }),
-        [paginatedDeployments, remotes],
-    );
+    const paginatedDeployments = deployments?.slice(startIndex, endIndex) || [];
 
     const goToPage = (page: number) => {
         setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -60,7 +45,7 @@ export function useDeployments() {
 
     return {
         deployments,
-        normalizedDeployments,
+        paginatedDeployments,
         currentPage,
         totalPages,
         startIndex,
