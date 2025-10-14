@@ -25,18 +25,26 @@ class BlueprintsController extends Controller
         $query = Blueprint::query();
 
         if (request()->query('spec')) {
-            $query->where('spec', true);
+            $query->where('save_spec', true);
         }
 
         return response()->json(
-            $query->get()->map(fn ($blueprint) => [
-                'id' => $blueprint->id,
-                'config' => $blueprint->config,
-                'status' => $blueprint->status,
-                'spec' => $blueprint->spec,
-                'created_at' => $blueprint->created_at,
-                'updated_at' => $blueprint->updated_at,
-            ])
+            $query
+                ->get()
+                ->map(fn ($blueprint) => [
+                    'id' => $blueprint->id,
+                    'config' => array_merge(
+                        is_array($blueprint->config) ? $blueprint->config : json_decode($blueprint->config, true) ?? [],
+                        array_filter([
+                            'remote' => $blueprint->remote_obj,
+                            'ci_remote' => $blueprint->ci_remote_obj,
+                        ], fn($value) => $value !== null)
+                    ),
+                    'status' => $blueprint->status,
+                    'spec' => $blueprint->spec,
+                    'created_at' => $blueprint->created_at,
+                    'updated_at' => $blueprint->updated_at,
+                ])
         );
     }
 
@@ -48,7 +56,13 @@ class BlueprintsController extends Controller
         return Inertia::render('deployments/view-deployment', [
             'blueprint' => [
                 'id' => $blueprint->id,
-                'config' => $blueprint->config,
+                'config' => array_merge(
+                    is_array($blueprint->config) ? $blueprint->config : json_decode($blueprint->config, true) ?? [],
+                    array_filter([
+                        'remote' => $blueprint->remote_obj,
+                        'ci_remote' => $blueprint->ci_remote_obj,
+                    ], fn($value) => $value !== null)
+                ),
                 'status' => $blueprint->status,
                 'created_at' => $blueprint->created_at,
                 'updated_at' => $blueprint->updated_at,
