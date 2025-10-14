@@ -1,8 +1,8 @@
 import { useRemotes } from '@/hooks/use-remotes';
-import type { Blueprint, Service } from '@/types';
+import type { Blueprint } from '@/types';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 export function useDeployments() {
     const params = new URLSearchParams(window.location.search);
