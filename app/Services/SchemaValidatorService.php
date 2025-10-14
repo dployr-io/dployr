@@ -21,11 +21,11 @@ abstract class SchemaValidatorService
     public function validate(mixed $config)
     {
         $schema = $this->getSchema();
-        
+
         try {
-            $schema = Schema::import($schema)->in($config);  
+            $schema = Schema::import($schema)->in($config);
         } catch (\Exception $e) {
-            echo "JSON validation error: " . $e->getMessage();
+            echo 'JSON validation error: '.$e->getMessage();
         }
     }
 
@@ -59,6 +59,7 @@ abstract class SchemaValidatorService
                 if (is_bool($response)) {
                     throw new \RuntimeException('Invalid schema: Received boolean value');
                 }
+
                 return $response;
             } catch (\Exception $e) {
                 throw new \RuntimeException(
@@ -66,7 +67,7 @@ abstract class SchemaValidatorService
                 );
             }
         });
-        
+
         return json_encode($schema);
     }
 

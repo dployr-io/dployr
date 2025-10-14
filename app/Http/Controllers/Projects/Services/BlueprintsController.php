@@ -38,7 +38,7 @@ class BlueprintsController extends Controller
                         array_filter([
                             'remote' => $blueprint->remote_obj,
                             'ci_remote' => $blueprint->ci_remote_obj,
-                        ], fn($value) => $value !== null)
+                        ], fn ($value) => $value !== null)
                     ),
                     'status' => $blueprint->status,
                     'spec' => $blueprint->spec,
@@ -61,7 +61,7 @@ class BlueprintsController extends Controller
                     array_filter([
                         'remote' => $blueprint->remote_obj,
                         'ci_remote' => $blueprint->ci_remote_obj,
-                    ], fn($value) => $value !== null)
+                    ], fn ($value) => $value !== null)
                 ),
                 'status' => $blueprint->status,
                 'created_at' => $blueprint->created_at,

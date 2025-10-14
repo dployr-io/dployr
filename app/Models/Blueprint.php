@@ -20,12 +20,12 @@ class Blueprint extends Model
         'id',
         'config',
         'status', // e.g., 'pending', 'completed', 'in_progress', 'failed'
-        'metadata'
+        'metadata',
     ];
 
     protected $casts = [
         'config' => 'array',
-        'metadata' => 'array'
+        'metadata' => 'array',
     ];
 
     public function services()
@@ -36,12 +36,14 @@ class Blueprint extends Model
     public function getRemoteObjAttribute()
     {
         $remoteId = $this->config['remote'] ?? null;
+
         return $remoteId ? Remote::find($remoteId) : null;
     }
 
     public function getCiRemoteObjAttribute()
     {
         $ciRemoteId = $this->config['ci_remote'] ?? null;
+
         return $ciRemoteId ? Remote::find($ciRemoteId) : null;
     }
 }

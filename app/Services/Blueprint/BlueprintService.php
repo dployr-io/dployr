@@ -32,19 +32,21 @@ class BlueprintService
     private function getConfig(): array
     {
         $config = $this->blueprint->config;
+
         return is_array($config) ? $config : json_decode($config, true) ?? [];
     }
 
     private function getMetadata(): array
     {
         $metadata = $this->blueprint->metadata;
+
         return is_array($metadata) ? $metadata : json_decode($metadata, true) ?? [];
     }
 
     public function processBlueprint()
     {
         try {
-            // TODO: Ensure validation is done on the blueprint to 
+            // TODO: Ensure validation is done on the blueprint to
             // be sure that the runtime selected, matches the right resource
             $this->validateBlueprint();
 
@@ -53,16 +55,16 @@ class BlueprintService
             $path = rtrim(self::BASE_PATH, '/').'/'.$config['name'].'/';
             $publicPath = $path.ltrim($config['working_dir'] ?? '', '/');
 
-            Log::info("Blueprint config validation successful");
-            
+            Log::info('Blueprint config validation successful');
+
             $this->blueprint->updateOrFail(['status' => 'in_progress']);
-            
+
             DirectoryService::setupFolder($path);
-            
-            // setup runtime 
+
+            // setup runtime
             $remoteId = $config['remote'];
             $remote = Remote::findOrFail($remoteId);
-            
+
             $remoteService = new GitRepoService;
             $remoteService->cloneRepo($remote->name, $remote->repository, $remote->provider, $path);
 
@@ -75,7 +77,7 @@ class BlueprintService
             }
             EOF;
 
-            $caddy = new CaddyService();
+            $caddy = new CaddyService;
             $caddy->newConfig($config['name'], $newBlock);
             $runCmd = $config['run_cmd'] ?? null;
 
@@ -114,16 +116,16 @@ class BlueprintService
                 ]
             ));
 
-            Log::info("Successfully created service ".$config['name']." ID: ".$service->id);
+            Log::info('Successfully created service '.$config['name'].' ID: '.$service->id);
         } catch (\RuntimeException $e) {
             $this->blueprint->updateOrFail(['status' => 'failed']);
             $config = $this->getConfig();
-            Log::error("Runtime exception on service ".$config['name']." ".$e->getMessage());
+            Log::error('Runtime exception on service '.$config['name'].' '.$e->getMessage());
         } catch (\Exception $e) {
             $this->blueprint->updateOrFail(['status' => 'failed']);
             $config = $this->getConfig();
             $errorMessage = $e instanceof \Throwable ? $e->getMessage() : 'An unexpected error occurred.';
-            Log::error("Failed to create service ".$config['name']." $errorMessage");
+            Log::error('Failed to create service '.$config['name']." $errorMessage");
         }
     }
 }

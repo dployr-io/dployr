@@ -65,7 +65,7 @@ class CaddyService
 
     private function processedConfig(): string
     {
-        $result = CmdService::execute("curl localhost:2019/config/ | jq");
+        $result = CmdService::execute('curl localhost:2019/config/ | jq');
 
         if (! $result->successful) {
             throw new \RuntimeException($result->errorOutput, 1);

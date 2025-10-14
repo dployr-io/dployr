@@ -31,8 +31,7 @@ class AppServiceProvider extends ServiceProvider
         $beta = env('BETA', null);
         $suffix = '';
 
-        if ($beta !== null)
-        {
+        if ($beta !== null) {
             $suffix = "-$beta";
         }
 

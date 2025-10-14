@@ -88,7 +88,7 @@ class ServicesController extends Controller
 
         $port = $request->input('port');
 
-        $caddy = new CaddyService();
+        $caddy = new CaddyService;
 
         if ($caddy->checkPort($port)) {
             return back()->withInput()->withErrors(['port' => __('Port '.$port.' is already in use. Choose another port.')]);
