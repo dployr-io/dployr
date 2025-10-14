@@ -1,4 +1,3 @@
-import { useRemotes } from '@/hooks/use-remotes';
 import type { Blueprint } from '@/types';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
@@ -23,7 +22,6 @@ export function useDeployments() {
         staleTime: 5 * 60 * 1000,
     });
 
-    const { remotes } = useRemotes();
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
     const totalPages = Math.ceil((deployments?.length ?? 0) / itemsPerPage);
