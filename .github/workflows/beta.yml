@@ -109,9 +109,6 @@ jobs:
               "storage/framework/views/*" \
               "storage/framework/testing/*"
 
-          # Optional: list contents for verification
-          unzip -l "dployr-v${{ steps.version.outputs.version }}.zip"
-
       - name: Create tag
         run: |
           echo "Creating tag..."
