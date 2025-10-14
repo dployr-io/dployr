@@ -106,7 +106,8 @@ jobs:
               "storage/*.log" \
               "storage/framework/cache/*" \
               "storage/framework/sessions/*" \
-              "storage/framework/views/*"
+              "storage/framework/views/*" \
+              "storage/framework/testing/*"
 
           # Optional: list contents for verification
           unzip -l "dployr-v${{ steps.version.outputs.version }}.zip"
