@@ -28,7 +28,15 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $version = trim(file_get_contents(base_path('VERSION')));
-        config(['app.version' => $version]);
+        $beta = env('BETA', null);
+        $suffix = '';
+
+        if ($beta !== null)
+        {
+            $suffix = "-$beta";
+        }
+
+        config(['app.version' => $version.$suffix]);
 
         if (config('app.env') !== 'production') {
             \Http::globalOptions([
