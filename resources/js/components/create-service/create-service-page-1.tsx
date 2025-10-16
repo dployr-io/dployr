@@ -16,8 +16,12 @@ interface Props {
     remoteError: string;
     workingDir?: string | null;
     workingDirError: string;
+    staticDir?: string | null;
+    staticDirError: string | null;
     runtime: Runtime;
     runtimeError: string;
+    version: string;
+    versionError: string;
     remote?: Remote | null;
     remotes: Remote[];
     isRemotesLoading: boolean;
@@ -28,11 +32,15 @@ interface Props {
     errors: Record<string, string>;
     runCmdPlaceholder?: string;
 
+    versions: string[];
+    isRuntimesLoading: boolean;
+
     // Unified handlers
     setField: (field: string, value: unknown) => void;
     onSourceValueChanged: (arg0: ServiceSource) => void;
     onRemoteValueChanged: (arg0: Remote) => void;
     onRuntimeValueChanged: (arg0: Runtime) => void;
+    onVersionValueChanged: (arg0: string) => void;
 }
 
 export function CreateServicePage1({
@@ -41,8 +49,14 @@ export function CreateServicePage1({
     remoteError,
     workingDir,
     workingDirError,
+    staticDir,
+    staticDirError,
     runtime,
     runtimeError,
+    version,
+    versionError,
+    versions,
+    isRuntimesLoading,
     remote,
     remotes,
     isRemotesLoading,
@@ -55,6 +69,7 @@ export function CreateServicePage1({
     setField,
     onSourceValueChanged,
     onRemoteValueChanged,
+    onVersionValueChanged,
     onRuntimeValueChanged,
 }: Props) {
     return (
@@ -163,7 +178,7 @@ export function CreateServicePage1({
                 <Label htmlFor="runtime">
                     Runtime <span className="text-destructive">*</span>
                 </Label>
-                <Select value={runtime ?? 'Select a runtime'} onValueChange={onRuntimeValueChanged}>
+                <Select value={runtime ?? 'Select a runtime'} onValueChange={(value) => onRuntimeValueChanged(value as Runtime)}>
                     <SelectTrigger id="runtime" disabled={processing}>
                         <SelectValue>
                             <div className="flex items-center gap-2">
@@ -192,10 +207,39 @@ export function CreateServicePage1({
                 {(runtimeError || errors.runtime) && <div className="text-sm text-destructive">{runtimeError || errors.runtime}</div>}
             </div>
 
+            {runtime && runtime !== 'static' && (
+                <div className="grid gap-3">
+                    <Label htmlFor="version">Version</Label>
+                    <Select value={version ?? 'Select version'} onValueChange={(value) => onVersionValueChanged(value)}>
+                        <SelectTrigger id="version" disabled={processing || !runtime || isRuntimesLoading}>
+                            <SelectValue>
+                                <div className="flex items-center gap-2">
+                                    {isRuntimesLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                                    {isRuntimesLoading ? 'Loading versions' : (version ?? 'Select version')}
+                                </div>
+                            </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                            {Array.isArray(versions) && versions.length > 0 ? (
+                                versions.map((version) => (
+                                    <SelectItem key={version} value={version}>
+                                        <div className="flex items-center gap-2">{version}</div>
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <div className="px-2 py-1 text-sm text-muted-foreground">No versions available</div>
+                            )}
+                        </SelectContent>
+                    </Select>
+                    {(versionError || errors.runtime) && <div className="text-sm text-destructive">{versionError || errors.runtime}</div>}
+                </div>
+            )}
+
             {source === 'remote' && (
                 <div className="grid gap-3">
                     <Label htmlFor="run_cmd">
-                        {runtime === 'static' ? 'Build Command' : 'Run Command'} {runtime !== 'static' && <span className="text-destructive">*</span>}
+                        {runtime.type === 'static' ? 'Build Command' : 'Run Command'}{' '}
+                        {runtime.type !== 'static' && <span className="text-destructive">*</span>}
                     </Label>
                     <Input
                         id="run_cmd"
@@ -210,25 +254,43 @@ export function CreateServicePage1({
                 </div>
             )}
 
-            {source === 'remote' && (
-                <div className="grid gap-3">
-                    <Label htmlFor="working_dir">
-                        Working Directory <span className="text-xs text-muted-foreground">(Defaults to root directory)</span>
-                    </Label>
-                    <Input
-                        id="working_dir"
-                        name="working_dir"
-                        placeholder="src"
-                        value={workingDir!}
-                        onChange={(e) => setField('workingDir', e.target.value)}
-                        tabIndex={2}
-                        disabled={processing}
-                    />
-                    {(workingDirError || errors.working_dir) && (
-                        <div className="text-sm text-destructive">{workingDirError || errors.working_dir}</div>
+            <div className="grid gap-3">
+                <Label htmlFor="working_dir">
+                    {source === 'remote' ? (
+                        <>
+                            Working Directory <span className="text-xs text-muted-foreground">(Defaults to root directory)</span>
+                        </>
+                    ) : (
+                        'Mount Path'
                     )}
-                </div>
-            )}
+                </Label>
+                <Input
+                    id="working_dir"
+                    name="working_dir"
+                    placeholder="src"
+                    value={workingDir!}
+                    onChange={(e) => setField('workingDir', e.target.value)}
+                    tabIndex={2}
+                    disabled={processing}
+                />
+                {(workingDirError || errors.working_dir) && <div className="text-sm text-destructive">{workingDirError || errors.working_dir}</div>}
+            </div>
+
+            <div className="grid gap-3">
+                <Label htmlFor="static_dir">
+                    Static Directory <span className="text-xs text-muted-foreground">(Defaults to working directory)</span>
+                </Label>
+                <Input
+                    id="static_dir"
+                    name="static_dir"
+                    placeholder="dist"
+                    value={staticDir!}
+                    onChange={(e) => setField('staticDir', e.target.value)}
+                    tabIndex={2}
+                    disabled={processing}
+                />
+                {(staticDirError || errors.staticDir) && <div className="text-sm text-destructive">{staticDirError || errors.static_dir}</div>}
+            </div>
         </div>
     );
 }

@@ -1,4 +1,5 @@
 export const runtimes = ['static', 'go', 'php', 'python', 'node-js', 'ruby', 'dotnet', 'java', 'docker', 'k3s', 'custom'] as const;
+export type Runtime = (typeof runtimes)[number];
 
 export const dnsProviders = ['cloudflare', 'route53', 'namecheap', 'godaddy'] as const;
 

@@ -8,8 +8,9 @@ interface ServiceFormState {
     currentPage: number;
     name: string;
     runtime: Runtime;
+    version: string;
     workingDir?: string | null;
-    outputDir?: string | null;
+    staticDir?: string | null;
     remote?: Remote | null;
     ciRemote?: Remote | null;
     image?: string | null;
@@ -25,8 +26,9 @@ interface ServiceFormState {
     nameError: string;
     remoteError: string;
     workingDirError: string;
-    outputDirError: string;
+    staticDirError: string;
     runtimeError: string;
+    versionError: string;
     runCmdError: string;
     portError: string;
     domainError: string;
@@ -48,8 +50,9 @@ const initialState: ServiceFormState = {
     currentPage: 1,
     name: '',
     workingDir: '',
-    outputDir: '',
+    staticDir: '',
     runtime: 'node-js',
+    version: 'latest',
     remote: null,
     ciRemote: null,
     image: '',
@@ -63,8 +66,9 @@ const initialState: ServiceFormState = {
     secrets: '',
     nameError: '',
     remoteError: '',
+    versionError: '',
     workingDirError: '',
-    outputDirError: '',
+    staticDirError: '',
     runtimeError: '',
     runCmdError: '',
     portError: '',
@@ -93,8 +97,9 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
                 ...state,
                 nameError: '',
                 remoteError: '',
+                versionError: '',
                 workingDirError: '',
-                outputDirError: '',
+                staticDirError: '',
                 runtimeError: '',
                 runCmdError: '',
                 portError: '',
@@ -109,8 +114,9 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
                 currentPage: Math.max(state.currentPage - 1, 1),
                 nameError: '',
                 workingDirError: '',
-                outputDirError: '',
+                staticDirError: '',
                 runtimeError: '',
+                versionError: '',
                 runCmdError: '',
                 portError: '',
                 domainError: '',
@@ -122,8 +128,9 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
                 currentPage: 3,
                 nameError: '',
                 workingDirError: '',
-                outputDirError: '',
+                staticDirError: '',
                 runtimeError: '',
+                versionError: '',
                 runCmdError: '',
                 portError: '',
                 domainError: '',
@@ -134,6 +141,7 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
                 ...state,
                 source: action.payload,
                 runtime: action.payload === 'image' ? 'docker' : 'node-js',
+                version: 'latest',
             };
         default:
             return state;
@@ -147,8 +155,9 @@ export function useServiceForm() {
     const page1Schema = z.object({
         name: z.string().min(3, 'Enter a name with at least three (3) characters'),
         workingDir: z.string().optional(),
-        outputDir: z.string().optional(),
+        staticDir: z.string().optional(),
         runtime: z.enum(runtimes, 'Select a supported runtime. Read the docs for more details.'),
+        version: z.string().optional(),
         runCmd: z
             .string()
             .optional()
@@ -174,8 +183,9 @@ export function useServiceForm() {
         const result = page1Schema.safeParse({
             name: state.name,
             workingDir: state.workingDir,
-            outputDir: state.outputDir,
+            staticDir: state.staticDir,
             runtime: state.runtime,
+            version: state.runtime,
             runCmd: state.runCmd,
         });
 
@@ -183,8 +193,9 @@ export function useServiceForm() {
             const fieldErrors = result.error.flatten().fieldErrors;
             if (fieldErrors.name) dispatch({ type: 'SET_ERROR', payload: { field: 'nameError', value: fieldErrors.name[0] } });
             if (fieldErrors.workingDir) dispatch({ type: 'SET_ERROR', payload: { field: 'workingDirError', value: fieldErrors.workingDir[0] } });
-            if (fieldErrors.outputDir) dispatch({ type: 'SET_ERROR', payload: { field: 'outputDirError', value: fieldErrors.outputDir[0] } });
+            if (fieldErrors.staticDir) dispatch({ type: 'SET_ERROR', payload: { field: 'staticDirError', value: fieldErrors.staticDir[0] } });
             if (fieldErrors.runtime) dispatch({ type: 'SET_ERROR', payload: { field: 'runtimeError', value: fieldErrors.runtime[0] } });
+            if (fieldErrors.version) dispatch({ type: 'SET_ERROR', payload: { field: 'versionError', value: fieldErrors.version[0] } });
             if (fieldErrors.runCmd) dispatch({ type: 'SET_ERROR', payload: { field: 'runCmdError', value: fieldErrors.runCmd[0] } });
             hasErrors = true;
         }
@@ -196,7 +207,7 @@ export function useServiceForm() {
 
         if (
             state.source === 'remote' &&
-            state.runtime !== 'static' &&
+            state.runtime.type !== 'static' &&
             (!state.runCmd || !/[a-zA-Z].*[a-zA-Z]/.test(state.runCmd)) // Ensure there's at least 2 alphabetic characters
         ) {
             dispatch({ type: 'SET_ERROR', payload: { field: 'runCmdError', value: 'Enter a valid build command' } });
@@ -247,8 +258,9 @@ export function useServiceForm() {
         return {
             name: state.name,
             working_dir: state.workingDir,
-            output_dir: state.outputDir,
+            static_dir: state.staticDir,
             runtime: state.runtime,
+            version: state.version,
             remote: state.remote,
             ci_remote: state.ciRemote,
             image: state.image,
@@ -267,8 +279,9 @@ export function useServiceForm() {
         return {
             name: state.name,
             working_dir: state.workingDir,
-            output_dir: state.outputDir,
+            static_dir: state.staticDir,
             runtime: state.runtime,
+            version: state.version,
             remote: state.remote?.id || null,
             ci_remote: state.ciRemote?.id || null,
             image: state.image,
@@ -292,7 +305,7 @@ export function useServiceForm() {
     const validateSkip = () => {
         dispatch({ type: 'CLEAR_ALL_ERRORS' });
 
-        if (state.runtime === 'static') {
+        if (state.runtime.type === 'static') {
             return true;
         }
 
@@ -330,6 +343,7 @@ export function useServiceForm() {
 
     const onRuntimeValueChanged = (value: Runtime) => {
         setField('runtime', value);
+        setField('version', 'latest');
 
         switch (value) {
             case 'node-js': {
@@ -363,22 +377,41 @@ export function useServiceForm() {
         }
     };
 
+    const onVersionValueChanged = (value: string) => {
+        setField('version', value);
+    };
+
     const config = useMemo(() => {
         const cleanConfig: Partial<Service> = {
             name: state.name || 'my-dployr-app',
             source: state.source,
-            runtime: state.runtime,
+            runtime: {
+                type: state.runtime,
+            },
         };
 
         if (state.workingDir) cleanConfig.working_dir = state.workingDir;
+        if (state.staticDir) cleanConfig.static_dir = state.staticDir;
         if (state.runCmd) cleanConfig.run_cmd = state.runCmd;
         if (state.port) cleanConfig.port = Number(state.port);
         if (state.domain) cleanConfig.domain = state.domain;
         if (state.dnsProvider) cleanConfig.dns_provider = state.dnsProvider;
         if (state.remote) cleanConfig.remote = state.remote;
+        if (state.version && cleanConfig.runtime) cleanConfig.runtime.version = state.version;
 
         return cleanConfig;
-    }, [state.name, state.source, state.runtime, state.workingDir, state.runCmd, state.port, state.domain, state.dnsProvider, state.remote]);
+    }, [
+        state.name,
+        state.source,
+        state.runtime,
+        state.version,
+        state.workingDir,
+        state.runCmd,
+        state.port,
+        state.domain,
+        state.dnsProvider,
+        state.remote,
+    ]);
 
     const yamlConfig = useMemo(() => {
         return toYaml(config);
@@ -405,8 +438,9 @@ export function useServiceForm() {
         currentPage: state.currentPage,
         name: state.name,
         workingDir: state.workingDir,
-        outputDir: state.outputDir,
+        staticDir: state.staticDir,
         runtime: state.runtime,
+        version: state.version,
         remote: state.remote,
         ciRemote: state.ciRemote,
         image: state.image,
@@ -432,8 +466,9 @@ export function useServiceForm() {
         nameError: state.nameError,
         remoteError: state.remoteError,
         workingDirError: state.workingDirError,
-        outputDirError: state.outputDirError,
+        staticDirError: state.staticDirError,
         runtimeError: state.runtimeError,
+        versionError: state.versionError,
         runCmdError: state.runCmdError,
         portError: state.portError,
         domainError: state.domainError,
@@ -444,8 +479,9 @@ export function useServiceForm() {
         setError,
         setName: (value: string) => setField('name', value),
         setWorkingDir: (value: string) => setField('workingDir', value),
-        setOutputDir: (value: string) => setField('outputDir', value),
+        setOutputDir: (value: string) => setField('staticDir', value),
         setRuntime: (value: Runtime) => setField('runtime', value),
+        setVersion: (value: string) => setField('version', value),
         setRemote: (value: Remote) => setField('remote', value),
         setCiRemote: (value: Remote) => setField('ciRemote', value),
         setImage: (value: string) => setField('image', value),
@@ -474,6 +510,7 @@ export function useServiceForm() {
         onSourceValueChanged,
         onRemoteValueChanged,
         onRuntimeValueChanged,
+        onVersionValueChanged,
         nextPage,
         prevPage,
         validateSkip,

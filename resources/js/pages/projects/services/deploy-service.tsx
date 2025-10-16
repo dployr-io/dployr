@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 
 import { useRemotes } from '@/hooks/use-remotes';
+import { useRuntimes } from '@/hooks/use-runtimes';
 import { useServiceForm } from '@/hooks/use-service-form';
 import AppLayout from '@/layouts/app-layout';
 import { deploymentsIndex, projectsIndex, projectsShow } from '@/routes';
@@ -48,8 +49,11 @@ export default function DeployService() {
     const breadcrumbs = ViewProjectBreadcrumbs(project);
     const [showSkipDialog, setShowSkipDialog] = useState(false);
     const queryClient = useQueryClient();
+    const params = new URLSearchParams(window.location.search);
+    const spec = params.get('spec');
+
     const onCreatedSuccess = () => {
-        queryClient.invalidateQueries({ queryKey: ['services'] });
+        queryClient.invalidateQueries({ queryKey: ['deployments', spec] });
         router.visit(deploymentsIndex().url);
     };
 
@@ -60,8 +64,12 @@ export default function DeployService() {
         remoteError,
         workingDir,
         workingDirError,
+        staticDir,
+        staticDirError,
         runtime,
         runtimeError,
+        version,
+        versionError,
         remote,
         runCmd,
         runCmdError,
@@ -81,6 +89,7 @@ export default function DeployService() {
         onSourceValueChanged,
         onRemoteValueChanged,
         onRuntimeValueChanged,
+        onVersionValueChanged,
         nextPage,
         prevPage,
         validateSkip,
@@ -90,6 +99,8 @@ export default function DeployService() {
         yamlConfig,
         jsonConfig,
     } = useServiceForm();
+
+    const { runtimes: versions, isLoading: isRuntimesLoading } = useRuntimes(runtime);
 
     const { remotes, isLoading: isRemotesLoading } = useRemotes();
 
@@ -129,10 +140,16 @@ export default function DeployService() {
                         remoteError={remoteError}
                         workingDir={workingDir!}
                         workingDirError={workingDirError}
+                        staticDir={staticDir}
+                        staticDirError={staticDirError}
                         runtime={runtime}
                         runtimeError={runtimeError}
                         remote={remote}
                         isRemotesLoading={isRemotesLoading}
+                        version={version}
+                        versions={versions || []}
+                        versionError={versionError}
+                        isRuntimesLoading={isRuntimesLoading}
                         remotes={remotes || []}
                         runCmd={runCmd!}
                         runCmdError={runCmdError}
@@ -143,6 +160,7 @@ export default function DeployService() {
                         setField={setField}
                         onSourceValueChanged={onSourceValueChanged}
                         onRemoteValueChanged={onRemoteValueChanged}
+                        onVersionValueChanged={onVersionValueChanged}
                         onRuntimeValueChanged={onRuntimeValueChanged}
                     />
                 );
