@@ -53,7 +53,7 @@ class ProjectsController extends Controller
                 'run_cmd' => $service->run_cmd,
                 'port' => $service->port,
                 'working_dir' => $service->working_dir,
-                'output_dir' => $service->output_dir,
+                'static_dir' => $service->static_dir,
                 'image' => $service->image,
                 'spec' => $service->spec,
                 'env_vars' => $service->env_vars,

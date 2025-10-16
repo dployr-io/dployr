@@ -18,6 +18,6 @@ class ProcessBlueprint implements ShouldQueue
     public function handle(): void
     {
         $blueprintService = new BlueprintService($this->blueprint);
-        $blueprintService->processBlueprint();
+        $blueprintService->process();
     }
 }

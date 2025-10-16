@@ -25,7 +25,7 @@ class Service extends Model
         'run_cmd',
         'port',
         'working_dir',
-        'output_dir',
+        'static_dir',
         'image',
         'env_vars',
         'secrets',

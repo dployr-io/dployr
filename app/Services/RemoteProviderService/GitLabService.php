@@ -5,7 +5,7 @@ namespace App\Services\RemoteProviderService;
 use App\DTOs\ApiResponse;
 use App\Enums\RemoteType;
 use App\Facades\AppConfig;
-use App\Services\CmdService;
+use App\Services\Cmd;
 use App\Services\HttpService;
 
 class GitLabService extends RemoteProviderService
@@ -76,7 +76,7 @@ class GitLabService extends RemoteProviderService
 
         $cmd = "git clone https://oauth2:{$this->token}@gitlab.com/$name/$repository $local_dir";
 
-        $result = CmdService::execute($cmd);
+        $result = Cmd::execute($cmd);
 
         if ($result->exitCode !== 0) {
             throw new \RuntimeException($result->errorOutput);
