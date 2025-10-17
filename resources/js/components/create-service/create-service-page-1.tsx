@@ -238,8 +238,7 @@ export function CreateServicePage1({
             {source === 'remote' && (
                 <div className="grid gap-3">
                     <Label htmlFor="run_cmd">
-                        {runtime === 'static' ? 'Build Command' : 'Run Command'}{' '}
-                        {runtime !== 'static' && <span className="text-destructive">*</span>}
+                        {runtime === 'static' ? 'Build Command' : 'Run Command'} {runtime !== 'static' && <span className="text-destructive">*</span>}
                     </Label>
                     <Input
                         id="run_cmd"
