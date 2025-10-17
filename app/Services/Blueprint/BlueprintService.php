@@ -2,6 +2,7 @@
 
 namespace App\Services\Blueprint;
 
+use App\Contracts\Blueprints\BlueprintServiceInterface;
 use App\Models\Blueprint;
 use App\Models\Remote;
 use App\Models\Service;
@@ -10,10 +11,8 @@ use App\Services\CleanParseService;
 use App\Services\Cmd;
 use App\Services\DirectoryService;
 use App\Services\GitRepoService;
-use App\Services\Runtime\NodeJsService;
 use App\Services\Runtime\RuntimeService;
 use Illuminate\Support\Facades\Log;
-use App\Contracts\Blueprints\BlueprintServiceInterface;
 
 class BlueprintService implements BlueprintServiceInterface
 {
@@ -54,16 +53,18 @@ class BlueprintService implements BlueprintServiceInterface
     public function process(): void
     {
         $currentStatus = $this->blueprint->fresh()->status;
-        
+
         if ($currentStatus !== 'pending') {
             Log::debug("Blueprint {$this->blueprint->id} status is {$currentStatus}, skipping");
+
             return;
         }
-        
+
         $updated = $this->blueprint->where('status', 'pending')->update(['status' => 'in_progress']);
-        
-        if (!$updated) {
+
+        if (! $updated) {
             Log::debug("Blueprint {$this->blueprint->id} status changed by another process, skipping");
+
             return;
         }
 
@@ -78,7 +79,7 @@ class BlueprintService implements BlueprintServiceInterface
             $path = rtrim(self::BASE_PATH, '/').'/'.$config['name'].'/';
             $workingDir = ltrim($config['working_dir'] ?? '', '/');
             $staticDir = ltrim($config['static_dir'] ?? '', '/');
-            $staticPath = $path . $workingDir . '/' . $staticDir;
+            $staticPath = $path.$workingDir.'/'.$staticDir;
 
             Log::info('Blueprint config validation successful');
 
@@ -106,7 +107,7 @@ class BlueprintService implements BlueprintServiceInterface
             $runCmd = $config['run_cmd'] ?? null;
 
             if ($runCmd !== null) {
-                $cmd = Cmd::execute("bash -lc '{$runCmd}'", ['working_dir' => $path . '/' . $workingDir]);
+                $cmd = Cmd::execute("bash -lc '{$runCmd}'", ['working_dir' => $path.'/'.$workingDir]);
                 $result = $cmd->successful;
 
                 if (! $result) {

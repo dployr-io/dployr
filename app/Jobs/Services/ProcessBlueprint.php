@@ -19,7 +19,7 @@ class ProcessBlueprint implements ShouldQueue
     {
         return $this->blueprint->id;
     }
-    
+
     public function uniqueFor(): int
     {
         return 3600; // 1 hour

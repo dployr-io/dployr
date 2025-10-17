@@ -2,12 +2,12 @@
 
 namespace App\Services\Runtime;
 
+use App\Constants\Runtimes;
 use App\Contracts\Services\ListRuntimeVersionsInterface;
 use App\Contracts\Services\SetupRuntimeInterface;
 use App\Services\Cmd;
-use App\Constants\Runtimes;
 
-class PythonService implements SetupRuntimeInterface, ListRuntimeVersionsInterface
+class PythonService implements ListRuntimeVersionsInterface, SetupRuntimeInterface
 {
     public function __construct(
         public string $version = 'latest',
@@ -19,16 +19,14 @@ class PythonService implements SetupRuntimeInterface, ListRuntimeVersionsInterfa
     {
         $result = Cmd::execute("bash -lc 'asdf install python {$this->version}'", ['working_dir' => $path]);
 
-        if (! $result->successful)
-        {
-            throw new \RuntimeException("Failed to install ".Runtimes::PYTHON." {$this->version}. {$result->output}");
+        if (! $result->successful) {
+            throw new \RuntimeException('Failed to install '.Runtimes::PYTHON." {$this->version}. {$result->output}");
         }
 
         $result = Cmd::execute("bash -lc 'asdf set python {$this->version}'", ['working_dir' => $path]);
 
-        if (! $result->successful)
-        {
-            throw new \RuntimeException("Failed to set ".Runtimes::PYTHON." {$this->version}. {$result->output}");
+        if (! $result->successful) {
+            throw new \RuntimeException('Failed to set '.Runtimes::PYTHON." {$this->version}. {$result->output}");
         }
     }
 
@@ -36,23 +34,22 @@ class PythonService implements SetupRuntimeInterface, ListRuntimeVersionsInterfa
     {
         $result = Cmd::execute("bash -lc 'asdf list all python'");
 
-        if (! $result->successful)
-        {
+        if (! $result->successful) {
             throw new \RuntimeException("Error Processing Request {$result->errorOutput}", 1);
         }
 
         $lines = array_map(
-            fn($s) => trim(preg_replace('/[\x00-\x1F\x7F]+/', '', $s)),
+            fn ($s) => trim(preg_replace('/[\x00-\x1F\x7F]+/', '', $s)),
             explode("\n", $result->output)
         );
-        $values = array_values(array_filter($lines, fn($s) => $s !== ''));
+        $values = array_values(array_filter($lines, fn ($s) => $s !== ''));
 
         $keepRegex = '/^(?=\d)\d+\.\d+(?:\.\d+)?(?:[a-z0-9.\-]*)?$/i';
 
         return collect($values)
-            ->filter(fn($v) => (bool) preg_match($keepRegex, $v))
+            ->filter(fn ($v) => (bool) preg_match($keepRegex, $v))
             ->unique()
-            ->sort(fn($a, $b) => version_compare($b, $a)) // descending
+            ->sort(fn ($a, $b) => version_compare($b, $a)) // descending
             ->values()
             ->toArray();
     }

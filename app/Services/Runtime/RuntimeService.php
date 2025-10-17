@@ -2,11 +2,11 @@
 
 namespace App\Services\Runtime;
 
+use App\Constants\Runtimes;
 use App\Contracts\Services\ListRuntimeVersionsInterface;
 use App\Contracts\Services\SetupRuntimeInterface;
-use App\Constants\Runtimes;
 
-final class RuntimeService implements SetupRuntimeInterface, ListRuntimeVersionsInterface
+final class RuntimeService implements ListRuntimeVersionsInterface, SetupRuntimeInterface
 {
     public function __construct(
         public string $runtime = Runtimes::NODE_JS,
@@ -15,8 +15,7 @@ final class RuntimeService implements SetupRuntimeInterface, ListRuntimeVersions
 
     public function setup(string $path): void
     {
-        switch ($this->runtime)
-        {
+        switch ($this->runtime) {
             case Runtimes::NODE_JS:
                 $nodeJs = new NodeJsService($this->version);
                 $nodeJs->setup($path);
@@ -32,15 +31,14 @@ final class RuntimeService implements SetupRuntimeInterface, ListRuntimeVersions
 
     public function list(): array
     {
-        switch ($this->runtime)
-        {
+        switch ($this->runtime) {
             case Runtimes::NODE_JS:
-                $nodeJs = new NodeJsService();
+                $nodeJs = new NodeJsService;
                 $versions = $nodeJs->list();
                 break;
-            
+
             case Runtimes::PYTHON:
-                $python = new PythonService();
+                $python = new PythonService;
                 $versions = $python->list();
                 break;
 

@@ -1,4 +1,4 @@
-<?php 
+<?php
 
 namespace App\Http\Controllers\Projects\Services;
 
@@ -9,12 +9,11 @@ class RuntimesController
 {
     /**
      * List all available runtime versions
-     * @return JsonResponse
      */
     public function list(): JsonResponse
     {
         $param = request()->query('runtime');
-            
+
         if (! is_string($param)) {
             return response()->json([]);
         }
