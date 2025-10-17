@@ -83,8 +83,6 @@ class BlueprintService implements BlueprintServiceInterface
 
             Log::info('Blueprint config validation successful');
 
-            $this->blueprint->updateOrFail(['status' => 'in_progress']);
-
             DirectoryService::setupFolder($path);
 
             $remoteId = $config['remote'];
@@ -128,9 +126,10 @@ class BlueprintService implements BlueprintServiceInterface
                 [
                     'name' => $config['name'],
                     'source' => $config['source'],
-                    'runtime' => $config['runtime'],
-                    'runtime_version' => $config['runtime_version'] ?? null,
+                    'runtime' => $runtime['type'],
+                    'runtime_version' => $runtime['version'] ?? null,
                     'run_cmd' => $config['run_cmd'] ?? null,
+                    'build_cmd' => $config['build_cmd'] ?? null,
                     'port' => $config['port'],
                     'working_dir' => $config['working_dir'] ?? null,
                     'static_dir' => $config['static_dir'] ?? null,

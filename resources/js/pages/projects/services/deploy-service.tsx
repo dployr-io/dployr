@@ -73,6 +73,8 @@ export default function DeployService() {
         remote,
         runCmd,
         runCmdError,
+        buildCmd,
+        buildCmdError,
         source,
         port,
         portError,
@@ -82,6 +84,7 @@ export default function DeployService() {
         dnsProviderError,
         blueprintFormat,
         runCmdPlaceholder,
+        buildCmdPlaceholder,
 
         // Unified handlers
         setField,
@@ -153,10 +156,13 @@ export default function DeployService() {
                         remotes={remotes || []}
                         runCmd={runCmd!}
                         runCmdError={runCmdError}
+                        buildCmd={buildCmd!}
+                        buildCmdError={buildCmdError}
                         source={source}
                         processing={processing}
                         errors={errors}
                         runCmdPlaceholder={runCmdPlaceholder}
+                        buildCmdPlaceholder={buildCmdPlaceholder}
                         setField={setField}
                         onSourceValueChanged={onSourceValueChanged}
                         onRemoteValueChanged={onRemoteValueChanged}

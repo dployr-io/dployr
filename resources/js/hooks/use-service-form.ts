@@ -16,6 +16,7 @@ interface ServiceFormState {
     image?: string | null;
     spec?: string | null;
     runCmd?: string | null;
+    buildCmd?: string | null;
     source: ServiceSource;
     port?: number | null;
     domain: string;
@@ -30,10 +31,12 @@ interface ServiceFormState {
     runtimeError: string;
     versionError: string;
     runCmdError: string;
+    buildCmdError: string,
     portError: string;
     domainError: string;
     dnsProviderError: string;
     runCmdPlaceholder?: string;
+    buildCmdPlaceholder?: string;
 }
 
 type ServiceFormAction =
@@ -71,10 +74,12 @@ const initialState: ServiceFormState = {
     staticDirError: '',
     runtimeError: '',
     runCmdError: '',
+    buildCmdError: '',
     portError: '',
     domainError: '',
     dnsProviderError: '',
     runCmdPlaceholder: 'npm run start',
+    buildCmdPlaceholder: 'npm install',
 };
 
 function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction): ServiceFormState {
@@ -102,6 +107,7 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
                 staticDirError: '',
                 runtimeError: '',
                 runCmdError: '',
+                buildCmdError: '',
                 portError: '',
                 domainError: '',
                 dnsProviderError: '',
@@ -118,6 +124,7 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
                 runtimeError: '',
                 versionError: '',
                 runCmdError: '',
+                buildCmdError: '',
                 portError: '',
                 domainError: '',
                 dnsProviderError: '',
@@ -132,6 +139,7 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
                 runtimeError: '',
                 versionError: '',
                 runCmdError: '',
+                buildCmdError: '',
                 portError: '',
                 domainError: '',
                 dnsProviderError: '',
@@ -162,6 +170,12 @@ export function useServiceForm() {
             .string()
             .optional()
             .refine((val) => !val || /[a-zA-Z]/.test(val), {
+                message: 'Enter a valid start command',
+            }),
+        buildCmd: z
+            .string()
+            .optional()
+            .refine((val) => !val || /[a-zA-Z]/.test(val), {
                 message: 'Enter a valid build command',
             }),
     });
@@ -187,6 +201,7 @@ export function useServiceForm() {
             runtime: state.runtime,
             version: state.runtime,
             runCmd: state.runCmd,
+            buildCmd: state.buildCmd,
         });
 
         if (!result.success) {
@@ -197,6 +212,7 @@ export function useServiceForm() {
             if (fieldErrors.runtime) dispatch({ type: 'SET_ERROR', payload: { field: 'runtimeError', value: fieldErrors.runtime[0] } });
             if (fieldErrors.version) dispatch({ type: 'SET_ERROR', payload: { field: 'versionError', value: fieldErrors.version[0] } });
             if (fieldErrors.runCmd) dispatch({ type: 'SET_ERROR', payload: { field: 'runCmdError', value: fieldErrors.runCmd[0] } });
+            if (fieldErrors.buildCmd) dispatch({ type: 'SET_ERROR', payload: { field: 'buildCmdError', value: fieldErrors.buildCmd[0] } });
             hasErrors = true;
         }
 
@@ -266,6 +282,7 @@ export function useServiceForm() {
             image: state.image,
             spec: state.spec,
             run_cmd: state.runCmd,
+            build_cmd: state.buildCmd,
             source: state.source,
             port: state.port,
             domain: state.domain,
@@ -287,6 +304,7 @@ export function useServiceForm() {
             image: state.image,
             spec: state.spec,
             run_cmd: state.runCmd,
+            build_cmd: state.buildCmd,
             source: state.source,
             port: state.port,
             domain: state.domain,
@@ -348,27 +366,48 @@ export function useServiceForm() {
         switch (value) {
             case 'node-js': {
                 setField('runCmdPlaceholder', 'npm run start');
+                setField('buildCmdPlaceholder', 'npm install');
                 break;
             }
             case 'python': {
                 setField('runCmdPlaceholder', 'python app.py');
+                setField('buildCmdPlaceholder', 'pip install -r requirements.txt');
                 break;
             }
             case 'ruby': {
-                setField('runCmdPlaceholder', 'ruby app.rb');
+                setField('runCmdPlaceholder', 'rails server');
+                setField('buildCmdPlaceholder', 'bundle install');
                 break;
             }
             case 'php': {
-                setField('runCmdPlaceholder', 'php -S localhost:8000 -t public');
+                setField('runCmdPlaceholder', 'php server.php');
+                setField('buildCmdPlaceholder', 'composer install');
                 break;
             }
             case 'go': {
-                setField('runCmdPlaceholder', './app');
+                setField('runCmdPlaceholder', 'go run main.go');
+                setField('buildCmdPlaceholder', 'go mod tidy');
+                break;
+            }
+            case 'dotnet': {
+                setField('runCmdPlaceholder', 'dotnet run');
+                setField('buildCmdPlaceholder', 'dotnet restore');
+                break;
+            }
+            case 'java': {
+                setField('runCmdPlaceholder', 'java -jar target/my-awesome-app-1.0.0.jar');
+                setField('buildCmdPlaceholder', 'mvn clean package');
                 break;
             }
             case 'static': {
-                setField('runCmdPlaceholder', 'npm run build');
+                setField('buildCmdPlaceholder', 'npm install && npm run build');
+                setField('runCmdPlaceholder', '');
                 setField('port', 80);
+                break;
+            }
+            case 'custom': {
+                setField('runCmdPlaceholder', 'sh run_process.sh');
+                setField('buildCmdPlaceholder', 'sh package_artifact.sh');
                 break;
             }
             default: {
@@ -393,6 +432,7 @@ export function useServiceForm() {
         if (state.workingDir) cleanConfig.working_dir = state.workingDir;
         if (state.staticDir) cleanConfig.static_dir = state.staticDir;
         if (state.runCmd) cleanConfig.run_cmd = state.runCmd;
+        if (state.buildCmd) cleanConfig.run_cmd = state.buildCmd;
         if (state.port) cleanConfig.port = Number(state.port);
         if (state.domain) cleanConfig.domain = state.domain;
         if (state.dnsProvider) cleanConfig.dns_provider = state.dnsProvider;
@@ -447,6 +487,7 @@ export function useServiceForm() {
         image: state.image,
         spec: state.spec,
         runCmd: state.runCmd,
+        buildCmd: state.buildCmd,
         source: state.source,
         port: state.port,
         domain: state.domain,
@@ -454,6 +495,7 @@ export function useServiceForm() {
         envVars: state.envVars,
         secrets: state.secrets,
         runCmdPlaceholder: state.runCmdPlaceholder,
+        buildCmdPlaceholder: state.buildCmdPlaceholder,
 
         // Blueprint helpers (Service page 3)
         blueprintFormat,
@@ -471,6 +513,7 @@ export function useServiceForm() {
         runtimeError: state.runtimeError,
         versionError: state.versionError,
         runCmdError: state.runCmdError,
+        buildCmdError: state.buildCmdError,
         portError: state.portError,
         domainError: state.domainError,
         dnsProviderError: state.dnsProviderError,
@@ -487,7 +530,8 @@ export function useServiceForm() {
         setCiRemote: (value: Remote) => setField('ciRemote', value),
         setImage: (value: string) => setField('image', value),
         setSpec: (value: string) => setField('spec', value),
-        setBuildCommand: (value: string) => setField('runCmd', value),
+        setBuildCommand: (value: string) => setField('buildCmd', value),
+        setRunCommand: (value: string) => setField('runCmd', value),
         setSource: (value: ServiceSource) => setField('source', value),
         setPort: (value: number) => setField('port', value),
         setDomain: (value: string) => setField('domain', value),
@@ -501,6 +545,7 @@ export function useServiceForm() {
         setWorkingDirError: (value: string) => setError('workingDirError', value),
         setRuntimeError: (value: string) => setError('runtimeError', value),
         setBuildCommandError: (value: string) => setError('runCmdError', value),
+        setRunCommandError: (value: string) => setError('runCmdError', value),
         setPortError: (value: string) => setError('portError', value),
         setDomainError: (value: string) => setError('domainError', value),
         setDnsProviderError: (value: string) => setError('dnsProviderError', value),

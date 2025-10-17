@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('source');
             $table->string('runtime');
             $table->string('runtime_version')->nullable();
+            $table->string('build_cmd')->nullable();
             $table->string('run_cmd')->nullable();
             $table->integer('port');
             $table->string('working_dir')->nullable();
