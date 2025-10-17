@@ -207,7 +207,7 @@ export function useServiceForm() {
 
         if (
             state.source === 'remote' &&
-            state.runtime.type !== 'static' &&
+            state.runtime !== 'static' &&
             (!state.runCmd || !/[a-zA-Z].*[a-zA-Z]/.test(state.runCmd)) // Ensure there's at least 2 alphabetic characters
         ) {
             dispatch({ type: 'SET_ERROR', payload: { field: 'runCmdError', value: 'Enter a valid build command' } });
@@ -305,7 +305,7 @@ export function useServiceForm() {
     const validateSkip = () => {
         dispatch({ type: 'CLEAR_ALL_ERRORS' });
 
-        if (state.runtime.type === 'static') {
+        if (state.runtime === 'static') {
             return true;
         }
 
