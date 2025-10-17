@@ -24,6 +24,8 @@ final class RuntimeService implements ListRuntimeVersionsInterface, SetupRuntime
                 $python = new PythonService($this->version);
                 $python->setup($path);
                 break;
+            case Runtimes::STATIC:
+                break;
             default:
                 throw new \RuntimeException("Invalid runtime: {$this->runtime}. Choose one of ".implode(', ', Runtimes::RUNTIMES));
         }
@@ -36,12 +38,12 @@ final class RuntimeService implements ListRuntimeVersionsInterface, SetupRuntime
                 $nodeJs = new NodeJsService;
                 $versions = $nodeJs->list();
                 break;
-
             case Runtimes::PYTHON:
                 $python = new PythonService;
                 $versions = $python->list();
                 break;
-
+            case Runtimes::STATIC:
+                break;
             default:
                 throw new \RuntimeException("Invalid runtime: {$this->runtime}. Choose one of ".implode(', ', Runtimes::RUNTIMES));
         }
