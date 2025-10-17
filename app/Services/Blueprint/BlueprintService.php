@@ -94,7 +94,7 @@ class BlueprintService implements BlueprintServiceInterface
             $remoteService->cloneRepo($remote->name, $remote->repository, $remote->provider, $path);
 
             $appRuntime = new RuntimeService($runtime['type'], $runtime['version']);
-            // $appRuntime->setup($path);
+            $appRuntime->setup($path);
 
             $port = $config['port'];
             $newBlock = <<<EOF
