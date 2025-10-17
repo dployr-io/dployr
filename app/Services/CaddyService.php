@@ -6,7 +6,7 @@ class CaddyService
 {
     public function status(): bool
     {
-        $result = CmdService::execute('systemctl is-active caddy');
+        $result = Cmd::execute('systemctl is-active caddy');
 
         return $result->output === 'active';
     }
@@ -31,13 +31,13 @@ class CaddyService
         $block = trim(str_replace(["\r\n", "\r"], "\n", $block));
         $tmp = tempnam($tmpDir, 'caddy');
         file_put_contents($tmp, $block);
-        $result = CmdService::execute("chown dployr:caddy $tmp");
+        $result = Cmd::execute("chown dployr:caddy $tmp");
 
         if (! $result->successful) {
             unlink($tmp);
             throw new \RuntimeException("Failed to modify ownership for temporary config file {$tmp}, while deploying service {$serviceName} {$result->errorOutput}", 1);
         }
-        $result = CmdService::execute("chmod 644 $tmp");
+        $result = Cmd::execute("chmod 644 $tmp");
 
         if (! $result->successful) {
             unlink($tmp);
@@ -49,7 +49,7 @@ class CaddyService
             unlink($tmp);
             throw new \RuntimeException("Failed to create site config for {$serviceName}", 1);
         }
-        $result = CmdService::execute("caddy validate --config {$baseConfig} --adapter caddyfile");
+        $result = Cmd::execute("caddy validate --config {$baseConfig} --adapter caddyfile");
 
         if (! $result->successful) {
             unlink($tmp);
@@ -65,7 +65,7 @@ class CaddyService
 
     private function processedConfig(): string
     {
-        $result = CmdService::execute('curl localhost:2019/config/ | jq');
+        $result = Cmd::execute('curl localhost:2019/config/ | jq');
 
         if (! $result->successful) {
             throw new \RuntimeException($result->errorOutput, 1);
@@ -84,7 +84,7 @@ class CaddyService
 
     public function restart()
     {
-        $result = CmdService::execute('sudo systemctl restart caddy');
+        $result = Cmd::execute('sudo systemctl restart caddy');
         if (! $result->successful) {
             throw new \RuntimeException('Failed to restart Caddy service', 1);
         }

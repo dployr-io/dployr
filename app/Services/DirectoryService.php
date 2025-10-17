@@ -8,7 +8,7 @@ class DirectoryService
     {
         $cmd = "mkdir -p {$path}";
 
-        $result = CmdService::execute($cmd);
+        $result = Cmd::execute($cmd);
 
         return $result === 0;
     }

@@ -2,17 +2,19 @@
 
 namespace App\Services\Blueprint;
 
+use App\Contracts\Blueprints\BlueprintServiceInterface;
 use App\Models\Blueprint;
 use App\Models\Remote;
 use App\Models\Service;
 use App\Services\CaddyService;
 use App\Services\CleanParseService;
-use App\Services\CmdService;
+use App\Services\Cmd;
 use App\Services\DirectoryService;
 use App\Services\GitRepoService;
+use App\Services\Runtime\RuntimeService;
 use Illuminate\Support\Facades\Log;
 
-class BlueprintService
+class BlueprintService implements BlueprintServiceInterface
 {
     protected const BASE_PATH = '/home/dployr/services';
 
@@ -22,38 +24,62 @@ class BlueprintService
         $this->blueprint = $blueprint;
     }
 
-    private function validateBlueprint()
-    {
-        $validator = new BlueprintValidatorService;
-
-        return $validator->validate($this->getConfig());
-    }
-
-    private function getConfig(): array
+    public function getConfig(): array
     {
         $config = $this->blueprint->config;
 
         return is_array($config) ? $config : json_decode($config, true) ?? [];
     }
 
-    private function getMetadata(): array
+    public function getMetadata(): array
     {
         $metadata = $this->blueprint->metadata;
 
         return is_array($metadata) ? $metadata : json_decode($metadata, true) ?? [];
     }
 
-    public function processBlueprint()
+    public function getRuntime(mixed $runtime): array
     {
+        return is_array($runtime) ? $runtime : json_decode($runtime, true) ?? [];
+    }
+
+    public function validate(): void
+    {
+        $validator = new BlueprintValidatorService;
+
+        $validator->validate($this->getConfig());
+    }
+
+    public function process(): void
+    {
+        $currentStatus = $this->blueprint->fresh()->status;
+
+        if ($currentStatus !== 'pending') {
+            Log::debug("Blueprint {$this->blueprint->id} status is {$currentStatus}, skipping");
+
+            return;
+        }
+
+        $updated = $this->blueprint->where('status', 'pending')->update(['status' => 'in_progress']);
+
+        if (! $updated) {
+            Log::debug("Blueprint {$this->blueprint->id} status changed by another process, skipping");
+
+            return;
+        }
+
         try {
             // TODO: Ensure validation is done on the blueprint to
             // be sure that the runtime selected, matches the right resource
-            $this->validateBlueprint();
+            $this->validate();
 
             $config = $this->getConfig();
             $metadata = $this->getMetadata();
+            $runtime = $this->getRuntime($config['runtime']);
             $path = rtrim(self::BASE_PATH, '/').'/'.$config['name'].'/';
-            $publicPath = $path.ltrim($config['working_dir'] ?? '', '/');
+            $workingDir = ltrim($config['working_dir'] ?? '', '/');
+            $staticDir = ltrim($config['static_dir'] ?? '', '/');
+            $staticPath = $path.$workingDir.'/'.$staticDir;
 
             Log::info('Blueprint config validation successful');
 
@@ -61,28 +87,27 @@ class BlueprintService
 
             DirectoryService::setupFolder($path);
 
-            // setup runtime
             $remoteId = $config['remote'];
             $remote = Remote::findOrFail($remoteId);
 
             $remoteService = new GitRepoService;
             $remoteService->cloneRepo($remote->name, $remote->repository, $remote->provider, $path);
 
-            $port = $config['port'];
+            $appRuntime = new RuntimeService($runtime['type'], $runtime['version']);
+            $appRuntime->setup($path);
 
+            $port = $config['port'];
             $newBlock = <<<EOF
             :$port {
-                root * $publicPath
+                root * $staticPath
                 file_server
             }
             EOF;
 
-            $caddy = new CaddyService;
-            $caddy->newConfig($config['name'], $newBlock);
             $runCmd = $config['run_cmd'] ?? null;
 
             if ($runCmd !== null) {
-                $cmd = CmdService::execute($runCmd, ['working_directory' => $path]);
+                $cmd = Cmd::execute("bash -lc '{$runCmd}'", ['working_dir' => $path.'/'.$workingDir]);
                 $result = $cmd->successful;
 
                 if (! $result) {
@@ -90,6 +115,8 @@ class BlueprintService
                 }
             }
 
+            $caddy = new CaddyService;
+            $caddy->newConfig($config['name'], $newBlock);
             $caddy->restart();
             $result = $this->blueprint->updateOrFail(['status' => 'completed']);
 
@@ -106,7 +133,7 @@ class BlueprintService
                     'run_cmd' => $config['run_cmd'] ?? null,
                     'port' => $config['port'],
                     'working_dir' => $config['working_dir'] ?? null,
-                    'output_dir' => $config['output_dir'] ?? null,
+                    'static_dir' => $config['static_dir'] ?? null,
                     'image' => $config['image'] ?? null,
                     // 'env_vars' => $spec->envVars,
                     // 'secrets' => $spec->secrets,

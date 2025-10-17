@@ -5,7 +5,7 @@ namespace App\Services\RemoteProviderService;
 use App\DTOs\ApiResponse;
 use App\Enums\RemoteType;
 use App\Facades\AppConfig;
-use App\Services\CmdService;
+use App\Services\Cmd;
 use App\Services\HttpService;
 
 class GitHubService extends RemoteProviderService
@@ -73,7 +73,7 @@ class GitHubService extends RemoteProviderService
 
         $cmd = "git clone https://{$this->token}@github.com/$name/$repository $local_dir";
 
-        $result = CmdService::execute($cmd);
+        $result = Cmd::execute($cmd);
 
         if ($result->exitCode !== 0) {
             throw new \RuntimeException($result->errorOutput);

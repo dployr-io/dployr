@@ -20,8 +20,8 @@ class ExecuteCmd implements ShouldQueue
     {
         $process = Process::timeout($this->options['timeout'] ?? 300);
 
-        if (isset($this->options['working_directory'])) {
-            $process = $process->path($this->options['working_directory']);
+        if (isset($this->options['working_dir'])) {
+            $process = $process->path($this->options['working_dir']);
         }
 
         if (! empty($this->options['environment'])) {

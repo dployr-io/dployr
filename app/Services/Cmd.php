@@ -7,7 +7,7 @@ use App\Jobs\ExecuteCmd;
 use Illuminate\Support\Facades\Process;
 use Log;
 
-class CmdService
+final class Cmd
 {
     /**
      * Execute a command using the process api
@@ -16,7 +16,7 @@ class CmdService
     {
         $options = array_merge([
             'timeout' => 300, // 5 minutes default
-            'working_directory' => null,
+            'working_dir' => null,
             'environment' => [],
             'async' => false,
         ], $options);
@@ -36,8 +36,8 @@ class CmdService
     {
         $process = Process::timeout($options['timeout']);
 
-        if ($options['working_directory']) {
-            $process = $process->path($options['working_directory']);
+        if ($options['working_dir']) {
+            $process = $process->path($options['working_dir']);
         }
 
         if (! empty($options['environment'])) {

@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('run_cmd')->nullable();
             $table->integer('port');
             $table->string('working_dir')->nullable();
-            $table->string('output_dir')->nullable();
+            $table->string('static_dir')->nullable();
             $table->string('image')->nullable();
             $table->json('env_vars')->nullable();
             $table->json('secrets')->nullable();

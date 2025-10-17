@@ -44,7 +44,7 @@ class ServicesController extends Controller
                     'run_cmd' => $service->run_cmd,
                     'port' => $service->port,
                     'working_dir' => $service->working_dir,
-                    'output_dir' => $service->output_dir,
+                    'static_dir' => $service->static_dir,
                     'image' => $service->image,
                     'spec' => $service->spec,
                     'env_vars' => $service->env_vars,
@@ -69,7 +69,7 @@ class ServicesController extends Controller
                 'run_cmd' => $service->run_cmd,
                 'port' => $service->port,
                 'working_dir' => $service->working_dir,
-                'output_dir' => $service->output_dir,
+                'static_dir' => $service->static_dir,
                 'image' => $service->image,
                 'spec' => $service->spec,
                 'env_vars' => $service->env_vars,
@@ -108,10 +108,11 @@ class ServicesController extends Controller
             'name' => ['required', 'string'],
             'source' => ['required', 'in:remote,image'],
             'runtime' => ['required', 'in:static,go,php,python,node-js,ruby,dotnet,java,docker,k3s,custom'],
+            'version' => ['nullable', 'string'],
             'run_cmd' => ['required_unless:runtime,static,docker,k3s', 'nullable', 'string'],
             'port' => ['required_unless:runtime,static,docker,k3s', 'nullable', 'integer'],
             'working_dir' => ['nullable', 'string'],
-            'output_dir' => ['nullable', 'string'],
+            'static_dir' => ['nullable', 'string'],
             'image' => ['nullable', 'string'],
             'spec' => ['nullable', 'string'],
             'env_vars' => ['nullable', 'array'],
@@ -122,14 +123,20 @@ class ServicesController extends Controller
             'dns_provider' => ['nullable', 'string'],
         ]);
 
+        $runtime = array_filter([
+            'type' => $request->input('runtime'),
+            'version' => $request->input('version'),
+        ]);
+
         $config = array_filter([
             'name' => $request->input('name'),
             'source' => $request->input('source'),
-            'runtime' => $request->input('runtime'),
+            'runtime' => $runtime,
+            'version' => $request->input('version'),
             'run_cmd' => $request->input('run_cmd'),
             'port' => $request->input('port'),
             'working_dir' => $request->input('working_dir'),
-            'output_dir' => $request->input('output_dir'),
+            'static_dir' => $request->input('static_dir'),
             'image' => $request->input('image'),
             'spec' => $request->input('spec'),
             'env_vars' => $request->input('env_vars'),

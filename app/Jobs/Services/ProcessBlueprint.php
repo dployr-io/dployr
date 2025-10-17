@@ -15,9 +15,19 @@ class ProcessBlueprint implements ShouldQueue
         private Blueprint $blueprint,
     ) {}
 
+    public function uniqueId(): string
+    {
+        return $this->blueprint->id;
+    }
+
+    public function uniqueFor(): int
+    {
+        return 3600; // 1 hour
+    }
+
     public function handle(): void
     {
         $blueprintService = new BlueprintService($this->blueprint);
-        $blueprintService->processBlueprint();
+        $blueprintService->process();
     }
 }

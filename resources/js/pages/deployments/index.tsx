@@ -144,13 +144,13 @@ export default function Deployments() {
                                                   </TableCell>
                                                   <TableCell className="h-16 w-[120px] align-middle">
                                                       <div className="flex items-center gap-2">
-                                                          {getRuntimeIcon(deployment.config?.runtime)}
-                                                          <span>{deployment.config?.runtime || '-'}</span>
+                                                          {getRuntimeIcon(deployment.config?.runtime?.type)}
+                                                          <span>{deployment.config?.runtime?.type || '-'}</span>
                                                       </div>
                                                   </TableCell>
                                                   <TableCell className="h-16 max-w-[320px] overflow-hidden align-middle">
                                                       <div className="flex min-w-0 items-center gap-2">
-                                                          {isRemotesLoading ? (
+                                                          {isRemotesLoading && !deployment.config?.remote?.name ? (
                                                               <div className="max-w-[320px]overflow-hidden align-middle">
                                                                   <Skeleton className="h-4 w-40" />
                                                               </div>

@@ -78,11 +78,12 @@ export interface Service {
     id: string;
     name: string;
     status: Status;
-    runtime: Runtime;
+    runtime: RuntimeObj;
     remote?: Remote | null;
     ci_remote?: Remote | null;
     run_cmd?: string | null;
     working_dir?: string | null;
+    static_dir?: string | null;
     env_vars?: Record<string, string> | null;
     build_cmd?: string | null;
     image?: string | null;
@@ -105,6 +106,11 @@ export interface Blueprint {
 }
 
 export type Runtime = (typeof runtimes)[number];
+
+export interface RuntimeObj {
+    type: Runtime;
+    version?: string | null;
+}
 
 export type DnsProvider = (typeof dnsProviders)[number];
 

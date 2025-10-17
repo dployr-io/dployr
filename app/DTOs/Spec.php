@@ -18,7 +18,7 @@ readonly class Spec
         public ?string $image,
         public array $envVars,
         public array $secrets,
-        public ?string $outputDir,
+        public ?string $staticDir,
         public ?string $workingDir,
         public ?string $runCmd,
     ) {}
