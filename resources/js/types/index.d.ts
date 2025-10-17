@@ -109,7 +109,7 @@ export type Runtime = (typeof runtimes)[number];
 
 export interface RuntimeObj {
     type: Runtime;
-    version?: string | null;   
+    version?: string | null;
 }
 
 export type DnsProvider = (typeof dnsProviders)[number];
