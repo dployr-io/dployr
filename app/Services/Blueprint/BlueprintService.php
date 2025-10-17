@@ -53,6 +53,20 @@ class BlueprintService implements BlueprintServiceInterface
 
     public function process(): void
     {
+        $currentStatus = $this->blueprint->fresh()->status;
+        
+        if ($currentStatus !== 'pending') {
+            Log::debug("Blueprint {$this->blueprint->id} status is {$currentStatus}, skipping");
+            return;
+        }
+        
+        $updated = $this->blueprint->where('status', 'pending')->update(['status' => 'in_progress']);
+        
+        if (!$updated) {
+            Log::debug("Blueprint {$this->blueprint->id} status changed by another process, skipping");
+            return;
+        }
+
         try {
             // TODO: Ensure validation is done on the blueprint to
             // be sure that the runtime selected, matches the right resource
@@ -79,7 +93,7 @@ class BlueprintService implements BlueprintServiceInterface
             $remoteService->cloneRepo($remote->name, $remote->repository, $remote->provider, $path);
 
             $appRuntime = new RuntimeService($runtime['type'], $runtime['version']);
-            $appRuntime->setup($path);
+            // $appRuntime->setup($path);
 
             $port = $config['port'];
             $newBlock = <<<EOF
