@@ -406,6 +406,7 @@ export function useServiceForm() {
         state.runtime,
         state.version,
         state.workingDir,
+        state.staticDir,
         state.runCmd,
         state.port,
         state.domain,
