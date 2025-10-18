@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-class CleanParseService
+class CleanParse
 {
     /**
      * Strips out null values from an object

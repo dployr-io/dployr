@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Projects\Services;
 
+use App\Constants\Runtimes;
 use App\Enums\JobStatus;
 use App\Http\Controllers\Controller;
 use App\Jobs\Services\ProcessBlueprint;
@@ -9,6 +10,8 @@ use App\Models\Blueprint;
 use App\Models\Project;
 use App\Models\Service;
 use App\Services\CaddyService;
+use App\Services\Cmd;
+use App\Services\Secrets\SecretsManagerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -160,6 +163,16 @@ class ServicesController extends Controller
             'config' => $config,
             'metadata' => $metadata,
         ]);
+
+        $name = $request->input('name');
+        $envVars = $request->input('env_vars');
+        $secrets = $request->input('secrets');
+        
+        if ($runtime['type'] !== Runtimes::STATIC && $runtime['type'] !== Runtimes::K3S && $runtime['type'] !== Runtimes::DOCKER)
+        {
+            $secretsManager = new SecretsManagerService();
+            $secretsManager->tmp($envVars, $secrets, $name);
+        }
 
         ProcessBlueprint::dispatch($blueprint);
 

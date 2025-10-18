@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Constants\Runtimes;
+
 class CaddyService
 {
     public function status(): bool
@@ -63,17 +65,6 @@ class CaddyService
         }
     }
 
-    private function processedConfig(): string
-    {
-        $result = Cmd::execute('curl localhost:2019/config/ | jq');
-
-        if (! $result->successful) {
-            throw new \RuntimeException($result->errorOutput, 1);
-        }
-
-        return trim($result->output);
-    }
-
     public function checkPort(int $port): bool
     {
         $caddyfile = self::processedConfig();
@@ -88,5 +79,89 @@ class CaddyService
         if (! $result->successful) {
             throw new \RuntimeException('Failed to restart Caddy service', 1);
         }
+    }
+
+    private function processedConfig(): string
+    {
+        $result = Cmd::execute('curl localhost:2019/config/ | jq');
+
+        if (! $result->successful) {
+            throw new \RuntimeException($result->errorOutput, 1);
+        }
+
+        return trim($result->output);
+    }
+
+    /**
+     * Create a new Caddy configuration block for a service.
+     *
+     * @param string|null $staticPath Path to static files (if any)
+     * @param int $port Public port exposed by Caddy
+     * @param int|null $servicePort Internal port where app runs (for dynamic runtimes)
+     * @param string $runtime Service runtime type
+     * @return string Generated Caddy config block
+     */
+    public function newBlock(
+        ?string $staticPath,
+        int $port,
+        ?int $servicePort,
+        string $runtime
+    ): string {
+        $hasStatic = !empty($staticPath);
+        $isDynamic = in_array($runtime, [
+            Runtimes::GO,
+            Runtimes::PHP,
+            Runtimes::PYTHON,
+            Runtimes::NODE_JS,
+            Runtimes::RUBY,
+            Runtimes::DOTNET,
+            Runtimes::JAVA,
+        ]);
+
+        if ($runtime === Runtimes::STATIC) {
+            return <<<EOF
+:$port {
+    root * {$staticPath}
+    encode zstd gzip
+
+    file_server
+    header Cache-Control "public, max-age=31536000, immutable"
+}
+EOF;
+        }
+
+        $staticBlock = "";
+        $serviceBlock = "";
+
+        if ($hasStatic) {
+            $staticBlock = <<<EOF
+    root * {$staticPath}
+    encode zstd gzip
+
+    handle_path /assets/* {
+        file_server
+        header Cache-Control "public, max-age=31536000, immutable"
+    }
+EOF;
+        }
+
+        $reverseProxy = $runtime === Runtimes::PHP
+            ? "php_fastcgi localhost:{$servicePort}"
+            : "reverse_proxy localhost:{$servicePort}";
+        
+        if ($isDynamic) {
+            $serviceBlock = <<<EOF
+    handle {
+        {$reverseProxy}
+    }
+EOF;
+        }
+
+        return <<<EOF
+:$port {
+    {$staticBlock} 
+    {$serviceBlock}
+}
+EOF;
     }
 }

@@ -21,8 +21,8 @@ interface ServiceFormState {
     port?: number | null;
     domain: string;
     dnsProvider?: DnsProvider | null;
-    envVars: string;
-    secrets: string;
+    envVars: Record<string, string>;
+    secrets: Record<string, string>;
     // Error states
     nameError: string;
     remoteError: string;
@@ -31,7 +31,7 @@ interface ServiceFormState {
     runtimeError: string;
     versionError: string;
     runCmdError: string;
-    buildCmdError: string,
+    buildCmdError: string;
     portError: string;
     domainError: string;
     dnsProviderError: string;
@@ -46,7 +46,6 @@ type ServiceFormAction =
     | { type: 'CLEAR_ALL_ERRORS' }
     | { type: 'NEXT_PAGE' }
     | { type: 'PREV_PAGE' }
-    | { type: 'SKIP_TO_CONFIRMATION' }
     | { type: 'SOURCE_CHANGED'; payload: ServiceSource };
 
 const initialState: ServiceFormState = {
@@ -65,8 +64,8 @@ const initialState: ServiceFormState = {
     port: null,
     domain: '',
     dnsProvider: null,
-    envVars: '',
-    secrets: '',
+    envVars: {},
+    secrets: {},
     nameError: '',
     remoteError: '',
     versionError: '',
@@ -113,26 +112,11 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
                 dnsProviderError: '',
             };
         case 'NEXT_PAGE':
-            return { ...state, currentPage: Math.min(state.currentPage + 1, 3) };
+            return { ...state, currentPage: Math.min(state.currentPage + 1, 4) };
         case 'PREV_PAGE':
             return {
                 ...state,
                 currentPage: Math.max(state.currentPage - 1, 1),
-                nameError: '',
-                workingDirError: '',
-                staticDirError: '',
-                runtimeError: '',
-                versionError: '',
-                runCmdError: '',
-                buildCmdError: '',
-                portError: '',
-                domainError: '',
-                dnsProviderError: '',
-            };
-        case 'SKIP_TO_CONFIRMATION':
-            return {
-                ...state,
-                currentPage: 3,
                 nameError: '',
                 workingDirError: '',
                 staticDirError: '',
@@ -157,6 +141,14 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
 }
 
 export function useServiceForm() {
+
+    function getRandomPort() {
+        let port = 7879;
+        while (port === 7879)
+            port = Math.floor(Math.random() * 1000) + 7000;
+        return port;
+    }
+
     const [state, dispatch] = useReducer(serviceFormReducer, initialState);
     const [blueprintFormat, setBlueprintFormat] = useState<BlueprintFormat>('yaml');
 
@@ -226,7 +218,7 @@ export function useServiceForm() {
             state.runtime !== 'static' &&
             (!state.runCmd || !/[a-zA-Z].*[a-zA-Z]/.test(state.runCmd)) // Ensure there's at least 2 alphabetic characters
         ) {
-            dispatch({ type: 'SET_ERROR', payload: { field: 'runCmdError', value: 'Enter a valid build command' } });
+            dispatch({ type: 'SET_ERROR', payload: { field: 'runCmdError', value: 'Enter a valid run command' } });
             hasErrors = true;
         }
 
@@ -339,10 +331,6 @@ export function useServiceForm() {
         dispatch({ type: 'PREV_PAGE' });
     };
 
-    const skipToConfirmation = () => {
-        dispatch({ type: 'SKIP_TO_CONFIRMATION' });
-    };
-
     const setField = (field: string, value: unknown) => {
         dispatch({ type: 'SET_FIELD', payload: { field, value } });
     };
@@ -367,47 +355,80 @@ export function useServiceForm() {
             case 'node-js': {
                 setField('runCmdPlaceholder', 'npm run start');
                 setField('buildCmdPlaceholder', 'npm install');
+                setField('envVars', {
+                    ...initialState.envVars, 
+                    PORT: getRandomPort().toString()
+                })
                 break;
             }
             case 'python': {
                 setField('runCmdPlaceholder', 'python app.py');
                 setField('buildCmdPlaceholder', 'pip install -r requirements.txt');
+                setField('envVars', {
+                    ...initialState.envVars, 
+                    PORT: getRandomPort().toString()
+                })
                 break;
             }
             case 'ruby': {
                 setField('runCmdPlaceholder', 'rails server');
                 setField('buildCmdPlaceholder', 'bundle install');
+                setField('envVars', {
+                    ...initialState.envVars, 
+                    PORT: getRandomPort().toString()
+                })
                 break;
             }
             case 'php': {
                 setField('runCmdPlaceholder', 'php server.php');
                 setField('buildCmdPlaceholder', 'composer install');
+                setField('envVars', {
+                    ...initialState.envVars, 
+                    PORT: getRandomPort().toString()
+                })
                 break;
             }
             case 'go': {
                 setField('runCmdPlaceholder', 'go run main.go');
                 setField('buildCmdPlaceholder', 'go mod tidy');
+                setField('envVars', {
+                    ...initialState.envVars, 
+                    PORT: getRandomPort().toString()
+                })
                 break;
             }
             case 'dotnet': {
                 setField('runCmdPlaceholder', 'dotnet run');
                 setField('buildCmdPlaceholder', 'dotnet restore');
+                setField('envVars', {
+                    ...initialState.envVars, 
+                    PORT: getRandomPort().toString()
+                })
                 break;
             }
             case 'java': {
                 setField('runCmdPlaceholder', 'java -jar target/my-awesome-app-1.0.0.jar');
                 setField('buildCmdPlaceholder', 'mvn clean package');
+                setField('envVars', {
+                    ...initialState.envVars, 
+                    PORT: getRandomPort().toString()
+                })
                 break;
             }
             case 'static': {
                 setField('buildCmdPlaceholder', 'npm install && npm run build');
                 setField('runCmdPlaceholder', '');
                 setField('port', 80);
+                setField('envVars', {...initialState.envVars})
                 break;
             }
             case 'custom': {
                 setField('runCmdPlaceholder', 'sh run_process.sh');
                 setField('buildCmdPlaceholder', 'sh package_artifact.sh');
+                setField('envVars', {
+                    ...initialState.envVars, 
+                    PORT: getRandomPort().toString()
+                })
                 break;
             }
             default: {
@@ -536,8 +557,24 @@ export function useServiceForm() {
         setPort: (value: number) => setField('port', value),
         setDomain: (value: string) => setField('domain', value),
         setDnsProvider: (value: string) => setField('dnsProvider', value),
-        setEnvVars: (value: string) => setField('envVars', value),
-        setSecrets: (value: string) => setField('secrets', value),
+        setEnvVars: (value: Record<string, string>) => setField('envVars', value),
+        setSecrets: (value: Record<string, string>) => setField('secrets', value),
+        updateEnvVar: (key: string, value: string) => {
+            setField('envVars', { ...state.envVars, [key]: value });
+        },
+        updateSecret: (key: string, value: string) => {
+            setField('secrets', { ...state.secrets, [key]: value });
+        },
+        removeEnvVar: (key: string) => {
+            const newEnvVars = { ...state.envVars };
+            delete newEnvVars[key];
+            setField('envVars', newEnvVars);
+        },
+        removeSecret: (key: string) => {
+            const newSecrets = { ...state.secrets };
+            delete newSecrets[key];
+            setField('secrets', newSecrets);
+        },
 
         // Error setters
         setNameError: (value: string) => setError('nameError', value),
@@ -560,7 +597,6 @@ export function useServiceForm() {
         nextPage,
         prevPage,
         validateSkip,
-        skipToConfirmation,
         clearAllErrors: () => dispatch({ type: 'CLEAR_ALL_ERRORS' }),
     };
 }

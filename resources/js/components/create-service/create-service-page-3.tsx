@@ -1,35 +1,30 @@
-import { Blueprint } from '@/components/blueprint';
-import type { BlueprintFormat } from '@/types';
+import { ConfigTable } from '@/components/config-table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Props {
-    name: string;
-    yamlConfig: string;
-    jsonConfig: string;
-    blueprintFormat: BlueprintFormat;
-    setBlueprintFormat: (arg0: BlueprintFormat) => void;
-    handleBlueprintCopy: () => void;
+    envVars: Record<string, string>;
+    secrets: Record<string, string>;
+    onUpdateEnvVar: (key: string, value: string) => void;
+    onUpdateSecret: (key: string, value: string) => void;
+    onRemoveEnvVar?: (key: string) => void;
+    onRemoveSecret?: (key: string) => void;
 }
 
-export function CreateServicePage3({ name, yamlConfig, jsonConfig, blueprintFormat, setBlueprintFormat, handleBlueprintCopy }: Props) {
+export function CreateServicePage3({ envVars, secrets, onUpdateEnvVar, onUpdateSecret, onRemoveEnvVar, onRemoveSecret }: Props) {
     return (
-        <div className="grid items-start gap-6">
-            <div className="rounded-lg bg-muted p-4">
-                <Blueprint
-                    name={name}
-                    yamlConfig={yamlConfig}
-                    jsonConfig={jsonConfig}
-                    blueprintFormat={blueprintFormat}
-                    setBlueprintFormat={setBlueprintFormat}
-                    handleBlueprintCopy={handleBlueprintCopy}
-                />
-
-                <p className="mt-2 text-xs text-muted-foreground">
-                    This configuration will be saved as{' '}
-                    <code className="rounded bg-background px-1 text-xs">
-                        {name}.{blueprintFormat}
-                    </code>
-                </p>
-            </div>
+        <div className="grid items-start gap-8">
+            <Tabs defaultValue="env_vars" className="flex min-h-0 w-full flex-col">
+                <TabsList className="self-start">
+                    <TabsTrigger value="env_vars">Variables</TabsTrigger>
+                    <TabsTrigger value="secrets">Secrets</TabsTrigger>
+                </TabsList>
+                <TabsContent value="env_vars" className="flex min-h-0 flex-1 flex-col">
+                    <ConfigTable config={envVars} onUpdateConfig={onUpdateEnvVar} onRemoveConfig={onRemoveEnvVar} />
+                </TabsContent>
+                <TabsContent value="secrets">
+                    <ConfigTable config={secrets} onUpdateConfig={onUpdateSecret} onRemoveConfig={onRemoveSecret} />
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }
