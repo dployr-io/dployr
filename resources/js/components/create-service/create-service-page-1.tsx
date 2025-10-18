@@ -38,6 +38,9 @@ interface Props {
     versions: string[];
     isRuntimesLoading: boolean;
 
+    versions: string[];
+    isRuntimesLoading: boolean;
+
     // Unified handlers
     setField: (field: string, value: unknown) => void;
     onSourceValueChanged: (arg0: ServiceSource) => void;
