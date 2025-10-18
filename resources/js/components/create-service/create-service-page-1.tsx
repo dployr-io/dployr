@@ -27,10 +27,16 @@ interface Props {
     isRemotesLoading: boolean;
     runCmd?: string | null;
     runCmdError: string;
+    buildCmd?: string | null;
+    buildCmdError: string;
     source: ServiceSource;
     processing: boolean;
     errors: Record<string, string>;
     runCmdPlaceholder?: string;
+    buildCmdPlaceholder?: string;
+
+    versions: string[];
+    isRuntimesLoading: boolean;
 
     versions: string[];
     isRuntimesLoading: boolean;
@@ -62,10 +68,13 @@ export function CreateServicePage1({
     isRemotesLoading,
     runCmd,
     runCmdError,
+    buildCmd,
+    buildCmdError,
     source,
     processing,
     errors,
     runCmdPlaceholder,
+    buildCmdPlaceholder,
     setField,
     onSourceValueChanged,
     onRemoteValueChanged,
@@ -235,11 +244,23 @@ export function CreateServicePage1({
                 </div>
             )}
 
-            {source === 'remote' && (
+            <div className="grid gap-3">
+                <Label htmlFor="build_cmd">Build Command {runtime !== 'static' && <span className="text-destructive">*</span>}</Label>
+                <Input
+                    id="build_cmd"
+                    name="build_cmd"
+                    placeholder={buildCmdPlaceholder}
+                    value={buildCmd!}
+                    onChange={(e) => setField('buildCmd', e.target.value)}
+                    tabIndex={1}
+                    disabled={processing}
+                />
+                {(buildCmdError || errors.build_cmd) && <div className="text-sm text-destructive">{buildCmdError || errors.build_cmd}</div>}
+            </div>
+
+            {source === 'remote' && runtime !== 'static' && runtime !== 'k3s' && runtime !== 'docker' && (
                 <div className="grid gap-3">
-                    <Label htmlFor="run_cmd">
-                        {runtime === 'static' ? 'Build Command' : 'Run Command'} {runtime !== 'static' && <span className="text-destructive">*</span>}
-                    </Label>
+                    <Label htmlFor="run_cmd">Run Command</Label>
                     <Input
                         id="run_cmd"
                         name="run_cmd"

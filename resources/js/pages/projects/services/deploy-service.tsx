@@ -1,6 +1,7 @@
 import { CreateServicePage1 } from '@/components/create-service/create-service-page-1';
 import { CreateServicePage2 } from '@/components/create-service/create-service-page-2';
 import { CreateServicePage3 } from '@/components/create-service/create-service-page-3';
+import { CreateServicePage4 } from '@/components/create-service/create-service-page-4';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -73,6 +74,8 @@ export default function DeployService() {
         remote,
         runCmd,
         runCmdError,
+        buildCmd,
+        buildCmdError,
         source,
         port,
         portError,
@@ -82,6 +85,9 @@ export default function DeployService() {
         dnsProviderError,
         blueprintFormat,
         runCmdPlaceholder,
+        buildCmdPlaceholder,
+        envVars,
+        secrets,
 
         // Unified handlers
         setField,
@@ -93,11 +99,14 @@ export default function DeployService() {
         nextPage,
         prevPage,
         validateSkip,
-        skipToConfirmation,
         handleBlueprintCopy,
         setBlueprintFormat,
         yamlConfig,
         jsonConfig,
+        updateEnvVar,
+        updateSecret,
+        removeEnvVar,
+        removeSecret,
     } = useServiceForm();
 
     const { runtimes: versions, isLoading: isRuntimesLoading } = useRuntimes(runtime);
@@ -111,6 +120,8 @@ export default function DeployService() {
             case 2:
                 return 'Network Configuration';
             case 3:
+                return 'Environment Variables';
+            case 4:
                 return 'Confirmation';
             default:
                 return 'New Service';
@@ -124,6 +135,8 @@ export default function DeployService() {
             case 2:
                 return 'Set up networking and domain configuration';
             case 3:
+                return 'Configure your environment variables and secrets';
+            case 4:
                 return 'Review your service configuration before creating';
             default:
                 return 'Set up your new service';
@@ -153,10 +166,13 @@ export default function DeployService() {
                         remotes={remotes || []}
                         runCmd={runCmd!}
                         runCmdError={runCmdError}
+                        buildCmd={buildCmd!}
+                        buildCmdError={buildCmdError}
                         source={source}
                         processing={processing}
                         errors={errors}
                         runCmdPlaceholder={runCmdPlaceholder}
+                        buildCmdPlaceholder={buildCmdPlaceholder}
                         setField={setField}
                         onSourceValueChanged={onSourceValueChanged}
                         onRemoteValueChanged={onRemoteValueChanged}
@@ -182,6 +198,17 @@ export default function DeployService() {
             case 3:
                 return (
                     <CreateServicePage3
+                        envVars={envVars}
+                        secrets={secrets}
+                        onUpdateEnvVar={updateEnvVar}
+                        onUpdateSecret={updateSecret}
+                        onRemoveEnvVar={removeEnvVar}
+                        onRemoveSecret={removeSecret}
+                    />
+                );
+            case 4:
+                return (
+                    <CreateServicePage4
                         name={name}
                         yamlConfig={yamlConfig}
                         jsonConfig={jsonConfig}
@@ -203,8 +230,12 @@ export default function DeployService() {
                         type="button"
                         variant="outline"
                         onClick={() => {
-                            if (currentPage > 1) {
-                                prevPage();
+                            if (runtime === 'static') {
+                                setField('currentPage', Math.min(1, currentPage - 2));
+                            } else {
+                                if (currentPage > 1) {
+                                    prevPage();
+                                }
                             }
                         }}
                     >
@@ -214,7 +245,7 @@ export default function DeployService() {
                             {currentPage === 1 ? 'Cancel' : 'Back'}
                         </Link>
                     </Button>
-                    {currentPage < 3 ? (
+                    {currentPage < 4 ? (
                         currentPage === 2 && ((runtime !== 'static' && port.length < 4) || !provider || domain.length < 4) ? (
                             <>
                                 <Button
@@ -243,9 +274,7 @@ export default function DeployService() {
                                                     setShowSkipDialog(false);
                                                     const payload = { port };
                                                     router.post('/projects/services/check-port', payload, {
-                                                        onSuccess: () => {
-                                                            skipToConfirmation();
-                                                        },
+                                                        onSuccess: () => (runtime === 'static' ? setField('currentPage', 4) : nextPage()),
                                                         onError: (errors) => {
                                                             if (errors.port) {
                                                                 setField('portError', errors.port);
@@ -288,14 +317,14 @@ export default function DeployService() {
                         </div>
                     </div>
 
-                    {currentPage !== 3 && (
+                    {currentPage !== 4 && (
                         <div className="mb-4 flex justify-center">
                             <div className="flex items-center space-x-2">
                                 <div className="h-2 w-64 overflow-hidden rounded-full bg-muted">
                                     <div
                                         className="h-full bg-primary transition-all duration-300"
                                         style={{
-                                            width: `${(currentPage / 3) * 100}%`,
+                                            width: `${(currentPage / 4) * 100}%`,
                                         }}
                                     />
                                 </div>

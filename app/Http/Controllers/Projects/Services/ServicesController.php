@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Projects\Services;
 
+use App\Constants\Runtimes;
 use App\Enums\JobStatus;
 use App\Http\Controllers\Controller;
 use App\Jobs\Services\ProcessBlueprint;
@@ -9,6 +10,7 @@ use App\Models\Blueprint;
 use App\Models\Project;
 use App\Models\Service;
 use App\Services\CaddyService;
+use App\Services\Secrets\SecretsManagerService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -42,6 +44,7 @@ class ServicesController extends Controller
                     'source' => $service->source,
                     'runtime' => $service->runtime,
                     'run_cmd' => $service->run_cmd,
+                    'build_cmd' => $service->build_cmd,
                     'port' => $service->port,
                     'working_dir' => $service->working_dir,
                     'static_dir' => $service->static_dir,
@@ -67,6 +70,7 @@ class ServicesController extends Controller
                 'source' => $service->source,
                 'runtime' => $service->runtime,
                 'run_cmd' => $service->run_cmd,
+                'build_cmd' => $service->build_cmd,
                 'port' => $service->port,
                 'working_dir' => $service->working_dir,
                 'static_dir' => $service->static_dir,
@@ -110,6 +114,7 @@ class ServicesController extends Controller
             'runtime' => ['required', 'in:static,go,php,python,node-js,ruby,dotnet,java,docker,k3s,custom'],
             'version' => ['nullable', 'string'],
             'run_cmd' => ['required_unless:runtime,static,docker,k3s', 'nullable', 'string'],
+            'build_cmd' => ['nullable', 'string'],
             'port' => ['required_unless:runtime,static,docker,k3s', 'nullable', 'integer'],
             'working_dir' => ['nullable', 'string'],
             'static_dir' => ['nullable', 'string'],
@@ -134,6 +139,7 @@ class ServicesController extends Controller
             'runtime' => $runtime,
             'version' => $request->input('version'),
             'run_cmd' => $request->input('run_cmd'),
+            'build_cmd' => $request->input('build_cmd'),
             'port' => $request->input('port'),
             'working_dir' => $request->input('working_dir'),
             'static_dir' => $request->input('static_dir'),
@@ -156,6 +162,15 @@ class ServicesController extends Controller
             'config' => $config,
             'metadata' => $metadata,
         ]);
+
+        $name = $request->input('name');
+        $envVars = $request->input('env_vars');
+        $secrets = $request->input('secrets');
+
+        if ($runtime['type'] !== Runtimes::STATIC && $runtime['type'] !== Runtimes::K3S && $runtime['type'] !== Runtimes::DOCKER) {
+            $secretsManager = new SecretsManagerService;
+            $secretsManager->tmp($envVars, $secrets, $name);
+        }
 
         ProcessBlueprint::dispatch($blueprint);
 

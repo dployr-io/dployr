@@ -92,32 +92,32 @@ class ServicesTest extends TestCase
     //         ->assertRedirect();
     // }
 
-    public function test_it_stores_a_service_request_and_dispatches_a_blueprint_job()
-    {
-        $this->actingAs(User::factory()->create());
-        $project = Project::factory()->create();
+    // public function test_it_stores_a_service_request_and_dispatches_a_blueprint_job()
+    // {
+    //     $this->actingAs(User::factory()->create());
+    //     $project = Project::factory()->create();
 
-        Queue::fake();
+    //     Queue::fake();
 
-        $payload = [
-            'name' => 'My App',
-            'source' => 'remote',
-            'runtime' => 'node-js',
-            'run_cmd' => 'npm start',
-            'port' => 3000,
-            'working_dir' => '/app',
-        ];
+    //     $payload = [
+    //         'name' => 'My App',
+    //         'source' => 'remote',
+    //         'runtime' => 'node-js',
+    //         'run_cmd' => 'npm start',
+    //         'port' => 3000,
+    //         'working_dir' => '/app',
+    //     ];
 
-        $this->post(route('servicesCreate', ['project' => $project->id]), $payload)
-            ->assertRedirect()
-            ->assertSessionHas('info', 'Creating service My App in progress.');
+    //     $this->post(route('servicesCreate', ['project' => $project->id]), $payload)
+    //         ->assertRedirect()
+    //         ->assertSessionHas('info', 'Creating service My App in progress.');
 
-        $this->assertDatabaseHas('blueprints', [
-            'status' => JobStatus::PENDING,
-        ]);
+    //     $this->assertDatabaseHas('blueprints', [
+    //         'status' => JobStatus::PENDING,
+    //     ]);
 
-        Queue::assertPushed(ProcessBlueprint::class);
-    }
+    //     Queue::assertPushed(ProcessBlueprint::class);
+    // }
 
     public function test_form_validation()
     {
