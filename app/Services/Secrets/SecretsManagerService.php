@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\File;
 final class SecretsManagerService
 {
     private string $envFile;
+
     private string $secretsFile;
 
     public function __construct() {}
@@ -48,7 +49,7 @@ final class SecretsManagerService
             throw new \RuntimeException("Failed to initialize env files: {$result->errorOutput}");
         }
     }
-    
+
     /** Create or update normal env variables */
     public function setEnv(array $variables): void
     {
@@ -64,7 +65,7 @@ final class SecretsManagerService
     public function setSecrets(array $secrets): void
     {
         $this->writeEnvFile($this->secretsFile, $secrets);
-        
+
         $result = Cmd::execute("chmod 600 {$this->envFile}");
         if (! $result->successful) {
             throw new \RuntimeException($result->errorOutput);
@@ -81,6 +82,7 @@ final class SecretsManagerService
     public function getSecretKeys(): array
     {
         $secrets = $this->parseEnvFile($this->secretsFile);
+
         return array_keys($secrets);
     }
 
@@ -100,18 +102,17 @@ final class SecretsManagerService
         ];
 
         foreach ($envVars as $key => $value) {
-            $commands[] = "echo {$key}=" . escapeshellarg($value) . " >> {$envFile}";
+            $commands[] = "echo {$key}=".escapeshellarg($value)." >> {$envFile}";
         }
 
         foreach ($secrets as $key => $value) {
-            $commands[] = "echo {$key}=" . escapeshellarg($value) . " >> {$secretsFile}";
+            $commands[] = "echo {$key}=".escapeshellarg($value)." >> {$secretsFile}";
         }
 
         $bash = implode(' && ', $commands);
 
         Cmd::execute("bash -lc \"$bash\"", ['async' => true]);
     }
-
 
     private function parseEnvFile(string $path): array
     {
@@ -123,7 +124,7 @@ final class SecretsManagerService
         $vars = [];
 
         foreach ($lines as $line) {
-            if (str_starts_with(trim($line), '#') || !str_contains($line, '=')) {
+            if (str_starts_with(trim($line), '#') || ! str_contains($line, '=')) {
                 continue;
             }
 

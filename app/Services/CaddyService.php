@@ -95,10 +95,10 @@ class CaddyService
     /**
      * Create a new Caddy configuration block for a service.
      *
-     * @param string|null $staticPath Path to static files (if any)
-     * @param int $port Public port exposed by Caddy
-     * @param int|null $servicePort Internal port where app runs (for dynamic runtimes)
-     * @param string $runtime Service runtime type
+     * @param  string|null  $staticPath  Path to static files (if any)
+     * @param  int  $port  Public port exposed by Caddy
+     * @param  int|null  $servicePort  Internal port where app runs (for dynamic runtimes)
+     * @param  string  $runtime  Service runtime type
      * @return string Generated Caddy config block
      */
     public function newBlock(
@@ -107,7 +107,7 @@ class CaddyService
         ?int $servicePort,
         string $runtime
     ): string {
-        $hasStatic = !empty($staticPath);
+        $hasStatic = ! empty($staticPath);
         $isDynamic = in_array($runtime, [
             Runtimes::GO,
             Runtimes::PHP,
@@ -130,8 +130,8 @@ class CaddyService
 EOF;
         }
 
-        $staticBlock = "";
-        $serviceBlock = "";
+        $staticBlock = '';
+        $serviceBlock = '';
 
         if ($hasStatic) {
             $staticBlock = <<<EOF
@@ -148,7 +148,7 @@ EOF;
         $reverseProxy = $runtime === Runtimes::PHP
             ? "php_fastcgi localhost:{$servicePort}"
             : "reverse_proxy localhost:{$servicePort}";
-        
+
         if ($isDynamic) {
             $serviceBlock = <<<EOF
     handle {

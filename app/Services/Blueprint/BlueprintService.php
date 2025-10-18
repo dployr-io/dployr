@@ -110,10 +110,10 @@ class BlueprintService implements BlueprintServiceInterface
                 }
             }
 
-            $secretsManager = new SecretsManagerService();
+            $secretsManager = new SecretsManagerService;
             $secretsManager->init("$path/$workingDir", $name);
 
-            $systemd = new SystemdService();
+            $systemd = new SystemdService;
             $systemd->newService($name, "$path/$workingDir", $runCmd);
 
             $caddy = new CaddyService;
@@ -159,7 +159,7 @@ class BlueprintService implements BlueprintServiceInterface
         }
     }
 
-    private function getServicePort(string $name, $runtime): string|null
+    private function getServicePort(string $name, $runtime): ?string
     {
         $tmpEnv = "/home/dployr/tmp/$name/.env";
 
@@ -171,11 +171,11 @@ class BlueprintService implements BlueprintServiceInterface
             $envContent = file_get_contents($tmpEnv);
             if (preg_match('/^PORT\s*=\s*(\d+)/m', $envContent, $matches)) {
                 $servicePort = (int) $matches[1];
-                
+
                 Log::debug("Found port $servicePort for $name");
             }
         }
-        
+
         if ($servicePort === null) {
             do {
                 $servicePort = rand(7000, 7999);
