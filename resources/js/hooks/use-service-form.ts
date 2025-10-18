@@ -141,11 +141,9 @@ function serviceFormReducer(state: ServiceFormState, action: ServiceFormAction):
 }
 
 export function useServiceForm() {
-
     function getRandomPort() {
         let port = 7879;
-        while (port === 7879)
-            port = Math.floor(Math.random() * 1000) + 7000;
+        while (port === 7879) port = Math.floor(Math.random() * 1000) + 7000;
         return port;
     }
 
@@ -356,79 +354,79 @@ export function useServiceForm() {
                 setField('runCmdPlaceholder', 'npm run start');
                 setField('buildCmdPlaceholder', 'npm install');
                 setField('envVars', {
-                    ...initialState.envVars, 
-                    PORT: getRandomPort().toString()
-                })
+                    ...initialState.envVars,
+                    PORT: getRandomPort().toString(),
+                });
                 break;
             }
             case 'python': {
                 setField('runCmdPlaceholder', 'python app.py');
                 setField('buildCmdPlaceholder', 'pip install -r requirements.txt');
                 setField('envVars', {
-                    ...initialState.envVars, 
-                    PORT: getRandomPort().toString()
-                })
+                    ...initialState.envVars,
+                    PORT: getRandomPort().toString(),
+                });
                 break;
             }
             case 'ruby': {
                 setField('runCmdPlaceholder', 'rails server');
                 setField('buildCmdPlaceholder', 'bundle install');
                 setField('envVars', {
-                    ...initialState.envVars, 
-                    PORT: getRandomPort().toString()
-                })
+                    ...initialState.envVars,
+                    PORT: getRandomPort().toString(),
+                });
                 break;
             }
             case 'php': {
                 setField('runCmdPlaceholder', 'php server.php');
                 setField('buildCmdPlaceholder', 'composer install');
                 setField('envVars', {
-                    ...initialState.envVars, 
-                    PORT: getRandomPort().toString()
-                })
+                    ...initialState.envVars,
+                    PORT: getRandomPort().toString(),
+                });
                 break;
             }
             case 'go': {
                 setField('runCmdPlaceholder', 'go run main.go');
                 setField('buildCmdPlaceholder', 'go mod tidy');
                 setField('envVars', {
-                    ...initialState.envVars, 
-                    PORT: getRandomPort().toString()
-                })
+                    ...initialState.envVars,
+                    PORT: getRandomPort().toString(),
+                });
                 break;
             }
             case 'dotnet': {
                 setField('runCmdPlaceholder', 'dotnet run');
                 setField('buildCmdPlaceholder', 'dotnet restore');
                 setField('envVars', {
-                    ...initialState.envVars, 
-                    PORT: getRandomPort().toString()
-                })
+                    ...initialState.envVars,
+                    PORT: getRandomPort().toString(),
+                });
                 break;
             }
             case 'java': {
                 setField('runCmdPlaceholder', 'java -jar target/my-awesome-app-1.0.0.jar');
                 setField('buildCmdPlaceholder', 'mvn clean package');
                 setField('envVars', {
-                    ...initialState.envVars, 
-                    PORT: getRandomPort().toString()
-                })
+                    ...initialState.envVars,
+                    PORT: getRandomPort().toString(),
+                });
                 break;
             }
             case 'static': {
                 setField('buildCmdPlaceholder', 'npm install && npm run build');
                 setField('runCmdPlaceholder', '');
                 setField('port', 80);
-                setField('envVars', {...initialState.envVars})
+                setField('envVars', { ...initialState.envVars });
                 break;
             }
             case 'custom': {
                 setField('runCmdPlaceholder', 'sh run_process.sh');
                 setField('buildCmdPlaceholder', 'sh package_artifact.sh');
                 setField('envVars', {
-                    ...initialState.envVars, 
-                    PORT: getRandomPort().toString()
-                })
+                    ...initialState.envVars,
+                    PORT: getRandomPort().toString(),
+                });
                 break;
             }
             default: {
@@ -469,6 +467,7 @@ export function useServiceForm() {
         state.workingDir,
         state.staticDir,
         state.runCmd,
+        state.buildCmd,
         state.port,
         state.domain,
         state.dnsProvider,

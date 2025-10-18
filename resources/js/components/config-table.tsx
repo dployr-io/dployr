@@ -5,7 +5,7 @@ import { toWordUpperCase } from '@/lib/utils';
 import { useState } from 'react';
 
 interface Props {
-    config: Record<string, any>;
+    config: Record<string, string>;
     onUpdateConfig: (key: string, value: string) => void;
     onRemoveConfig?: (key: string) => void;
 }

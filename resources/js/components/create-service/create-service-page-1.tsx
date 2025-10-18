@@ -242,26 +242,22 @@ export function CreateServicePage1({
             )}
 
             <div className="grid gap-3">
-                    <Label htmlFor="build_cmd">
-                        Build Command {runtime !== 'static' && <span className="text-destructive">*</span>}
-                    </Label>
-                    <Input
-                        id="build_cmd"
-                        name="build_cmd"
-                        placeholder={buildCmdPlaceholder}
-                        value={buildCmd!}
-                        onChange={(e) => setField('buildCmd', e.target.value)}
-                        tabIndex={1}
-                        disabled={processing}
-                    />
-                    {(buildCmdError || errors.build_cmd) && <div className="text-sm text-destructive">{buildCmdError || errors.build_cmd}</div>}
-                </div>
+                <Label htmlFor="build_cmd">Build Command {runtime !== 'static' && <span className="text-destructive">*</span>}</Label>
+                <Input
+                    id="build_cmd"
+                    name="build_cmd"
+                    placeholder={buildCmdPlaceholder}
+                    value={buildCmd!}
+                    onChange={(e) => setField('buildCmd', e.target.value)}
+                    tabIndex={1}
+                    disabled={processing}
+                />
+                {(buildCmdError || errors.build_cmd) && <div className="text-sm text-destructive">{buildCmdError || errors.build_cmd}</div>}
+            </div>
 
             {source === 'remote' && runtime !== 'static' && runtime !== 'k3s' && runtime !== 'docker' && (
                 <div className="grid gap-3">
-                    <Label htmlFor="run_cmd">
-                        Run Command 
-                    </Label>
+                    <Label htmlFor="run_cmd">Run Command</Label>
                     <Input
                         id="run_cmd"
                         name="run_cmd"
