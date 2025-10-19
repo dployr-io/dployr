@@ -5,6 +5,7 @@ namespace App\Services;
 use App\DTOs\CmdResult;
 use App\Jobs\ExecuteCmd;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Log;
 
 final class Cmd
@@ -34,41 +35,49 @@ final class Cmd
      */
     private static function executeSync(string $command, array $options): CmdResult
     {
-        $process = Process::timeout($options['timeout']);
+        try {
+            $process = Process::timeout($options['timeout']);
 
-        if ($options['working_dir']) {
-            $process = $process->path($options['working_dir']);
-        }
-
-        if (! empty($options['environment'])) {
-            $process = $process->env($options['environment']);
-        }
-
-        $result = $process->run($command);
-
-        if ($result->successful()) {
-            $output = $result->output();
-            $message = $command;
-            if ($output !== null && $output !== '') {
-                $message .= ' => '.$output;
+            if ($options['working_dir']) {
+                $process = $process->path($options['working_dir']);
             }
-            Log::info($message);
-        } else {
-            $errorOutput = $result->errorOutput();
-            $message = $command;
-            if ($errorOutput !== null && $errorOutput !== '') {
-                $message .= ' => '.$errorOutput;
-            }
-            Log::error($message);
-        }
 
-        return new CmdResult(
-            command: $command,
-            exitCode: $result->exitCode(),
-            output: $result->output(),
-            errorOutput: $result->errorOutput(),
-            successful: $result->successful()
-        );
+            if (! empty($options['environment'])) {
+                $process = $process->env($options['environment']);
+            }
+
+            $result = $process->run($command);
+
+            if ($result->successful()) {
+                $output = $result->output();
+                $message = $command;
+                if ($output !== null && $output !== '') {
+                    $message .= ' => '.$output;
+                }
+                Log::info($message);
+            } else {
+                $errorOutput = $result->errorOutput();
+                $message = $command;
+                if ($errorOutput !== null && $errorOutput !== '') {
+                    $message .= ' => '.$errorOutput;
+                }
+                Log::error($message);
+            }
+
+            return new CmdResult(
+                command: $command,
+                exitCode: $result->exitCode(),
+                output: $result->output(),
+                errorOutput: $result->errorOutput(),
+                successful: $result->successful()
+            );
+        } catch (ProcessTimedOutException $e) {
+            Log::error("Command {$command} timed out");
+            return new CmdResult($command, 124, '', 'Timed out', false);
+        } catch (\Throwable $e) {
+            Log::error("Command failed: {$command} => {$e->getMessage()}");
+            return new CmdResult($command, 1, '', $e->getMessage(), false);
+        }
     }
 
     /**
