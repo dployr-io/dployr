@@ -17,7 +17,10 @@ class NodeJsService implements ListRuntimeVersionsInterface, SetupRuntimeInterfa
 
     public function setup(string $path): void
     {
-        $result = Cmd::execute("bash -lc 'asdf install nodejs {$this->version}'", ['working_dir' => $path]);
+        $result = Cmd::execute("bash -lc 'asdf install nodejs {$this->version}'", [
+            'working_dir' => $path, 
+            'timeout' => 900,
+        ]);
 
         if (! $result->successful) {
             throw new \RuntimeException('Failed to install '.Runtimes::NODE_JS." {$this->version}. {$result->output}");
