@@ -11,7 +11,6 @@ final class SecretsManagerService
 
     private string $secretsFile;
 
-    public function __construct() {}
 
     /** Initializes a new env file and secrets file */
     public function init(string $workingDir, string $name): void
