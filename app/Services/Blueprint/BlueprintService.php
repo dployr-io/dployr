@@ -99,10 +99,10 @@ class BlueprintService implements BlueprintServiceInterface
             $remoteService->cloneRepo($remote->name, $remote->repository, $remote->provider, $path);
 
             $appRuntime = new RuntimeService($runtime['type'], $runtime['version']);
-            $appRuntime->setup($path);
+            $appRuntime->setup($path.$workingDir);
 
             if ($buildCmd !== null) {
-                $cmd = Cmd::execute("bash -lc '{$buildCmd}'", ['working_dir' => $path.'/'.$workingDir]);
+                $cmd = Cmd::execute("bash -lc '{$buildCmd}'", ['working_dir' => $path.$workingDir]);
                 $result = $cmd->successful;
 
                 if (! $result) {
@@ -111,10 +111,10 @@ class BlueprintService implements BlueprintServiceInterface
             }
 
             $secretsManager = new SecretsManagerService;
-            $secretsManager->init("$path/$workingDir", $name);
+            $secretsManager->init($path.$workingDir, $name);
 
             $systemd = new SystemdService;
-            $systemd->newService($name, "$path/$workingDir", $runCmd);
+            $systemd->newService($name, $path.$workingDir, $runCmd);
 
             $caddy = new CaddyService;
             $block = $caddy->newBlock($staticPath, $port, $servicePort, $runtime['type']);

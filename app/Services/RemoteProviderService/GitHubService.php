@@ -75,7 +75,7 @@ class GitHubService extends RemoteProviderService
 
         $result = Cmd::execute($cmd);
 
-        if ($result->exitCode !== 0) {
+        if (! $result->successful) {
             throw new \RuntimeException($result->errorOutput);
         }
     }
