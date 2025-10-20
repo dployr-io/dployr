@@ -400,7 +400,8 @@ export function useServiceForm() {
                 setField('buildCmdPlaceholder', 'dotnet restore');
                 setField('envVars', {
                     ...initialState.envVars,
-                    PORT: getRandomPort().toString(),
+                    ASPNETCORE_URLS: 'http://localhost:'+getRandomPort().toString(),
+                    ASPNETCORE_ENVIRONMENT: 'Development'
                 });
                 break;
             }
