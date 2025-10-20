@@ -24,6 +24,26 @@ final class RuntimeService implements ListRuntimeVersionsInterface, SetupRuntime
                 $python = new PythonService($this->version);
                 $python->setup($path);
                 break;
+            case Runtimes::RUBY:
+                $ruby = new RubyService($this->version);
+                $ruby->setup($path);
+                break;
+            case Runtimes::JAVA:
+                $java = new JavaService($this->version);
+                $java->setup($path);
+                break;
+            case Runtimes::DOTNET:
+                $dotnet = new DotNetService($this->version);
+                $dotnet->setup($path);
+                break;
+            case Runtimes::GO:
+                $go = new GoService($this->version);
+                $go->setup($path);
+                break;
+            case Runtimes::PHP:
+                $php = new PhpService($this->version);
+                $php->setup($path);
+                break;
             case Runtimes::STATIC:
                 break;
             default:
@@ -41,6 +61,26 @@ final class RuntimeService implements ListRuntimeVersionsInterface, SetupRuntime
             case Runtimes::PYTHON:
                 $python = new PythonService;
                 $versions = $python->list();
+                break;
+            case Runtimes::RUBY:
+                $ruby = new RubyService;
+                $versions = $ruby->list();
+                break;
+            case Runtimes::JAVA:
+                $java = new JavaService();
+                $versions = $java->list();
+                break;
+            case Runtimes::DOTNET:
+                $dotnet = new DotNetService();
+                $versions = $dotnet->list();
+                break;
+            case Runtimes::GO:
+                $go = new GoService();
+                $versions = $go->list();
+                break;
+            case Runtimes::PHP:
+                $php = new PhpService();
+                $versions = $php->list();
                 break;
             case Runtimes::STATIC:
                 break;

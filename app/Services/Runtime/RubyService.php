@@ -7,7 +7,7 @@ use App\Contracts\Services\ListRuntimeVersionsInterface;
 use App\Contracts\Services\SetupRuntimeInterface;
 use App\Services\Cmd;
 
-class PythonService implements ListRuntimeVersionsInterface, SetupRuntimeInterface
+class RubyService implements ListRuntimeVersionsInterface, SetupRuntimeInterface
 {
     public function __construct(
         public string $version = 'latest',
@@ -17,29 +17,25 @@ class PythonService implements ListRuntimeVersionsInterface, SetupRuntimeInterfa
 
     public function setup(string $path): void
     {
-        $result = Cmd::execute("bash -lc 'asdf install python {$this->version}'", [
+        $result = Cmd::execute("bash -lc 'asdf install ruby {$this->version}'", [
             'working_dir' => $path,
             'timeout' => 900,
-            'environment' => [
-                'ASDF_PYTHON_PREBUILT' => '1',
-                'PYTHON_BUILD_SKIP_COMPILE' => '1',
-            ]
         ]);
 
         if (! $result->successful) {
-            throw new \RuntimeException('Failed to install '.Runtimes::PYTHON." {$this->version}. {$result->output}");
+            throw new \RuntimeException('Failed to install '.Runtimes::RUBY." {$this->version}. {$result->output}");
         }
 
-        $result = Cmd::execute("bash -lc 'asdf set python {$this->version}'", ['working_dir' => $path]);
+        $result = Cmd::execute("bash -lc 'asdf set ruby {$this->version}'", ['working_dir' => $path]);
 
         if (! $result->successful) {
-            throw new \RuntimeException('Failed to set '.Runtimes::PYTHON." {$this->version}. {$result->output}");
+            throw new \RuntimeException('Failed to set '.Runtimes::RUBY." {$this->version}. {$result->output}");
         }
     }
 
     public function list(): array
     {
-        $result = Cmd::execute("bash -lc 'asdf list all python'");
+        $result = Cmd::execute("bash -lc 'asdf list all ruby'");
 
         if (! $result->successful) {
             throw new \RuntimeException("Error Processing Request {$result->errorOutput}", 1);
