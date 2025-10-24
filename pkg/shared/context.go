@@ -13,7 +13,6 @@ type ContextKey string
 
 const (
 	CtxUserIDKey     ContextKey = "user_id"
-	CtxProjectIDKey  ContextKey = "project_id"
 	CtxRequestIDKey  ContextKey = "request_id"
 	CtxTraceIDKey    ContextKey = "trace_id"
 )
@@ -43,18 +42,6 @@ func RequestFromContext(ctx context.Context) (string, error) {
     return requestID, nil
 }
 
-func WithProject(ctx context.Context, id string) context.Context {
-	return context.WithValue(ctx, CtxProjectIDKey, id)
-}
-
-func ProjectFromContext(ctx context.Context) (*store.Project, error) {
-    project, ok := ctx.Value(CtxProjectIDKey).(*store.Project)
-    if !ok || project == nil {
-        return nil, errors.New("no project in context")
-    }
-    return project, nil
-}
-
 func WithTrace(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, CtxTraceIDKey, id)
 }
@@ -73,10 +60,6 @@ func User(ctx context.Context) *store.User {
 	return v
 }
 
-func Project(ctx context.Context) *store.Project {
-	v, _ := ProjectFromContext(ctx)
-	return v
-}
 
 func RequestID(ctx context.Context) string {
 	if v, ok := ctx.Value(CtxRequestIDKey).(string); ok {
@@ -106,7 +89,6 @@ type ContextMeta struct {
 	RequestID string
 	TraceID   string
 	User      *store.User
-	Project   *store.Project
 }
 
 func Meta(ctx context.Context) *ContextMeta {
@@ -114,6 +96,5 @@ func Meta(ctx context.Context) *ContextMeta {
 		RequestID: RequestID(ctx),
 		TraceID:   TraceID(ctx),
 		User:      User(ctx),
-		Project:   Project(ctx),
 	}
 }

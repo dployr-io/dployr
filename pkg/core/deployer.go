@@ -56,18 +56,21 @@ type DeployResponse struct {
 
 func (d *Deployer) Deploy(ctx context.Context, req *DeployRequest) (*DeployResponse, error) {
 	requestID, err := shared.TraceFromContext(ctx)
+	if err != nil {
+		d.logger.Error("failed to extract request id from context")
+		return nil, fmt.Errorf("failed to extract request id from context: %w", err)
+	}
+	
 	traceID, err := shared.TraceFromContext(ctx)
+	if err != nil {
+		d.logger.With("request_id", requestID).Error("failed to extract trace id from context")
+		return nil, fmt.Errorf("failed to extract trace id from context: %w", err)
+	}
 
 	user, err := shared.UserFromContext(ctx)
 	if err != nil {
 		d.logger.With("request_id", requestID, "trace_id", traceID).Error("unauthenticated deployment attempt")
-		return nil, fmt.Errorf(string(shared.BadRequest))
-	}
-
-	project, err := shared.ProjectFromContext(ctx)
-	if err != nil {
-		d.logger.With("request_id", requestID, "trace_id", traceID).Error("project_id not found in context")
-		return nil, fmt.Errorf(string(shared.BadRequest))
+		return nil, fmt.Errorf("unauthenticated deployment attempt")
 	}
 
 	deployment := &store.Deployment{
@@ -90,17 +93,20 @@ func (d *Deployer) Deploy(ctx context.Context, req *DeployRequest) (*DeployRespo
 		},
 		SaveSpec: req.SaveSpec,
 		UserId:  &user.ID,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	if err := d.store.CreateDeployment(ctx, deployment); err != nil {
-		return nil, fmt.Errorf(string(shared.RuntimeError))
+		msg := fmt.Sprintf("failed to create deployment: %s", err)
+		d.logger.With("request_id", requestID, "trace_id", traceID).Error(msg)
+		return nil, fmt.Errorf("%s", msg)
 	}
 
 	// TODO: Validate deployment with JSON shema
 
 	d.logger.With(
 		"user_id", user.ID,
-		"project_id", project.ID,
 		"request_id", requestID,
 		"trace_id", traceID,
 	).Info("created new deployment", "deployment_id", deployment.ID)
@@ -123,22 +129,23 @@ func (d *Deployer) ListDeployments(ctx context.Context, userID string, limit, of
 
 func (d *Deployer) UpdateDeploymentStatus(ctx context.Context, id string, status store.Status) error {
 	requestID, err := shared.TraceFromContext(ctx)
+	if err != nil {
+		msg := fmt.Sprintf("failed to extract request id from context: %s", err)
+		d.logger.Error(msg)
+		return fmt.Errorf("%s", msg)
+	}
 
 	_, err = shared.UserFromContext(ctx)
 	if err != nil {
-		d.logger.With("request_id", requestID).Error("unauthenticated deployment attempt")
-		return fmt.Errorf(string(shared.BadRequest))
-	}
-
-	_, err = shared.ProjectFromContext(ctx)
-	if err != nil {
-		d.logger.With("request_id", requestID).Error("project_id not found in context")
-		return fmt.Errorf(string(shared.BadRequest))
+		msg := fmt.Sprintf("unauthenticated deployment attempt: %s", err)
+		d.logger.With("request_id", requestID).Error(msg)
+		return fmt.Errorf("%s", msg)
 	}
 
 	if status == store.StatusCompleted || status == store.StatusFailed {
-		d.logger.With("request_id", requestID).Error("connot modify state after failure or completion")
-		return fmt.Errorf(string(shared.BadRequest))
+		msg := fmt.Sprintf("connot modify state after failure or completion: %s", err)
+		d.logger.With("request_id", requestID).Error(msg)
+		return fmt.Errorf("%s", msg)
 	}
 
 	return d.store.UpdateDeploymentStatus(ctx, id, string(status))

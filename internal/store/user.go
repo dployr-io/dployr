@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"dployr/pkg/store"
+	"log"
 	"time"
 
 	"github.com/oklog/ulid/v2"
@@ -72,7 +73,7 @@ func (u *UserStore) ValidateMagicToken(token string) (*store.User, error) {
 
 func (u UserStore) GetUserByEmail(ctx context.Context, email string) (*store.User, error) {
 	stmt, err := u.db.PrepareContext(ctx, `
-		SELECT id, name, email, password, magic_token, magic_token_expiry, created_at, updated_at
+		SELECT id, email, magic_token, magic_token_expiry, created_at, updated_at
 		FROM users WHERE email = ?`)
 	if err != nil {
 		return nil, err
@@ -82,7 +83,7 @@ func (u UserStore) GetUserByEmail(ctx context.Context, email string) (*store.Use
 	row := stmt.QueryRowContext(ctx, email)
 
 	var user store.User
-	err = row.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.MagicToken, &user.MagicTokenExpiry, &user.CreatedAt, &user.UpdatedAt)
+	err = row.Scan(&user.ID, &user.Email, &user.MagicToken, &user.MagicTokenExpiry, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}

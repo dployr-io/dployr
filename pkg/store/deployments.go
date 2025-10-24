@@ -20,10 +20,8 @@ type RuntimeObj struct {
 }
 
 type RemoteObj struct {
-	Name       string `json:"name" db:"name"`
-	Repository string `json:"repository" db:"repository"`
+	Url        string `json:"url" db:"url"`
 	Branch     string `json:"branch" db:"branch"`
-	Provider   string `json:"provider" db:"provider"`
 	CommitHash string `json:"commit_hash" db:"commit_hash"`
 }
 
@@ -42,25 +40,23 @@ type Config struct {
 	EnvVars     map[string]string `json:"env_vars,omitempty" db:"env_vars"`
 	Secrets     map[string]string `json:"secrets,omitempty" db:"secrets"`
 	Status      string            `json:"status" db:"status"`
-	ProjectID   *string    `json:"project_id,omitempty" db:"project_id"`
-	CreatedAt   time.Time         `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at" db:"updated_at"`
+	ProjectID   *string           `json:"project_id,omitempty" db:"project_id"`
 }
 
 type Deployment struct {
-	ID        string         `json:"id" db:"id"`
-	UserId    *string `json:"user_id,omitempty" db:"user_id"`
-	Config    Config         `json:"config" db:"config"`
-	Status    Status         `json:"status" db:"status"`
-	SaveSpec  bool           `json:"save_spec" db:"save_spec"`
-	Metadata  string         `json:"metadata" db:"metadata"`
-	CreatedAt time.Time      `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at" db:"updated_at"`
+	ID        string    `json:"id" db:"id"`
+	UserId    *string   `json:"user_id,omitempty" db:"user_id"`
+	Config    Config    `json:"config" db:"config"`
+	Status    Status    `json:"status" db:"status"`
+	SaveSpec  bool      `json:"save_spec" db:"save_spec"`
+	Metadata  string    `json:"metadata" db:"metadata"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type DeploymentStore interface {
-    CreateDeployment(ctx context.Context, d *Deployment) error
-    GetDeploymentByID(ctx context.Context, id string) (*Deployment, error)
-    ListDeployments(ctx context.Context, limit, offset int) ([]*Deployment, error)
-    UpdateDeploymentStatus(ctx context.Context, id string, status string) error
+	CreateDeployment(ctx context.Context, d *Deployment) error
+	GetDeploymentByID(ctx context.Context, id string) (*Deployment, error)
+	ListDeployments(ctx context.Context, limit, offset int) ([]*Deployment, error)
+	UpdateDeploymentStatus(ctx context.Context, id string, status string) error
 }

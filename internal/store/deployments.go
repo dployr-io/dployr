@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"dployr/pkg/store"
@@ -25,7 +26,12 @@ func (d DeploymentStore) CreateDeployment(ctx context.Context, deployment *store
 	}
 	defer stmt.Close()
 
-	_, err = stmt.ExecContext(ctx, deployment.ID, deployment.UserId, deployment.Config, deployment.Status, deployment.SaveSpec, deployment.Metadata, deployment.CreatedAt, deployment.UpdatedAt)
+	configJSON, err := json.Marshal(deployment.Config)
+	if err != nil {
+		return err
+	}
+
+	_, err = stmt.ExecContext(ctx, deployment.ID, deployment.UserId, configJSON, deployment.Status, deployment.SaveSpec, deployment.Metadata, deployment.CreatedAt, deployment.UpdatedAt)
 	return err
 }
 
@@ -41,10 +47,16 @@ func (d DeploymentStore) GetDeploymentByID(ctx context.Context, id string) (*sto
 	row := stmt.QueryRowContext(ctx, id)
 
 	var bp store.Deployment
-	err = row.Scan(&bp.ID, &bp.UserId, &bp.Config, &bp.Status, &bp.SaveSpec, &bp.Metadata, &bp.CreatedAt, &bp.UpdatedAt)
+	var configJSON []byte
+	err = row.Scan(&bp.ID, &bp.UserId, &configJSON, &bp.Status, &bp.SaveSpec, &bp.Metadata, &bp.CreatedAt, &bp.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
+
+	if err := json.Unmarshal(configJSON, &bp.Config); err != nil {
+		return nil, err
+	}
+
 	return &bp, nil
 }
 
@@ -61,8 +73,12 @@ func (d DeploymentStore) ListDeployments(ctx context.Context, limit, offset int)
 	var deployments []*store.Deployment
 	for rows.Next() {
 		var bp store.Deployment
-		err := rows.Scan(&bp.ID, &bp.UserId, &bp.Config, &bp.Status, &bp.SaveSpec, &bp.Metadata, &bp.CreatedAt, &bp.UpdatedAt)
+		var configJSON []byte
+		err := rows.Scan(&bp.ID, &bp.UserId, &configJSON, &bp.Status, &bp.SaveSpec, &bp.Metadata, &bp.CreatedAt, &bp.UpdatedAt)
 		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(configJSON, &bp.Config); err != nil {
 			return nil, err
 		}
 		deployments = append(deployments, &bp)
