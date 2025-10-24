@@ -1,0 +1,66 @@
+-- USERS TABLE
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    magic_token TEXT,
+    magic_token_expiry DATETIME,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+-- PROJECTS TABLE
+CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- REMOTES TABLE
+CREATE TABLE IF NOT EXISTS remotes (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    repository TEXT NOT NULL,
+    branch TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- DEPLOYMENTS TABLE
+CREATE TABLE IF NOT EXISTS deployments (
+    id TEXT PRIMARY KEY,
+    config JSON NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'pending',
+    save_spec BOOLEAN NOT NULL DEFAULT FALSE,
+    metadata JSON NOT NULL DEFAULT '{}',
+    user_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- SERVICES TABLE
+CREATE TABLE IF NOT EXISTS services (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    source TEXT NOT NULL,
+    runtime TEXT NOT NULL,
+    runtime_version TEXT,
+    run_cmd TEXT,
+    build_cmd TEXT,
+    port INTEGER NOT NULL,
+    working_dir TEXT NOT NULL,
+    static_dir TEXT,
+    image TEXT,
+    env_vars JSON NOT NULL DEFAULT '{}',
+    secrets JSON NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL,
+    project_id TEXT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    remote_id TEXT NULL REFERENCES remotes(id) ON DELETE SET NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
