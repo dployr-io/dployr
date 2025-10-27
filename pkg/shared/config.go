@@ -2,6 +2,7 @@ package shared
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -87,4 +88,29 @@ func getEnvAsInt(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+func GetToken() (string, error) {
+	configDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("could not resolve user home directory: %v", err)
+	}
+	configPath := configDir + "/.dployr/config.json"
+
+	configData, err := os.ReadFile(configPath)
+	if err != nil {
+		return "", fmt.Errorf("could not read config file: %v. Please run 'dployr login' first", err)
+	}
+
+	var config map[string]string
+	if err := json.Unmarshal(configData, &config); err != nil {
+		return "", fmt.Errorf("could not parse config file: %v", err)
+	}
+
+	token, exists := config["token"]
+	if !exists {
+		return "", fmt.Errorf("no token found in config. Please run 'dployr login' first")
+	}
+
+	return token, nil
 }

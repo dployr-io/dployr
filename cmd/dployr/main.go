@@ -27,13 +27,13 @@ func main() {
 	// Root command
 	rootCmd := &cobra.Command{
 		Use:   "dployr",
-		Short: "dployr - Your app, your server, your rules!",
-		Long:  `Manage deployments, blueprints, and runtimes for dployr environments.`,
+		Short: "dployr - your app, your server, your rules!",
+		Long:  `manage deployments, blueprints, and runtimes for dployr environments.`,
 	}
 
 	loginCmd := &cobra.Command{
 		Use:   "login",
-		Short: "Authenticate with the dployr server",
+		Short: "authenticate with the dployr server",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			email, _ := cmd.Flags().GetString("email")
 			expiry, _ := cmd.Flags().GetString("expiry")
@@ -41,12 +41,10 @@ func main() {
 			if email == "" {
 				return fmt.Errorf("email is required")
 			}
-
 			if expiry == "" {
 				expiry = "15m"
 			}
 
-			// Prepare request payload
 			reqBody := map[string]string{
 				"email":  email,
 				"expiry": expiry,
@@ -56,7 +54,6 @@ func main() {
 				return fmt.Errorf("failed to marshal request: %v", err)
 			}
 
-			// Make HTTP request to auth endpoint
 			res, err := http.Post(addr+"/auth/request", "application/json", bytes.NewBuffer(jsonData))
 			if err != nil {
 				return fmt.Errorf("failed to connect to server: %v", err)
@@ -66,8 +63,6 @@ func main() {
 			if res.StatusCode != http.StatusOK {
 				return fmt.Errorf("login failed with status: %d", res.StatusCode)
 			}
-
-			// Parse response
 			var authResp struct {
 				Token     string `json:"token"`
 				ExpiresAt string `json:"expires_at"`
@@ -112,31 +107,10 @@ func main() {
 	// Create deployment command
 	deployCmd := &cobra.Command{
 		Use:   "deploy",
-		Short: "Create a new deployment",
+		Short: "create a new deployment",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Load token from config
-			configDir, err := os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("could not resolve user home directory: %v", err)
-			}
-			configPath := configDir + "/.dployr/config.json"
+			token, _ := shared.GetToken()
 
-			configData, err := os.ReadFile(configPath)
-			if err != nil {
-				return fmt.Errorf("could not read config file: %v. Please run 'dployr login' first", err)
-			}
-
-			var config map[string]string
-			if err := json.Unmarshal(configData, &config); err != nil {
-				return fmt.Errorf("could not parse config file: %v", err)
-			}
-
-			token, exists := config["token"]
-			if !exists {
-				return fmt.Errorf("no token found in config. Please run 'dployr login' first")
-			}
-
-			// Get command flags
 			name, _ := cmd.Flags().GetString("name")
 			description, _ := cmd.Flags().GetString("description")
 			source, _ := cmd.Flags().GetString("source")
@@ -152,13 +126,10 @@ func main() {
 			dnsProvider, _ := cmd.Flags().GetString("dns-provider")
 			saveSpec, _ := cmd.Flags().GetBool("save-spec")
 			envVars, _ := cmd.Flags().GetStringToString("env")
-
-			// Remote flags
 			remote, _ := cmd.Flags().GetString("remote")
 			branch, _ := cmd.Flags().GetString("branch")
 			commitHash, _ := cmd.Flags().GetString("commit-hash")
 
-			// Validate required fields
 			if name == "" {
 				return fmt.Errorf("name is required")
 			}
@@ -169,7 +140,6 @@ func main() {
 				return fmt.Errorf("runtime is required")
 			}
 
-			// Build request payload
 			req := core.DeployRequest{
 				Name:        name,
 				Description: description,
@@ -190,7 +160,6 @@ func main() {
 				EnvVars:     envVars,
 			}
 
-			// Add remote if provided
 			if source == "remote" {
 				req.Remote = store.RemoteObj{
 					Url:        remote,
@@ -204,16 +173,12 @@ func main() {
 				return fmt.Errorf("failed to marshal request: %v", err)
 			}
 
-			// Create HTTP request
 			r, err := http.NewRequest("POST", addr+"/deployments", bytes.NewBuffer(jsonData))
 			if err != nil {
 				return fmt.Errorf("failed to create request: %v", err)
 			}
-
 			r.Header.Set("Content-Type", "application/json")
 			r.Header.Set("Authorization", "Bearer "+token)
-
-			// Make HTTP request
 			client := &http.Client{}
 			resp, err := client.Do(r)
 			if err != nil {
@@ -226,22 +191,20 @@ func main() {
 				return fmt.Errorf("deployment creation failed with status %d: %s", resp.StatusCode, string(body))
 			}
 
-			// Parse response
 			res := &core.DeployResponse{}
 			if err := json.NewDecoder(resp.Body).Decode(res); err != nil {
 				return fmt.Errorf("failed to parse response: %v", err)
 			}
 
-			fmt.Printf("   Deployment created successfully!\n")
-			fmt.Printf("   ID: %s\n", res.ID)
-			fmt.Printf("   Name: %s\n", res.Name)
-			fmt.Printf("   Created: %s\n", res.CreatedAt)
+			fmt.Printf("   deployment created successfully!\n")
+			fmt.Printf("   id: %s\n", res.ID)
+			fmt.Printf("   name: %s\n", res.Name)
+			fmt.Printf("   created: %s\n", res.CreatedAt)
 
 			return nil
 		},
 	}
 
-	// Add flags for deploy command
 	deployCmd.Flags().StringP("name", "n", "", "Deployment name (required)")
 	deployCmd.Flags().StringP("description", "d", "", "Deployment description")
 	deployCmd.Flags().StringP("source", "s", "", "Source type: remote or image (required)")
@@ -257,13 +220,74 @@ func main() {
 	deployCmd.Flags().StringP("dns-provider", "", "", "DNS provider")
 	deployCmd.Flags().BoolP("save-spec", "", false, "Save deployment specification")
 	deployCmd.Flags().StringToStringP("env", "e", nil, "Environment variables (key=value pairs)")
-
-	// Remote-specific flags
 	deployCmd.Flags().StringP("remote", "", "", "Url to remote repository")
 	deployCmd.Flags().StringP("branch", "", "", "Git branch")
 	deployCmd.Flags().StringP("commit-hash", "", "", "Specific commit hash")
 
 	rootCmd.AddCommand(deployCmd)
+
+	// List deployments command
+	listDeploymentsCmd := &cobra.Command{
+		Use:   "list",
+		Short: "list previous deployments",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			token, _ := shared.GetToken()
+
+			limit, _ := cmd.Flags().GetInt("limit")
+			if limit <= 0 {
+				limit = 10
+			}
+
+			r, err := http.NewRequest("GET", addr+"/deployments", nil)
+			if err != nil {
+				return fmt.Errorf("failed to create request: %v", err)
+			}
+
+			r.Header.Set("Authorization", "Bearer "+token)
+			q := r.URL.Query()
+			q.Add("limit", fmt.Sprintf("%d", limit))
+			r.URL.RawQuery = q.Encode()
+			client := &http.Client{}
+			resp, err := client.Do(r)
+			if err != nil {
+				return fmt.Errorf("failed to connect to server: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("failed to list deployments with status %d: %s", resp.StatusCode, string(body))
+			}
+
+			var deployments []store.Deployment
+			if err := json.NewDecoder(resp.Body).Decode(&deployments); err != nil {
+				return fmt.Errorf("failed to parse response: %v", err)
+			}
+
+			if len(deployments) == 0 {
+				fmt.Println("no deployments found")
+				return nil
+			}
+
+			fmt.Printf("\nfound %d deployment(s):\n\n", len(deployments))
+			for _, dep := range deployments {
+				fmt.Printf("  id:       %s\n", dep.ID)
+				fmt.Printf("  name:     %s\n", dep.Cfg.Name)
+				fmt.Printf("  status:   %s\n", dep.Status)
+				fmt.Printf("  runtime:  %s\n", dep.Cfg.Runtime.Type)
+				if dep.Cfg.Runtime.Version != "" {
+					fmt.Printf("  version:  %s\n", dep.Cfg.Runtime.Version)
+				}
+				fmt.Printf("  created:  %s\n", dep.CreatedAt.Format("2006-01-02 15:04:05"))
+				fmt.Println()
+			}
+
+			return nil
+		},
+	}
+
+	listDeploymentsCmd.Flags().IntP("limit", "l", 10, "Maximum number of deployments to show")
+	rootCmd.AddCommand(listDeploymentsCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println("Error:", err)

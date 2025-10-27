@@ -4,9 +4,18 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"dployr/pkg/shared"
 )
+
+func parseLimit(s string) int {
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return 0
+	}
+	return v
+}
 
 type DeploymentHandler struct {
 	deployer *Deployer
@@ -55,6 +64,45 @@ func (h *DeploymentHandler) CreateDeployment(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusCreated)
 
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		h.logger.Error("failed to encode response", "error", err)
+		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (h *DeploymentHandler) ListDeployments(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	user, err := shared.UserFromContext(ctx)
+	if err != nil {
+		h.logger.Error("unauthenticated request", "error", err)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	limit := 10
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if parsedLimit := parseLimit(limitStr); parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	deployments, err := h.deployer.ListDeployments(ctx, user.ID, limit, 0)
+	if err != nil {
+		h.logger.Error("failed to list deployments", "error", err)
+		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(w).Encode(deployments); err != nil {
 		h.logger.Error("failed to encode response", "error", err)
 		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
 		return

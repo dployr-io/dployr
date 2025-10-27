@@ -151,7 +151,6 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	shared.LogInfoF(id, logPath, "creating run file")
-
 	exe, cmdArgs, err := getExeArgs(d.Cfg.Runtime, d.Cfg.RunCmd)
 
 	if err != nil {

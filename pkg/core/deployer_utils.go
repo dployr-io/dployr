@@ -156,6 +156,9 @@ func InstallDeps(buildCmd, workDir string, r store.RuntimeObj) error {
 	defer cancel()
 
 	exe, cmdArgs, err := getExeArgs(r, buildCmd)
+	if err != nil {
+		return fmt.Errorf("failed to get executable: %v", err)
+	}
 
 	cmd := exec.CommandContext(ctx, exe, cmdArgs...)
 	cmd.Dir = workDir
