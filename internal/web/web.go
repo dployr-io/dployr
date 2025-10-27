@@ -6,13 +6,17 @@ import (
 	"strconv"
 
 	"dployr/pkg/auth"
-	"dployr/pkg/core"
 )
 
 type WebHandler struct {
 	AuthH *auth.AuthHandler
-	DepsH *core.DeploymentHandler
+	DepsH DeploymentHandler
 	AuthM *auth.Middleware
+}
+
+type DeploymentHandler interface {
+	ListDeployments(w http.ResponseWriter, r *http.Request)
+	CreateDeployment(w http.ResponseWriter, r *http.Request)
 }
 
 func (w *WebHandler) NewServer(port int) error {

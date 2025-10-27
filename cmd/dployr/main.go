@@ -3,7 +3,7 @@ package main
 
 import (
 	"bytes"
-	"dployr/pkg/core"
+	"dployr/pkg/core/deploy"
 	"dployr/pkg/shared"
 	"dployr/pkg/store"
 	"encoding/json"
@@ -140,7 +140,7 @@ func main() {
 				return fmt.Errorf("runtime is required")
 			}
 
-			req := core.DeployRequest{
+			req := deploy.DeployRequest{
 				Name:        name,
 				Description: description,
 				Source:      source,
@@ -191,7 +191,7 @@ func main() {
 				return fmt.Errorf("deployment creation failed with status %d: %s", resp.StatusCode, string(body))
 			}
 
-			res := &core.DeployResponse{}
+			res := &deploy.DeployResponse{}
 			if err := json.NewDecoder(resp.Body).Decode(res); err != nil {
 				return fmt.Errorf("failed to parse response: %v", err)
 			}
@@ -208,7 +208,7 @@ func main() {
 	deployCmd.Flags().StringP("name", "n", "", "Deployment name (required)")
 	deployCmd.Flags().StringP("description", "d", "", "Deployment description")
 	deployCmd.Flags().StringP("source", "s", "", "Source type: remote or image (required)")
-	deployCmd.Flags().StringP("runtime", "r", "", "Runtime type: static, go, php, python, node-js, ruby, dotnet, java, docker, k3s, custom (required)")
+	deployCmd.Flags().StringP("runtime", "r", "", "Runtime type: static, golang, php, python, node-js, ruby, dotnet, java, docker, k3s, custom (required)")
 	deployCmd.Flags().StringP("version", "", "", "Runtime version")
 	deployCmd.Flags().StringP("run-cmd", "", "", "Command to run the application")
 	deployCmd.Flags().StringP("build-cmd", "", "", "Command to build the application")

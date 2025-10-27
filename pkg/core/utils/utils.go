@@ -1,9 +1,6 @@
-package core
+package utils
 
 import (
-	"context"
-	"dployr/pkg/shared"
-	"dployr/pkg/store"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,172 +8,12 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
-	"time"
+
+	"dployr/pkg/shared"
+	"dployr/pkg/store"
 )
 
-func SetupDir(name string) (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("could not resolve user home directory: %v", err)
-	}
-	workDir := filepath.Join(homeDir, ".dployr", "services", formatName(name))
-	err = os.MkdirAll(workDir, 0755)
-	if err != nil {
-		return "", err
-	}
-
-	return workDir, nil
-}
-
-func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.Config) error {
-	workDir = fmt.Sprint(destDir, "/", workDir)
-	authUrl, err := buildAuthenticatedUrl(remote.Url, config)
-	if err != nil {
-		return err
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	if _, err := os.Stat(workDir); err == nil {
-		cmd := exec.CommandContext(ctx, "git", "-C", destDir, "pull")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = nil
-		if err := cmd.Run(); err != nil {
-			if ctx.Err() == context.DeadlineExceeded {
-				return fmt.Errorf("git pull timed out after 5 minutes")
-			}
-			return err
-		}
-	} else {
-		args := []string{"clone", "--branch", remote.Branch, authUrl, destDir}
-		cmd := exec.CommandContext(ctx, "git", args...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = nil
-		if err := cmd.Run(); err != nil {
-			if ctx.Err() == context.DeadlineExceeded {
-				return fmt.Errorf("git clone timed out after 5 minutes")
-			}
-			return fmt.Errorf("git clone failed: %s", err)
-		}
-	}
-
-	if remote.CommitHash != "" {
-		cmd := exec.CommandContext(ctx, "git", "-C", destDir, "checkout", remote.CommitHash)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = nil
-		if err := cmd.Run(); err != nil {
-			if ctx.Err() == context.DeadlineExceeded {
-				return fmt.Errorf("git checkout timed out after 5 minutes")
-			}
-			return fmt.Errorf("git checkout failed: %s", err)
-		}
-	}
-	return nil
-}
-
-func buildAuthenticatedUrl(url string, config *shared.Config) (string, error) {
-	if strings.Contains(url, "@") {
-		return url, nil
-	}
-	var token, username string
-
-	switch {
-	case strings.Contains(url, "github.com"):
-		token, username = config.GitHubToken, "git"
-	case strings.Contains(url, "gitlab.com"):
-		token, username = config.GitLabToken, "git"
-	case strings.Contains(url, "bitbucket.org"):
-		token, username = config.BitBucketToken, "git"
-	default:
-		return url, nil
-	}
-	if token == "" {
-		return url, nil
-	}
-
-	cleanUrl := url
-	if strings.HasPrefix(cleanUrl, "http://") {
-		cleanUrl = "https://" + strings.TrimPrefix(cleanUrl, "http://")
-	}
-	if strings.HasPrefix(cleanUrl, "https://") {
-		return strings.Replace(cleanUrl, "https://", fmt.Sprintf("https://%s:%s@", username, token), 1), nil
-	}
-	return url, nil
-}
-
-func SetupRuntime(r store.RuntimeObj, workDir string) error {
-	vfox, err := getVfox()
-	if err != nil {
-		return fmt.Errorf("failed to find vfox executable: %v", err)
-	}
-
-	version := string(r.Version)
-	if version == "" {
-		return fmt.Errorf("runtime version cannot be empty")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, vfox, "install", string(r.Type)+"@"+version, "-y")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = nil
-	cmd.Env = append(os.Environ(), "VFOX_NONINTERACTIVE=1")
-	err = cmd.Run()
-	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			return fmt.Errorf("vfox command timed out after 5 minutes")
-		}
-		return fmt.Errorf("vfox command failed: %v", err)
-	}
-
-	cmd = exec.CommandContext(ctx, vfox, "use", string(r.Type)+"@"+version)
-	cmd.Dir = workDir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = nil
-	err = cmd.Run()
-	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			return fmt.Errorf("vfox command timed out after 5 minutes")
-		}
-		return fmt.Errorf("vfox command failed: %v", err)
-	}
-
-	return nil
-}
-
-func InstallDeps(buildCmd, workDir string, r store.RuntimeObj) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-
-	exe, cmdArgs, err := getExeArgs(r, buildCmd)
-	if err != nil {
-		return fmt.Errorf("failed to get executable: %v", err)
-	}
-
-	cmd := exec.CommandContext(ctx, exe, cmdArgs...)
-	cmd.Dir = workDir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = nil
-	err = cmd.Run()
-	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			return fmt.Errorf("build command timed out after 10 minutes")
-		}
-		return fmt.Errorf("build command failed: %v", err)
-	}
-
-	return nil
-}
-
-func formatName(s string) string {
+func FormatName(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
 	s = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(s, "-")
 	s = regexp.MustCompile(`-+`).ReplaceAllString(s, "-")
@@ -187,7 +24,7 @@ func formatName(s string) string {
 	return s
 }
 
-func getExeArgs(r store.RuntimeObj, cmd string) (string, []string, error) {
+func GetExeArgs(r store.RuntimeObj, cmd string) (string, []string, error) {
 	parts := strings.Fields(cmd)
 	if len(parts) == 0 {
 		return "", nil, fmt.Errorf("build command cannot be empty")
@@ -201,9 +38,9 @@ func getExeArgs(r store.RuntimeObj, cmd string) (string, []string, error) {
 	var runtimePath map[string]string
 	var err error
 	if first == runtimeType {
-		runtimePath, err = getRuntimePath(runtimeType, runtimeVersion)
+		runtimePath, err = GetRuntimePath(runtimeType, runtimeVersion)
 	} else {
-		runtimePath, err = getRuntimePath(runtimeType, runtimeVersion, first)
+		runtimePath, err = GetRuntimePath(runtimeType, runtimeVersion, first)
 	}
 
 	if err != nil {
@@ -222,7 +59,7 @@ func getExeArgs(r store.RuntimeObj, cmd string) (string, []string, error) {
 }
 
 // getRuntimePath finds the runtime binary in ~/.version-fox/cache/<runtime>
-func getRuntimePath(runtime, version string, tools ...string) (map[string]string, error) {
+func GetRuntimePath(runtime, version string, tools ...string) (map[string]string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
@@ -236,7 +73,7 @@ func getRuntimePath(runtime, version string, tools ...string) (map[string]string
 		return nil, fmt.Errorf("%s not found in cache: %v", runtime, err)
 	}
 
-	root, err := findVersionDir(base, entries, version)
+	root, err := FindVersionDir(base, entries, version)
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +120,7 @@ func getRuntimePath(runtime, version string, tools ...string) (map[string]string
 	return results, nil
 }
 
-func findVersionDir(base string, entries []os.DirEntry, version string) (string, error) {
+func FindVersionDir(base string, entries []os.DirEntry, version string) (string, error) {
 	var exactMatch, prefixMatch string
 
 	for _, e := range entries {
@@ -392,7 +229,7 @@ func getBinaryExtensions() []string {
 }
 
 // finds vfox executable
-func getVfox() (string, error) {
+func GetVfox() (string, error) {
 	if path, err := exec.LookPath("vfox"); err == nil {
 		return path, nil
 	}
@@ -426,3 +263,32 @@ func getVfox() (string, error) {
 	return "", fmt.Errorf("vfox executable not found")
 }
 
+func BuildAuthUrl(url string, config *shared.Config) (string, error) {
+	if strings.Contains(url, "@") {
+		return url, nil
+	}
+	var token, username string
+
+	switch {
+	case strings.Contains(url, "github.com"):
+		token, username = config.GitHubToken, "git"
+	case strings.Contains(url, "gitlab.com"):
+		token, username = config.GitLabToken, "git"
+	case strings.Contains(url, "bitbucket.org"):
+		token, username = config.BitBucketToken, "git"
+	default:
+		return url, nil
+	}
+	if token == "" {
+		return url, nil
+	}
+
+	cleanUrl := url
+	if strings.HasPrefix(cleanUrl, "http://") {
+		cleanUrl = "https://" + strings.TrimPrefix(cleanUrl, "http://")
+	}
+	if strings.HasPrefix(cleanUrl, "https://") {
+		return strings.Replace(cleanUrl, "https://", fmt.Sprintf("https://%s:%s@", username, token), 1), nil
+	}
+	return url, nil
+}

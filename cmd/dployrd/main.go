@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"dployr/pkg/core"
+	"dployr/pkg/core/deploy"
 	"dployr/pkg/shared"
 	"log"
 	"os"
@@ -12,7 +12,9 @@ import (
 	_auth "dployr/internal/auth"
 	"dployr/internal/db"
 	_store "dployr/internal/store"
+	_deploy "dployr/internal/deploy"
 	"dployr/internal/web"
+	"dployr/internal/worker"
 	"dployr/pkg/auth"
 
 	"github.com/oklog/ulid/v2"
@@ -37,19 +39,21 @@ func main() {
 	ctx = shared.WithRequest(ctx, ulid.Make().String())
 	ctx = shared.WithTrace(ctx, ulid.Make().String())
 
-	w := core.New(5, cfg, logger, ds) // 5 concurrent deployments
+	w := worker.New(5, cfg, logger, ds) // 5 concurrent deployments
 
 	authService := _auth.NewAuth(cfg)
 	ah := auth.NewAuthHandler(us, logger, authService)
 	am := auth.NewMiddleware(authService, us)
 
-	deployer := core.NewDeployer(cfg, logger, ds, w)
-	dh := core.NewDeploymentHandler(deployer, logger)
+	api := _deploy.New(cfg, logger, ds, w)
+
+	deployer := deploy.NewDeployer(cfg, logger, ds, api)
+	dh := deploy.NewDeploymentHandler(deployer, logger)
 
 	wh := web.WebHandler{
-		AuthM: am,
 		AuthH: ah,
 		DepsH: dh,
+		AuthM: am,
 	}
 
 	go func() {

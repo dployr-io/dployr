@@ -1,4 +1,4 @@
-package core
+package worker
 
 import (
 	"context"
@@ -8,6 +8,10 @@ import (
 	"sync"
 	"time"
 
+	"dployr/internal/deploy"
+	_service "dployr/internal/service"
+	"dployr/pkg/core/service"
+	"dployr/pkg/core/utils"
 	"dployr/pkg/shared"
 	"dployr/pkg/store"
 )
@@ -23,13 +27,14 @@ type Worker struct {
 	queue         chan string
 }
 
-func New(m int, c *shared.Config, l *slog.Logger, s store.DeploymentStore) *Worker {
+// New creates a new Worker instance
+func New(maxConcurrent int, config *shared.Config, logger *slog.Logger, store store.DeploymentStore) *Worker {
 	return &Worker{
-		maxConcurrent: m,
-		logger:        l,
-		store:         s,
-		config:        c,
-		semaphore:     make(chan struct{}, m),
+		maxConcurrent: maxConcurrent,
+		logger:        logger,
+		store:         store,
+		config:        config,
+		semaphore:     make(chan struct{}, maxConcurrent),
 		activeJobs:    make(map[string]bool),
 		queue:         make(chan string, 100),
 	}
@@ -91,7 +96,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	shared.LogInfoF(id, logPath, "creating workspace")
-	workingDir, err := SetupDir(d.Cfg.Name)
+	workingDir, err := deploy.SetupDir(d.Cfg.Name)
 	dir := ""
 	if err != nil {
 		err = fmt.Errorf("failed to setup working directory %s: %v", workingDir, err)
@@ -100,7 +105,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	shared.LogInfoF(id, logPath, "cloning repository")
-	err = CloneRepo(d.Cfg.Remote, workingDir, d.Cfg.WorkingDir, w.config)
+	err = deploy.CloneRepo(d.Cfg.Remote, workingDir, d.Cfg.WorkingDir, w.config)
 	if err != nil {
 		err = fmt.Errorf("failed to clone repository: %s", err)
 		shared.LogErrF(id, logPath, err)
@@ -111,7 +116,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	dir = fmt.Sprint(workingDir, "/", d.Cfg.WorkingDir)
 
 	shared.LogInfoF(id, logPath, "installing runtime")
-	err = SetupRuntime(d.Cfg.Runtime, dir)
+	err = deploy.SetupRuntime(d.Cfg.Runtime, dir)
 	if err != nil {
 		err = fmt.Errorf("failed to setup runtime: %s", err)
 		shared.LogErrF(id, logPath, err)
@@ -120,7 +125,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 
 	if d.Cfg.BuildCmd != "" {
 		shared.LogInfoF(id, logPath, "installing dependencies")
-		err := InstallDeps(d.Cfg.BuildCmd, dir, d.Cfg.Runtime)
+		err := deploy.InstallDeps(d.Cfg.BuildCmd, dir, d.Cfg.Runtime)
 		if err != nil {
 			err = fmt.Errorf("failed to setup working directory: %s", err)
 			shared.LogErrF(id, logPath, err)
@@ -129,20 +134,15 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	shared.LogInfoF(id, logPath, "creating service")
-	s, err := GetSvcMgr()
-	if err != nil {
-		err = fmt.Errorf("%s", err)
-		shared.LogErrF(id, logPath, err)
-		return err
-	}
+	s := &_service.NSSMManager{}
 
-	svcName := formatName(d.Cfg.Name)
+	svcName := utils.FormatName(d.Cfg.Name)
 
 	status, err := s.Status(svcName)
 	if err == nil {
 		shared.LogWarnF(id, logPath, fmt.Sprintf("previous version of %s exists", svcName))
 		shared.LogInfoF(id, logPath, "uninstalling previous version...")
-		if status == string(SvcRunning) {
+		if status == string(service.SvcRunning) {
 			s.Stop(svcName)
 		}
 		time.Sleep(2 * time.Second)
@@ -151,7 +151,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	shared.LogInfoF(id, logPath, "creating run file")
-	exe, cmdArgs, err := getExeArgs(d.Cfg.Runtime, d.Cfg.RunCmd)
+	exe, cmdArgs, err := utils.GetExeArgs(d.Cfg.Runtime, d.Cfg.RunCmd)
 
 	if err != nil {
 		err = fmt.Errorf("%s", err)
@@ -159,7 +159,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		return err
 	}
 
-	bat, err := CreateRunFile(d.Cfg, dir, exe, cmdArgs)
+	bat, err := _service.CreateRunFile(d.Cfg, dir, exe, cmdArgs)
 	if err != nil {
 		err = fmt.Errorf("%s", err)
 		shared.LogErrF(id, logPath, err)

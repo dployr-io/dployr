@@ -61,10 +61,17 @@ func (d DeploymentStore) GetDeployment(ctx context.Context, id string) (*store.D
 }
 
 func (d DeploymentStore) ListDeployments(ctx context.Context, limit, offset int) ([]*store.Deployment, error) {
-	rows, err := d.db.QueryContext(ctx, `
+	stmt, err := d.db.PrepareContext(ctx, `
 		SELECT id, user_id, config, status, save_spec, metadata, created_at, updated_at
 		FROM deployments
-		LIMIT ? OFFSET ?`, limit, offset)
+		ORDER BY created_at DESC
+		LIMIT ? OFFSET ?`)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.QueryContext(ctx, limit, offset)
 	if err != nil {
 		return nil, err
 	}

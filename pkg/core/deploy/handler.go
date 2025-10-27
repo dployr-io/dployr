@@ -1,21 +1,12 @@
-package core
+package deploy
 
 import (
+	"dployr/pkg/shared"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
-
-	"dployr/pkg/shared"
 )
-
-func parseLimit(s string) int {
-	v, err := strconv.Atoi(s)
-	if err != nil {
-		return 0
-	}
-	return v
-}
 
 type DeploymentHandler struct {
 	deployer *Deployer
@@ -28,6 +19,7 @@ func NewDeploymentHandler(deployer *Deployer, logger *slog.Logger) *DeploymentHa
 		logger:   logger,
 	}
 }
+
 
 func (h *DeploymentHandler) CreateDeployment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -44,7 +36,7 @@ func (h *DeploymentHandler) CreateDeployment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	resp, err := h.deployer.Deploy(ctx, &req)
+	resp, err := h.deployer.api.Deploy(ctx, &req)
 	if err != nil {
 		h.logger.Error("failed to create deployment", "error", err)
 
@@ -92,7 +84,7 @@ func (h *DeploymentHandler) ListDeployments(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	deployments, err := h.deployer.ListDeployments(ctx, user.ID, limit, 0)
+	deployments, err := h.deployer.api.ListDeployments(ctx, user.ID, limit, 0)
 	if err != nil {
 		h.logger.Error("failed to list deployments", "error", err)
 		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
@@ -108,3 +100,12 @@ func (h *DeploymentHandler) ListDeployments(w http.ResponseWriter, r *http.Reque
 		return
 	}
 }
+
+func parseLimit(s string) int {
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return 0
+	}
+	return v
+}
+

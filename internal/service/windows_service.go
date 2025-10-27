@@ -1,46 +1,19 @@
-package core
+package service
 
 import (
 	"bytes"
-	"dployr/pkg/store"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
+
+	"dployr/pkg/core/utils"
+	"dployr/pkg/core/service"
+	"dployr/pkg/store"
 )
-
-type SvcState string
-
-const (
-	SvcRunning SvcState = "running"
-	SvcStopped SvcState = "stopped"
-	SvcUnknown SvcState = "unknown"
-)
-
-type SvcMgr interface {
-	Status(name string) (string, error)
-	Install(name, desc, runCmd, workDir string, envVars map[string]string) error
-	Start(name string) error
-	Stop(name string) error
-	Remove(name string) error
-}
 
 type NSSMManager struct{}
-
-func GetSvcMgr() (SvcMgr, error) {
-	switch runtime.GOOS {
-	case "windows":
-		return &NSSMManager{}, nil
-	case "linux":
-		return nil, fmt.Errorf("systemd manager not yet implemented")
-	case "darwin":
-		return nil, fmt.Errorf("launchd manager not yet implemented")
-	default:
-		return nil, fmt.Errorf("unsupported platform")
-	}
-}
 
 // Locate nssm.exe
 func (n *NSSMManager) findExe() (string, error) {
@@ -88,11 +61,11 @@ func (n *NSSMManager) Status(name string) (string, error) {
 
 	switch {
 	case strings.Contains(out.String(), "SERVICE_RUNNING"):
-		return string(SvcRunning), nil
+		return string(service.SvcRunning), nil
 	case strings.Contains(out.String(), "SERVICE_STOPPED"):
-		return string(SvcStopped), nil
+		return string(service.SvcStopped), nil
 	default:
-		return string(SvcUnknown), nil
+		return string(service.SvcUnknown), nil
 	}
 }
 
@@ -108,7 +81,7 @@ func (n *NSSMManager) Install(name, desc, runCmd, workDir string, envVars map[st
 	}
 	exe := parts[0]
 	args := parts[1:]
-	name = formatName(name)
+	name = utils.FormatName(name)
 
 	// nssm install <name> <exe> [args...]
 	installArgs := append([]string{"install", name, exe}, args...)
@@ -137,7 +110,7 @@ func (n *NSSMManager) Install(name, desc, runCmd, workDir string, envVars map[st
 		return fmt.Errorf("failed to create log directory: %w", err)
 	}
 
-	outLog := filepath.Join(logDir, fmt.Sprintf("%s.out.log", name))
+	outLog := filepath.Join(logDir, fmt.Sprintf("%s.log", name))
 
 	exec.Command(nssm, "set", name, "AppStdout", outLog).Run()
 	exec.Command(nssm, "set", name, "AppStderr", outLog).Run()
@@ -153,7 +126,7 @@ func (n *NSSMManager) Start(name string) error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(nssm, "start", formatName(name))
+	cmd := exec.Command(nssm, "start", utils.FormatName(name))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -164,7 +137,7 @@ func (n *NSSMManager) Stop(name string) error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(nssm, "stop", formatName(name))
+	cmd := exec.Command(nssm, "stop", utils.FormatName(name))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -175,7 +148,7 @@ func (n *NSSMManager) Remove(name string) error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(nssm, "remove", formatName(name), "confirm")
+	cmd := exec.Command(nssm, "remove", utils.FormatName(name), "confirm")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -188,8 +161,7 @@ func CreateRunFile(c store.Config, workDir, exe string, cmdArgs []string) (strin
 	}
 
 	batchContent := fmt.Sprintf(`@echo off
-cd /d "%s"
-%s`, workDir, cmd)
+%s`, cmd)
 
 	bat := filepath.Join(workDir, "service.bat")
 	err := os.WriteFile(bat, []byte(batchContent), 0755)

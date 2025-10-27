@@ -1,10 +1,11 @@
 package auth
 
 import (
-	"dployr/pkg/auth"
-	"dployr/pkg/shared"
 	"fmt"
 	"time"
+
+	"dployr/pkg/auth"
+	"dployr/pkg/shared"
 
 	"github.com/golang-jwt/jwt/v4"
 )

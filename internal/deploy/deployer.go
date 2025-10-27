@@ -1,4 +1,4 @@
-package core
+package deploy
 
 import (
 	"context"
@@ -6,57 +6,35 @@ import (
 	"log/slog"
 	"time"
 
+	"dployr/pkg/core/deploy"
 	"dployr/pkg/shared"
 	"dployr/pkg/store"
 
 	"github.com/oklog/ulid/v2"
 )
 
-type Deployer struct {
-	config *shared.Config
-	logger *slog.Logger
-	store  store.DeploymentStore
-	worker *Worker
+type Dispatcher interface {
+	Submit(id string)
 }
 
-func NewDeployer(c *shared.Config, l *slog.Logger, s store.DeploymentStore, w *Worker) *Deployer {
+type Deployer struct {
+	cfg       *shared.Config
+	logger       *slog.Logger
+	store        store.DeploymentStore
+	job			 Dispatcher
+}
+
+// New creates a new Deployer instance
+func New(c *shared.Config, l *slog.Logger, s store.DeploymentStore, j Dispatcher) *Deployer {
 	return &Deployer{
-		config: c,
-		logger: l,
-		store:  s,
-		worker: w,
+		cfg:       c,
+		logger:       l,
+		store:        s,
+		job: 	    	j,
 	}
 }
 
-type DeployRequest struct {
-	Name        string            `json:"name" validate:"required"`
-	Description string            `json:"description,omitempty"`
-	UserId      string            `json:"user_id" validate:"required"`
-	Source      string            `json:"source" validate:"required,oneof=remote image"`
-	Runtime     store.RuntimeObj  `json:"runtime" validate:"required"`
-	Version     string            `json:"version,omitempty" validate:"omitempty"`
-	RunCmd      string            `json:"run_cmd,omitempty" validate:"required_unless=Runtime static docker k3s,omitempty"`
-	BuildCmd    string            `json:"build_cmd,omitempty" validate:"omitempty"`
-	Port        int               `json:"port,omitempty" validate:"required_unless=Runtime static docker k3s,omitempty,number"`
-	WorkingDir  string            `json:"working_dir,omitempty" validate:"omitempty"`
-	StaticDir   string            `json:"static_dir,omitempty" validate:"omitempty"`
-	Image       string            `json:"image,omitempty" validate:"omitempty"`
-	SaveSpec    bool              `json:"save_spec,omitempty" validate:"omitempty"`
-	EnvVars     map[string]string `json:"env_vars,omitempty" validate:"omitempty"`
-	Secrets     map[string]string `json:"secrets,omitempty" validate:"omitempty"`
-	Remote      store.RemoteObj   `json:"remote,omitempty" validate:"omitempty"`
-	Domain      string            `json:"domain,omitempty" validate:"omitempty"`
-	DNSProvider string            `json:"dns_provider,omitempty" validate:"omitempty"`
-}
-
-type DeployResponse struct {
-	Success   bool      `json:"success"`
-	ID        string    `json:"id,omitempty"`
-	Name      string    `json:"name,omitempty"`
-	CreatedAt time.Time `json:"created_at,omitempty"`
-}
-
-func (d *Deployer) Deploy(ctx context.Context, req *DeployRequest) (*DeployResponse, error) {
+func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*deploy.DeployResponse, error) {
 	requestID, err := shared.TraceFromContext(ctx)
 	if err != nil {
 		d.logger.Error("failed to extract request id from context")
@@ -112,9 +90,9 @@ func (d *Deployer) Deploy(ctx context.Context, req *DeployRequest) (*DeployRespo
 		"trace_id", traceID,
 	).Info("created new deployment", "deployment_id", deployment.ID)
 
-	d.worker.Submit(deployment.ID)
+	d.job.Submit(deployment.ID)
 
-	return &DeployResponse{
+	return &deploy.DeployResponse{
 		ID:        deployment.ID,
 		Name:      deployment.Cfg.Name,
 		Success:   true,

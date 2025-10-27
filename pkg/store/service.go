@@ -9,7 +9,7 @@ type Runtime string
 
 const (
 	RuntimeStatic Runtime = "static"
-	RuntimeGo     Runtime = "go"
+	RuntimeGo     Runtime = "golang"
 	RuntimePHP    Runtime = "php"
 	RuntimePython Runtime = "python"
 	RuntimeNodeJS Runtime = "nodejs"
