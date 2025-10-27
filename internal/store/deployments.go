@@ -26,7 +26,7 @@ func (d DeploymentStore) CreateDeployment(ctx context.Context, deployment *store
 	}
 	defer stmt.Close()
 
-	configJSON, err := json.Marshal(deployment.Config)
+	configJSON, err := json.Marshal(deployment.Cfg)
 	if err != nil {
 		return err
 	}
@@ -35,7 +35,7 @@ func (d DeploymentStore) CreateDeployment(ctx context.Context, deployment *store
 	return err
 }
 
-func (d DeploymentStore) GetDeploymentByID(ctx context.Context, id string) (*store.Deployment, error) {
+func (d DeploymentStore) GetDeployment(ctx context.Context, id string) (*store.Deployment, error) {
 	stmt, err := d.db.PrepareContext(ctx, `
 		SELECT id, user_id, config, status, save_spec, metadata, created_at, updated_at
 		FROM deployments WHERE id = ?`)
@@ -53,7 +53,7 @@ func (d DeploymentStore) GetDeploymentByID(ctx context.Context, id string) (*sto
 		return nil, err
 	}
 
-	if err := json.Unmarshal(configJSON, &bp.Config); err != nil {
+	if err := json.Unmarshal(configJSON, &bp.Cfg); err != nil {
 		return nil, err
 	}
 
@@ -78,7 +78,7 @@ func (d DeploymentStore) ListDeployments(ctx context.Context, limit, offset int)
 		if err != nil {
 			return nil, err
 		}
-		if err := json.Unmarshal(configJSON, &bp.Config); err != nil {
+		if err := json.Unmarshal(configJSON, &bp.Cfg); err != nil {
 			return nil, err
 		}
 		deployments = append(deployments, &bp)

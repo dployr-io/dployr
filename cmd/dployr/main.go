@@ -78,13 +78,13 @@ func main() {
 			}
 
 			// save token to ~/.dployr/config.json
-			configDir, err := os.UserHomeDir()
+			homeDir, err := os.UserHomeDir()
 			if err != nil {
 				return fmt.Errorf("could not resolve user home directory: %v", err)
 			}
-			configPath := configDir + "/.dployr/config.json"
+			configPath := homeDir + "/.dployr/config.json"
 
-			if err := os.Mkdir(configDir+"/.dployr", 0700); err != nil && !os.IsExist(err) {
+			if err := os.Mkdir(homeDir+"/.dployr", 0700); err != nil && !os.IsExist(err) {
 				return fmt.Errorf("could not create config directory: %v", err)
 			}
 
@@ -141,7 +141,7 @@ func main() {
 			description, _ := cmd.Flags().GetString("description")
 			source, _ := cmd.Flags().GetString("source")
 			runtime, _ := cmd.Flags().GetString("runtime")
-			runtimeVersion, _ := cmd.Flags().GetString("runtime-version")
+			version, _ := cmd.Flags().GetString("version")
 			runCmd, _ := cmd.Flags().GetString("run-cmd")
 			buildCmd, _ := cmd.Flags().GetString("build-cmd")
 			port, _ := cmd.Flags().GetInt("port")
@@ -151,6 +151,7 @@ func main() {
 			domain, _ := cmd.Flags().GetString("domain")
 			dnsProvider, _ := cmd.Flags().GetString("dns-provider")
 			saveSpec, _ := cmd.Flags().GetBool("save-spec")
+			envVars, _ := cmd.Flags().GetStringToString("env")
 
 			// Remote flags
 			remote, _ := cmd.Flags().GetString("remote")
@@ -175,7 +176,7 @@ func main() {
 				Source:      source,
 				Runtime: store.RuntimeObj{
 					Type:    store.Runtime(runtime),
-					Version: runtimeVersion,
+					Version: version,
 				},
 				RunCmd:      runCmd,
 				BuildCmd:    buildCmd,
@@ -186,12 +187,13 @@ func main() {
 				Domain:      domain,
 				DNSProvider: dnsProvider,
 				SaveSpec:    saveSpec,
+				EnvVars:     envVars,
 			}
 
 			// Add remote if provided
 			if source == "remote" {
 				req.Remote = store.RemoteObj{
-					Url: remote,
+					Url:        remote,
 					Branch:     branch,
 					CommitHash: commitHash,
 				}
@@ -244,7 +246,7 @@ func main() {
 	deployCmd.Flags().StringP("description", "d", "", "Deployment description")
 	deployCmd.Flags().StringP("source", "s", "", "Source type: remote or image (required)")
 	deployCmd.Flags().StringP("runtime", "r", "", "Runtime type: static, go, php, python, node-js, ruby, dotnet, java, docker, k3s, custom (required)")
-	deployCmd.Flags().StringP("runtime-version", "", "", "Runtime version")
+	deployCmd.Flags().StringP("version", "", "", "Runtime version")
 	deployCmd.Flags().StringP("run-cmd", "", "", "Command to run the application")
 	deployCmd.Flags().StringP("build-cmd", "", "", "Command to build the application")
 	deployCmd.Flags().IntP("port", "p", 0, "Port number for the application")
@@ -254,6 +256,7 @@ func main() {
 	deployCmd.Flags().StringP("domain", "", "", "Domain name")
 	deployCmd.Flags().StringP("dns-provider", "", "", "DNS provider")
 	deployCmd.Flags().BoolP("save-spec", "", false, "Save deployment specification")
+	deployCmd.Flags().StringToStringP("env", "e", nil, "Environment variables (key=value pairs)")
 
 	// Remote-specific flags
 	deployCmd.Flags().StringP("remote", "", "", "Url to remote repository")

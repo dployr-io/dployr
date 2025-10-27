@@ -31,30 +31,35 @@ func main() {
 	}
 
 	logger := shared.NewLogger()
-	// ds := store.NewDeploymentStore(db)
 	us := _store.NewUserStore(conn)
 	ds := _store.NewDeploymentStore(conn)
 	ctx := context.Background()
 	ctx = shared.WithRequest(ctx, ulid.Make().String())
 	ctx = shared.WithTrace(ctx, ulid.Make().String())
 
+	w := core.New(5, cfg, logger, ds) // 5 concurrent deployments
+
 	authService := _auth.NewAuth(cfg)
 	ah := auth.NewAuthHandler(us, logger, authService)
 	am := auth.NewMiddleware(authService, us)
 
-	deployer := core.NewDeployer(cfg, logger, ds)
+	deployer := core.NewDeployer(cfg, logger, ds, w)
 	dh := core.NewDeploymentHandler(deployer, logger)
 
-	// web server for API
 	wh := web.WebHandler{
 		AuthM: am,
 		AuthH: ah,
 		DepsH: dh,
 	}
+
 	go func() {
 		if err := wh.NewServer(cfg.Port); err != nil {
 			log.Fatalf("server error: %v", err)
 		}
+	}()
+
+	go func() {
+		w.Start(ctx)
 	}()
 
 	stop := make(chan os.Signal, 1)

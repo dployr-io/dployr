@@ -12,7 +12,7 @@ const (
 	RuntimeGo     Runtime = "go"
 	RuntimePHP    Runtime = "php"
 	RuntimePython Runtime = "python"
-	RuntimeNodeJS Runtime = "node-js"
+	RuntimeNodeJS Runtime = "nodejs"
 	RuntimeRuby   Runtime = "ruby"
 	RuntimeDotnet Runtime = "dotnet"
 	RuntimeJava   Runtime = "java"
@@ -35,7 +35,6 @@ type Service struct {
 	StaticDir      string         `json:"static_dir,omitempty" db:"static_dir"`
 	Image          string         `json:"image,omitempty" db:"image"`
 	EnvVars        string         `json:"env_vars,omitempty" db:"env_vars"`
-	Secrets        string         `json:"secrets,omitempty" db:"secrets"`
 	Status         string         `json:"status" db:"status"`
 	ProjectID      *string `json:"project_id,omitempty" db:"project_id"`
 	RemoteID       *string `json:"remote_id,omitempty" db:"remote_id"`

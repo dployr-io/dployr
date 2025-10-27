@@ -3,9 +3,9 @@ package store
 import (
 	"context"
 	"database/sql"
-	"dployr/pkg/store"
-	"log"
 	"time"
+
+	"dployr/pkg/store"
 
 	"github.com/oklog/ulid/v2"
 )

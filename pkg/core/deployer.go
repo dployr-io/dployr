@@ -16,13 +16,15 @@ type Deployer struct {
 	config *shared.Config
 	logger *slog.Logger
 	store  store.DeploymentStore
+	worker *Worker
 }
 
-func NewDeployer(config *shared.Config, logger *slog.Logger, store store.DeploymentStore) *Deployer {
+func NewDeployer(c *shared.Config, l *slog.Logger, s store.DeploymentStore, w *Worker) *Deployer {
 	return &Deployer{
-		config: config,
-		logger: logger,
-		store:  store,
+		config: c,
+		logger: l,
+		store:  s,
+		worker: w,
 	}
 }
 
@@ -35,7 +37,7 @@ type DeployRequest struct {
 	Version     string            `json:"version,omitempty" validate:"omitempty"`
 	RunCmd      string            `json:"run_cmd,omitempty" validate:"required_unless=Runtime static docker k3s,omitempty"`
 	BuildCmd    string            `json:"build_cmd,omitempty" validate:"omitempty"`
-	Port       	int              `json:"port,omitempty" validate:"required_unless=Runtime static docker k3s,omitempty,number"`
+	Port        int               `json:"port,omitempty" validate:"required_unless=Runtime static docker k3s,omitempty,number"`
 	WorkingDir  string            `json:"working_dir,omitempty" validate:"omitempty"`
 	StaticDir   string            `json:"static_dir,omitempty" validate:"omitempty"`
 	Image       string            `json:"image,omitempty" validate:"omitempty"`
@@ -60,7 +62,7 @@ func (d *Deployer) Deploy(ctx context.Context, req *DeployRequest) (*DeployRespo
 		d.logger.Error("failed to extract request id from context")
 		return nil, fmt.Errorf("failed to extract request id from context: %w", err)
 	}
-	
+
 	traceID, err := shared.TraceFromContext(ctx)
 	if err != nil {
 		d.logger.With("request_id", requestID).Error("failed to extract trace id from context")
@@ -76,23 +78,22 @@ func (d *Deployer) Deploy(ctx context.Context, req *DeployRequest) (*DeployRespo
 	deployment := &store.Deployment{
 		ID:     ulid.Make().String(),
 		Status: store.StatusPending,
-		Config: store.Config{
-			Name:        req.Name,
-			Description: req.Description,
-			Runtime:     req.Runtime,
-			RunCmd:      req.RunCmd,
-			BuildCmd:    req.BuildCmd,
-			Port:        req.Port,
-			WorkingDir:  req.WorkingDir,
-			StaticDir:   req.StaticDir,
-			Image:       req.Image,
-			EnvVars:     req.EnvVars,
-			Secrets:     req.Secrets,
-			Remote:      req.Remote,
-			Source:      req.Source,
+		Cfg: store.Config{
+			Name:       req.Name,
+			Desc:       req.Description,
+			Runtime:    req.Runtime,
+			RunCmd:     req.RunCmd,
+			BuildCmd:   req.BuildCmd,
+			Port:       req.Port,
+			WorkingDir: req.WorkingDir,
+			StaticDir:  req.StaticDir,
+			Image:      req.Image,
+			EnvVars:    req.EnvVars,
+			Remote:     req.Remote,
+			Source:     req.Source,
 		},
-		SaveSpec: req.SaveSpec,
-		UserId:  &user.ID,
+		SaveSpec:  req.SaveSpec,
+		UserId:    &user.ID,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -111,16 +112,18 @@ func (d *Deployer) Deploy(ctx context.Context, req *DeployRequest) (*DeployRespo
 		"trace_id", traceID,
 	).Info("created new deployment", "deployment_id", deployment.ID)
 
+	d.worker.Submit(deployment.ID)
+
 	return &DeployResponse{
 		ID:        deployment.ID,
-		Name:      deployment.Config.Name,
+		Name:      deployment.Cfg.Name,
 		Success:   true,
 		CreatedAt: deployment.CreatedAt,
 	}, nil
 }
 
 func (d *Deployer) GetDeployment(ctx context.Context, id string) (*store.Deployment, error) {
-	return d.store.GetDeploymentByID(ctx, id)
+	return d.store.GetDeployment(ctx, id)
 }
 
 func (d *Deployer) ListDeployments(ctx context.Context, userID string, limit, offset int) ([]*store.Deployment, error) {

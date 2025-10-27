@@ -18,6 +18,9 @@ type Config struct {
 	ServerHome string
 
 	SecretKey string
+	GitHubToken string
+	GitLabToken string
+	BitBucketToken string
 }
 
 func LoadConfig() (*Config, error) {
@@ -35,6 +38,9 @@ func LoadConfig() (*Config, error) {
 		SocketPath: getEnv("SOCKET_PATH", fmt.Sprintf("%s/dployr.sock", ServerHome)),
 		MaxWorkers: getEnvAsInt("MAX_WORKERS", 5),
 		ServerHome: getEnv("SERVER_HOME", ServerHome),
+		GitHubToken: getEnv("GITHUB_TOKEN", ""),
+		GitLabToken: getEnv("GITLAB_TOKEN", ""),
+		BitBucketToken: getEnv("BITBUCKET_TOKEN", ""),
 		SecretKey:  secret,
 	}, nil
 }

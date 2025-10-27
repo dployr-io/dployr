@@ -25,6 +25,7 @@ require (
 require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang-jwt/jwt/v4 v4.5.2
+	github.com/kardianos/service v1.2.4
 	github.com/oklog/ulid v1.3.1
 	github.com/oklog/ulid/v2 v2.1.1 // indirect
 	github.com/spf13/cobra v1.10.1
