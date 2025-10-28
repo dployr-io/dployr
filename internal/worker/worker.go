@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"dployr/internal/deploy"
-	_service "dployr/internal/service"
+	"dployr/internal/svc_runtime"
 	"dployr/pkg/core/service"
 	"dployr/pkg/core/utils"
 	"dployr/pkg/shared"
@@ -19,8 +19,9 @@ import (
 type Worker struct {
 	maxConcurrent int
 	logger        *slog.Logger
-	store         store.DeploymentStore
-	config        *shared.Config
+	depsStore         store.DeploymentStore
+	svcStore store.ServiceStore
+	cfg        *shared.Config
 	semaphore     chan struct{}
 	activeJobs    map[string]bool
 	jobsMux       sync.RWMutex
@@ -28,13 +29,14 @@ type Worker struct {
 }
 
 // New creates a new Worker instance
-func New(maxConcurrent int, config *shared.Config, logger *slog.Logger, store store.DeploymentStore) *Worker {
+func New(m int, c *shared.Config, l *slog.Logger, d store.DeploymentStore, s store.ServiceStore) *Worker {
 	return &Worker{
-		maxConcurrent: maxConcurrent,
-		logger:        logger,
-		store:         store,
-		config:        config,
-		semaphore:     make(chan struct{}, maxConcurrent),
+		maxConcurrent: m,
+		logger:        l,
+		depsStore:         d,
+		svcStore: s,
+		cfg:        c,
+		semaphore:     make(chan struct{}, m),
 		activeJobs:    make(map[string]bool),
 		queue:         make(chan string, 100),
 	}
@@ -71,14 +73,14 @@ func (w *Worker) execute(ctx context.Context, id string) {
 		<-w.semaphore
 	}()
 
-	w.store.UpdateDeploymentStatus(ctx, id, string(store.StatusInProgress))
+	w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusInProgress))
 	if err := w.runDeployment(ctx, id); err != nil {
 		w.logger.Error("deployment failed", "error", err)
-		w.store.UpdateDeploymentStatus(ctx, id, string(store.StatusFailed))
+		w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusFailed))
 		return
 	}
 
-	w.store.UpdateDeploymentStatus(ctx, id, string(store.StatusCompleted))
+	w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusCompleted))
 }
 
 func (w *Worker) runDeployment(ctx context.Context, id string) error {
@@ -88,7 +90,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 	logPath := homeDir + "/.dployr/logs/" + id
 
-	d, err := w.store.GetDeployment(ctx, id)
+	d, err := w.depsStore.GetDeployment(ctx, id)
 	if err != nil {
 		msg := fmt.Sprintf("could not resolve user home directory: %v", err)
 		w.logger.Error(msg)
@@ -105,7 +107,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	shared.LogInfoF(id, logPath, "cloning repository")
-	err = deploy.CloneRepo(d.Cfg.Remote, workingDir, d.Cfg.WorkingDir, w.config)
+	err = deploy.CloneRepo(d.Cfg.Remote, workingDir, d.Cfg.WorkingDir, w.cfg)
 	if err != nil {
 		err = fmt.Errorf("failed to clone repository: %s", err)
 		shared.LogErrF(id, logPath, err)
@@ -134,7 +136,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	shared.LogInfoF(id, logPath, "creating service")
-	s := &_service.NSSMManager{}
+	s := &svc_runtime.NSSMManager{}
 
 	svcName := utils.FormatName(d.Cfg.Name)
 
@@ -159,7 +161,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		return err
 	}
 
-	bat, err := _service.CreateRunFile(d.Cfg, dir, exe, cmdArgs)
+	bat, err := svc_runtime.CreateRunFile(d.Cfg, dir, exe, cmdArgs)
 	if err != nil {
 		err = fmt.Errorf("%s", err)
 		shared.LogErrF(id, logPath, err)
@@ -182,8 +184,28 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		return err
 	}
 
+	req := &store.Service{
+		ID: svcName,
+		Name: d.Cfg.Name,
+		Description: d.Cfg.Desc,
+		Source: d.Cfg.Source,
+		Runtime: d.Cfg.Runtime.Type,
+		RuntimeVersion: d.Cfg.Runtime.Version,
+		RunCmd: d.Cfg.RunCmd,
+		BuildCmd: d.Cfg.BuildCmd,
+		Port: d.Cfg.Port,
+		WorkingDir: d.Cfg.WorkingDir,
+		StaticDir: d.Cfg.StaticDir,
+		Image: d.Cfg.Image,
+		EnvVars: d.Cfg.EnvVars,
+		Remote: d.Cfg.Remote,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	w.svcStore.CreateService(ctx, req)
+
 	shared.LogInfoF(id, logPath, fmt.Sprintf("successfully deployed %s", d.Cfg.Name))
-	w.store.UpdateDeploymentStatus(ctx, id, string(store.StatusCompleted))
+	w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusCompleted))
 
 	return nil
 }

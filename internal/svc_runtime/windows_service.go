@@ -1,4 +1,4 @@
-package service
+package svc_runtime
 
 import (
 	"bytes"
@@ -173,3 +173,17 @@ func CreateRunFile(c store.Config, workDir, exe string, cmdArgs []string) (strin
 }
 
 
+
+
+// func GetSvcMgr() (SvcMgr, error) {
+// 	switch runtime.GOOS {
+// 	case "windows":
+// 		return &NSSMManager{}, nil
+// 	case "linux":
+// 		return nil, fmt.Errorf("systemd manager not yet implemented")
+// 	case "darwin":
+// 		return nil, fmt.Errorf("launchd manager not yet implemented")
+// 	default:
+// 		return nil, fmt.Errorf("unsupported platform")
+// 	}
+// }

@@ -1,11 +1,12 @@
 package deploy
 
 import (
-	"dployr/pkg/shared"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
+
+	"dployr/pkg/shared"
 )
 
 type DeploymentHandler struct {

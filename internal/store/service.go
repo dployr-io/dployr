@@ -11,29 +11,33 @@ type ServiceStore struct {
 	db *sql.DB
 }
 
-func (s ServiceStore) CreateService(ctx context.Context, svc *store.Service) error {
+func NewServiceStore(db *sql.DB) *ServiceStore {
+	return &ServiceStore{db: db}
+}
+
+func (s ServiceStore) CreateService(ctx context.Context, svc *store.Service) (*store.Service, error) {
 	stmt, err := s.db.PrepareContext(ctx, `
 		INSERT INTO services
 		(id, name, source, runtime, runtime_version, run_cmd, build_cmd, port, working_dir,
-		static_dir, image, env_vars, status, project_id, remote_id,
-		created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		static_dir, image, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer stmt.Close()
 
 	_, err = stmt.ExecContext(ctx, svc.ID, svc.Name, svc.Source, svc.Runtime, svc.RuntimeVersion, svc.RunCmd, svc.BuildCmd, svc.Port,
-		svc.WorkingDir, svc.StaticDir, svc.Image, svc.EnvVars, svc.Status,
-		svc.ProjectID, svc.RemoteID, svc.CreatedAt, svc.UpdatedAt)
-	return err
+		svc.WorkingDir, svc.StaticDir, svc.Image, svc.CreatedAt, svc.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return svc, nil
 }
 
 func (s ServiceStore) GetService(ctx context.Context, id string) (*store.Service, error) {
 	stmt, err := s.db.PrepareContext(ctx, `
 		SELECT id, name, source, runtime, runtime_version, run_cmd, port, working_dir,
-		       static_dir, image, env_vars, status, project_id, remote_id,
-		       created_at, updated_at
+		       static_dir, image, created_at, updated_at
 		FROM services WHERE id = ?`)
 	if err != nil {
 		return nil, err
@@ -45,8 +49,7 @@ func (s ServiceStore) GetService(ctx context.Context, id string) (*store.Service
 	var svc store.Service
 	err = row.Scan(
 		&svc.ID, &svc.Name, &svc.Source, &svc.Runtime, &svc.RuntimeVersion, &svc.RunCmd,
-		&svc.Port, &svc.WorkingDir, &svc.StaticDir, &svc.Image, &svc.EnvVars,
-		&svc.Status, &svc.ProjectID, &svc.RemoteID, &svc.CreatedAt, &svc.UpdatedAt,
+		&svc.Port, &svc.WorkingDir, &svc.StaticDir, &svc.Image, &svc.CreatedAt, &svc.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -57,8 +60,7 @@ func (s ServiceStore) GetService(ctx context.Context, id string) (*store.Service
 func (s ServiceStore) ListServices(ctx context.Context, limit, offset int) ([]*store.Service, error) {
 	stmt, err := s.db.PrepareContext(ctx, `
 		SELECT id, name, source, runtime, runtime_version, run_cmd, port, working_dir,
-		       static_dir, image, env_vars, status, project_id, remote_id,
-		       created_at, updated_at
+		       static_dir, image, created_at, updated_at
 		FROM services
 		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?`)
@@ -78,8 +80,7 @@ func (s ServiceStore) ListServices(ctx context.Context, limit, offset int) ([]*s
 		var svc store.Service
 		err := rows.Scan(
 			&svc.ID, &svc.Name, &svc.Source, &svc.Runtime, &svc.RuntimeVersion, &svc.RunCmd,
-			&svc.Port, &svc.WorkingDir, &svc.StaticDir, &svc.Image, &svc.EnvVars,
-			&svc.Status, &svc.ProjectID, &svc.RemoteID, &svc.CreatedAt, &svc.UpdatedAt,
+			&svc.Port, &svc.WorkingDir, &svc.StaticDir, &svc.Image, &svc.CreatedAt, &svc.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -92,4 +93,20 @@ func (s ServiceStore) ListServices(ctx context.Context, limit, offset int) ([]*s
 	}
 
 	return services, nil
+}
+
+func (s ServiceStore) UpdateService(ctx context.Context, svc *store.Service) error {
+	stmt, err := s.db.PrepareContext(ctx, `
+		UPDATE services 
+		SET name = ?, source = ?, runtime = ?, runtime_version = ?, run_cmd = ?, build_cmd = ?, 
+		    port = ?, working_dir = ?, static_dir = ?, image = ?, updated_at = ? 
+		WHERE id = ?`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.ExecContext(ctx, svc.Name, svc.Source, svc.Runtime, svc.RuntimeVersion, svc.RunCmd, svc.BuildCmd,
+		svc.Port, svc.WorkingDir, svc.StaticDir, svc.Image, svc.UpdatedAt, svc.ID)
+	return err
 }

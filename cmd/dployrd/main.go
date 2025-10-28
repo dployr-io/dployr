@@ -35,11 +35,12 @@ func main() {
 	logger := shared.NewLogger()
 	us := _store.NewUserStore(conn)
 	ds := _store.NewDeploymentStore(conn)
+	ss := _store.NewServiceStore(conn)
 	ctx := context.Background()
 	ctx = shared.WithRequest(ctx, ulid.Make().String())
 	ctx = shared.WithTrace(ctx, ulid.Make().String())
 
-	w := worker.New(5, cfg, logger, ds) // 5 concurrent deployments
+	w := worker.New(5, cfg, logger, ds, ss) // 5 concurrent deployments
 
 	authService := _auth.NewAuth(cfg)
 	ah := auth.NewAuthHandler(us, logger, authService)

@@ -289,6 +289,128 @@ func main() {
 	listDeploymentsCmd.Flags().IntP("limit", "l", 10, "Maximum number of deployments to show")
 	rootCmd.AddCommand(listDeploymentsCmd)
 
+	// Services command group
+	servicesCmd := &cobra.Command{
+		Use:   "services",
+		Short: "manage services",
+		Long:  "list and manage dployr services",
+	}
+
+	// List services command
+	listServicesCmd := &cobra.Command{
+		Use:   "list",
+		Short: "list services",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			token, _ := shared.GetToken()
+
+			limit, _ := cmd.Flags().GetInt("limit")
+			if limit <= 0 {
+				limit = 10
+			}
+
+			r, err := http.NewRequest("GET", addr+"/services", nil)
+			if err != nil {
+				return fmt.Errorf("failed to create request: %v", err)
+			}
+
+			r.Header.Set("Authorization", "Bearer "+token)
+			q := r.URL.Query()
+			q.Add("limit", fmt.Sprintf("%d", limit))
+			r.URL.RawQuery = q.Encode()
+			client := &http.Client{}
+			resp, err := client.Do(r)
+			if err != nil {
+				return fmt.Errorf("failed to connect to server: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("failed to list services with status %d: %s", resp.StatusCode, string(body))
+			}
+
+			var services []store.Service
+			if err := json.NewDecoder(resp.Body).Decode(&services); err != nil {
+				return fmt.Errorf("failed to parse response: %v", err)
+			}
+
+			if len(services) == 0 {
+				fmt.Println("no services found")
+				return nil
+			}
+
+			fmt.Printf("\nfound %d service(s):\n\n", len(services))
+			for _, svc := range services {
+				fmt.Printf("  id:       %s\n", svc.ID)
+				fmt.Printf("  name:     %s\n", svc.Name)
+				fmt.Printf("  status:   %s\n", svc.Status)
+				fmt.Printf("  type:     %s\n", svc.Description)
+				if svc.Port > 0 {
+					fmt.Printf("  port:     %d\n", svc.Port)
+				}
+				fmt.Printf("  created:  %s\n", svc.CreatedAt.Format("2006-01-02 15:04:05"))
+				fmt.Println()
+			}
+
+			return nil
+		},
+	}
+
+	listServicesCmd.Flags().IntP("limit", "l", 10, "Maximum number of services to show")
+	servicesCmd.AddCommand(listServicesCmd)
+
+	// Get service command
+	getServiceCmd := &cobra.Command{
+		Use:   "get [service-id]",
+		Short: "get service details",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			token, _ := shared.GetToken()
+			serviceID := args[0]
+
+			r, err := http.NewRequest("GET", addr+"/services/"+serviceID, nil)
+			if err != nil {
+				return fmt.Errorf("failed to create request: %v", err)
+			}
+
+			r.Header.Set("Authorization", "Bearer "+token)
+			client := &http.Client{}
+			resp, err := client.Do(r)
+			if err != nil {
+				return fmt.Errorf("failed to connect to server: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("failed to get service with status %d: %s", resp.StatusCode, string(body))
+			}
+
+			var service store.Service
+			if err := json.NewDecoder(resp.Body).Decode(&service); err != nil {
+				return fmt.Errorf("failed to parse response: %v", err)
+			}
+
+			fmt.Printf("\nservice details:\n\n")
+			fmt.Printf("  id:          %s\n", service.ID)
+			fmt.Printf("  name:        %s\n", service.Name)
+			fmt.Printf("  status:      %s\n", service.Status)
+			if service.Port > 0 {
+				fmt.Printf("  port:        %d\n", service.Port)
+			}
+			if service.Description != "" {
+				fmt.Printf("  description: %s\n", service.Description)
+			}
+			fmt.Printf("  created:     %s\n", service.CreatedAt.Format("2006-01-02 15:04:05"))
+			fmt.Printf("  updated:     %s\n", service.UpdatedAt.Format("2006-01-02 15:04:05"))
+
+			return nil
+		},
+	}
+
+	servicesCmd.AddCommand(getServiceCmd)
+	rootCmd.AddCommand(servicesCmd)
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)

@@ -34,15 +34,16 @@ type Service struct {
 	WorkingDir     string         `json:"working_dir,omitempty" db:"working_dir"`
 	StaticDir      string         `json:"static_dir,omitempty" db:"static_dir"`
 	Image          string         `json:"image,omitempty" db:"image"`
-	EnvVars        string         `json:"env_vars,omitempty" db:"env_vars"`
-	Status         string         `json:"status" db:"status"`
-	ProjectID      *string `json:"project_id,omitempty" db:"project_id"`
-	RemoteID       *string `json:"remote_id,omitempty" db:"remote_id"`
+	EnvVars        map[string]string         `json:"env_vars,omitempty"`
+	Status         string        `json:"status"`
+	Remote       RemoteObj `json:"remote,omitempty" db:"remote"`
 	CreatedAt      time.Time      `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at" db:"updated_at"`
 }
 
 type ServiceStore interface {
-	CreateService(ctx context.Context, svc *Service) error
+	CreateService(ctx context.Context, svc *Service) (*Service, error)
 	GetService(ctx context.Context, id string) (*Service, error)
+	ListServices(ctx context.Context, limit, offset int) ([]*Service, error)
+	UpdateService(ctx context.Context, svc *Service) error
 }

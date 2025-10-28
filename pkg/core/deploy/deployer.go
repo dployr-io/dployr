@@ -56,6 +56,6 @@ type DeployResponse struct {
 type HandleDeployment interface {
 	Deploy(ctx context.Context, req *DeployRequest) (*DeployResponse, error)
 	GetDeployment(ctx context.Context, id string) (*store.Deployment, error)
-	ListDeployments(ctx context.Context, userID string, limit, offset int) ([]*store.Deployment, error)
+	ListDeployments(ctx context.Context, id string, limit, offset int) ([]*store.Deployment, error)
 	UpdateDeploymentStatus(ctx context.Context, id string, status store.Status) error
 }
