@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"dployr/pkg/core/utils"
@@ -31,7 +32,7 @@ func SetupDir(name string) (string, error) {
 // CloneRepo clones a git repository to the specified directory
 func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.Config) error {
 	workDir = fmt.Sprint(destDir, "/", workDir)
-	authUrl, err := utils.BuildAuthUrl(remote.Url, config)
+	authUrl, err := buildAuthUrl(remote.Url, config)
 	if err != nil {
 		return err
 	}
@@ -147,4 +148,34 @@ func InstallDeps(buildCmd, workDir string, r store.RuntimeObj) error {
 	}
 
 	return nil
+}
+
+func buildAuthUrl(url string, config *shared.Config) (string, error) {
+	if strings.Contains(url, "@") {
+		return url, nil
+	}
+	var token, username string
+
+	switch {
+	case strings.Contains(url, "github.com"):
+		token, username = config.GitHubToken, "git"
+	case strings.Contains(url, "gitlab.com"):
+		token, username = config.GitLabToken, "git"
+	case strings.Contains(url, "bitbucket.org"):
+		token, username = config.BitBucketToken, "git"
+	default:
+		return url, nil
+	}
+	if token == "" {
+		return url, nil
+	}
+
+	cleanUrl := url
+	if after, ok :=strings.CutPrefix(cleanUrl, "http://"); ok  {
+		cleanUrl = "https://" + after
+	}
+	if strings.HasPrefix(cleanUrl, "https://") {
+		return strings.Replace(cleanUrl, "https://", fmt.Sprintf("https://%s:%s@", username, token), 1), nil
+	}
+	return url, nil
 }

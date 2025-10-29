@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"strings"
 
-	"dployr/pkg/shared"
 	"dployr/pkg/store"
 )
 
@@ -263,32 +262,3 @@ func GetVfox() (string, error) {
 	return "", fmt.Errorf("vfox executable not found")
 }
 
-func BuildAuthUrl(url string, config *shared.Config) (string, error) {
-	if strings.Contains(url, "@") {
-		return url, nil
-	}
-	var token, username string
-
-	switch {
-	case strings.Contains(url, "github.com"):
-		token, username = config.GitHubToken, "git"
-	case strings.Contains(url, "gitlab.com"):
-		token, username = config.GitLabToken, "git"
-	case strings.Contains(url, "bitbucket.org"):
-		token, username = config.BitBucketToken, "git"
-	default:
-		return url, nil
-	}
-	if token == "" {
-		return url, nil
-	}
-
-	cleanUrl := url
-	if strings.HasPrefix(cleanUrl, "http://") {
-		cleanUrl = "https://" + strings.TrimPrefix(cleanUrl, "http://")
-	}
-	if strings.HasPrefix(cleanUrl, "https://") {
-		return strings.Replace(cleanUrl, "https://", fmt.Sprintf("https://%s:%s@", username, token), 1), nil
-	}
-	return url, nil
-}
