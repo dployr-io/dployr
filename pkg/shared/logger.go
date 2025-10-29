@@ -7,13 +7,17 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
+
+	"github.com/oklog/ulid/v2"
 )
 
 type LogEntry struct {
+	Id 		string    `json:"id"`
 	Level   string    `json:"level"`
-	Message string    `json:"msg"`
-	Time    time.Time `json:"ts"`
+	Message string    `json:"message"`
+	Time    time.Time `json:"timestamp"`
 	Error   error    `json:"error,omitempty"`
 }
 
@@ -56,7 +60,7 @@ func LogF(name, dir string, entry LogEntry) error {
 		return fmt.Errorf("failed to create log directory: %w", err)
 	}
 
-	logFile := filepath.Join(dir, ".log")
+	logFile := filepath.Join(dir, fmt.Sprintf("%s.log", strings.ToLower(name)))
 	file, openErr := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if openErr != nil {
 		return fmt.Errorf("failed to create log file: %w", openErr)
@@ -84,6 +88,7 @@ func LogF(name, dir string, entry LogEntry) error {
 // LogInfoF logs a info to file
 func LogInfoF(name, dir, message string) error {
 	entry := LogEntry{
+		Id: 	ulid.Make().String(),
 		Level:   "info",
 		Message: message,
 		Time:    time.Now(),
@@ -94,6 +99,7 @@ func LogInfoF(name, dir, message string) error {
 // LogInfoF logs a warning to file
 func LogWarnF(name, dir, message string) error {
 	entry := LogEntry{
+		Id: 	ulid.Make().String(),
 		Level:   "warn",
 		Message: message,
 		Time:    time.Now(),
@@ -104,6 +110,7 @@ func LogWarnF(name, dir, message string) error {
 // LogErrF logs an error to file
 func LogErrF(name, dir string, err error) error {
 	entry := LogEntry{
+		Id: 	ulid.Make().String(),
 		Level:   "error",
         Error: err,
 		Time:    time.Now(),

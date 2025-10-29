@@ -2,20 +2,23 @@ package main
 
 import (
 	"context"
-	"dployr/pkg/core/deploy"
-	"dployr/pkg/shared"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	_auth "dployr/internal/auth"
 	"dployr/internal/db"
-	_store "dployr/internal/store"
 	_deploy "dployr/internal/deploy"
+	_store "dployr/internal/store"
+	_stream "dployr/internal/stream"
 	"dployr/internal/web"
 	"dployr/internal/worker"
 	"dployr/pkg/auth"
+	"dployr/pkg/core/deploy"
+	"dployr/pkg/core/stream"
+	"dployr/pkg/shared"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -35,25 +38,31 @@ func main() {
 	logger := shared.NewLogger()
 	us := _store.NewUserStore(conn)
 	ds := _store.NewDeploymentStore(conn)
-	ss := _store.NewServiceStore(conn)
+	ss := _store.NewServiceStore(conn, ds)
 	ctx := context.Background()
 	ctx = shared.WithRequest(ctx, ulid.Make().String())
 	ctx = shared.WithTrace(ctx, ulid.Make().String())
 
 	w := worker.New(5, cfg, logger, ds, ss) // 5 concurrent deployments
 
-	authService := _auth.NewAuth(cfg)
+	authService := _auth.Init(cfg)
 	ah := auth.NewAuthHandler(us, logger, authService)
 	am := auth.NewMiddleware(authService, us)
 
-	api := _deploy.New(cfg, logger, ds, w)
-
+	api := _deploy.Init(cfg, logger, ds, w)
 	deployer := deploy.NewDeployer(cfg, logger, ds, api)
 	dh := deploy.NewDeploymentHandler(deployer, logger)
+
+	logsService := _stream.Init()
+	homeDir, _ := os.UserHomeDir()
+	logsDir := filepath.Join(homeDir, ".dployr", "logs")
+	ls := stream.NewLogStreamer(logsDir, logsService)
+	lh := stream.NewLogStreamHandler(ls, logger)
 
 	wh := web.WebHandler{
 		AuthH: ah,
 		DepsH: dh,
+		LogsH: lh,
 		AuthM: am,
 	}
 

@@ -12,6 +12,7 @@ type WebHandler struct {
 	AuthH *auth.AuthHandler
 	DepsH DeploymentHandler
 	SvcH  ServiceHandler
+	LogsH LogStreamHandler
 	AuthM *auth.Middleware
 }
 
@@ -26,9 +27,30 @@ type ServiceHandler interface {
 	UpdateService(w http.ResponseWriter, r *http.Request)
 }
 
+type LogStreamHandler interface {
+	OpenLogStream(w http.ResponseWriter, r *http.Request)
+}
+
 func (w *WebHandler) NewServer(port int) error {
-	http.HandleFunc("/auth/request", w.AuthH.GenerateToken)
-	http.HandleFunc("/auth/verify", w.AuthH.ValidateToken)
+	// TODO: Remove temporary CORS middleware for localhost:5173
+	corsMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+			rw.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+			rw.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			rw.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			rw.Header().Set("Access-Control-Allow-Credentials", "true")
+
+			if req.Method == "OPTIONS" {
+				rw.WriteHeader(http.StatusOK)
+				return
+			}
+
+			next.ServeHTTP(rw, req)
+		})
+	}
+
+	http.Handle("/auth/request", corsMiddleware(http.HandlerFunc(w.AuthH.GenerateToken)))
+	http.Handle("/auth/verify", corsMiddleware(http.HandlerFunc(w.AuthH.ValidateToken)))
 
 	depsH := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		switch req.Method {
@@ -40,9 +62,8 @@ func (w *WebHandler) NewServer(port int) error {
 			http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
-	http.Handle("/deployments", w.AuthM.Auth(w.AuthM.Trace(depsH)))
+	http.Handle("/deployments", corsMiddleware(w.AuthM.Auth(w.AuthM.Trace(depsH))))
 
-	// Handle /services (list all services)
 	svcListH := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if req.URL.Path != "/services" {
 			http.NotFound(rw, req)
@@ -55,7 +76,7 @@ func (w *WebHandler) NewServer(port int) error {
 			http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
-	http.Handle("/services", w.AuthM.Auth(w.AuthM.Trace(svcListH)))
+	http.Handle("/services", corsMiddleware(w.AuthM.Auth(w.AuthM.Trace(svcListH))))
 
 	svcH := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		path := req.URL.Path
@@ -84,7 +105,9 @@ func (w *WebHandler) NewServer(port int) error {
 			http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
-	http.Handle("/services/", w.AuthM.Auth(w.AuthM.Trace(svcH)))
+	http.Handle("/services/", corsMiddleware(w.AuthM.Auth(w.AuthM.Trace(svcH))))
+
+	http.Handle("/logs/stream", corsMiddleware(http.HandlerFunc(w.LogsH.OpenLogStream)))
 
 	addr := ":" + strconv.Itoa(port)
 	log.Printf("Listening on port %s", addr)
