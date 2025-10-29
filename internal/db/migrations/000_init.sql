@@ -26,7 +26,6 @@ CREATE TABLE IF NOT EXISTS deployments (
     id TEXT PRIMARY KEY,
     config JSON NOT NULL DEFAULT '{}',
     status TEXT NOT NULL DEFAULT 'pending',
-    save_spec BOOLEAN NOT NULL DEFAULT FALSE,
     metadata JSON NOT NULL DEFAULT '{}',
     user_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -36,7 +35,7 @@ CREATE TABLE IF NOT EXISTS deployments (
 -- SERVICES TABLE
 CREATE TABLE IF NOT EXISTS services (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
+    name TEXT UNIQUE NOT NULL,
     description TEXT,
     source TEXT NOT NULL,
     runtime TEXT NOT NULL,
@@ -47,10 +46,13 @@ CREATE TABLE IF NOT EXISTS services (
     working_dir TEXT NOT NULL,
     static_dir TEXT,
     image TEXT,
+    remote_url TEXT,
+    remote_branch TEXT,
+    remote_commit_hash TEXT,
     env_vars JSON NOT NULL DEFAULT '{}',
     secrets JSON NOT NULL DEFAULT '{}',
     status TEXT NOT NULL,
-    remote_id TEXT NULL REFERENCES remotes(id) ON DELETE SET NULL,
+    deployment_id TEXT NULL REFERENCES deployments(id) ON DELETE SET NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

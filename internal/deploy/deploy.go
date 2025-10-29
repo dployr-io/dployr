@@ -18,19 +18,19 @@ type Dispatcher interface {
 }
 
 type Deployer struct {
-	cfg       *shared.Config
-	logger       *slog.Logger
-	store        store.DeploymentStore
-	job			 Dispatcher
+	cfg    *shared.Config
+	logger *slog.Logger
+	store  store.DeploymentStore
+	job    Dispatcher
 }
 
-// New creates a new Deployer instance
-func New(c *shared.Config, l *slog.Logger, s store.DeploymentStore, j Dispatcher) *Deployer {
+// Init creates a new Deployer instance
+func Init(c *shared.Config, l *slog.Logger, s store.DeploymentStore, j Dispatcher) *Deployer {
 	return &Deployer{
-		cfg:       c,
-		logger:       l,
-		store:        s,
-		job: 	    	j,
+		cfg:    c,
+		logger: l,
+		store:  s,
+		job:    j,
 	}
 }
 
@@ -56,7 +56,7 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 	deployment := &store.Deployment{
 		ID:     ulid.Make().String(),
 		Status: store.StatusPending,
-		Cfg: store.Config{
+		Blueprint: store.Blueprint{
 			Name:       req.Name,
 			Desc:       req.Description,
 			Runtime:    req.Runtime,
@@ -70,7 +70,6 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 			Remote:     req.Remote,
 			Source:     req.Source,
 		},
-		SaveSpec:  req.SaveSpec,
 		UserId:    &user.ID,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -94,7 +93,7 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 
 	return &deploy.DeployResponse{
 		ID:        deployment.ID,
-		Name:      deployment.Cfg.Name,
+		Name:      deployment.Blueprint.Name,
 		Success:   true,
 		CreatedAt: deployment.CreatedAt,
 	}, nil

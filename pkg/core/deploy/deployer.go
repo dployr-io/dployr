@@ -38,7 +38,6 @@ type DeployRequest struct {
 	WorkingDir  string            `json:"working_dir,omitempty" validate:"omitempty"`
 	StaticDir   string            `json:"static_dir,omitempty" validate:"omitempty"`
 	Image       string            `json:"image,omitempty" validate:"omitempty"`
-	SaveSpec    bool              `json:"save_spec,omitempty" validate:"omitempty"`
 	EnvVars     map[string]string `json:"env_vars,omitempty" validate:"omitempty"`
 	Secrets     map[string]string `json:"secrets,omitempty" validate:"omitempty"`
 	Remote      store.RemoteObj   `json:"remote,omitempty" validate:"omitempty"`

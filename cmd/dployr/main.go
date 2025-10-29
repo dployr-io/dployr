@@ -124,7 +124,6 @@ func main() {
 			image, _ := cmd.Flags().GetString("image")
 			domain, _ := cmd.Flags().GetString("domain")
 			dnsProvider, _ := cmd.Flags().GetString("dns-provider")
-			saveSpec, _ := cmd.Flags().GetBool("save-spec")
 			envVars, _ := cmd.Flags().GetStringToString("env")
 			remote, _ := cmd.Flags().GetString("remote")
 			branch, _ := cmd.Flags().GetString("branch")
@@ -156,7 +155,6 @@ func main() {
 				Image:       image,
 				Domain:      domain,
 				DNSProvider: dnsProvider,
-				SaveSpec:    saveSpec,
 				EnvVars:     envVars,
 			}
 
@@ -218,7 +216,6 @@ func main() {
 	deployCmd.Flags().StringP("image", "", "", "Docker image name")
 	deployCmd.Flags().StringP("domain", "", "", "Domain name")
 	deployCmd.Flags().StringP("dns-provider", "", "", "DNS provider")
-	deployCmd.Flags().BoolP("save-spec", "", false, "Save deployment specification")
 	deployCmd.Flags().StringToStringP("env", "e", nil, "Environment variables (key=value pairs)")
 	deployCmd.Flags().StringP("remote", "", "", "Url to remote repository")
 	deployCmd.Flags().StringP("branch", "", "", "Git branch")
@@ -272,11 +269,11 @@ func main() {
 			fmt.Printf("\nfound %d deployment(s):\n\n", len(deployments))
 			for _, dep := range deployments {
 				fmt.Printf("  id:       %s\n", dep.ID)
-				fmt.Printf("  name:     %s\n", dep.Cfg.Name)
+				fmt.Printf("  name:     %s\n", dep.Blueprint.Name)
 				fmt.Printf("  status:   %s\n", dep.Status)
-				fmt.Printf("  runtime:  %s\n", dep.Cfg.Runtime.Type)
-				if dep.Cfg.Runtime.Version != "" {
-					fmt.Printf("  version:  %s\n", dep.Cfg.Runtime.Version)
+				fmt.Printf("  runtime:  %s\n", dep.Blueprint.Runtime.Type)
+				if dep.Blueprint.Runtime.Version != "" {
+					fmt.Printf("  version:  %s\n", dep.Blueprint.Runtime.Version)
 				}
 				fmt.Printf("  created:  %s\n", dep.CreatedAt.Format("2006-01-02 15:04:05"))
 				fmt.Println()

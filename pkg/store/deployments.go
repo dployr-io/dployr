@@ -25,7 +25,7 @@ type RemoteObj struct {
 	CommitHash string `json:"commit_hash" db:"commit_hash"`
 }
 
-type Config struct {
+type Blueprint struct {
 	Name       string            `json:"name" db:"name"`
 	Desc       string            `json:"description" db:"description"`
 	Source     string            `json:"source" db:"source"`
@@ -45,9 +45,8 @@ type Config struct {
 type Deployment struct {
 	ID        string    `json:"id" db:"id"`
 	UserId    *string   `json:"user_id,omitempty" db:"user_id"`
-	Cfg       Config    `json:"config" db:"config"`
+	Blueprint Blueprint `json:"config" db:"config"`
 	Status    Status    `json:"status" db:"status"`
-	SaveSpec  bool      `json:"save_spec" db:"save_spec"`
 	Metadata  string    `json:"metadata" db:"metadata"`
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`

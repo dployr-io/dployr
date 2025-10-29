@@ -14,7 +14,7 @@ type Auth struct {
 	cfg *shared.Config
 }
 
-func NewAuth(cfg *shared.Config) *Auth {
+func Init(cfg *shared.Config) *Auth {
 	return &Auth{cfg: cfg}
 }
 

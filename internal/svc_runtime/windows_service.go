@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"dployr/pkg/core/utils"
 	"dployr/pkg/core/service"
+	"dployr/pkg/core/utils"
 	"dployr/pkg/store"
 )
 
@@ -154,7 +154,7 @@ func (n *NSSMManager) Remove(name string) error {
 	return cmd.Run()
 }
 
-func CreateRunFile(c store.Config, workDir, exe string, cmdArgs []string) (string, error) {
+func CreateRunFile(c store.Blueprint, workDir, exe string, cmdArgs []string) (string, error) {
 	cmd := exe
 	if len(cmdArgs) > 0 {
 		cmd = fmt.Sprintf("%s %s", exe, strings.Join(cmdArgs, " "))
@@ -171,9 +171,6 @@ func CreateRunFile(c store.Config, workDir, exe string, cmdArgs []string) (strin
 
 	return bat, nil
 }
-
-
-
 
 // func GetSvcMgr() (SvcMgr, error) {
 // 	switch runtime.GOOS {

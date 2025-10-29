@@ -19,9 +19,9 @@ import (
 type Worker struct {
 	maxConcurrent int
 	logger        *slog.Logger
-	depsStore         store.DeploymentStore
-	svcStore store.ServiceStore
-	cfg        *shared.Config
+	depsStore     store.DeploymentStore
+	svcStore      store.ServiceStore
+	cfg           *shared.Config
 	semaphore     chan struct{}
 	activeJobs    map[string]bool
 	jobsMux       sync.RWMutex
@@ -33,9 +33,9 @@ func New(m int, c *shared.Config, l *slog.Logger, d store.DeploymentStore, s sto
 	return &Worker{
 		maxConcurrent: m,
 		logger:        l,
-		depsStore:         d,
-		svcStore: s,
-		cfg:        c,
+		depsStore:     d,
+		svcStore:      s,
+		cfg:           c,
 		semaphore:     make(chan struct{}, m),
 		activeJobs:    make(map[string]bool),
 		queue:         make(chan string, 100),
@@ -88,7 +88,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	if err != nil {
 		return fmt.Errorf("could not resolve user home directory: %v", err)
 	}
-	logPath := homeDir + "/.dployr/logs/" + id
+	logPath := homeDir + "/.dployr/logs/"
 
 	d, err := w.depsStore.GetDeployment(ctx, id)
 	if err != nil {
@@ -98,7 +98,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	shared.LogInfoF(id, logPath, "creating workspace")
-	workingDir, err := deploy.SetupDir(d.Cfg.Name)
+	workingDir, err := deploy.SetupDir(d.Blueprint.Name)
 	dir := ""
 	if err != nil {
 		err = fmt.Errorf("failed to setup working directory %s: %v", workingDir, err)
@@ -107,7 +107,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	shared.LogInfoF(id, logPath, "cloning repository")
-	err = deploy.CloneRepo(d.Cfg.Remote, workingDir, d.Cfg.WorkingDir, w.cfg)
+	err = deploy.CloneRepo(d.Blueprint.Remote, workingDir, d.Blueprint.WorkingDir, w.cfg)
 	if err != nil {
 		err = fmt.Errorf("failed to clone repository: %s", err)
 		shared.LogErrF(id, logPath, err)
@@ -115,19 +115,19 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	// Set the working directory for the service
-	dir = fmt.Sprint(workingDir, "/", d.Cfg.WorkingDir)
+	dir = fmt.Sprint(workingDir, "/", d.Blueprint.WorkingDir)
 
 	shared.LogInfoF(id, logPath, "installing runtime")
-	err = deploy.SetupRuntime(d.Cfg.Runtime, dir)
+	err = deploy.SetupRuntime(d.Blueprint.Runtime, dir)
 	if err != nil {
 		err = fmt.Errorf("failed to setup runtime: %s", err)
 		shared.LogErrF(id, logPath, err)
 		return err
 	}
 
-	if d.Cfg.BuildCmd != "" {
+	if d.Blueprint.BuildCmd != "" {
 		shared.LogInfoF(id, logPath, "installing dependencies")
-		err := deploy.InstallDeps(d.Cfg.BuildCmd, dir, d.Cfg.Runtime)
+		err := deploy.InstallDeps(d.Blueprint.BuildCmd, dir, d.Blueprint.Runtime)
 		if err != nil {
 			err = fmt.Errorf("failed to setup working directory: %s", err)
 			shared.LogErrF(id, logPath, err)
@@ -138,7 +138,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	shared.LogInfoF(id, logPath, "creating service")
 	s := &svc_runtime.NSSMManager{}
 
-	svcName := utils.FormatName(d.Cfg.Name)
+	svcName := utils.FormatName(d.Blueprint.Name)
 
 	status, err := s.Status(svcName)
 	if err == nil {
@@ -153,7 +153,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	shared.LogInfoF(id, logPath, "creating run file")
-	exe, cmdArgs, err := utils.GetExeArgs(d.Cfg.Runtime, d.Cfg.RunCmd)
+	exe, cmdArgs, err := utils.GetExeArgs(d.Blueprint.Runtime, d.Blueprint.RunCmd)
 
 	if err != nil {
 		err = fmt.Errorf("%s", err)
@@ -161,7 +161,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		return err
 	}
 
-	bat, err := svc_runtime.CreateRunFile(d.Cfg, dir, exe, cmdArgs)
+	bat, err := svc_runtime.CreateRunFile(d.Blueprint, dir, exe, cmdArgs)
 	if err != nil {
 		err = fmt.Errorf("%s", err)
 		shared.LogErrF(id, logPath, err)
@@ -169,7 +169,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	shared.LogInfoF(id, logPath, "installing service")
-	err = s.Install(svcName, d.Cfg.Desc, bat, dir, d.Cfg.EnvVars)
+	err = s.Install(svcName, d.Blueprint.Desc, bat, dir, d.Blueprint.EnvVars)
 	if err != nil {
 		err = fmt.Errorf("service installation failed: %s", err)
 		shared.LogErrF(id, logPath, err)
@@ -185,26 +185,29 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	req := &store.Service{
-		ID: svcName,
-		Name: d.Cfg.Name,
-		Description: d.Cfg.Desc,
-		Source: d.Cfg.Source,
-		Runtime: d.Cfg.Runtime.Type,
-		RuntimeVersion: d.Cfg.Runtime.Version,
-		RunCmd: d.Cfg.RunCmd,
-		BuildCmd: d.Cfg.BuildCmd,
-		Port: d.Cfg.Port,
-		WorkingDir: d.Cfg.WorkingDir,
-		StaticDir: d.Cfg.StaticDir,
-		Image: d.Cfg.Image,
-		EnvVars: d.Cfg.EnvVars,
-		Remote: d.Cfg.Remote,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:             svcName,
+		Name:           d.Blueprint.Name,
+		Description:    d.Blueprint.Desc,
+		Source:         d.Blueprint.Source,
+		Runtime:        d.Blueprint.Runtime.Type,
+		RuntimeVersion: d.Blueprint.Runtime.Version,
+		RunCmd:         d.Blueprint.RunCmd,
+		BuildCmd:       d.Blueprint.BuildCmd,
+		Port:           d.Blueprint.Port,
+		WorkingDir:     d.Blueprint.WorkingDir,
+		StaticDir:      d.Blueprint.StaticDir,
+		Image:          d.Blueprint.Image,
+		EnvVars:        d.Blueprint.EnvVars,
+		Remote:         d.Blueprint.Remote.Url,
+		Status:         d.Blueprint.Remote.Branch,
+		CommitHash:     d.Blueprint.Remote.CommitHash,
+		DeploymentId:   d.ID,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
 	w.svcStore.CreateService(ctx, req)
 
-	shared.LogInfoF(id, logPath, fmt.Sprintf("successfully deployed %s", d.Cfg.Name))
+	shared.LogInfoF(id, logPath, fmt.Sprintf("successfully deployed %s", d.Blueprint.Name))
 	w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusCompleted))
 
 	return nil
