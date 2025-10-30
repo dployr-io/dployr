@@ -17,7 +17,7 @@ type Worker struct {
 	queue         chan string
 }
 
-func New(m int, c *shared.Config, l *slog.Logger, s store.DeploymentStore) *Worker {
+func NewWorker(m int, c *shared.Config, l *slog.Logger, s store.DeploymentStore) *Worker {
 	return &Worker{
 		maxConcurrent: m,
 		logger:        l,
@@ -29,7 +29,6 @@ func New(m int, c *shared.Config, l *slog.Logger, s store.DeploymentStore) *Work
 	}
 }
 
-// Submit implements the JobSubmitter interface
 func (w *Worker) Submit(id string) {
 	w.queue <- id
 }
