@@ -4,6 +4,7 @@ package main
 import (
 	"bytes"
 	"dployr/pkg/core/deploy"
+	"dployr/pkg/core/proxy"
 	"dployr/pkg/shared"
 	"dployr/pkg/store"
 	"encoding/json"
@@ -24,13 +25,13 @@ func main() {
 
 	addr := fmt.Sprintf("http://%s:%d", cfg.Address, cfg.Port)
 
-	// Root command
 	rootCmd := &cobra.Command{
 		Use:   "dployr",
 		Short: "dployr - your app, your server, your rules!",
 		Long:  `manage deployments, blueprints, and runtimes for dployr environments.`,
 	}
 
+	// login
 	loginCmd := &cobra.Command{
 		Use:   "login",
 		Short: "authenticate with the dployr server",
@@ -104,7 +105,7 @@ func main() {
 	loginCmd.Flags().StringP("server", "", addr, "Server URL")
 	rootCmd.AddCommand(loginCmd)
 
-	// Create deployment command
+	// create deployment
 	deployCmd := &cobra.Command{
 		Use:   "deploy",
 		Short: "create a new deployment",
@@ -223,7 +224,7 @@ func main() {
 
 	rootCmd.AddCommand(deployCmd)
 
-	// List deployments command
+	// list deployments
 	listDeploymentsCmd := &cobra.Command{
 		Use:   "list",
 		Short: "list previous deployments",
@@ -286,14 +287,13 @@ func main() {
 	listDeploymentsCmd.Flags().IntP("limit", "l", 10, "Maximum number of deployments to show")
 	rootCmd.AddCommand(listDeploymentsCmd)
 
-	// Services command group
 	servicesCmd := &cobra.Command{
 		Use:   "services",
 		Short: "manage services",
 		Long:  "list and manage dployr services",
 	}
 
-	// List services command
+	// list services
 	listServicesCmd := &cobra.Command{
 		Use:   "list",
 		Short: "list services",
@@ -356,7 +356,7 @@ func main() {
 	listServicesCmd.Flags().IntP("limit", "l", 10, "Maximum number of services to show")
 	servicesCmd.AddCommand(listServicesCmd)
 
-	// Get service command
+	// get service
 	getServiceCmd := &cobra.Command{
 		Use:   "get [service-id]",
 		Short: "get service details",
@@ -407,6 +407,303 @@ func main() {
 
 	servicesCmd.AddCommand(getServiceCmd)
 	rootCmd.AddCommand(servicesCmd)
+
+	proxyCmd := &cobra.Command{
+		Use:   "proxy",
+		Short: "manage proxy service",
+		Long:  "manage proxy configurations and service status",
+	}
+
+	// proxy status
+	proxyStatusCmd := &cobra.Command{
+		Use:   "status",
+		Short: "get proxy service status",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			token, _ := shared.GetToken()
+
+			r, err := http.NewRequest("GET", addr+"/proxy/status", nil)
+			if err != nil {
+				return fmt.Errorf("failed to create request: %v", err)
+			}
+
+			r.Header.Set("Authorization", "Bearer "+token)
+			client := &http.Client{}
+			resp, err := client.Do(r)
+			if err != nil {
+				return fmt.Errorf("failed to connect to server: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("failed to get proxy status with status %d: %s", resp.StatusCode, string(body))
+			}
+
+			var status proxy.ProxyStatusResponse
+			if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+				return fmt.Errorf("failed to parse response: %v", err)
+			}
+
+			fmt.Printf("%s", status.Status)
+			return nil
+		},
+	}
+
+	// proxy restart
+	proxyRestartCmd := &cobra.Command{
+		Use:   "restart",
+		Short: "restart proxy service",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			token, _ := shared.GetToken()
+
+			r, err := http.NewRequest("GET", addr+"/proxy/restart", nil)
+			if err != nil {
+				return fmt.Errorf("failed to create request: %v", err)
+			}
+
+			r.Header.Set("Authorization", "Bearer "+token)
+			client := &http.Client{}
+			resp, err := client.Do(r)
+			if err != nil {
+				return fmt.Errorf("failed to connect to server: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusNoContent {
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("failed to restart proxy with status %d: %s", resp.StatusCode, string(body))
+			}
+
+			fmt.Println("proxy service restarted successfully")
+			return nil
+		},
+	}
+
+	// proxy setup
+	proxySetupCmd := &cobra.Command{
+		Use:   "setup",
+		Short: "setup proxy with app configurations",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			token, _ := shared.GetToken()
+
+			domain, _ := cmd.Flags().GetString("domain")
+			upstream, _ := cmd.Flags().GetString("upstream")
+			root, _ := cmd.Flags().GetString("root")
+			template, _ := cmd.Flags().GetString("template")
+
+			if domain == "" {
+				return fmt.Errorf("domain is required")
+			}
+			if upstream == "" && template != "static" {
+				return fmt.Errorf("upstream is required for non-static templates")
+			}
+			if template == "" {
+				template = "reverse_proxy"
+			}
+
+			apps := map[string]proxy.App{
+				domain: {
+					Domain:   domain,
+					Upstream: upstream,
+					Root:     root,
+					Template: proxy.TemplateType(template),
+				},
+			}
+
+			jsonData, err := json.Marshal(apps)
+			if err != nil {
+				return fmt.Errorf("failed to marshal request: %v", err)
+			}
+
+			r, err := http.NewRequest("POST", addr+"/proxy/setup", bytes.NewBuffer(jsonData))
+			if err != nil {
+				return fmt.Errorf("failed to create request: %v", err)
+			}
+			r.Header.Set("Content-Type", "application/json")
+			r.Header.Set("Authorization", "Bearer "+token)
+			client := &http.Client{}
+			resp, err := client.Do(r)
+			if err != nil {
+				return fmt.Errorf("failed to connect to server: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("proxy setup failed with status %d: %s", resp.StatusCode, string(body))
+			}
+
+			fmt.Printf("proxy setup completed for domain: %s\n", domain)
+			return nil
+		},
+	}
+
+	proxySetupCmd.Flags().StringP("domain", "d", "", "Domain name (required)")
+	proxySetupCmd.Flags().StringP("upstream", "u", "", "Upstream server address")
+	proxySetupCmd.Flags().StringP("root", "r", "", "Root directory for static files")
+	proxySetupCmd.Flags().StringP("template", "t", "reverse_proxy", "Template type: static, reverse_proxy, php_fastcgi")
+
+	// proxy add
+	proxyAddCmd := &cobra.Command{
+		Use:   "add",
+		Short: "add new app to proxy configuration",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			token, _ := shared.GetToken()
+
+			domain, _ := cmd.Flags().GetString("domain")
+			upstream, _ := cmd.Flags().GetString("upstream")
+			root, _ := cmd.Flags().GetString("root")
+			template, _ := cmd.Flags().GetString("template")
+
+			if domain == "" {
+				return fmt.Errorf("domain is required")
+			}
+			if upstream == "" && template != "static" {
+				return fmt.Errorf("upstream is required for non-static templates")
+			}
+			if template == "" {
+				template = "reverse_proxy"
+			}
+
+			apps := []proxy.App{
+				{
+					Domain:   domain,
+					Upstream: upstream,
+					Root:     root,
+					Template: proxy.TemplateType(template),
+				},
+			}
+
+			data, err := json.Marshal(apps)
+			if err != nil {
+				return fmt.Errorf("failed to marshal request: %v", err)
+			}
+
+			r, err := http.NewRequest("POST", addr+"/proxy/add", bytes.NewBuffer(data))
+			if err != nil {
+				return fmt.Errorf("failed to create request: %v", err)
+			}
+			r.Header.Set("Content-Type", "application/json")
+			r.Header.Set("Authorization", "Bearer "+token)
+			client := &http.Client{}
+			resp, err := client.Do(r)
+			if err != nil {
+				return fmt.Errorf("failed to connect to server: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusNoContent {
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("failed to add proxy app with status %d: %s", resp.StatusCode, string(body))
+			}
+
+			fmt.Printf("proxy app added successfully for domain: %s\n", domain)
+			return nil
+		},
+	}
+
+	proxyAddCmd.Flags().StringP("domain", "d", "", "Domain name (required)")
+	proxyAddCmd.Flags().StringP("upstream", "u", "", "Upstream server address")
+	proxyAddCmd.Flags().StringP("root", "r", "", "Root directory for static files")
+	proxyAddCmd.Flags().StringP("template", "t", "reverse_proxy", "Template type: static, reverse_proxy, php_fastcgi")
+
+	// proxy remove
+	proxyRemoveCmd := &cobra.Command{
+		Use:   "remove [domain...]",
+		Short: "remove apps from proxy configuration",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			token, _ := shared.GetToken()
+
+			domains := args
+
+			data, err := json.Marshal(domains)
+			if err != nil {
+				return fmt.Errorf("failed to marshal request: %v", err)
+			}
+
+			r, err := http.NewRequest("POST", addr+"/proxy/remove", bytes.NewBuffer(data))
+			if err != nil {
+				return fmt.Errorf("failed to create request: %v", err)
+			}
+			r.Header.Set("Content-Type", "application/json")
+			r.Header.Set("Authorization", "Bearer "+token)
+			client := &http.Client{}
+			resp, err := client.Do(r)
+			if err != nil {
+				return fmt.Errorf("failed to connect to server: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusNoContent {
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("failed to remove proxy apps with status %d: %s", resp.StatusCode, string(body))
+			}
+
+			fmt.Printf("proxy apps removed successfully for domains: %v\n", domains)
+			return nil
+		},
+	}
+
+	// proxy list
+	proxyListCmd := &cobra.Command{
+		Use:   "list",
+		Short: "list proxy app configurations",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			token, _ := shared.GetToken()
+
+			r, err := http.NewRequest("GET", addr+"/proxy/apps", nil)
+			if err != nil {
+				return fmt.Errorf("failed to create request: %v", err)
+			}
+
+			r.Header.Set("Authorization", "Bearer "+token)
+			client := &http.Client{}
+			resp, err := client.Do(r)
+			if err != nil {
+				return fmt.Errorf("failed to connect to server: %v", err)
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("failed to list proxy apps with status %d: %s", resp.StatusCode, string(body))
+			}
+
+			var apps map[string]proxy.App
+			if err := json.NewDecoder(resp.Body).Decode(&apps); err != nil {
+				return fmt.Errorf("failed to parse response: %v", err)
+			}
+
+			if len(apps) == 0 {
+				fmt.Println("no proxy apps configured")
+				return nil
+			}
+
+			fmt.Printf("\nfound %d proxy app(s):\n\n", len(apps))
+			for domain, app := range apps {
+				fmt.Printf("  domain:   %s\n", domain)
+				fmt.Printf("  template: %s\n", app.Template)
+				if app.Upstream != "" {
+					fmt.Printf("  upstream: %s\n", app.Upstream)
+				}
+				if app.Root != "" {
+					fmt.Printf("  root:     %s\n", app.Root)
+				}
+				fmt.Println()
+			}
+
+			return nil
+		},
+	}
+
+	proxyCmd.AddCommand(proxyStatusCmd)
+	proxyCmd.AddCommand(proxyRestartCmd)
+	proxyCmd.AddCommand(proxySetupCmd)
+	proxyCmd.AddCommand(proxyAddCmd)
+	proxyCmd.AddCommand(proxyRemoveCmd)
+	proxyCmd.AddCommand(proxyListCmd)
+	rootCmd.AddCommand(proxyCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println("Error:", err)

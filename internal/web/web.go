@@ -9,11 +9,12 @@ import (
 )
 
 type WebHandler struct {
-	AuthH *auth.AuthHandler
-	DepsH DeploymentHandler
-	SvcH  ServiceHandler
-	LogsH LogStreamHandler
-	AuthM *auth.Middleware
+	AuthH  *auth.AuthHandler
+	DepsH  DeploymentHandler
+	SvcH   ServiceHandler
+	LogsH  LogStreamHandler
+	ProxyH ProxyHandler
+	AuthM  *auth.Middleware
 }
 
 type DeploymentHandler interface {
@@ -29,6 +30,13 @@ type ServiceHandler interface {
 
 type LogStreamHandler interface {
 	OpenLogStream(w http.ResponseWriter, r *http.Request)
+}
+
+type ProxyHandler interface {
+	GetStatus(w http.ResponseWriter, r *http.Request)
+	HandleRestart(w http.ResponseWriter, r *http.Request)
+	HandleAdd(w http.ResponseWriter, r *http.Request)
+	HandleRemove(w http.ResponseWriter, r *http.Request)
 }
 
 func (w *WebHandler) NewServer(port int) error {
@@ -108,6 +116,11 @@ func (w *WebHandler) NewServer(port int) error {
 	http.Handle("/services/", corsMiddleware(w.AuthM.Auth(w.AuthM.Trace(svcH))))
 
 	http.Handle("/logs/stream", corsMiddleware(http.HandlerFunc(w.LogsH.OpenLogStream)))
+
+	http.Handle("/proxy/status", corsMiddleware(w.AuthM.Auth(http.HandlerFunc(w.ProxyH.GetStatus))))
+	http.Handle("/proxy/restart", corsMiddleware(w.AuthM.Auth(http.HandlerFunc(w.ProxyH.HandleRestart))))
+	http.Handle("/proxy/add", corsMiddleware(w.AuthM.Auth(http.HandlerFunc(w.ProxyH.HandleAdd))))
+	http.Handle("/proxy/remove", corsMiddleware(w.AuthM.Auth(http.HandlerFunc(w.ProxyH.HandleRemove))))
 
 	addr := ":" + strconv.Itoa(port)
 	log.Printf("Listening on port %s", addr)

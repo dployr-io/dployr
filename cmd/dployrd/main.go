@@ -11,12 +11,16 @@ import (
 	_auth "dployr/internal/auth"
 	"dployr/internal/db"
 	_deploy "dployr/internal/deploy"
+	_proxy "dployr/internal/proxy"
+	_service "dployr/internal/service"
 	_store "dployr/internal/store"
 	_stream "dployr/internal/stream"
 	"dployr/internal/web"
 	"dployr/internal/worker"
 	"dployr/pkg/auth"
 	"dployr/pkg/core/deploy"
+	"dployr/pkg/core/proxy"
+	"dployr/pkg/core/service"
 	"dployr/pkg/core/stream"
 	"dployr/pkg/shared"
 
@@ -53,6 +57,15 @@ func main() {
 	deployer := deploy.NewDeployer(cfg, logger, ds, api)
 	dh := deploy.NewDeploymentHandler(deployer, logger)
 
+	_services := _service.Init(cfg, logger, ss)
+	servicer := service.NewServicer(cfg, logger, ss, _services)
+	sh := service.NewServiceHandler(servicer, logger)
+
+	proxyState := _proxy.LoadState()
+	ps := _proxy.Init(proxyState)
+	proxier := proxy.NewProxier(proxyState, ps)
+	ph := proxy.NewProxyHandler(proxier, logger)
+
 	logsService := _stream.Init()
 	homeDir, _ := os.UserHomeDir()
 	logsDir := filepath.Join(homeDir, ".dployr", "logs")
@@ -60,10 +73,12 @@ func main() {
 	lh := stream.NewLogStreamHandler(ls, logger)
 
 	wh := web.WebHandler{
-		AuthH: ah,
-		DepsH: dh,
-		LogsH: lh,
-		AuthM: am,
+		AuthH:  ah,
+		DepsH:  dh,
+		SvcH:   sh,
+		LogsH:  lh,
+		ProxyH: ph,
+		AuthM:  am,
 	}
 
 	go func() {
