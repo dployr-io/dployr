@@ -35,12 +35,12 @@ func (a Auth) NewToken(email, lifespan string) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	return token.SignedString([]byte(a.cfg.SecretKey))
+	return token.SignedString([]byte(a.cfg.Secret))
 }
 
 func (a Auth) ValidateToken(inputToken string) (*auth.Claims, error) {
 	token, err := jwt.ParseWithClaims(inputToken, &auth.Claims{}, func(t *jwt.Token) (any, error) {
-		return []byte(a.cfg.SecretKey), nil
+		return []byte(a.cfg.Secret), nil
 	})
 	if err != nil {
 		return nil, err

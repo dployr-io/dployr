@@ -3,11 +3,7 @@ module dployr
 go 1.24.0
 
 require (
-	github.com/golang-jwt/jwt/v5 v5.3.0
-	github.com/lib/pq v1.10.9
-)
-
-require (
+	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -23,10 +19,7 @@ require (
 )
 
 require (
-	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang-jwt/jwt/v4 v4.5.2
-	github.com/kardianos/service v1.2.4
-	github.com/oklog/ulid v1.3.1
 	github.com/oklog/ulid/v2 v2.1.1 // indirect
 	github.com/spf13/cobra v1.10.1
 	modernc.org/sqlite v1.39.1

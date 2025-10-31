@@ -1,22 +1,21 @@
 package shared
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 )
 
 type Config struct {
 	Address        string
 	Port           int
-	SocketPath     string
 	MaxWorkers     int
-	ServerHome     string
-	SecretKey      string
+	Secret         string
 	GitHubToken    string
 	GitLabToken    string
 	BitBucketToken string
@@ -24,51 +23,41 @@ type Config struct {
 
 func LoadConfig() (*Config, error) {
 	home, _ := os.UserHomeDir()
-	_ = LoadEnvFile(filepath.Join(home, ".dployr", ".env"))
+	err := LoadTomlFile(filepath.Join(home, ".dployr", "config.toml"))
 
-	secret := getEnv("SECRET_KEY", "")
+	if err != nil {
+		return nil, err
+	}
+
+	secret := getEnv("SECRET", "")
 	if secret == "" {
-		return nil, fmt.Errorf("failed to load secret key")
+		return nil, fmt.Errorf("failed to load secret")
 	}
 
 	return &Config{
 		Address:        getEnv("ADDRESS", "localhost"),
 		Port:           getEnvAsInt("PORT", 7879),
-		SocketPath:     getEnv("SOCKET_PATH", fmt.Sprintf("%s/dployr.sock", ServerHome)),
 		MaxWorkers:     getEnvAsInt("MAX_WORKERS", 5),
-		ServerHome:     getEnv("SERVER_HOME", ServerHome),
 		GitHubToken:    getEnv("GITHUB_TOKEN", ""),
 		GitLabToken:    getEnv("GITLAB_TOKEN", ""),
 		BitBucketToken: getEnv("BITBUCKET_TOKEN", ""),
-		SecretKey:      secret,
+		Secret:         secret,
 	}, nil
 }
 
-func LoadEnvFile(path string) error {
-	file, err := os.Open(path)
-	if err != nil {
+func LoadTomlFile(path string) error {
+	var config map[string]any
+	if _, err := toml.DecodeFile(path, &config); err != nil {
 		return err
 	}
-	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key := strings.TrimSpace(parts[0])
-		val := strings.TrimSpace(parts[1])
-		os.Setenv(key, val)
+	for key, value := range config {
+		// Convert kebab-case/snake_case to UPPER_CASE for system vars
+		envKey := strings.ToUpper(strings.ReplaceAll(key, "-", "_"))
+		os.Setenv(envKey, fmt.Sprintf("%v", value))
 	}
 
-	return scanner.Err()
+	return nil
 }
 
 func getEnv(key, defaultValue string) string {
@@ -92,7 +81,7 @@ func GetToken() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("could not resolve user home directory: %v", err)
 	}
-	configPath := configDir + "/.dployr/config.json"
+	configPath := configDir + "/.dployr/token.json"
 
 	configData, err := os.ReadFile(configPath)
 	if err != nil {

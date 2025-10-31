@@ -73,12 +73,12 @@ func main() {
 				return fmt.Errorf("failed to parse response: %v", err)
 			}
 
-			// save token to ~/.dployr/config.json
+			// save token to ~/.dployr/token.json
 			homeDir, err := os.UserHomeDir()
 			if err != nil {
 				return fmt.Errorf("could not resolve user home directory: %v", err)
 			}
-			configPath := homeDir + "/.dployr/config.json"
+			configPath := homeDir + "/.dployr/token.json"
 
 			if err := os.Mkdir(homeDir+"/.dployr", 0700); err != nil && !os.IsExist(err) {
 				return fmt.Errorf("could not create config directory: %v", err)
