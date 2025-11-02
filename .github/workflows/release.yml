@@ -63,7 +63,7 @@ jobs:
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --snapshot --clean
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.HOMEBREW_GITHUB_TOKEN }}
           CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
