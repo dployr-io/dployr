@@ -33,7 +33,7 @@ builds:
     main: ./cmd/dployrd
     binary: dployrd
     env:
-      - CGO_ENABLED=1  # Required for SQLite
+      - CGO_ENABLED=0
     goos:
       - linux
       - windows
