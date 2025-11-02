@@ -116,6 +116,7 @@ brews:
     repository:
       owner: dployr-io
       name: homebrew-dployr
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     homepage: https://github.com/dployr-io/homebrew-dployr
     description: "Your app, your server, your rules!"
     license: MIT
@@ -133,6 +134,7 @@ scoops:
     repository:
       owner: dployr-io
       name: scoop-dployr
+      token: "{{ .Env.SCOOP_TAP_GITHUB_TOKEN }}"
     homepage: https://github.com/dployr-io/scoop-dployr
     description: "Your app, your server, your rules!"
     license: MIT
