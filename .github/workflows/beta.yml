@@ -3,6 +3,7 @@ name: release-beta
 on:
   workflow_run:
     workflows: ["tests"]
+    workflows: ["tests"]
     types: [completed]
 
 permissions:
@@ -11,11 +12,14 @@ permissions:
 jobs:
   release:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'beta' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'beta' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout beta
+      - name: Checkout beta
         uses: actions/checkout@v4
         with:
+          ref: beta
           ref: beta
           fetch-depth: 0
 
@@ -34,11 +38,14 @@ jobs:
 
           if [ -z "$EXISTING" ]; then
             NEW_TAG="${VERSION}-beta.1"
+            NEW_TAG="${VERSION}-beta.1"
           else
             LAST_NUM=$(echo "$EXISTING" | sed -E 's/^v[0-9]+\.[0-9]+\.[0-9]+-beta\.([0-9]+)$/\1/')
             NEXT_NUM=$((LAST_NUM + 1))
             NEW_TAG="${VERSION}-beta.${NEXT_NUM}"
+            NEW_TAG="${VERSION}-beta.${NEXT_NUM}"
           fi
+          echo "version=$NEW_TAG" >> $GITHUB_OUTPUT
           echo "version=$NEW_TAG" >> $GITHUB_OUTPUT
 
       - name: Check if tag already exists
@@ -81,6 +88,7 @@ jobs:
         run: pnpm run build
 
       - name: Create release archive
+      - name: Create release archive
         run: |
           echo "Creating release zip with dev files excluded..."
           zip -r "dployr-v${{ steps.version.outputs.version }}.zip" . \
@@ -121,6 +129,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
           name: v${{ steps.version.outputs.version }}
           files: |
             dployr-v${{ steps.version.outputs.version }}.zip
