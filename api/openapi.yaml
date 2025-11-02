@@ -71,24 +71,13 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   /auth/verify:
-    post:
+    get:
       tags:
         - Authentication
       summary: Verify authentication token
-      description: Validate a JWT token
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - token
-              properties:
-                token:
-                  type: string
-                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      description: Validate a JWT token from Authorization header
+      security:
+        - BearerAuth: []
       responses:
         '200':
           description: Token is valid
@@ -98,8 +87,8 @@ paths:
                 $ref: '#/components/schemas/Claims'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /deployments:
     get:
