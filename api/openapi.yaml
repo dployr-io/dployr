@@ -1,9 +1,9 @@
 openapi: 3.0.4
 info:
-  title: dployr API
+  title: Dployr API
   description: |
     Your app, your server, your rules!
-    Language agnostic SDK for interacting with dployr core via an agreeable common contract.
+    Language agnostic SDK for interacting with dployr daemon via an agreeable common contract.
     
     ## Authentication
     Most endpoints require JWT authentication. Include the token in the Authorization header:
@@ -12,7 +12,8 @@ info:
     ```
   version: 1.0.0
   contact:
-    name: Dployr API Support
+    name: Dployr Support
+    email: hello@dployr.dev
   license:
     name: MIT
     url: https://raw.githubusercontent.com/dployr-io/dployr/refs/heads/master/LICENSE
