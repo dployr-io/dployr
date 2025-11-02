@@ -55,6 +55,8 @@ jobs:
 
       - name: Install Chocolatey
         uses: crazy-max/ghaction-chocolatey@v3
+        with:
+          args: --version
 
       - name: Run GoReleaser 
         uses: goreleaser/goreleaser-action@v6
