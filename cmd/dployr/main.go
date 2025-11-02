@@ -1,4 +1,3 @@
-// cmd/dployr/main.go
 package main
 
 import (
@@ -7,6 +6,7 @@ import (
 	"dployr/pkg/core/proxy"
 	"dployr/pkg/shared"
 	"dployr/pkg/store"
+	"dployr/pkg/version"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,6 +30,29 @@ func main() {
 		Short: "dployr - your app, your server, your rules!",
 		Long:  `manage deployments, blueprints, and runtimes for dployr environments.`,
 	}
+
+	// version command
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "show version information",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			info := version.Get()
+
+			jsonFlag, _ := cmd.Flags().GetBool("json")
+			if jsonFlag {
+				data, err := json.Marshal(info)
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(data))
+			} else {
+				fmt.Println(info.String())
+			}
+			return nil
+		},
+	}
+	versionCmd.Flags().BoolP("json", "j", false, "output in JSON format")
+	rootCmd.AddCommand(versionCmd)
 
 	// login
 	loginCmd := &cobra.Command{

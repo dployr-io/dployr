@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -23,11 +25,23 @@ import (
 	"dployr/pkg/core/service"
 	"dployr/pkg/core/stream"
 	"dployr/pkg/shared"
+	"dployr/pkg/version"
 
 	"github.com/oklog/ulid/v2"
 )
 
 func main() {
+	var showVersion = flag.Bool("version", false, "show version information")
+	flag.Parse()
+
+	if *showVersion {
+		info := version.Get()
+		fmt.Println(info.String())
+		os.Exit(0)
+	}
+
+	log.Printf("Starting %s", version.Get().String())
+
 	conn, err := db.Open()
 	if err != nil {
 		log.Fatalf("Failed to open database connection: %s", err)

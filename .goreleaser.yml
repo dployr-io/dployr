@@ -1,0 +1,196 @@
+version: 2
+
+project_name: dployr
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: dployr
+    main: ./cmd/dployr
+    binary: dployr
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X dployr/pkg/version.Version={{.Version}}
+      - -X dployr/pkg/version.GitCommit={{.FullCommit}}
+      - -X dployr/pkg/version.BuildDate={{.Date}}
+      - -X dployr/pkg/version.Component=cli
+
+  - id: dployrd
+    main: ./cmd/dployrd
+    binary: dployrd
+    env:
+      - CGO_ENABLED=1  # Required for SQLite
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X dployr/pkg/version.Version={{.Version}}
+      - -X dployr/pkg/version.GitCommit={{.FullCommit}}
+      - -X dployr/pkg/version.BuildDate={{.Date}}
+      - -X dployr/pkg/version.Component=daemon
+
+archives:
+  - id: default
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: >-
+      {{ .ProjectName }}-
+      {{- title .Os }}-
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - LICENSE
+      - README.md
+      - install.ps1
+      - install.sh
+
+# Windows installer with Chocolatey
+chocolateys:
+  - name: dployr
+    title: dployr
+    authors: Emmanuel Madehin
+    project_url: https://github.com/dployr-io/dployr
+    url_template: "https://github.com/dployr-io/dployr/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    copyright: 2025 Emmanuel Madehin
+    license_url: https://raw.githubusercontent.com/dployr-io/dployr/refs/heads/master/LICENSE
+    project_source_url: https://github.com/dployr-io/dployr
+    tags: "deployment devops server management deployer"
+    summary: "Your app, your server, your rules!"
+    description: |
+      Dployr turns any machine into your personal deployment platform. Deploy applications from Git repositories or Docker images with automatic reverse proxy, SSL certificates, and service management.
+
+      Features
+      **Multi-runtime support** for Node.js, Python, Go, PHP, Ruby, .NET, Java, Docker and static sites
+      **Git-based deployments** with automatic builds from repositories
+      **Automatic HTTPS** via integrated Caddy reverse proxy with Let's Encrypt
+      **Service management** with automatic Windows service creation via NSSM
+      **REST API and CLI** for automation and CI/CD integration
+      **Real-time log streaming** and deployment monitoring
+      **Domain management** with automatic SSL certificate provisioning
+      **Cross-platform** support for Windows, Linux, and macOS
+
+      Package Components
+      `dployr.exe` - Command-line interface for deployment management
+      `dployrd.exe` - Background daemon service
+      Automatic installation of Caddy (reverse proxy) and NSSM (service manager)
+
+      Notes
+      This package automatically installs and configures Caddy and NSSM as dependencies
+      The daemon will be installed as a Windows service named 'dployrd'
+      Default configuration listens on port 8080
+      Requires administrator privileges for service installation
+
+    dependencies:
+      - id: caddy
+        version: ""
+      - id: nssm
+        version: ""
+
+# macOS installer with Homebrew
+brews:
+  - name: dployr
+    repository:
+      owner: Emmanuel Madehin
+      name: dployr
+    homepage: https://github.com/dployr-io/homebrew-dployr
+    description: "Your app, your server, your rules!"
+    license: MIT
+    dependencies:
+      - name: caddy
+    install: |-
+      bin.install "dployr"
+      bin.install "dployrd"
+    test: |
+      system "#{bin}/dployr", "--version"
+
+# Windows package manager
+scoops:
+  - name: dployr
+    repository:
+      owner: Emmanuel Madehin
+      name: dployr
+    homepage: https://github.com/dployr-io/scoop-dployr
+    description: "Your app, your server, your rules!"
+    license: MIT
+    depends:
+      - "caddy"
+      - "nssm"
+
+release:
+  github:
+    owner: dployr-io
+    name: dployr
+  draft: false
+  prerelease: auto
+  header: |
+    ## dployr {{ .Tag }}
+    
+    ### Installation
+    
+    **Windows:**
+    ```powershell
+    # Chocolatey (installs all dependencies)
+    choco install dployr
+    
+    # Scoop
+    scoop bucket add dployr https://github.com/dployr-io/scoop-dployr
+    scoop install dployr
+    
+    # Manual
+    Invoke-WebRequest -Uri "https://github.com/dployr-io/dployr/releases/download/{{ .Tag }}/install.ps1" -OutFile "install.ps1"
+    .\install.ps1
+    ```
+    
+    **macOS:**
+    ```bash
+    # Homebrew (installs Caddy dependency)
+    brew install dployr-io/dployr/dployr
+    
+    # Manual
+    curl -sSL https://github.com/dployr-io/dployr/releases/download/{{ .Tag }}/install.sh | bash
+    ```
+    
+    **Linux:**
+    ```bash
+    curl -sSL https://github.com/dployr-io/dployr/releases/download/{{ .Tag }}/install.sh | bash
+    ```
+    
+    ### What's Changed
+  footer: |
+    **Dependencies included:**
+    - dployr: CLI client
+    - dployrd: daemon service  
+    - Caddy: reverse proxy (auto-installed)
+    - NSSM: Windows service manager (Windows only, auto-installed)
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
