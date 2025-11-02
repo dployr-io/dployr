@@ -53,10 +53,7 @@ builds:
 
 archives:
   - id: default
-    format: tar.gz
-    format_overrides:
-      - goos: windows
-        format: zip
+    wrap_in_directory: true
     name_template: >-
       {{ .ProjectName }}-
       {{- title .Os }}-
@@ -78,7 +75,7 @@ chocolateys:
     project_url: https://github.com/dployr-io/dployr
     url_template: "https://github.com/dployr-io/dployr/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
     copyright: 2025 Emmanuel Madehin
-    license_url: https://raw.githubusercontent.com/dployr-io/dployr/refs/heads/master/LICENSE
+    license_url: "https://raw.githubusercontent.com/dployr-io/dployr/{{ .Tag }}/LICENSE"
     project_source_url: https://github.com/dployr-io/dployr
     tags: "deployment devops server management deployer"
     summary: "Your app, your server, your rules!"
