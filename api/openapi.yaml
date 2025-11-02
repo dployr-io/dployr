@@ -1,0 +1,843 @@
+openapi: 3.0.4
+info:
+  title: Dployr API
+  description: |
+    Your app, your server, your rules!
+    Language agnostic SDK for interacting with dployr daemon via an agreeable common contract.
+    
+    ## Authentication
+    Most endpoints require JWT authentication. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+  version: 1.0.0
+  contact:
+    name: Dployr Support
+    email: hello@dployr.dev
+  license:
+    name: MIT
+    url: https://raw.githubusercontent.com/dployr-io/dployr/refs/heads/master/LICENSE
+
+servers:
+  - url: "{address}"
+    description: Configurable server
+    variables:
+      address:
+        default: http://localhost:7879
+        description: Instance URL
+
+security:
+  - BearerAuth: []
+
+paths:
+  /auth/request:
+    post:
+      tags:
+        - Authentication
+      summary: Generate authentication token
+      description: Generate a JWT token for authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                lifespan:
+                  type: string
+                  description: Token lifespan (e.g., "24h", "7d", "never")
+                  example: "24h"
+      responses:
+        '200':
+          description: Token generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/verify:
+    get:
+      tags:
+        - Authentication
+      summary: Verify authentication token
+      description: Validate a JWT token from Authorization header
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Token is valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Claims'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /deployments:
+    get:
+      tags:
+        - Deployments
+      summary: List deployments
+      description: Retrieve a list of deployments
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of deployments to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of deployments to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of deployments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deployments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Deployment'
+                  total:
+                    type: integer
+                    description: Total number of deployments
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Deployments
+      summary: Create deployment
+      description: Create a new deployment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeployRequest'
+      responses:
+        '201':
+          description: Deployment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /services:
+    get:
+      tags:
+        - Services
+      summary: List services
+      description: Retrieve a list of services
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of services to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of services to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of services
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  services:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Service'
+                  total:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /services/{serviceId}:
+    get:
+      tags:
+        - Services
+      summary: Get service
+      description: Retrieve a specific service by ID
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          description: Service ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - Services
+      summary: Update service
+      description: Update a service configuration
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          description: Service ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceUpdate'
+      responses:
+        '200':
+          description: Service updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      tags:
+        - Services
+      summary: Partially update service
+      description: Partially update a service configuration
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          description: Service ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceUpdate'
+      responses:
+        '200':
+          description: Service updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /logs/stream:
+    get:
+      tags:
+        - Logs
+      summary: Open log stream
+      description: |
+        Open a WebSocket connection to stream logs in real-time.
+        This endpoint upgrades the HTTP connection to WebSocket.
+      parameters:
+        - name: service_id
+          in: query
+          description: Service ID to stream logs for
+          schema:
+            type: string
+        - name: deployment_id
+          in: query
+          description: Deployment ID to stream logs for
+          schema:
+            type: string
+      responses:
+        '101':
+          description: WebSocket connection established
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /proxy/status:
+    get:
+      tags:
+        - Proxy
+      summary: Get proxy status
+      description: Get the current status of the proxy service
+      responses:
+        '200':
+          description: Proxy status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /proxy/restart:
+    post:
+      tags:
+        - Proxy
+      summary: Restart proxy
+      description: Restart the proxy service
+      responses:
+        '200':
+          description: Proxy restarted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Proxy restarted successfully"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /proxy/add:
+    post:
+      tags:
+        - Proxy
+      summary: Add proxy route
+      description: Add a new route to the proxy configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProxyRoute'
+      responses:
+        '201':
+          description: Route added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Route added successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /proxy/remove:
+    delete:
+      tags:
+        - Proxy
+      summary: Remove proxy route
+      description: Remove a route from the proxy configuration
+      responses:
+        '200':
+          description: Route removed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Route removed successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Claims:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        exp:
+          type: integer
+          format: int64
+          description: Expiration timestamp
+        iat:
+          type: integer
+          format: int64
+          description: Issued at timestamp
+
+    Runtime:
+      type: string
+      enum:
+        - static
+        - golang
+        - php
+        - python
+        - node-js
+        - ruby
+        - dotnet
+        - java
+        - docker
+        - k3s
+        - custom
+
+    RuntimeObj:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          $ref: '#/components/schemas/Runtime'
+        version:
+          type: string
+          example: "18.0.0"
+
+    RemoteObj:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          example: "https://github.com/user/repo.git"
+        branch:
+          type: string
+          example: "main"
+        commit_hash:
+          type: string
+          example: "abc123def456"
+
+    Blueprint:
+      type: object
+      required:
+        - name
+        - source
+        - runtime
+      properties:
+        name:
+          type: string
+          example: "my-app"
+        description:
+          type: string
+          example: "My application description"
+        source:
+          type: string
+          enum: [remote, image]
+        runtime:
+          $ref: '#/components/schemas/RuntimeObj'
+        remote:
+          $ref: '#/components/schemas/RemoteObj'
+        run_cmd:
+          type: string
+          example: "npm start"
+        build_cmd:
+          type: string
+          example: "npm run build"
+        port:
+          type: integer
+          minimum: 1025
+          maximum: 9999
+          example: 3000
+        working_dir:
+          type: string
+          example: "/app"
+        static_dir:
+          type: string
+          example: "/app/dist"
+        image:
+          type: string
+          example: "node:18-alpine"
+        env_vars:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            NODE_ENV: "production"
+            PORT: "3000"
+        status:
+          type: string
+        project_id:
+          type: string
+
+    DeploymentStatus:
+      type: string
+      enum:
+        - pending
+        - in_progress
+        - failed
+        - completed
+
+    Deployment:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "01HN2K3M4N5P6Q7R8S9T0U1V2W"
+        user_id:
+          type: string
+        config:
+          $ref: '#/components/schemas/Blueprint'
+        status:
+          $ref: '#/components/schemas/DeploymentStatus'
+        metadata:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    DeployRequest:
+      type: object
+      required:
+        - name
+        - user_id
+        - source
+        - runtime
+      properties:
+        name:
+          type: string
+          example: "my-app"
+        description:
+          type: string
+          example: "My application description"
+        user_id:
+          type: string
+        source:
+          type: string
+          enum: [remote, image]
+        runtime:
+          $ref: '#/components/schemas/RuntimeObj'
+        version:
+          type: string
+        run_cmd:
+          type: string
+          example: "npm start"
+        build_cmd:
+          type: string
+          example: "npm run build"
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+          example: 3000
+        working_dir:
+          type: string
+          example: "/app"
+        static_dir:
+          type: string
+          example: "/app/dist"
+        image:
+          type: string
+          example: "node:18-alpine"
+        env_vars:
+          type: object
+          additionalProperties:
+            type: string
+        secrets:
+          type: object
+          additionalProperties:
+            type: string
+        remote:
+          $ref: '#/components/schemas/RemoteObj'
+        domain:
+          type: string
+          example: "myapp.example.com"
+        dns_provider:
+          type: string
+          example: "cloudflare"
+
+    DeployResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        id:
+          type: string
+          example: "01HN2K3M4N5P6Q7R8S9T0U1V2W"
+        name:
+          type: string
+          example: "my-app"
+        created_at:
+          type: string
+          format: date-time
+
+    Service:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "01HN2K3M4N5P6Q7R8S9T0U1V2W"
+        name:
+          type: string
+          example: "my-service"
+        description:
+          type: string
+          example: "My service description"
+        source:
+          type: string
+        runtime:
+          $ref: '#/components/schemas/Runtime'
+        runtime_version:
+          type: string
+          example: "18.0.0"
+        run_cmd:
+          type: string
+          example: "npm start"
+        build_cmd:
+          type: string
+          example: "npm run build"
+        port:
+          type: integer
+          example: 3000
+        working_dir:
+          type: string
+          example: "/app"
+        static_dir:
+          type: string
+          example: "/app/dist"
+        image:
+          type: string
+          example: "node:18-alpine"
+        env_vars:
+          type: object
+          additionalProperties:
+            type: string
+        status:
+          type: string
+        remote:
+          type: string
+          format: uri
+        branch:
+          type: string
+          example: "main"
+        commit_hash:
+          type: string
+          example: "abc123def456"
+        blueprint:
+          $ref: '#/components/schemas/Blueprint'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ServiceUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        runtime_version:
+          type: string
+        run_cmd:
+          type: string
+        build_cmd:
+          type: string
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        working_dir:
+          type: string
+        static_dir:
+          type: string
+        image:
+          type: string
+        env_vars:
+          type: object
+          additionalProperties:
+            type: string
+        branch:
+          type: string
+
+    ProxyStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "running"
+
+    ProxyRoute:
+      type: object
+      required:
+        - domain
+        - upstream
+      properties:
+        domain:
+          type: string
+          example: "example.com"
+        upstream:
+          type: string
+          example: "http://localhost:3000"
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        details:
+          type: object
+          description: Additional error details
+
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Validation failed"
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: "name"
+              message:
+                type: string
+                example: "Field is required"
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Unauthorized"
+            code: "AUTH_REQUIRED"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Resource not found"
+            code: "NOT_FOUND"
+
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Internal server error"
+            code: "INTERNAL_ERROR"
+
+tags:
+  - name: Authentication
+    description: Authentication and token management
+  - name: Deployments
+    description: Deployment management operations
+  - name: Services
+    description: Service management operations
+  - name: Logs
+    description: Log streaming operations
+  - name: Proxy
+    description: Proxy configuration and management

@@ -1,0 +1,69 @@
+package store
+
+import (
+	"context"
+	"database/sql"
+	"time"
+
+	"dployr/pkg/store"
+
+	"github.com/oklog/ulid/v2"
+)
+
+type UserStore struct {
+	db *sql.DB
+}
+
+func NewUserStore(db *sql.DB) *UserStore {
+	return &UserStore{db: db}
+}
+
+func (u *UserStore) FindOrCreateUser(email string) (*store.User, error) {
+	user := &store.User{}
+	stmt, err := u.db.Prepare("SELECT id, email FROM users WHERE email = ?")
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	err = stmt.QueryRow(email).Scan(&user.ID, &user.Email)
+	if err == sql.ErrNoRows {
+		id := ulid.Make().String()
+		now := time.Now().UTC()
+		insertStmt, err := u.db.Prepare("INSERT INTO users (id, email, created_at, updated_at) VALUES (?, ?, ?, ?)")
+		if err != nil {
+			return nil, err
+		}
+		defer insertStmt.Close()
+		_, err = insertStmt.Exec(id, email, now, now)
+		if err != nil {
+			return nil, err
+		}
+		user.ID = id
+		user.Email = email
+		user.CreatedAt = now
+		user.UpdatedAt = now
+		return user, nil
+	}
+	return user, err
+}
+
+
+func (u UserStore) GetUserByEmail(ctx context.Context, email string) (*store.User, error) {
+	stmt, err := u.db.PrepareContext(ctx, `
+		SELECT id, email, created_at, updated_at
+		FROM users WHERE email = ?`)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	row := stmt.QueryRowContext(ctx, email)
+
+	var user store.User
+	err = row.Scan(&user.ID, &user.Email, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
