@@ -114,8 +114,8 @@ chocolateys:
 brews:
   - name: dployr
     repository:
-      owner: Emmanuel Madehin
-      name: dployr
+      owner: dployr-io
+      name: homebrew-dployr
     homepage: https://github.com/dployr-io/homebrew-dployr
     description: "Your app, your server, your rules!"
     license: MIT
@@ -131,8 +131,8 @@ brews:
 scoops:
   - name: dployr
     repository:
-      owner: Emmanuel Madehin
-      name: dployr
+      owner: dployr-io
+      name: scoop-dployr
     homepage: https://github.com/dployr-io/scoop-dployr
     description: "Your app, your server, your rules!"
     license: MIT
