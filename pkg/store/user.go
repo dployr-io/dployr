@@ -7,13 +7,12 @@ import (
 
 type Role string
 
-// TODO: Proper roles description
-// Owner > Admin > Developer > Viewer
+// owner > admin > developer > viewer
 const (
-	RoleOwner    Role = "owner"     // Max priviledges 
-	RoleAdmin    Role = "admin"     // Manage deployments, teams, etc.
-	RoleDeveloper Role = "developer" // Deploy new services, update 
-	RoleViewer   Role = "viewer"    // Read-only access
+	RoleOwner     Role = "owner"     // uninstall dployr, manage admins
+	RoleAdmin     Role = "admin"     // delete infrastructure, secrets, users, proxies; manage deployr versions; shell access
+	RoleDeveloper Role = "developer" // deploy apps, view logs, view events, view resource graph
+	RoleViewer    Role = "viewer"    // view services
 )
 
 var RoleLevel = map[Role]int{
@@ -30,19 +29,13 @@ func (r Role) IsPermitted(required Role) bool {
 
 type User struct {
 	ID            string         `json:"id" db:"id"`
-	Name          string         `json:"name" db:"name"`
 	Email         string         `json:"email" db:"email"`
 	Role 		  Role           `josn:"role" db:"role"`
-	Password      string         `json:"-" db:"password"`
-	MagicToken        *string    `db:"magic_token,omitempty" json:"-"`
-    MagicTokenExpiry  *time.Time `db:"magic_token_expiry,omitempty" json:"-"`
 	CreatedAt     time.Time      `json:"created_at" db:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at" db:"updated_at"`
 }
 
 type UserStore interface {
 	FindOrCreateUser(email string) (*User, error)
-	SaveMagicToken(email, token string, expiry time.Time) error
-	ValidateMagicToken(token string) (*User, error)
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 }

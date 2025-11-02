@@ -30,7 +30,7 @@ type Service struct {
 	RuntimeVersion string            `json:"runtime_version,omitempty" db:"runtime_version"`
 	RunCmd         string            `json:"run_cmd,omitempty" db:"run_cmd"`
 	BuildCmd       string            `json:"build_cmd,omitempty" db:"build_cmd"`
-	Port           int               `json:"port" db:"port"`
+	Port           int               `json:"port"`
 	WorkingDir     string            `json:"working_dir,omitempty" db:"working_dir"`
 	StaticDir      string            `json:"static_dir,omitempty" db:"static_dir"`
 	Image          string            `json:"image,omitempty" db:"image"`

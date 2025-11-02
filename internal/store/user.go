@@ -48,32 +48,10 @@ func (u *UserStore) FindOrCreateUser(email string) (*store.User, error) {
 	return user, err
 }
 
-func (u *UserStore) SaveMagicToken(email, token string, expiry time.Time) error {
-	_, err := u.db.Exec("UPDATE users SET magic_token=?, magic_token_expiry=? WHERE email=?", token, expiry, email)
-	return err
-}
-
-func (u *UserStore) ValidateMagicToken(token string) (*store.User, error) {
-	stmt, err := u.db.Prepare(`
-		SELECT id, email FROM users 
-		WHERE magic_token = ? AND magic_token_expiry > datetime('now')
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer stmt.Close()
-
-	user := &store.User{}
-	err = stmt.QueryRow(token).Scan(&user.ID, &user.Email)
-	if err != nil {
-		return nil, err
-	}
-	return user, nil
-}
 
 func (u UserStore) GetUserByEmail(ctx context.Context, email string) (*store.User, error) {
 	stmt, err := u.db.PrepareContext(ctx, `
-		SELECT id, email, magic_token, magic_token_expiry, created_at, updated_at
+		SELECT id, email, created_at, updated_at
 		FROM users WHERE email = ?`)
 	if err != nil {
 		return nil, err
@@ -83,7 +61,7 @@ func (u UserStore) GetUserByEmail(ctx context.Context, email string) (*store.Use
 	row := stmt.QueryRowContext(ctx, email)
 
 	var user store.User
-	err = row.Scan(&user.ID, &user.Email, &user.MagicToken, &user.MagicTokenExpiry, &user.CreatedAt, &user.UpdatedAt)
+	err = row.Scan(&user.ID, &user.Email, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
