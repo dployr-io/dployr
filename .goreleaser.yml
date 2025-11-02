@@ -73,6 +73,9 @@ chocolateys:
   - name: dployr
     title: dployr
     authors: Emmanuel Madehin
+    owners:
+      - dployr-io
+    api_key: "{{ .Env.CHOCOLATEY_API_KEY }}"
     project_url: https://github.com/dployr-io/dployr
     url_template: "https://github.com/dployr-io/dployr/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
     copyright: 2025 Emmanuel Madehin
