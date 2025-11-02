@@ -231,7 +231,7 @@ MIT License — see [LICENSE](LICENSE) for details.
 ## Documentation
 
 Complete documentation available at
-👉 [https://docs.dployr.dev](https://docs.dployr.dev)
+ [https://docs.dployr.dev](https://docs.dployr.dev)
 
 ---
 
