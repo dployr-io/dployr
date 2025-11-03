@@ -27,7 +27,7 @@ jobs:
         with:
           go-version: '1.24'
 
-      - name: Run GoReleaser (skip Chocolatey)
+      - name: Run GoReleaser 
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
@@ -43,39 +43,3 @@ jobs:
         with:
           name: goreleaser-dist
           path: dist/**
-
-  # Chocolatey packaging and publishing
-  chocolatey:
-    runs-on: windows-latest
-    needs: release
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-
-      - name: Generate Chocolatey package with GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: '~> v2'
-          args: release --snapshot --clean --skip=homebrew,scoop,validate,publish
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish to Chocolatey
-        shell: bash
-        run: |
-          choco push dist/*.nupkg --source https://push.chocolatey.org/api/v2/package --api-key ${{ secrets.CHOCOLATEY_API_KEY }}
-        env:
-          CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
-      
-      - name: Confirm successful publish
-        shell: pwsh
-        run: |
-          Write-Host "Chocolatey package successfully pushed."
