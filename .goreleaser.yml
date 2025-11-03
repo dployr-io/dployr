@@ -106,7 +106,6 @@ chocolateys:
       - id: caddy
       - id: nssm
     source_repo: "https://push.chocolatey.org/"
-    publish: true
 
 # macOS installer with Homebrew
 brews:
