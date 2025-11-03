@@ -54,24 +54,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          name: goreleaser-dist
-          path: ./dist
+          go-version: '1.24'
 
-      - name: Verify package presence
-        shell: pwsh
-        run: |
-          Write-Host "Listing generated files:"
-          Get-ChildItem -Recurse ./dist | ForEach-Object { Write-Host $_.FullName }
+      - name: Generate Chocolatey package with GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --snapshot --clean --skip=homebrew,scoop,validate,publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to Chocolatey
         shell: bash
-        uses: crazy-max/ghaction-chocolatey@v3
-        with:
-          args: push "dist/dployr.choco/*.nupkg" --source https://push.chocolatey.org/ --api-key ${{ secrets.CHOCOLATEY_API_KEY }}
-
+        run: |
+          choco push dist/dployr.choco/*.nupkg --source https://push.chocolatey.org/ --api-key ${{ secrets.CHOCOLATEY_API_KEY }}
+        env:
+          CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+      
       - name: Confirm successful publish
         shell: pwsh
         run: |
