@@ -69,7 +69,8 @@ jobs:
       - name: Publish to Chocolatey
         uses: crazy-max/ghaction-chocolatey@v3
         with:
-          args: push dist/*.nupkg --source https://push.chocolatey.org/ --api-key ${{ secrets.CHOCOLATEY_API_KEY }}
+          args: push "dist/dployr.choco/*.nupkg" --source https://push.chocolatey.org/ --api-key ${{ secrets.CHOCOLATEY_API_KEY }}
+        shell: bash
 
       - name: Confirm successful publish
         shell: pwsh
