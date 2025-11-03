@@ -67,10 +67,10 @@ jobs:
           Get-ChildItem -Recurse ./dist | ForEach-Object { Write-Host $_.FullName }
 
       - name: Publish to Chocolatey
+        shell: bash
         uses: crazy-max/ghaction-chocolatey@v3
         with:
           args: push "dist/dployr.choco/*.nupkg" --source https://push.chocolatey.org/ --api-key ${{ secrets.CHOCOLATEY_API_KEY }}
-        shell: bash
 
       - name: Confirm successful publish
         shell: pwsh
