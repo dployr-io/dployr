@@ -66,17 +66,10 @@ jobs:
           Write-Host "Listing generated files:"
           Get-ChildItem -Recurse ./dist | ForEach-Object { Write-Host $_.FullName }
 
-      - name: Install Chocolatey
+      - name: Publish to Chocolatey
         uses: crazy-max/ghaction-chocolatey@v3
         with:
-          args: --version
-
-      - name: Publish .nupkg to Chocolatey
-        uses: crazy-max/ghaction-chocolatey@v3
-        with:
-          api_key: ${{ secrets.CHOCOLATEY_API_KEY }}
-          package_path: 'dist/**/*.nupkg'
-          source_repo: 'https://push.chocolatey.org/'
+          args: push dist/*.nupkg --source https://push.chocolatey.org/ --api-key ${{ secrets.CHOCOLATEY_API_KEY }}
 
       - name: Confirm successful publish
         shell: pwsh
