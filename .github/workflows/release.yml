@@ -58,12 +58,12 @@ jobs:
         with:
           args: --version
 
-      - name: Run GoReleaser 
+      - name: Run GoReleaser for Chocolatey only
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean
+          args: release --skip=publish,homebrew,scoop,archive
         env:
           GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
           CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
