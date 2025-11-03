@@ -71,7 +71,7 @@ jobs:
       - name: Publish to Chocolatey
         shell: bash
         run: |
-          choco push dist/*.nupkg --source https://push.chocolatey.org/ --api-key ${{ secrets.CHOCOLATEY_API_KEY }}
+          choco push dist/*.nupkg --source https://push.chocolatey.org/api/v2/package --api-key ${{ secrets.CHOCOLATEY_API_KEY }}
         env:
           CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
       
