@@ -102,12 +102,11 @@ chocolateys:
       The daemon will be installed as a Windows service named 'dployrd'
       Default configuration listens on port 8080
       Requires administrator privileges for service installation
-
     dependencies:
       - id: caddy
-        version: ""
       - id: nssm
-        version: ""
+    source_repo: "https://push.chocolatey.org/"
+    publish: true
 
 # macOS installer with Homebrew
 brews:

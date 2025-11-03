@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  # Linux build (Homebrew, Scoop, etc.)
+  # Build and release for Linux/macOS/Windows 
   release:
     if: ${{ github.event_name == 'push' || (github.event.workflow_run.conclusion == 'success' && startsWith(github.ref, 'refs/tags/v')) }}
     runs-on: ubuntu-latest
@@ -27,7 +27,7 @@ jobs:
         with:
           go-version: '1.24'
 
-      - name: Run GoReleaser
+      - name: Run GoReleaser (skip Chocolatey)
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
@@ -38,7 +38,13 @@ jobs:
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
           SCOOP_TAP_GITHUB_TOKEN: ${{ secrets.SCOOP_TAP_GITHUB_TOKEN }}
 
-  # Windows job for Chocolatey packaging
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: goreleaser-dist
+          path: dist/**
+
+  # Chocolatey packaging and publishing
   chocolatey:
     runs-on: windows-latest
     needs: release
@@ -48,23 +54,31 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
         with:
-          go-version: '1.24'
+          name: goreleaser-dist
+          path: ./dist
+
+      - name: Verify package presence
+        shell: pwsh
+        run: |
+          Write-Host "Listing generated files:"
+          Get-ChildItem -Recurse ./dist | ForEach-Object { Write-Host $_.FullName }
 
       - name: Install Chocolatey
         uses: crazy-max/ghaction-chocolatey@v3
         with:
           args: --version
 
-      - name: Run GoReleaser for Chocolatey only
-        uses: goreleaser/goreleaser-action@v6
+      - name: Publish .nupkg to Chocolatey
+        uses: crazy-max/ghaction-chocolatey@v3
         with:
-          distribution: goreleaser
-          version: '~> v2'
-          args: release --clean --skip=publish,homebrew,scoop
-        env:
-          GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
-          CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
-          
+          api_key: ${{ secrets.CHOCOLATEY_API_KEY }}
+          package_path: 'dist/**/*.nupkg'
+          source_repo: 'https://push.chocolatey.org/'
+
+      - name: Confirm successful publish
+        shell: pwsh
+        run: |
+          Write-Host "Chocolatey package successfully pushed."
