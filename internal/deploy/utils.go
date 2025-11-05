@@ -92,8 +92,9 @@ func SetupRuntime(r store.RuntimeObj, workDir string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
+	// Install runtime version
 	cmd := exec.CommandContext(ctx, vfox, "install", string(r.Type)+"@"+version, "-y")
-	cmd.Dir = utils.GetDataDir() 
+	cmd.Dir = utils.GetDataDir()
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = nil
@@ -101,24 +102,18 @@ func SetupRuntime(r store.RuntimeObj, workDir string) error {
 	err = cmd.Run()
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			return fmt.Errorf("vfox command timed out after 5 minutes")
+			return fmt.Errorf("vfox install timed out after 5 minutes")
 		}
-		return fmt.Errorf("vfox command failed: %v", err)
+		return fmt.Errorf("vfox install failed: %v", err)
 	}
 
-	cmd = exec.CommandContext(ctx, vfox, "use", string(r.Type)+"@"+version)
-	cmd.Dir = workDir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = nil
-	err = cmd.Run()
+	// Verify the runtime is accessible 
+	_, err = utils.GetRuntimePath(string(r.Type), version)
 	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			return fmt.Errorf("vfox command timed out after 5 minutes")
-		}
-		return fmt.Errorf("vfox command failed: %v", err)
+		return fmt.Errorf("runtime installation verification failed: %v", err)
 	}
 
+	fmt.Printf("Runtime %s@%s installed and verified successfully\n", r.Type, version)
 	return nil
 }
 
