@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -186,6 +187,53 @@ func FindVersionDir(base string, entries []os.DirEntry, version string) (string,
 	}
 
 	return root, nil
+}
+
+func PrintColoredLogLine(line, colorReset, colorRed, colorYellow, colorBlue, colorGray, colorGreen string) {
+	// Parse JSON log entry if possible
+	var logEntry map[string]interface{}
+	if err := json.Unmarshal([]byte(line), &logEntry); err == nil {
+		// It's a JSON log entry
+		level, _ := logEntry["level"].(string)
+		message, _ := logEntry["message"].(string)
+		timestamp, _ := logEntry["timestamp"].(string)
+
+		// Format timestamp
+		if timestamp != "" {
+			fmt.Printf("[%s] ", timestamp)
+		}
+
+		// Color based on level
+		switch strings.ToLower(level) {
+		case "error", "fatal":
+			fmt.Printf("%s%s%s: %s\n", colorRed, strings.ToUpper(level), colorReset, message)
+		case "warn", "warning":
+			fmt.Printf("%s%s%s: %s\n", colorYellow, strings.ToUpper(level), colorReset, message)
+		case "info":
+			fmt.Printf("%s%s%s: %s\n", colorBlue, strings.ToUpper(level), colorReset, message)
+		case "debug":
+			fmt.Printf("%s%s%s: %s\n", colorGray, strings.ToUpper(level), colorReset, message)
+		default:
+			fmt.Printf("%s: %s\n", level, message)
+		}
+	} else {
+		// Plain text log line - apply simple coloring
+		lowerLine := strings.ToLower(line)
+		switch {
+		case strings.Contains(lowerLine, "error") || strings.Contains(lowerLine, "fatal"):
+			fmt.Printf("%s%s%s\n", colorRed, line, colorReset)
+		case strings.Contains(lowerLine, "warn"):
+			fmt.Printf("%s%s%s\n", colorYellow, line, colorReset)
+		case strings.Contains(lowerLine, "info"):
+			fmt.Printf("%s%s%s\n", colorBlue, line, colorReset)
+		case strings.Contains(lowerLine, "debug"):
+			fmt.Printf("%s%s%s\n", colorGray, line, colorReset)
+		case strings.Contains(lowerLine, "success") || strings.Contains(lowerLine, "complete"):
+			fmt.Printf("%s%s%s\n", colorGreen, line, colorReset)
+		default:
+			fmt.Println(line)
+		}
+	}
 }
 
 func getSearchPaths(runtimeName string) []string {

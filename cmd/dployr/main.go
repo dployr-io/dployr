@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"dployr/pkg/core/deploy"
 	"dployr/pkg/core/proxy"
+	"dployr/pkg/core/utils"
 	"dployr/pkg/shared"
 	"dployr/pkg/store"
 	"dployr/pkg/version"
@@ -13,7 +15,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -342,6 +346,130 @@ All components are written in Go and packaged as standalone binaries.`,
 
 	listDeploymentsCmd.Flags().IntP("limit", "l", 10, "Maximum number of deployments to show")
 	rootCmd.AddCommand(listDeploymentsCmd)
+
+	// logs command
+	logsCmd := &cobra.Command{
+		Use:   "logs [deployment-id]",
+		Short: "view logs from deployment",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			token, _ := shared.GetToken()
+
+			var deploymentID string
+			var deploymentName string
+			if len(args) > 0 {
+				deploymentID = args[0]
+			} else {
+				// Get the latest deployment if no ID provided
+				r, err := http.NewRequest("GET", addr+"/deployments?limit=1", nil)
+				if err != nil {
+					return fmt.Errorf("failed to create request: %v", err)
+				}
+				r.Header.Set("Authorization", "Bearer "+token)
+
+				client := &http.Client{}
+				resp, err := client.Do(r)
+				if err != nil {
+					return fmt.Errorf("failed to connect to server: %v", err)
+				}
+				defer resp.Body.Close()
+
+				if resp.StatusCode != http.StatusOK {
+					body, _ := io.ReadAll(resp.Body)
+					return fmt.Errorf("failed to get latest deployment with status %d: %s", resp.StatusCode, string(body))
+				}
+
+				var deployments []store.Deployment
+				if err := json.NewDecoder(resp.Body).Decode(&deployments); err != nil {
+					return fmt.Errorf("failed to parse deployments: %v", err)
+				}
+
+				if len(deployments) == 0 {
+					fmt.Println("No deployments found. Create a deployment first with 'dployr deploy'")
+					return nil
+				}
+
+				deploymentID = deployments[0].ID
+				deploymentName = deployments[0].Blueprint.Name
+				fmt.Printf("Showing logs for latest deployment: %s (%s)\n\n", deploymentID, deploymentName)
+			}
+
+			// Get log file path - logs are stored on disk, not via API
+			var dataDir string
+			if runtime.GOOS == "windows" {
+				dataDir = filepath.Join(os.Getenv("PROGRAMDATA"), "dployr")
+			} else {
+				dataDir = "/var/lib/dployrd"
+			}
+
+			logPath := filepath.Join(dataDir, ".dployr", "logs", fmt.Sprintf("%s.log", strings.ToLower(deploymentID)))
+
+			// Check if log file exists
+			if _, err := os.Stat(logPath); os.IsNotExist(err) {
+				fmt.Printf("No log file found for deployment: %s\n", deploymentID)
+				fmt.Printf("Expected log file at: %s\n", logPath)
+				fmt.Println("This could mean:")
+				fmt.Println("  - The deployment hasn't started yet")
+				fmt.Println("  - The deployment ID is invalid")
+				fmt.Println("  - The deployment failed before logging began")
+				return nil
+			}
+
+			// Open and read the log file
+			file, err := os.Open(logPath)
+			if err != nil {
+				return fmt.Errorf("failed to open log file: %v", err)
+			}
+			defer file.Close()
+
+			// Color codes for different log levels
+			const (
+				colorReset  = "\033[0m"
+				colorRed    = "\033[31m"
+				colorYellow = "\033[33m"
+				colorBlue   = "\033[34m"
+				colorGray   = "\033[90m"
+				colorGreen  = "\033[32m"
+			)
+
+			lines, _ := cmd.Flags().GetInt("lines")
+
+			scanner := bufio.NewScanner(file)
+			var logLines []string
+
+			// Read all lines first if we need to limit them
+			if lines > 0 {
+				for scanner.Scan() {
+					logLines = append(logLines, scanner.Text())
+				}
+
+				// Show only the last N lines
+				start := 0
+				if len(logLines) > lines {
+					start = len(logLines) - lines
+				}
+
+				for i := start; i < len(logLines); i++ {
+					utils.PrintColoredLogLine(logLines[i], colorReset, colorRed, colorYellow, colorBlue, colorGray, colorGreen)
+				}
+			} else {
+				// Print all lines with coloring
+				for scanner.Scan() {
+					line := scanner.Text()
+					utils.PrintColoredLogLine(line, colorReset, colorRed, colorYellow, colorBlue, colorGray, colorGreen)
+				}
+			}
+
+			if err := scanner.Err(); err != nil {
+				return fmt.Errorf("error reading log file: %v", err)
+			}
+
+			return nil
+		},
+	}
+
+	logsCmd.Flags().IntP("lines", "n", 0, "Number of lines to show from the end of the logs")
+	rootCmd.AddCommand(logsCmd)
 
 	servicesCmd := &cobra.Command{
 		Use:   "services",
