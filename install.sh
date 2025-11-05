@@ -220,9 +220,17 @@ fi
 info "Setting up dployrd service..."
 case $OS in
     linux)
+        # Create dployr system groups
+        for group in dployr-owner dployr-admin dployr-dev dployr-viewer; do
+            if ! getent group "$group" &>/dev/null; then
+                groupadd "$group"
+                info "Created group: $group"
+            fi
+        done
+        
         # Create dployrd user if it doesn't exist
         if ! id "dployrd" &>/dev/null; then
-            useradd --system --create-home --shell /bin/false dployrd
+            useradd --system --create-home --shell /bin/false -G dployr-admin dployrd
             info "Created dployrd system user"
         fi
         
@@ -271,6 +279,15 @@ EOF
         info "dployrd service started and enabled"
         ;;
     darwin)
+        # Create dployr system groups (macOS)
+        for group in dployr-owner dployr-admin dployr-dev dployr-viewer; do
+            if ! dscl . -read /Groups/"$group" &>/dev/null; then
+                dscl . -create /Groups/"$group"
+                dscl . -create /Groups/"$group" PrimaryGroupID "$(dscl . -list /Groups PrimaryGroupID | awk '{print $2}' | sort -n | tail -1 | awk '{print $1+1}')"
+                info "Created group: $group"
+            fi
+        done
+        
         # Create dployrd user if it doesn't exist (macOS uses _username convention)
         if ! dscl . -read /Users/_dployrd &>/dev/null; then
             dscl . -create /Users/_dployrd
@@ -279,6 +296,7 @@ EOF
             dscl . -create /Users/_dployrd UniqueID 501
             dscl . -create /Users/_dployrd PrimaryGroupID 20
             dscl . -create /Users/_dployrd NFSHomeDirectory /var/lib/dployrd
+            dscl . -append /Groups/dployr-admin GroupMembership _dployrd
             info "Created _dployrd system user"
         fi
         
