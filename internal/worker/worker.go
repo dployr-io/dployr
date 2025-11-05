@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -84,11 +84,8 @@ func (w *Worker) execute(ctx context.Context, id string) {
 }
 
 func (w *Worker) runDeployment(ctx context.Context, id string) error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("could not resolve user home directory: %v", err)
-	}
-	logPath := homeDir + "/.dployr/logs/"
+	dataDir := utils.GetDataDir()
+	logPath := filepath.Join(dataDir, ".dployr", "logs") + "/"
 
 	d, err := w.depsStore.GetDeployment(ctx, id)
 	if err != nil {

@@ -15,9 +15,9 @@ type LogsStreamer struct {
 }
 
 func Init() *LogsStreamer {
-	homeDir, _ := os.UserHomeDir()
+	dataDir := utils.GetDataDir()
 	return &LogsStreamer{
-		dir: filepath.Join(homeDir, ".dployr", "logs"),
+		dir: filepath.Join(dataDir, ".dployr", "logs"),
 	}
 }
 
@@ -35,7 +35,7 @@ func (s *LogsStreamer) Stream(ctx context.Context, id string, logChan chan<- str
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	
+
 	// Send existing lines
 	for scanner.Scan() {
 		select {
@@ -69,7 +69,7 @@ func (s *LogsStreamer) Stream(ctx context.Context, id string, logChan chan<- str
 			if stat.Size() > lastSize {
 				file.Seek(lastSize, 0)
 				scanner = bufio.NewScanner(file)
-				
+
 				for scanner.Scan() {
 					select {
 					case <-ctx.Done():

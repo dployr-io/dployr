@@ -15,6 +15,7 @@ import (
 
 	"dployr/pkg/core/proxy"
 	"dployr/pkg/core/service"
+	"dployr/pkg/core/utils"
 )
 
 //go:embed templates/*.tpl
@@ -61,19 +62,15 @@ func (c *CaddyHandler) Setup(apps map[string]proxy.App) error {
 		return fmt.Errorf("unable to parse embedded templates: %w", err)
 	}
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("unable to get home directory: %w", err)
-	}
-
-	cfgDir := filepath.Join(homeDir, ".dployr", "caddy")
+	dataDir := utils.GetDataDir()
+	cfgDir := filepath.Join(dataDir, ".dployr", "caddy")
 	err = os.MkdirAll(cfgDir, 0755)
 	if err != nil {
 		return fmt.Errorf("unable to create config directory: %w", err)
 	}
 
 	// create log directory
-	logDir := filepath.Join(homeDir, ".dployr", "logs", "caddy")
+	logDir := filepath.Join(dataDir, ".dployr", "logs", "caddy")
 	log.Printf("Creating log directory: %s", logDir)
 	err = os.MkdirAll(logDir, 0755)
 	if err != nil {
@@ -96,7 +93,7 @@ func (c *CaddyHandler) Setup(apps map[string]proxy.App) error {
 			App:     app,
 			LogDir:  logDir,
 			LogFile: logFile,
-			HomeDir: homeDir,
+			HomeDir: dataDir,
 		}
 
 		templateName := fmt.Sprintf("%s.tpl", app.Template)
@@ -113,7 +110,7 @@ func (c *CaddyHandler) Setup(apps map[string]proxy.App) error {
 	tmplData := TemplateData{
 		Apps:    apps,
 		LogDir:  logDir,
-		HomeDir: homeDir,
+		HomeDir: dataDir,
 		Content: contentBuilder.String(),
 	}
 
@@ -169,12 +166,8 @@ func (c *CaddyHandler) Status() proxy.ProxyStatusResponse {
 }
 
 func (c *CaddyHandler) Restart() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("unable to get home directory: %w", err)
-	}
-
-	cfgPath := filepath.Join(homeDir, ".dployr", "caddy", "Caddyfile")
+	dataDir := utils.GetDataDir()
+	cfgPath := filepath.Join(dataDir, ".dployr", "caddy", "Caddyfile")
 
 	// stop first to avoid port conflicts
 	log.Printf("stopping any existing caddy instance")
@@ -250,13 +243,8 @@ func (c *CaddyHandler) Remove(domains []string) error {
 // LoadState reads app config from apps.json.
 // Returns an empty map if the file doesn't exist.
 func LoadState() map[string]proxy.App {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatalf("%s", err)
-		return nil
-	}
-
-	statePath := filepath.Join(homeDir, stateFile)
+	dataDir := utils.GetDataDir()
+	statePath := filepath.Join(dataDir, stateFile)
 	log.Printf("checking state file at %s", statePath)
 
 	if _, err := os.Stat(statePath); os.IsNotExist(err) {
@@ -283,16 +271,13 @@ func LoadState() map[string]proxy.App {
 
 // saveState persists app config to apps.json
 func saveState(apps map[string]proxy.App) error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
+	dataDir := utils.GetDataDir()
 
 	data, err := json.MarshalIndent(apps, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	statePath := filepath.Join(homeDir, stateFile)
+	statePath := filepath.Join(dataDir, stateFile)
 	return os.WriteFile(statePath, data, 0644)
 }

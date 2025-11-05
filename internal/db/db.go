@@ -2,11 +2,11 @@ package db
 
 import (
 	"database/sql"
+	"dployr/pkg/core/utils"
 	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 
@@ -17,16 +17,7 @@ import (
 var migrationFiles embed.FS
 
 func Open() (*sql.DB, error) {
-	var dataDir string
-	switch runtime.GOOS {
-	case "windows":
-		dataDir = filepath.Join(os.Getenv("PROGRAMDATA"), "dployr")
-	case "darwin":
-		dataDir = "/var/lib/dployrd"
-	default: // linux and others
-		dataDir = "/var/lib/dployrd"
-	}
-
+	dataDir := utils.GetDataDir()
 	dbPath := filepath.Join(dataDir, "data.db")
 
 	if err := os.MkdirAll(dataDir, 0755); err != nil {

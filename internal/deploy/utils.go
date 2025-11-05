@@ -16,12 +16,9 @@ import (
 
 // SetupDir creates a working directory for the deployment
 func SetupDir(name string) (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("could not resolve user home directory: %v", err)
-	}
-	workDir := filepath.Join(homeDir, ".dployr", "services", utils.FormatName(name))
-	err = os.MkdirAll(workDir, 0755)
+	dataDir := utils.GetDataDir()
+	workDir := filepath.Join(dataDir, ".dployr", "services", utils.FormatName(name))
+	err := os.MkdirAll(workDir, 0755)
 	if err != nil {
 		return "", err
 	}
@@ -171,7 +168,7 @@ func buildAuthUrl(url string, config *shared.Config) (string, error) {
 	}
 
 	cleanUrl := url
-	if after, ok :=strings.CutPrefix(cleanUrl, "http://"); ok  {
+	if after, ok := strings.CutPrefix(cleanUrl, "http://"); ok {
 		cleanUrl = "https://" + after
 	}
 	if strings.HasPrefix(cleanUrl, "https://") {

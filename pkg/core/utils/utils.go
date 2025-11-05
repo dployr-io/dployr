@@ -12,6 +12,17 @@ import (
 	"dployr/pkg/store"
 )
 
+func GetDataDir() string {
+	switch runtime.GOOS {
+	case "windows":
+		return filepath.Join(os.Getenv("PROGRAMDATA"), "dployr")
+	case "darwin":
+		return "/var/lib/dployrd"
+	default: // linux and others
+		return "/var/lib/dployrd"
+	}
+}
+
 func FormatName(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
 	s = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(s, "-")
