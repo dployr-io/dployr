@@ -136,12 +136,12 @@ For first-time owner registration (requires secret key):
 				return fmt.Errorf("failed to connect to server: %v", err)
 			}
 			defer res.Body.Close()
-			
+
 			body, err := io.ReadAll(res.Body)
 			if err != nil {
 				return fmt.Errorf("failed to read response body: %v", err)
 			}
-			
+
 			// [DEBUG]
 			fmt.Printf("Response body: %s\n", string(body))
 
@@ -155,7 +155,7 @@ For first-time owner registration (requires secret key):
 				User         string `json:"user"`
 				Role         string `json:"role"`
 			}
-			if err := json.NewDecoder(res.Body).Decode(&authResp); err != nil {
+			if err := json.Unmarshal(body, &authResp); err != nil {
 				return fmt.Errorf("failed to parse response: %v", err)
 			}
 

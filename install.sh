@@ -352,14 +352,21 @@ EOF
         ;;
 esac
 
+#
+#
+# DEBUG
+#
+#
+echo "Home directory $HOME"
+
 # Reload vfox environment for current shell
 info "Reloading vfox environment..."
 if [[ -n "$SHELL" && -f "$HOME/.bashrc" ]]; then
     # shellcheck source=/dev/null
-    source "$HOME/.bashrc"
-    eval "$(vfox activate bash)" || warn "Failed to reload vfox environment"
+    source "$HOME/.bashrc" 2>&1 || warn "Failed to source ~/.bashrc: $?"
+    eval "$(vfox activate bash)" || warn "Failed to reload vfox environment 1"
 else
-    eval "$(vfox activate bash)" || warn "Failed to reload vfox environment"
+    eval "$(vfox activate bash)" || warn "Failed to reload vfox environment 2"
 fi
 
 # Cleanup
