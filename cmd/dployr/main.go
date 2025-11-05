@@ -136,6 +136,14 @@ For first-time owner registration (requires secret key):
 				return fmt.Errorf("failed to connect to server: %v", err)
 			}
 			defer res.Body.Close()
+			
+			body, err := io.ReadAll(res.Body)
+			if err != nil {
+				return fmt.Errorf("failed to read response body: %v", err)
+			}
+			
+			// [DEBUG]
+			fmt.Printf("Response body: %s\n", string(body))
 
 			if res.StatusCode != http.StatusOK {
 				return fmt.Errorf("login failed with status: %d", res.StatusCode)
@@ -156,7 +164,7 @@ For first-time owner registration (requires secret key):
 			if err != nil {
 				return fmt.Errorf("could not resolve user home directory: %v", err)
 			}
-			configPath := homeDir + "/.dployr/token.json"
+			cfgPath := homeDir + "/.dployr/token.json"
 
 			if err := os.Mkdir(homeDir+"/.dployr", 0700); err != nil && !os.IsExist(err) {
 				return fmt.Errorf("could not create config directory: %v", err)
@@ -169,14 +177,14 @@ For first-time owner registration (requires secret key):
 				"user":          authResp.User,
 				"role":          authResp.Role,
 			}
-			configData, err := json.MarshalIndent(cfg, "", "  ")
+			cfgData, err := json.MarshalIndent(cfg, "", "  ")
 			if err != nil {
 				return fmt.Errorf("could not marshal config: %v", err)
 			}
-			if err := os.WriteFile(configPath, configData, 0600); err != nil {
+			if err := os.WriteFile(cfgPath, cfgData, 0600); err != nil {
 				return fmt.Errorf("could not write config file: %v", err)
 			}
-			fmt.Printf("token saved to %s\n", configPath)
+			fmt.Printf("token saved to %s\n", cfgPath)
 			return nil
 		},
 	}
