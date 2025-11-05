@@ -37,8 +37,12 @@ func Get() Info {
 
 // String returns a formatted version string
 func (i Info) String() string {
+	commit := i.GitCommit
+	if len(commit) > 8 {
+		commit = commit[:8]
+	}
 	return fmt.Sprintf("%s %s (%s) built on %s",
-		i.Component, i.Version, i.GitCommit[:8], i.BuildDate)
+		i.Component, i.Version, commit, i.BuildDate)
 }
 
 // Short returns just the version number
