@@ -21,10 +21,16 @@ func Init(cfg *shared.Config) *Auth {
 func (a Auth) NewToken(email, lifespan string) (string, error) {
 	exp := time.Now()
 	if lifespan != "" && lifespan != "never" {
-		d, _ := time.ParseDuration(lifespan)
+		d, err := time.ParseDuration(lifespan)
+		if err != nil {
+			return "", fmt.Errorf("invalid lifespan duration: %v", err)
+		}
 		exp = exp.Add(d)
 	} else if lifespan == "never" {
 		exp = exp.Add(100 * 365 * 24 * time.Hour)
+	} else {
+		// Default to 15 minutes if no lifespan specified
+		exp = exp.Add(15 * time.Minute)
 	}
 
 	claims := jwt.MapClaims{
