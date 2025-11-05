@@ -27,7 +27,7 @@ builds:
       - -X dployr/pkg/version.Version={{.Version}}
       - -X dployr/pkg/version.GitCommit={{.FullCommit}}
       - -X dployr/pkg/version.BuildDate={{.Date}}
-      - -X dployr/pkg/version.Component=cli
+      - -X dployr/pkg/version.Component=dployr
 
   - id: dployrd
     main: ./cmd/dployrd
@@ -49,7 +49,7 @@ builds:
       - -X dployr/pkg/version.Version={{.Version}}
       - -X dployr/pkg/version.GitCommit={{.FullCommit}}
       - -X dployr/pkg/version.BuildDate={{.Date}}
-      - -X dployr/pkg/version.Component=daemon
+      - -X dployr/pkg/version.Component=dployrd
 
 archives:
   - id: default
