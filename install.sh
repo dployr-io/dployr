@@ -172,6 +172,11 @@ else
     info "vfox installed successfully!"
 fi
 
+# Setup vfox directory for dployrd user
+sudo mkdir -p "$INSTALL_DIR/dployrd/.version-fox/temp"
+sudo chown -R dployrd:dployrd "$INSTALL_DIR/dployrd/.version-fox"
+sudo chmod -R 755 "$INSTALL_DIR/dployrd/.version-fox"
+
 
 # Create system-wide config directory and file
 case $OS in
