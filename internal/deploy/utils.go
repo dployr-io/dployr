@@ -93,6 +93,7 @@ func SetupRuntime(r store.RuntimeObj, workDir string) error {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, vfox, "install", string(r.Type)+"@"+version, "-y")
+	cmd.Dir = utils.GetDataDir() 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = nil
