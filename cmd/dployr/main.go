@@ -265,11 +265,10 @@ For first-time owner registration (requires secret key):
 				return fmt.Errorf("failed to connect to server: %v", err)
 			}
 			defer resp.Body.Close()
-
 			if resp.StatusCode == http.StatusUnauthorized {
-				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first")
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first: %s", string(body))
 			}
-
 			if resp.StatusCode != http.StatusCreated {
 				body, _ := io.ReadAll(resp.Body)
 				return fmt.Errorf("deployment creation failed with status %d: %s", resp.StatusCode, string(body))
@@ -338,7 +337,8 @@ For first-time owner registration (requires secret key):
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusUnauthorized {
-				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first")
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first: %s", string(body))
 			}
 
 			if resp.StatusCode != http.StatusOK {
@@ -404,7 +404,8 @@ For first-time owner registration (requires secret key):
 				defer resp.Body.Close()
 
 				if resp.StatusCode == http.StatusUnauthorized {
-					return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first")
+					body, _ := io.ReadAll(resp.Body)
+					return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first: %s", string(body))
 				}
 
 				if resp.StatusCode != http.StatusOK {
@@ -539,7 +540,8 @@ For first-time owner registration (requires secret key):
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusUnauthorized {
-				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first")
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first: %s", string(body))
 			}
 
 			if resp.StatusCode != http.StatusOK {
@@ -600,7 +602,8 @@ For first-time owner registration (requires secret key):
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusUnauthorized {
-				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first")
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first: %s", string(body))
 			}
 
 			if resp.StatusCode != http.StatusOK {
@@ -660,7 +663,8 @@ For first-time owner registration (requires secret key):
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusUnauthorized {
-				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first")
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first: %s", string(body))
 			}
 
 			if resp.StatusCode != http.StatusOK {
@@ -699,7 +703,8 @@ For first-time owner registration (requires secret key):
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusUnauthorized {
-				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first")
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first: %s", string(body))
 			}
 
 			if resp.StatusCode != http.StatusNoContent {
@@ -762,7 +767,8 @@ For first-time owner registration (requires secret key):
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusUnauthorized {
-				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first")
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first: %s", string(body))
 			}
 
 			if resp.StatusCode != http.StatusOK {
@@ -830,7 +836,8 @@ For first-time owner registration (requires secret key):
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusUnauthorized {
-				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first")
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first: %s", string(body))
 			}
 
 			if resp.StatusCode != http.StatusNoContent {
@@ -877,7 +884,8 @@ For first-time owner registration (requires secret key):
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusUnauthorized {
-				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first")
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first: %s", string(body))
 			}
 
 			if resp.StatusCode != http.StatusNoContent {
@@ -911,7 +919,8 @@ For first-time owner registration (requires secret key):
 			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusUnauthorized {
-				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first")
+				body, _ := io.ReadAll(resp.Body)
+				return fmt.Errorf("invalid or expired token you need to sign in with 'dployr login' first: %s", string(body))
 			}
 
 			if resp.StatusCode != http.StatusOK {
