@@ -72,7 +72,12 @@ curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh |
 curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh | bash -s v0.1.1-beta.17
 ```
 
-> **Note**: The installer automatically generates a secure secret key and creates a config file at `~/.dployr/config.toml`. The secret is shown once during installation - save it securely!
+> **Note**: The installer automatically generates a secure secret key and creates a system-wide config file. The secret is shown once during installation - save it securely!
+> 
+> **Config locations:**
+> - **Linux**: `/etc/dployr/config.toml`
+> - **macOS**: `/usr/local/etc/dployr/config.toml`  
+> - **Windows**: `C:\ProgramData\dployr\config.toml`
 
 ### Manual Installation
 

@@ -142,11 +142,22 @@ else
     esac
 fi
 
-# Create default config directory and file
-CONFIG_DIR="$HOME/.dployr"
+# Create system-wide config directory and file
+case $OS in
+    darwin)
+        CONFIG_DIR="/usr/local/etc/dployr"
+        ;;
+    *)
+        CONFIG_DIR="/etc/dployr"
+        ;;
+esac
 CONFIG_FILE="$CONFIG_DIR/config.toml"
 
-info "Creating default configuration..."
+info "Creating system configuration..."
+if [[ $EUID -ne 0 ]]; then
+    error "System-wide installation requires root privileges. Run with sudo."
+fi
+
 mkdir -p "$CONFIG_DIR"
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
@@ -162,7 +173,10 @@ max-workers = 5
 # Secret key
 secret = "$SECRET"
 EOF
-    info "Created default config at $CONFIG_FILE"
+    # Set proper permissions (root-owned, readable by all)
+    chmod 644 "$CONFIG_FILE"
+    chmod 755 "$CONFIG_DIR"
+    info "Created system config at $CONFIG_FILE"
     SHOW_SECRET="$SECRET"
 else
     info "Config file already exists at $CONFIG_FILE"

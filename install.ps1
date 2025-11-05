@@ -150,8 +150,8 @@ try {
     Write-Host "You can create the service manually later using NSSM"
 }
 
-# Create default config directory and file
-$configDir = "$env:USERPROFILE\.dployr"
+# Create system-wide config directory and file
+$configDir = "$env:PROGRAMDATA\dployr"
 $configFile = "$configDir\config.toml"
 
 Write-Host "Creating default configuration..."
@@ -173,7 +173,7 @@ max-workers = 5
 secret = "$secret"
 "@
     $defaultConfig | Out-File -FilePath $configFile -Encoding UTF8
-    Write-Host "✓ Created default config at $configFile"
+    Write-Host "✓ Created system config at $configFile"
     $global:ShowSecret = $secret
 } else {
     Write-Host "✓ Config file already exists at $configFile"

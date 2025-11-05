@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -22,8 +23,8 @@ type Config struct {
 }
 
 func LoadConfig() (*Config, error) {
-	home, _ := os.UserHomeDir()
-	err := LoadTomlFile(filepath.Join(home, ".dployr", "config.toml"))
+	configPath := getSystemConfigPath()
+	err := LoadTomlFile(configPath)
 
 	if err != nil {
 		return nil, err
@@ -99,4 +100,16 @@ func GetToken() (string, error) {
 	}
 
 	return token, nil
+}
+
+// system-wide, accessible to all users
+func getSystemConfigPath() string {
+	switch runtime.GOOS {
+	case "windows":
+		return filepath.Join(os.Getenv("PROGRAMDATA"), "dployr", "config.toml")
+	case "darwin":
+		return "/usr/local/etc/dployr/config.toml"
+	default:
+		return "/etc/dployr/config.toml"
+	}
 }
