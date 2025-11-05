@@ -13,26 +13,26 @@ LDFLAGS = -s -w \
 	-X dployr/pkg/version.GitCommit=$(COMMIT) \
 	-X dployr/pkg/version.BuildDate=$(DATE)
 
-CLI_LDFLAGS = $(LDFLAGS) -X dployr/pkg/version.Component=cli
-DAEMON_LDFLAGS = $(LDFLAGS) -X dployr/pkg/version.Component=daemon
+CLI_LDFLAGS = $(LDFLAGS) -X dployr/pkg/version.Component=dployr
+DAEMON_LDFLAGS = $(LDFLAGS) -X dployr/pkg/version.Component=dployrd
 
 # Build directory
 BUILD_DIR = ./dist
 
 ## Build both binaries
-build: build-cli build-daemon
+build: build-dployr build-dployrd
 
 ## Build CLI binary
-build-cli:
+build-dployr:
 	@echo "Building dployr CLI..."
 	@mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 go build -ldflags "$(CLI_LDFLAGS)" -o $(BUILD_DIR)/dployr ./cmd/dployr
 
 ## Build daemon binary  
-build-daemon:
+build-dployrd:
 	@echo "Building dployrd daemon..."
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=1 go build -ldflags "$(DAEMON_LDFLAGS)" -o $(BUILD_DIR)/dployrd ./cmd/dployrd
+	CGO_ENABLED=0 go build -ldflags "$(DAEMON_LDFLAGS)" -o $(BUILD_DIR)/dployrd ./cmd/dployrd
 
 ## Clean build artifacts
 clean:
