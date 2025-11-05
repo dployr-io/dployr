@@ -183,7 +183,7 @@ dployr deploy \
   --runtime nodejs \
   --version 18 \
   --remote https://github.com/dployr-io/dployr-examples \
-  --branch main \
+  --branch master \
   --build-cmd "npm install" \
   --run-cmd "npm start" \
   --working-dir "nodejs" \

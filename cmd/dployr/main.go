@@ -46,18 +46,17 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:   "dployr",
 		Short: "dployr - your app, your server, your rules!",
-		Long: `dployr
-
+		Long: `
 Your app, your server, your rules!
 
 Turn any machine into a deployment platform. Deploy applications from Git repositories or Docker images with automatic reverse proxy, SSL certificates, and service management.
 
-` + "`dployr`" + ` gives developers a self-hosted alternative to managed platforms.  
+` + "dployr" + ` gives developers a self-hosted alternative to managed platforms.  
 It combines a lightweight daemon, a CLI client, and powerful integrations to automate deployment pipelines across operating systems.
 
 ---
 
-` + "`dployr`" + ` consists of two main components:
+` + "dployr" + ` consists of two main components:
 
 - dployr — Command-line client  
 - dployrd — Background daemon that handles deployment execution, service management, and API endpoints
