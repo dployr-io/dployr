@@ -172,11 +172,6 @@ else
     info "vfox installed successfully!"
 fi
 
-# Setup vfox directory for dployrd user
-sudo mkdir -p "$INSTALL_DIR/dployrd/.version-fox/temp"
-sudo chown -R dployrd:dployrd "$INSTALL_DIR/dployrd/.version-fox"
-sudo chmod -R 755 "$INSTALL_DIR/dployrd/.version-fox"
-
 
 # Create system-wide config directory and file
 case $OS in
@@ -224,13 +219,18 @@ case $OS in
     linux)
         # Create dployrd user if it doesn't exist
         if ! id "dployrd" &>/dev/null; then
-            useradd --system --no-create-home --shell /bin/false dployrd
+            useradd --system --create-home --shell /bin/false dployrd
             info "Created dployrd system user"
         fi
         
         # Create log and working directories
         mkdir -p /var/log/dployrd /var/lib/dployrd
         chown dployrd:dployrd /var/log/dployrd /var/lib/dployrd
+        
+        # Setup vfox directory for dployrd user
+        mkdir -p /home/dployrd/.version-fox/temp
+        chown -R dployrd:dployrd /home/dployrd/.version-fox
+        chmod -R 755 /home/dployrd/.version-fox
         
         # Create systemd service file
         cat > /etc/systemd/system/dployrd.service << 'EOF'
@@ -265,12 +265,18 @@ EOF
             dscl . -create /Users/_dployrd RealName "dployr Daemon"
             dscl . -create /Users/_dployrd UniqueID 501
             dscl . -create /Users/_dployrd PrimaryGroupID 20
+            dscl . -create /Users/_dployrd NFSHomeDirectory /var/lib/dployrd
             info "Created _dployrd system user"
         fi
         
         # Create log and working directories for macOS
         mkdir -p /var/log/dployrd /var/lib/dployrd
         chown _dployrd:staff /var/log/dployrd /var/lib/dployrd
+        
+        # Setup vfox directory for dployrd user
+        mkdir -p /var/lib/dployrd/.version-fox/temp
+        chown -R _dployrd:staff /var/lib/dployrd/.version-fox
+        chmod -R 755 /var/lib/dployrd/.version-fox
         
         # Create launchd plist
         cat > /Library/LaunchDaemons/io.dployr.dployrd.plist << 'EOF'
