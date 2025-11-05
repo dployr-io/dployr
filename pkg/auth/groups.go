@@ -15,15 +15,9 @@ var SystemGroupToRole = map[string]store.Role{
 	"dployr-viewer": store.RoleViewer,
 }
 
-// GetCurrentUserSystemRole returns the current user's highest system role
-func GetCurrentUserSystemRole() (store.Role, error) {
-	currentUser, err := user.Current()
-	if err != nil {
-		return store.RoleViewer, err
-	}
-
-	// Get user's groups
-	cmd := exec.Command("groups", currentUser.Username)
+// GetUserSystemRole returns the highest system role for a specific user
+func GetUserSystemRole(username string) (store.Role, error) {
+	cmd := exec.Command("id", "-Gn", username)
 	output, err := cmd.Output()
 	if err != nil {
 		return store.RoleViewer, err
@@ -45,4 +39,16 @@ func GetCurrentUserSystemRole() (store.Role, error) {
 	}
 
 	return highestRole, nil
+}
+
+// GetCurrentUserSystemRole returns the current user's highest system role
+//
+// Example: dployr-admin returns store.RoleAdmin
+func GetCurrentUserSystemRole() (store.Role, error) {
+	currentUser, err := user.Current()
+	if err != nil {
+		return store.RoleViewer, err
+	}
+
+	return GetUserSystemRole(currentUser.Username)
 }

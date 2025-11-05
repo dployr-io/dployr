@@ -60,6 +60,7 @@ func (w *WebHandler) NewServer(port int) error {
 
 	http.Handle("/auth/request", corsMiddleware(http.HandlerFunc(w.AuthH.GenerateToken)))
 	http.Handle("/auth/verify", corsMiddleware(http.HandlerFunc(w.AuthH.ValidateToken)))
+	http.Handle("/auth/refresh", corsMiddleware(http.HandlerFunc(w.AuthH.RefreshToken)))
 
 	depsH := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		switch req.Method {

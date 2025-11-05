@@ -6,11 +6,24 @@ info:
     Language agnostic SDK for interacting with dployr daemon via an agreeable common contract.
     
     ## Authentication
-    Most endpoints require JWT authentication. Include the token in the Authorization header:
-    ```
-    Authorization: Bearer <your-jwt-token>
-    ```
-  version: 1.0.0
+    Dployr uses JWT-based authentication with access and refresh tokens:
+    
+    ### Token Types
+    - **Access Token**: Short-lived (10 minutes) for API requests
+    - **Refresh Token**: Long-lived (24+ hours) for obtaining new access tokens
+    
+    ### Authentication Flow
+    1. Login with `/auth/request` to get both tokens
+    2. Use access token in Authorization header: `Authorization: Bearer <access-token>`
+    3. When access token expires, use `/auth/refresh` with refresh token
+    
+    ## Authorization
+    Role-based access control with four levels:
+    - **Owner**: Full system control, can manage admins
+    - **Admin**: Infrastructure management, user management, secrets
+    - **Developer**: Deploy apps, view logs and events
+    - **Viewer**: Read-only access to services
+  version: 1.0.1
   contact:
     name: Dployr Support
     email: hello@dployr.dev
@@ -34,8 +47,12 @@ paths:
     post:
       tags:
         - Authentication
-      summary: Generate authentication token
-      description: Generate a JWT token for authentication
+      summary: Login and generate authentication tokens
+      description: |
+        Generate JWT access and refresh tokens for authentication.
+        
+        **Owner Bootstrap**: First-time setup requires a secret key to create the owner user.
+        **Role Assignment**: Users are assigned roles based on system groups or explicit owner creation.
       security: []
       requestBody:
         required: true
@@ -50,23 +67,30 @@ paths:
                   type: string
                   format: email
                   example: user@example.com
+                  description: User email address
                 lifespan:
                   type: string
-                  description: Token lifespan (e.g., "24h", "7d", "never")
+                  description: Refresh token lifespan (e.g., "24h", "7d", "never")
                   example: "24h"
+                secret:
+                  type: string
+                  description: Owner secret key (required only for first owner creation)
+                  example: "owner-secret-key"
+                username:
+                  type: string
+                  description: System username for role determination via groups
+                  example: "john"
       responses:
         '200':
-          description: Token generated successfully
+          description: Authentication successful
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  token:
-                    type: string
-                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                $ref: '#/components/schemas/LoginResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -75,7 +99,7 @@ paths:
       tags:
         - Authentication
       summary: Verify authentication token
-      description: Validate a JWT token from Authorization header
+      description: Validate a JWT access token from Authorization header
       security:
         - BearerAuth: []
       responses:
@@ -84,9 +108,125 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Claims'
+                $ref: '#/components/schemas/TokenClaims'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: |
+        Generate a new access token using a valid refresh token.
+        The refresh token must be of type "refresh" and not expired.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  description: Valid refresh token
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '200':
+          description: New access token generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    description: New JWT access token (10 minute lifespan)
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  token_type:
+                    type: string
+                    example: "Bearer"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users:
+    get:
+      tags:
+        - Users
+      summary: List users
+      description: List all users (Admin+ required)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{email}/role:
+    put:
+      tags:
+        - Users
+      summary: Update user role
+      description: Update a user's role (Admin+ required, Owner required to create/modify admins)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: email
+          in: path
+          required: true
+          description: User email
+          schema:
+            type: string
+            format: email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  $ref: '#/components/schemas/Role'
+      responses:
+        '200':
+          description: User role updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -95,7 +235,9 @@ paths:
       tags:
         - Deployments
       summary: List deployments
-      description: Retrieve a list of deployments
+      description: Retrieve a list of deployments (Developer+ required)
+      security:
+        - BearerAuth: []
       parameters:
         - name: limit
           in: query
@@ -129,6 +271,8 @@ paths:
                     description: Total number of deployments
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -136,7 +280,9 @@ paths:
       tags:
         - Deployments
       summary: Create deployment
-      description: Create a new deployment
+      description: Create a new deployment (Developer+ required)
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -154,6 +300,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/ValidationError'
         '500':
@@ -164,7 +312,9 @@ paths:
       tags:
         - Services
       summary: List services
-      description: Retrieve a list of services
+      description: Retrieve a list of services (Viewer+ required)
+      security:
+        - BearerAuth: []
       parameters:
         - name: limit
           in: query
@@ -197,6 +347,8 @@ paths:
                     type: integer
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -205,7 +357,9 @@ paths:
       tags:
         - Services
       summary: Get service
-      description: Retrieve a specific service by ID
+      description: Retrieve a specific service by ID (Viewer+ required)
+      security:
+        - BearerAuth: []
       parameters:
         - name: serviceId
           in: path
@@ -222,6 +376,8 @@ paths:
                 $ref: '#/components/schemas/Service'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
@@ -231,7 +387,9 @@ paths:
       tags:
         - Services
       summary: Update service
-      description: Update a service configuration
+      description: Update a service configuration (Developer+ required)
+      security:
+        - BearerAuth: []
       parameters:
         - name: serviceId
           in: path
@@ -256,6 +414,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '422':
@@ -267,7 +427,9 @@ paths:
       tags:
         - Services
       summary: Partially update service
-      description: Partially update a service configuration
+      description: Partially update a service configuration (Developer+ required)
+      security:
+        - BearerAuth: []
       parameters:
         - name: serviceId
           in: path
@@ -292,10 +454,38 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Services
+      summary: Delete service
+      description: Delete a service (Admin+ required)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          description: Service ID
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Service deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -305,8 +495,10 @@ paths:
         - Logs
       summary: Open log stream
       description: |
-        Open a WebSocket connection to stream logs in real-time.
+        Open a WebSocket connection to stream logs in real-time (Developer+ required).
         This endpoint upgrades the HTTP connection to WebSocket.
+      security:
+        - BearerAuth: []
       parameters:
         - name: service_id
           in: query
@@ -325,6 +517,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -333,7 +527,9 @@ paths:
       tags:
         - Proxy
       summary: Get proxy status
-      description: Get the current status of the proxy service
+      description: Get the current status of the proxy service (Developer+ required)
+      security:
+        - BearerAuth: []
       responses:
         '200':
           description: Proxy status
@@ -343,6 +539,8 @@ paths:
                 $ref: '#/components/schemas/ProxyStatus'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -351,7 +549,9 @@ paths:
       tags:
         - Proxy
       summary: Restart proxy
-      description: Restart the proxy service
+      description: Restart the proxy service (Admin+ required)
+      security:
+        - BearerAuth: []
       responses:
         '200':
           description: Proxy restarted successfully
@@ -365,6 +565,8 @@ paths:
                     example: "Proxy restarted successfully"
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -373,7 +575,9 @@ paths:
       tags:
         - Proxy
       summary: Add proxy route
-      description: Add a new route to the proxy configuration
+      description: Add a new route to the proxy configuration (Admin+ required)
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -395,6 +599,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -403,7 +609,9 @@ paths:
       tags:
         - Proxy
       summary: Remove proxy route
-      description: Remove a route from the proxy configuration
+      description: Remove a route from the proxy configuration (Admin+ required)
+      security:
+        - BearerAuth: []
       responses:
         '200':
           description: Route removed successfully
@@ -419,8 +627,54 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /system/status:
+    get:
+      tags:
+        - System
+      summary: Get system status
+      description: Get overall system health and status (Viewer+ required)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: System status information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /system/info:
+    get:
+      tags:
+        - System
+      summary: Get system information
+      description: Get system version and configuration info (Admin+ required)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: System information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -432,20 +686,85 @@ components:
       bearerFormat: JWT
 
   schemas:
-    Claims:
+    Role:
+      type: string
+      enum:
+        - owner
+        - admin
+        - developer
+        - viewer
+      description: |
+        User role hierarchy (owner > admin > developer > viewer):
+        - **owner**: Full system control, manage admins, uninstall dployr
+        - **admin**: Infrastructure management, secrets, users, proxies, shell access
+        - **developer**: Deploy apps, view logs, events, resource graph
+        - **viewer**: Read-only access to services
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "01HN2K3M4N5P6Q7R8S9T0U1V2W"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        role:
+          $ref: '#/components/schemas/Role'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token (10 minute lifespan)
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refresh_token:
+          type: string
+          description: JWT refresh token (24+ hour lifespan)
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        expires_at:
+          type: string
+          format: date-time
+          description: Refresh token expiration time
+        user:
+          type: string
+          format: email
+          description: User email
+          example: "user@example.com"
+        role:
+          $ref: '#/components/schemas/Role'
+
+    TokenClaims:
       type: object
       properties:
         email:
           type: string
           format: email
+          example: "user@example.com"
+        username:
+          type: string
+          description: System username
+          example: "john"
+        token_type:
+          type: string
+          enum: [access, refresh]
+          description: Type of JWT token
         exp:
           type: integer
           format: int64
-          description: Expiration timestamp
+          description: Expiration timestamp (Unix)
         iat:
           type: integer
           format: int64
-          description: Issued at timestamp
+          description: Issued at timestamp (Unix)
 
     Runtime:
       type: string
@@ -555,6 +874,11 @@ components:
           example: "01HN2K3M4N5P6Q7R8S9T0U1V2W"
         user_id:
           type: string
+          description: ID of the user who created the deployment
+        user_email:
+          type: string
+          format: email
+          description: Email of the user who created the deployment
         config:
           $ref: '#/components/schemas/Blueprint'
         status:
@@ -754,6 +1078,67 @@ components:
           type: string
           example: "http://localhost:3000"
 
+    SystemStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          example: "healthy"
+        uptime:
+          type: string
+          description: System uptime duration
+          example: "72h30m15s"
+        services:
+          type: object
+          properties:
+            total:
+              type: integer
+              example: 5
+            running:
+              type: integer
+              example: 4
+            stopped:
+              type: integer
+              example: 1
+        proxy:
+          type: object
+          properties:
+            status:
+              type: string
+              example: "running"
+            routes:
+              type: integer
+              example: 3
+
+    SystemInfo:
+      type: object
+      properties:
+        version:
+          type: string
+          example: "1.0.0"
+        build_date:
+          type: string
+          format: date-time
+        go_version:
+          type: string
+          example: "go1.21.0"
+        platform:
+          type: string
+          example: "linux/amd64"
+        config:
+          type: object
+          properties:
+            data_dir:
+              type: string
+              example: "/var/lib/dployr"
+            log_level:
+              type: string
+              example: "info"
+            port:
+              type: integer
+              example: 7879
+
     Error:
       type: object
       properties:
@@ -803,6 +1188,16 @@ components:
             error: "Unauthorized"
             code: "AUTH_REQUIRED"
 
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Insufficient permissions"
+            code: "FORBIDDEN"
+
     NotFound:
       description: Resource not found
       content:
@@ -832,7 +1227,9 @@ components:
 
 tags:
   - name: Authentication
-    description: Authentication and token management
+    description: JWT authentication and token management
+  - name: Users
+    description: User management and role assignment
   - name: Deployments
     description: Deployment management operations
   - name: Services
@@ -841,3 +1238,5 @@ tags:
     description: Log streaming operations
   - name: Proxy
     description: Proxy configuration and management
+  - name: System
+    description: System status and information

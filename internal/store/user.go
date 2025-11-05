@@ -138,7 +138,7 @@ func (u UserStore) GetUserByEmail(ctx context.Context, email string) (*store.Use
 	return &user, nil
 }
 
-func (u *UserStore) IsOwner() (bool, error) {
+func (u *UserStore) HasOwner() (bool, error) {
 	// Check if owner exists
 	var count int
 	err := u.db.QueryRow("SELECT COUNT(*) FROM users WHERE role = ?", store.RoleOwner).Scan(&count)
@@ -147,3 +147,13 @@ func (u *UserStore) IsOwner() (bool, error) {
 	}
 	return count > 0, nil // True if owner exists
 }
+
+func (u *UserStore) GetRole(ctx context.Context, email string) (store.Role, error) {
+	var role store.Role
+	err := u.db.QueryRowContext(ctx, "SELECT role FROM users WHERE email = ?", email).Scan(&role)
+	if err != nil {
+		return store.RoleViewer, err
+	}
+	return store.RoleViewer, nil
+}
+

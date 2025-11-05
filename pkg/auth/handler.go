@@ -39,8 +39,9 @@ func (h *AuthHandler) GenerateToken(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		Email    string `json:"email"`
-		Lifespan string `json:"lifespan"`         // e.g. "15m", "1h"
-		Secret   string `json:"secret,omitempty"` // Optional: for first owner user
+		Lifespan string `json:"lifespan"`           // e.g. "15m", "1h"
+		Secret   string `json:"secret,omitempty"`   // Optional: for first owner user
+		Username string `json:"username,omitempty"` // System username for group checking
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 
@@ -100,7 +101,7 @@ func (h *AuthHandler) GenerateToken(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		hasOwner, err := h.store.IsOwner()
+		hasOwner, err := h.store.HasOwner()
 		if err != nil {
 			h.logger.Warn("unable to check if owner exists, proceeding with owner creation", "error", err)
 		}
@@ -113,12 +114,19 @@ func (h *AuthHandler) GenerateToken(w http.ResponseWriter, r *http.Request) {
 			role = store.RoleViewer
 		}
 	} else {
-		systemRole, err := GetCurrentUserSystemRole()
-		if err != nil {
-			h.logger.Warn("failed to get system role, defaulting to viewer", "error", err)
-			role = store.RoleViewer
+		// For non-owner users, check system groups if username provided
+		if req.Username != "" {
+			systemRole, roleErr := GetUserSystemRole(req.Username)
+			if roleErr != nil {
+				h.logger.Warn("failed to get system role, defaulting to viewer", "username", req.Username, "error", roleErr)
+				role = store.RoleViewer
+			} else {
+				role = systemRole
+				h.logger.Info("determined system role for user", "email", req.Email, "username", req.Username, "role", role)
+			}
 		} else {
-			role = systemRole
+			role = store.RoleViewer
+			h.logger.Info("no username provided, defaulting to viewer", "email", req.Email)
 		}
 	}
 
@@ -133,9 +141,15 @@ func (h *AuthHandler) GenerateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jwt, err := h.auth.NewToken(req.Email, req.Lifespan)
+	username := req.Username
+	if username == "" {
+		username = "unknown"
+	}
+
+	// Generate access token (10 minutes)
+	accessToken, err := h.auth.NewAccessToken(req.Email, username)
 	if err != nil {
-		msg := "failed to generate new token"
+		msg := "failed to generate access token"
 		h.logger.Error(msg)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
@@ -144,9 +158,10 @@ func (h *AuthHandler) GenerateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := h.auth.ValidateToken(jwt)
+	// Generate refresh token (24+ hours)
+	refreshToken, err := h.auth.NewRefreshToken(req.Email, username, req.Lifespan)
 	if err != nil {
-		msg := "failed to validate generated token"
+		msg := "failed to generate refresh token"
 		h.logger.Error(msg)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]any{
@@ -155,12 +170,24 @@ func (h *AuthHandler) GenerateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exp := time.Unix(claims.ExpiresAt, 0)
+	// Get expiry info from refresh token
+	refreshClaims, err := h.auth.ValidateToken(refreshToken)
+	if err != nil {
+		msg := "failed to validate refresh token"
+		h.logger.Error(msg)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": msg,
+		})
+		return
+	}
 
 	json.NewEncoder(w).Encode(map[string]any{
-		"token":      jwt,
-		"expires_at": exp,
-		"user":       u.Email,
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"expires_at":    time.Unix(refreshClaims.ExpiresAt, 0),
+		"user":          u.Email,
+		"role":          u.Role,
 	})
 }
 
@@ -208,5 +235,59 @@ func (h *AuthHandler) ValidateToken(w http.ResponseWriter, r *http.Request) {
 		Email:     claims.Email,
 		ExpiresAt: claims.ExpiresAt,
 		IssuedAt:  claims.IssuedAt,
+	})
+}
+
+func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	if req.RefreshToken == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "refresh_token required",
+		})
+		return
+	}
+
+	// Validate refresh token
+	claims, err := h.auth.ValidateToken(req.RefreshToken)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "invalid refresh token",
+		})
+		return
+	}
+
+	// Ensure it's actually a refresh token
+	if claims.TokenType != "refresh" {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "invalid token type",
+		})
+		return
+	}
+
+	// Generate new access token
+	newAccessToken, err := h.auth.NewAccessToken(claims.Email, claims.Username)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": "failed to generate access token",
+		})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]any{
+		"access_token": newAccessToken,
+		"token_type":   "Bearer",
 	})
 }

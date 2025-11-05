@@ -117,6 +117,13 @@ For first-time owner registration (requires secret key):
 
 			if secret != "" {
 				reqBody["secret"] = secret
+			} else {
+				// Retrieve current user
+				if username := os.Getenv("USER"); username != "" {
+					reqBody["username"] = username
+				} else if username := os.Getenv("USERNAME"); username != "" {
+					reqBody["username"] = username
+				}
 			}
 
 			jsonData, err := json.Marshal(reqBody)
@@ -134,9 +141,11 @@ For first-time owner registration (requires secret key):
 				return fmt.Errorf("login failed with status: %d", res.StatusCode)
 			}
 			var authResp struct {
-				Token     string `json:"token"`
-				ExpiresAt string `json:"expires_at"`
-				User      string `json:"user"`
+				AccessToken  string `json:"access_token"`
+				RefreshToken string `json:"refresh_token"`
+				ExpiresAt    string `json:"expires_at"`
+				User         string `json:"user"`
+				Role         string `json:"role"`
 			}
 			if err := json.NewDecoder(res.Body).Decode(&authResp); err != nil {
 				return fmt.Errorf("failed to parse response: %v", err)
@@ -154,9 +163,11 @@ For first-time owner registration (requires secret key):
 			}
 
 			cfg := map[string]string{
-				"token":      authResp.Token,
-				"expires_at": authResp.ExpiresAt,
-				"user":       authResp.User,
+				"access_token":  authResp.AccessToken,
+				"refresh_token": authResp.RefreshToken,
+				"expires_at":    authResp.ExpiresAt,
+				"user":          authResp.User,
+				"role":          authResp.Role,
 			}
 			configData, err := json.MarshalIndent(cfg, "", "  ")
 			if err != nil {

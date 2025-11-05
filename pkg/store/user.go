@@ -38,5 +38,6 @@ type UserStore interface {
 	FindOrCreateUser(email string, role Role) (*User, error)
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	UpdateUserRole(ctx context.Context, email string, role Role) error
-	IsOwner() (bool, error) // Returns true if owner exists
+	HasOwner() (bool, error) // Returns true if owner exists
+	GetRole(ctx context.Context, email string) (Role, error)
 }
