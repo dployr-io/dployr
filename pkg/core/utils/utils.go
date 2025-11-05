@@ -265,11 +265,31 @@ func getRuntimeBinary(runtimeName string) string {
 func findBinary(root, name string, searchPaths []string) string {
 	extensions := getBinaryExtensions()
 
-	for _, path := range searchPaths {
+	// Build all possible paths to check (original + 2 levels deep)
+	var pathsToCheck []string
+
+	// Add original search paths
+	pathsToCheck = append(pathsToCheck, searchPaths...)
+
+	// Add common subdirectories (1 level deep)
+	commonDirs := []string{"bin", "scripts", "cmd"}
+	pathsToCheck = append(pathsToCheck, commonDirs...)
+
+	// Add 2 levels deep for common patterns
+	for _, dir1 := range commonDirs {
+		for _, dir2 := range commonDirs {
+			if dir1 != dir2 { // Avoid bin/bin, scripts/scripts
+				pathsToCheck = append(pathsToCheck, filepath.Join(dir1, dir2))
+			}
+		}
+	}
+
+	// Check all paths with all extensions
+	for _, path := range pathsToCheck {
 		for _, ext := range extensions {
-			path := filepath.Join(root, path, name+ext)
-			if _, err := os.Stat(path); err == nil {
-				return path
+			fullPath := filepath.Join(root, path, name+ext)
+			if _, err := os.Stat(fullPath); err == nil {
+				return fullPath
 			}
 		}
 	}
@@ -318,4 +338,3 @@ func GetVfox() (string, error) {
 
 	return "", fmt.Errorf("vfox executable not found")
 }
-

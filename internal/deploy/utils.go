@@ -107,7 +107,7 @@ func SetupRuntime(r store.RuntimeObj, workDir string) error {
 		return fmt.Errorf("vfox install failed: %v", err)
 	}
 
-	// Verify the runtime is accessible 
+	// Verify the runtime is accessible
 	_, err = utils.GetRuntimePath(string(r.Type), version)
 	if err != nil {
 		return fmt.Errorf("runtime installation verification failed: %v", err)
@@ -119,13 +119,23 @@ func SetupRuntime(r store.RuntimeObj, workDir string) error {
 
 // InstallDeps installs dependencies using the build command
 func InstallDeps(buildCmd, workDir string, r store.RuntimeObj) error {
+	if buildCmd == "" {
+		fmt.Printf("No build command specified, skipping dependency installation\n")
+		return nil
+	}
+
+	fmt.Printf("Installing dependencies with command: %s\n", buildCmd)
+	fmt.Printf("Runtime: %s@%s, Working directory: %s\n", r.Type, r.Version, workDir)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	exe, cmdArgs, err := utils.GetExeArgs(r, buildCmd)
 	if err != nil {
-		return fmt.Errorf("failed to get executable: %v", err)
+		return fmt.Errorf("failed to get executable for '%s': %v", buildCmd, err)
 	}
+
+	fmt.Printf("Resolved executable: %s, args: %v\n", exe, cmdArgs)
 
 	cmd := exec.CommandContext(ctx, exe, cmdArgs...)
 	cmd.Dir = workDir
@@ -137,9 +147,10 @@ func InstallDeps(buildCmd, workDir string, r store.RuntimeObj) error {
 		if ctx.Err() == context.DeadlineExceeded {
 			return fmt.Errorf("build command timed out after 10 minutes")
 		}
-		return fmt.Errorf("build command failed: %v", err)
+		return fmt.Errorf("build command '%s' failed: %v", buildCmd, err)
 	}
 
+	fmt.Printf("Dependencies installed successfully\n")
 	return nil
 }
 
