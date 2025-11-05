@@ -206,6 +206,16 @@ fi
 info "Setting up dployrd service..."
 case $OS in
     linux)
+        # Create dployrd user if it doesn't exist
+        if ! id "dployrd" &>/dev/null; then
+            useradd --system --no-create-home --shell /bin/false dployrd
+            info "Created dployrd system user"
+        fi
+        
+        # Create log and working directories
+        mkdir -p /var/log/dployrd /var/lib/dployrd
+        chown dployrd:dployrd /var/log/dployrd /var/lib/dployrd
+        
         # Create systemd service file
         cat > /etc/systemd/system/dployrd.service << 'EOF'
 [Unit]
@@ -214,8 +224,12 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
+User=dployrd
+Group=dployrd
 ExecStart=/usr/local/bin/dployrd
+WorkingDirectory=/var/lib/dployrd
+StandardOutput=append:/var/log/dployrd/dployrd.log
+StandardError=append:/var/log/dployrd/dployrd.log
 Restart=always
 RestartSec=5
 
@@ -228,6 +242,20 @@ EOF
         info "dployrd service started and enabled"
         ;;
     darwin)
+        # Create dployrd user if it doesn't exist (macOS uses _username convention)
+        if ! dscl . -read /Users/_dployrd &>/dev/null; then
+            dscl . -create /Users/_dployrd
+            dscl . -create /Users/_dployrd UserShell /usr/bin/false
+            dscl . -create /Users/_dployrd RealName "dployr Daemon"
+            dscl . -create /Users/_dployrd UniqueID 501
+            dscl . -create /Users/_dployrd PrimaryGroupID 20
+            info "Created _dployrd system user"
+        fi
+        
+        # Create log and working directories for macOS
+        mkdir -p /var/log/dployrd /var/lib/dployrd
+        chown _dployrd:staff /var/log/dployrd /var/lib/dployrd
+        
         # Create launchd plist
         cat > /Library/LaunchDaemons/io.dployr.dployrd.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -244,10 +272,14 @@ EOF
     <true/>
     <key>KeepAlive</key>
     <true/>
+    <key>WorkingDirectory</key>
+    <string>/var/lib/dployrd</string>
     <key>StandardOutPath</key>
-    <string>/var/log/dployrd.log</string>
+    <string>/var/log/dployrd/dployrd.log</string>
     <key>StandardErrorPath</key>
-    <string>/var/log/dployrd.log</string>
+    <string>/var/log/dployrd/dployrd.log</string>
+    <key>UserName</key>
+    <string>_dployrd</string>
 </dict>
 </plist>
 EOF

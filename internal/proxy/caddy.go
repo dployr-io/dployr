@@ -73,7 +73,7 @@ func (c *CaddyHandler) Setup(apps map[string]proxy.App) error {
 	}
 
 	// create log directory
-	logDir := filepath.Join(homeDir, ".dployr", "log", "caddy")
+	logDir := filepath.Join(homeDir, ".dployr", "logs", "caddy")
 	log.Printf("Creating log directory: %s", logDir)
 	err = os.MkdirAll(logDir, 0755)
 	if err != nil {
