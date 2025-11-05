@@ -352,6 +352,16 @@ EOF
         ;;
 esac
 
+# Reload vfox environment for current shell
+info "Reloading vfox environment..."
+if [[ -n "$SHELL" && -f "$HOME/.bashrc" ]]; then
+    # shellcheck source=/dev/null
+    source "$HOME/.bashrc"
+    eval "$(vfox activate bash)" || warn "Failed to reload vfox environment"
+else
+    eval "$(vfox activate bash)" || warn "Failed to reload vfox environment"
+fi
+
 # Cleanup
 rm -rf "$TEMP_DIR"
 
