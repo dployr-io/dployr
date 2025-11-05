@@ -1,13 +1,17 @@
 package shared
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -98,12 +102,103 @@ func GetToken() (string, error) {
 		return "", fmt.Errorf("could not parse config file: %v", err)
 	}
 
-	token, exists := config["token"]
+	accessToken, exists := config["access_token"]
 	if !exists {
-		return "", fmt.Errorf("no token found in config. Please run 'dployr login' first")
+		return "", fmt.Errorf("no access token found in config. Please run 'dployr login' first")
 	}
 
-	return token, nil
+	// Check if access token is expired by trying to decode it
+	if isTokenExpired(accessToken) {
+		// Try to refresh the token
+		refreshToken, refreshExists := config["refresh_token"]
+		if !refreshExists {
+			return "", fmt.Errorf("access token expired and no refresh token available. Please run 'dployr login' again")
+		}
+
+		newAccessToken, err := refreshAccessToken(refreshToken)
+		if err != nil {
+			return "", fmt.Errorf("failed to refresh access token: %v. Please run 'dployr login' again", err)
+		}
+
+		// Update the config with new access token
+		config["access_token"] = newAccessToken
+		updatedConfigData, err := json.MarshalIndent(config, "", "  ")
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal updated config: %v", err)
+		}
+
+		if err := os.WriteFile(configPath, updatedConfigData, 0600); err != nil {
+			return "", fmt.Errorf("failed to save updated token: %v", err)
+		}
+
+		return newAccessToken, nil
+	}
+
+	return accessToken, nil
+}
+
+// isTokenExpired checks if a JWT token is expired or will expire soon (within 1 minute)
+func isTokenExpired(token string) bool {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return true // Invalid token format
+	}
+
+	// Decode the payload (second part)
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return true // Can't decode, assume expired
+	}
+
+	var claims struct {
+		Exp int64 `json:"exp"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return true // Can't parse, assume expired
+	}
+
+	// Check if token expires within the next minute (add buffer)
+	return time.Now().Unix() >= (claims.Exp - 60)
+}
+
+// refreshAccessToken uses the refresh token to get a new access token
+func refreshAccessToken(refreshToken string) (string, error) {
+	// Get server address from config
+	cfg, err := LoadConfig()
+	if err != nil {
+		return "", fmt.Errorf("failed to load config: %v", err)
+	}
+
+	addr := fmt.Sprintf("http://%s:%d", cfg.Address, cfg.Port)
+
+	reqBody := map[string]string{
+		"refresh_token": refreshToken,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal refresh request: %v", err)
+	}
+
+	resp, err := http.Post(addr+"/auth/refresh", "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("failed to connect to server: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("refresh failed with status: %d", resp.StatusCode)
+	}
+
+	var refreshResp struct {
+		AccessToken string `json:"access_token"`
+		TokenType   string `json:"token_type"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&refreshResp); err != nil {
+		return "", fmt.Errorf("failed to parse refresh response: %v", err)
+	}
+
+	return refreshResp.AccessToken, nil
 }
 
 // system-wide, accessible to all users
