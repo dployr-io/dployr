@@ -55,8 +55,21 @@ $dployrZip = "$env:TEMP\dployr.zip"
 Write-Host "Downloading dployr binaries..."
 try {
     Invoke-WebRequest -Uri $dployrUrl -OutFile $dployrZip
-    Expand-Archive -Path $dployrZip -DestinationPath $InstallDir -Force
-    Remove-Item $dployrZip
+    
+    # Extract to temp directory
+    $tempExtract = "$env:TEMP\dployr-extract"
+    if (Test-Path $tempExtract) { Remove-Item $tempExtract -Recurse -Force }
+    Expand-Archive -Path $dployrZip -DestinationPath $tempExtract -Force
+    
+    # The archive contains a directory named dployr-Windows-$arch
+    $extractedDir = "$tempExtract\dployr-Windows-$arch"
+    
+    # Copy binaries to install directory
+    Copy-Item "$extractedDir\*" $InstallDir -Recurse -Force
+    
+    # Cleanup
+    Remove-Item $dployrZip -Force
+    Remove-Item $tempExtract -Recurse -Force
     Write-Host "✓ dployr binaries installed"
 } catch {
     Write-Error "Failed to download dployr: $_"
@@ -130,7 +143,7 @@ if ($pathUpdated) {
     Write-Host "✓ Added to system PATH"
 }
 
-# Create dployr service using NSSM
+# Create and start dployr service using NSSM
 Write-Host "Setting up dployrd service..."
 try {
     $nssmPath = "$InstallDir\nssm\nssm.exe"
@@ -142,11 +155,13 @@ try {
     & $nssmPath set dployrd Description "dployr deployment management daemon"
     & $nssmPath set dployrd Start SERVICE_AUTO_START
     
-    Write-Host "✓ dployrd service created"
-    Write-Host "  Start with: nssm start dployrd"
-    Write-Host "  Stop with: nssm stop dployrd"
+    # Start the service
+    & $nssmPath start dployrd
+    
+    Write-Host "✓ dployrd service created and started"
+    Write-Host "  Control with: nssm start/stop/restart dployrd"
 } catch {
-    Write-Warning "Failed to create service: $_"
+    Write-Warning "Failed to create/start service: $_"
     Write-Host "You can create the service manually later using NSSM"
 }
 
@@ -204,5 +219,10 @@ if ($global:ShowSecret) {
 
 Write-Host "Next steps:"
 Write-Host "1. Restart your terminal to use the new PATH"
-Write-Host "2. Start the daemon: nssm start dployrd"
+Write-Host "2. Dployrd is now running"
 Write-Host "3. Use the CLI: dployr --help"
+Write-Host ""
+Write-Host "Service management:"
+Write-Host "- Status: nssm status dployrd"
+Write-Host "- Stop: nssm stop dployrd"
+Write-Host "- Restart: nssm restart dployrd"

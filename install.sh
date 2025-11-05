@@ -77,15 +77,13 @@ TEMP_DIR=$(mktemp -d)
 curl -L "$DOWNLOAD_URL" -o "$TEMP_DIR/dployr.tar.gz" || error "Failed to download dployr"
 tar -xzf "$TEMP_DIR/dployr.tar.gz" -C "$TEMP_DIR" || error "Failed to extract dployr"
 
+# The archive contains a directory named dployr-$PLATFORM-$ARCH
+EXTRACT_DIR="$TEMP_DIR/dployr-$PLATFORM-$ARCH"
+
 # Install binaries
 info "Installing dployr binaries..."
-if [[ $EUID -eq 0 ]]; then
-    cp "$TEMP_DIR/dployr" "$INSTALL_DIR/" && chmod +x "$INSTALL_DIR/dployr"
-    cp "$TEMP_DIR/dployrd" "$INSTALL_DIR/" && chmod +x "$INSTALL_DIR/dployrd"
-else
-    cp "$TEMP_DIR/dployr" "$INSTALL_DIR/" && chmod +x "$INSTALL_DIR/dployr"
-    cp "$TEMP_DIR/dployrd" "$INSTALL_DIR/" && chmod +x "$INSTALL_DIR/dployrd"
-fi
+cp "$EXTRACT_DIR/dployr" "$INSTALL_DIR/" && chmod +x "$INSTALL_DIR/dployr" || error "Failed to install dployr"
+cp "$EXTRACT_DIR/dployrd" "$INSTALL_DIR/" && chmod +x "$INSTALL_DIR/dployrd" || error "Failed to install dployrd"
 
 # Install Caddy
 info "Installing Caddy..."
@@ -182,6 +180,61 @@ else
     info "Config file already exists at $CONFIG_FILE"
 fi
 
+# Install and start system service
+info "Setting up dployrd service..."
+case $OS in
+    linux)
+        # Create systemd service file
+        cat > /etc/systemd/system/dployrd.service << 'EOF'
+[Unit]
+Description=dployr Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/dployrd
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        systemctl daemon-reload
+        systemctl enable dployrd
+        systemctl start dployrd
+        info "dployrd service started and enabled"
+        ;;
+    darwin)
+        # Create launchd plist
+        cat > /Library/LaunchDaemons/io.dployr.dployrd.plist << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>io.dployr.dployrd</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/dployrd</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/var/log/dployrd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/dployrd.log</string>
+</dict>
+</plist>
+EOF
+        launchctl load /Library/LaunchDaemons/io.dployr.dployrd.plist
+        launchctl start io.dployr.dployrd
+        info "dployrd service started and enabled"
+        ;;
+esac
+
 # Cleanup
 rm -rf "$TEMP_DIR"
 
@@ -211,5 +264,19 @@ echo "Next steps:"
 if [[ $EUID -ne 0 ]]; then
     echo "- Add $INSTALL_DIR to your PATH if not already done"
 fi
-echo "- Start the daemon: dployrd"
+echo "- The dployrd daemon is now running as a system service"
 echo "- Use the CLI: dployr --help"
+echo ""
+echo "Service management:"
+case $OS in
+    linux)
+        echo "- Status: systemctl status dployrd"
+        echo "- Stop: systemctl stop dployrd"
+        echo "- Restart: systemctl restart dployrd"
+        ;;
+    darwin)
+        echo "- Status: launchctl list | grep dployrd"
+        echo "- Stop: launchctl stop io.dployr.dployrd"
+        echo "- Restart: launchctl kickstart -k system/io.dployr.dployrd"
+        ;;
+esac
