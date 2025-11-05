@@ -65,7 +65,7 @@ These binaries are automatically downloaded and configured during installation w
 
 **Linux/macOS**
 ```bash
-curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh | sudo bash
 ```
 
 ### Manual Installation

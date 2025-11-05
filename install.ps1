@@ -135,6 +135,35 @@ try {
     Write-Host "You can create the service manually later using NSSM"
 }
 
+# Create default config directory and file
+$configDir = "$env:USERPROFILE\.dployr"
+$configFile = "$configDir\config.toml"
+
+Write-Host "Creating default configuration..."
+if (!(Test-Path $configDir)) {
+    New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+}
+
+if (!(Test-Path $configFile)) {
+    # Generate a secure random secret
+    $secret = -join ((1..32) | ForEach {'{0:X}' -f (Get-Random -Max 16)})
+    
+    $defaultConfig = @"
+# dployr configuration file
+address = "localhost"
+port = 7879
+max-workers = 5
+
+# Secret key for JWT signing (auto-generated)
+secret = "$secret"
+"@
+    $defaultConfig | Out-File -FilePath $configFile -Encoding UTF8
+    Write-Host "✓ Created default config at $configFile"
+    $global:ShowSecret = $secret
+} else {
+    Write-Host "✓ Config file already exists at $configFile"
+}
+
 Write-Host ""
 Write-Host "Installation completed successfully!" -ForegroundColor Green
 Write-Host ""
@@ -144,6 +173,20 @@ Write-Host "  - dployrd.exe (daemon)"
 Write-Host "  - caddy.exe (reverse proxy)"
 Write-Host "  - nssm.exe (service manager)"
 Write-Host ""
+
+# Show the generated secret once
+if ($global:ShowSecret) {
+    Write-Host "==========================================" -ForegroundColor Yellow
+    Write-Host "YOUR SECRET KEY (SAVE THIS NOW!):" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  $($global:ShowSecret)" -ForegroundColor White
+    Write-Host ""
+    Write-Host "This secret will NOT be shown again!" -ForegroundColor Red
+    Write-Host "It's saved in: $configFile" -ForegroundColor Gray
+    Write-Host "==========================================" -ForegroundColor Yellow
+    Write-Host ""
+}
+
 Write-Host "Next steps:"
 Write-Host "1. Restart your terminal to use the new PATH"
 Write-Host "2. Start the daemon: nssm start dployrd"

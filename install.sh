@@ -130,6 +130,32 @@ else
     esac
 fi
 
+# Create default config directory and file
+CONFIG_DIR="$HOME/.dployr"
+CONFIG_FILE="$CONFIG_DIR/config.toml"
+
+info "Creating default configuration..."
+mkdir -p "$CONFIG_DIR"
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    # Generate a secure random secret
+    SECRET=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | base64 | tr -d '=+/' | cut -c1-32)
+    
+    cat > "$CONFIG_FILE" << EOF
+# dployr configuration file
+address = "localhost"
+port = 7879
+max-workers = 5
+
+# Secret key
+secret = "$SECRET"
+EOF
+    info "Created default config at $CONFIG_FILE"
+    SHOW_SECRET="$SECRET"
+else
+    info "Config file already exists at $CONFIG_FILE"
+fi
+
 # Cleanup
 rm -rf "$TEMP_DIR"
 
@@ -141,9 +167,23 @@ echo "  - dployr (CLI)"
 echo "  - dployrd (daemon)"
 echo "  - caddy (reverse proxy)"
 echo ""
+
+# Show the generated secret once
+if [[ -n "$SHOW_SECRET" ]]; then
+    echo "=========================================="
+    echo "YOUR SECRET KEY (SAVE THIS NOW!):"
+    echo ""
+    echo "  $SHOW_SECRET"
+    echo ""
+    echo "This secret will NOT be shown again!"
+    echo "It's saved in: $CONFIG_FILE"
+    echo "=========================================="
+    echo ""
+fi
+
 echo "Next steps:"
 if [[ $EUID -ne 0 ]]; then
-    echo "1. Add $INSTALL_DIR to your PATH if not already done"
+    echo "- Add $INSTALL_DIR to your PATH if not already done"
 fi
-echo "2. Start the daemon: dployrd"
-echo "3. Use the CLI: dployr --help"
+echo "- Start the daemon: dployrd"
+echo "- Use the CLI: dployr --help"
