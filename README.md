@@ -65,13 +65,32 @@ These binaries are automatically downloaded and configured during installation w
 
 **Linux/macOS**
 ```bash
-curl -sSL https://github.com/dployr-io/dployr/releases/latest/download/install.sh | bash
-````
+curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh | bash
+```
+
+### Manual Installation
+
+**Linux**
+```bash
+# Download the latest release
+curl -L https://github.com/dployr-io/dployr/releases/latest/download/dployr-Linux-x86_64.tar.gz -o dployr.tar.gz
+
+# Extract and install
+tar -xzf dployr.tar.gz
+sudo mv dployr dployrd /usr/local/bin/
+chmod +x /usr/local/bin/dployr /usr/local/bin/dployrd
+
+# Install Caddy 
+sudo apt update && sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install caddy
+```
 
 **Windows (PowerShell as Administrator)**
 
 ```powershell
-Invoke-WebRequest -Uri "https://github.com/dployr-io/dployr/releases/latest/download/install.ps1" -OutFile "install.ps1"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/dployr-io/dployr/master/install.ps1" -OutFile "install.ps1"
 .\install.ps1
 ```
 

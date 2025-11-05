@@ -24,7 +24,7 @@ Write-Host "Detected architecture: $arch"
 # Get latest version if not specified
 if ($Version -eq "latest") {
     try {
-        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/yourusername/dployr/releases/latest"
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/dployr-io/dployr/releases/latest"
         $Version = $release.tag_name
         Write-Host "Latest version: $Version"
     } catch {
@@ -34,7 +34,7 @@ if ($Version -eq "latest") {
 }
 
 # Download dployr binaries
-$dployrUrl = "https://github.com/yourusername/dployr/releases/download/$Version/dployr-Windows-$arch.zip"
+$dployrUrl = "https://github.com/dployr-io/dployr/releases/download/$Version/dployr-Windows-$arch.zip"
 $dployrZip = "$env:TEMP\dployr.zip"
 
 Write-Host "Downloading dployr binaries..."

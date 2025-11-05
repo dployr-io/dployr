@@ -7,7 +7,7 @@ set -e
 
 INSTALL_DIR="/usr/local/bin"
 VERSION="latest"
-REPO="yourusername/dployr"
+REPO="dployr-io/dployr"
 
 # Colors
 RED='\033[0;31m'
