@@ -454,7 +454,7 @@ components:
         - golang
         - php
         - python
-        - node-js
+        - nodejs
         - ruby
         - dotnet
         - java

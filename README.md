@@ -180,7 +180,7 @@ dployr login --email user@example.com
 dployr deploy \
   --name my-app \
   --source remote \
-  --runtime node-js \
+  --runtime nodejs \
   --version 18 \
   --remote https://github.com/user/repo.git \
   --branch main \

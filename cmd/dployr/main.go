@@ -263,7 +263,7 @@ All components are written in Go and packaged as standalone binaries.`,
 	deployCmd.Flags().StringP("name", "n", "", "Deployment name (required)")
 	deployCmd.Flags().StringP("description", "d", "", "Deployment description")
 	deployCmd.Flags().StringP("source", "s", "", "Source type: remote or image (required)")
-	deployCmd.Flags().StringP("runtime", "r", "", "Runtime type: static, golang, php, python, node-js, ruby, dotnet, java, docker, k3s, custom (required)")
+	deployCmd.Flags().StringP("runtime", "r", "", "Runtime type: static, golang, php, python, nodejs, ruby, dotnet, java, docker, k3s, custom (required)")
 	deployCmd.Flags().StringP("version", "", "", "Runtime version")
 	deployCmd.Flags().StringP("run-cmd", "", "", "Command to run the application")
 	deployCmd.Flags().StringP("build-cmd", "", "", "Command to build the application")
