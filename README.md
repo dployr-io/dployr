@@ -178,14 +178,15 @@ dployr login --email user@example.com
 
 ```bash
 dployr deploy \
-  --name my-app \
+  --name old-county-times \
   --source remote \
   --runtime nodejs \
   --version 18 \
-  --remote https://github.com/user/repo.git \
+  --remote https://github.com/dployr-io/dployr-examples \
   --branch main \
   --build-cmd "npm install" \
   --run-cmd "npm start" \
+  --working-dir "nodejs" \
   --port 3000
 ```
 
