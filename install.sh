@@ -172,6 +172,9 @@ else
     info "vfox installed successfully!"
 fi
 
+# Setup vfox plugins for dployrd user
+info "Setting up vfox plugins..."
+
 
 # Create system-wide config directory and file
 case $OS in
@@ -232,6 +235,16 @@ case $OS in
         chown -R dployrd:dployrd /home/dployrd/.version-fox
         chmod -R 755 /home/dployrd/.version-fox
         
+        # Setup vfox plugins for common runtimes
+        info "Setting up vfox plugins for dployrd user..."
+        sudo -u dployrd bash -c 'cd /var/lib/dployrd && vfox add nodejs' || warn "Failed to add nodejs plugin"
+        sudo -u dployrd bash -c 'cd /var/lib/dployrd && vfox add python' || warn "Failed to add python plugin"
+        sudo -u dployrd bash -c 'cd /var/lib/dployrd && vfox add golang' || warn "Failed to add golang plugin"
+        sudo -u dployrd bash -c 'cd /var/lib/dployrd && vfox add php' || warn "Failed to add php plugin"
+        sudo -u dployrd bash -c 'cd /var/lib/dployrd && vfox add java' || warn "Failed to add java plugin"
+        sudo -u dployrd bash -c 'cd /var/lib/dployrd && vfox add dotnet' || warn "Failed to add dotnet plugin"
+        sudo -u dployrd bash -c 'cd /var/lib/dployrd && vfox add ruby' || warn "Failed to add ruby plugin"
+
         # Create systemd service file
         cat > /etc/systemd/system/dployrd.service << 'EOF'
 [Unit]
@@ -277,6 +290,16 @@ EOF
         mkdir -p /var/lib/dployrd/.version-fox/temp
         chown -R _dployrd:staff /var/lib/dployrd/.version-fox
         chmod -R 755 /var/lib/dployrd/.version-fox
+        
+        # Setup vfox plugins for common runtimes
+        info "Setting up vfox plugins for _dployrd user..."
+        sudo -u _dployrd bash -c 'cd /var/lib/dployrd && vfox add nodejs' || warn "Failed to add nodejs plugin"
+        sudo -u _dployrd bash -c 'cd /var/lib/dployrd && vfox add python' || warn "Failed to add python plugin"
+        sudo -u _dployrd bash -c 'cd /var/lib/dployrd && vfox add golang' || warn "Failed to add golang plugin"
+        sudo -u _dployrd bash -c 'cd /var/lib/dployrd && vfox add php' || warn "Failed to add php plugin"
+        sudo -u _dployrd bash -c 'cd /var/lib/dployrd && vfox add java' || warn "Failed to add java plugin"
+        sudo -u _dployrd bash -c 'cd /var/lib/dployrd && vfox add dotnet' || warn "Failed to add dotnet plugin"
+        sudo -u _dployrd bash -c 'cd /var/lib/dployrd && vfox add ruby' || warn "Failed to add ruby plugin"
         
         # Create launchd plist
         cat > /Library/LaunchDaemons/io.dployr.dployrd.plist << 'EOF'
