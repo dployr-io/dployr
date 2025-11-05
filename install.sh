@@ -162,6 +162,17 @@ else
     esac
 fi
 
+# Install vfox
+info "Installing vfox..."
+if command -v vfox &> /dev/null; then
+    info "vfox already installed"
+else
+    info "Installing vfox using official installer..."
+    curl -sSL https://raw.githubusercontent.com/version-fox/vfox/main/install.sh | bash || error "Failed to install vfox"
+    info "vfox installed successfully!"
+fi
+
+
 # Create system-wide config directory and file
 case $OS in
     darwin)

@@ -56,6 +56,18 @@ Write-Host "Downloading dployr binaries..."
 try {
     Invoke-WebRequest -Uri $dployrUrl -OutFile $dployrZip
     
+    # Stop running daemon if it exists
+    try {
+        $service = Get-Service -Name "dployrd" -ErrorAction SilentlyContinue
+        if ($service -and $service.Status -eq "Running") {
+            Write-Host "Stopping running dployrd service..."
+            Stop-Service -Name "dployrd" -Force
+            Start-Sleep -Seconds 2
+        }
+    } catch {
+        # Service might not exist, that's fine
+    }
+    
     # Extract to temp directory
     $tempExtract = "$env:TEMP\dployr-extract"
     if (Test-Path $tempExtract) { Remove-Item $tempExtract -Recurse -Force }
@@ -120,6 +132,30 @@ try {
 } catch {
     Write-Error "Failed to install NSSM: $_"
     exit 1
+}
+
+# Install vfox
+Write-Host "Installing vfox..."
+try {
+    # Check if vfox is already installed
+    $vfoxExists = $false
+    try {
+        & vfox --version | Out-Null
+        $vfoxExists = $true
+    } catch {
+        # vfox not found, proceed with installation
+    }
+    
+    if ($vfoxExists) {
+        Write-Host "✓ vfox already installed"
+    } else {
+        Write-Host "Installing vfox using winget..."
+        & winget install vfox --silent
+        Write-Host "✓ vfox installed successfully"
+    }
+} catch {
+    Write-Warning "Failed to install vfox: $_"
+    Write-Host "You can install vfox manually with: winget install vfox"
 }
 
 # Add to PATH
@@ -202,6 +238,7 @@ Write-Host "  - dployr.exe (CLI)"
 Write-Host "  - dployrd.exe (daemon)"
 Write-Host "  - caddy.exe (reverse proxy)"
 Write-Host "  - nssm.exe (service manager)"
+Write-Host "  - vfox.exe (version manager)"
 Write-Host ""
 
 # Show the generated secret once

@@ -16,8 +16,6 @@ func GetDataDir() string {
 	switch runtime.GOOS {
 	case "windows":
 		return filepath.Join(os.Getenv("PROGRAMDATA"), "dployr")
-	case "darwin":
-		return "/var/lib/dployrd"
 	default: // linux and others
 		return "/var/lib/dployrd"
 	}
