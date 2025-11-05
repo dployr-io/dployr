@@ -80,6 +80,28 @@ tar -xzf "$TEMP_DIR/dployr.tar.gz" -C "$TEMP_DIR" || error "Failed to extract dp
 # The archive contains a directory named dployr-$PLATFORM-$ARCH
 EXTRACT_DIR="$TEMP_DIR/dployr-$PLATFORM-$ARCH"
 
+# Stop running daemon if it exists
+if pgrep -x "dployrd" > /dev/null; then
+    info "Stopping running dployrd daemon..."
+    case $OS in
+        linux)
+            if systemctl is-active --quiet dployrd 2>/dev/null; then
+                systemctl stop dployrd
+            else
+                pkill -x dployrd
+            fi
+            ;;
+        darwin)
+            if launchctl list | grep -q io.dployr.dployrd; then
+                launchctl stop io.dployr.dployrd
+            else
+                pkill -x dployrd
+            fi
+            ;;
+    esac
+    sleep 2  # Give it time to stop
+fi
+
 # Install binaries
 info "Installing dployr binaries..."
 cp "$EXTRACT_DIR/dployr" "$INSTALL_DIR/" && chmod +x "$INSTALL_DIR/dployr" || error "Failed to install dployr"
