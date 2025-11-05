@@ -102,9 +102,6 @@ All components are written in Go and packaged as standalone binaries.`,
 			if email == "" {
 				return fmt.Errorf("email is required")
 			}
-			if expiry == "" {
-				expiry = "15m"
-			}
 
 			reqBody := map[string]string{
 				"email":  email,
