@@ -64,7 +64,7 @@ func main() {
 	w := worker.New(5, cfg, logger, ds, ss) // 5 concurrent deployments
 
 	authService := _auth.Init(cfg)
-	ah := auth.NewAuthHandler(us, logger, authService)
+	ah := auth.NewAuthHandler(us, logger, authService, cfg)
 	am := auth.NewMiddleware(authService, us)
 
 	api := _deploy.Init(cfg, logger, ds, w)

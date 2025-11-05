@@ -49,6 +49,25 @@ func (m *Middleware) Auth(next http.Handler) http.Handler {
 	})
 }
 
+func (m *Middleware) RequireRole(required store.Role) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user, ok := r.Context().Value(shared.CtxUserIDKey).(*store.User)
+			if !ok {
+				http.Error(w, "user not found in context", http.StatusInternalServerError)
+				return
+			}
+
+			if !user.Role.IsPermitted(required) {
+				http.Error(w, "forbidden: insufficient role permissions", http.StatusForbidden)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func (m *Middleware) Trace(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := shared.EnrichContext(r.Context())

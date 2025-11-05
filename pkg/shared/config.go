@@ -22,6 +22,10 @@ type Config struct {
 	BitBucketToken string
 }
 
+func (c *Config) GetSecret() string {
+	return c.Secret
+}
+
 func LoadConfig() (*Config, error) {
 	configPath := getSystemConfigPath()
 	err := LoadTomlFile(configPath)

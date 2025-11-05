@@ -93,10 +93,18 @@ All components are written in Go and packaged as standalone binaries.`,
 	// login
 	loginCmd := &cobra.Command{
 		Use:   "login",
-		Short: "authenticate with the dployr server",
+		Short: "authenticate your account",
+		Long: `Authenticate your dployr account and save the token locally.
+
+For regular users:
+  dployr login --email user@company.com
+
+For first-time owner registration (requires secret key):
+  dployr login --email admin@company.com --secret your-secret-key`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			email, _ := cmd.Flags().GetString("email")
 			expiry, _ := cmd.Flags().GetString("expiry")
+			secret, _ := cmd.Flags().GetString("secret")
 
 			if email == "" {
 				return fmt.Errorf("email is required")
@@ -106,6 +114,11 @@ All components are written in Go and packaged as standalone binaries.`,
 				"email":  email,
 				"expiry": expiry,
 			}
+
+			if secret != "" {
+				reqBody["secret"] = secret
+			}
+
 			jsonData, err := json.Marshal(reqBody)
 			if err != nil {
 				return fmt.Errorf("failed to marshal request: %v", err)
@@ -158,6 +171,7 @@ All components are written in Go and packaged as standalone binaries.`,
 	}
 	loginCmd.Flags().StringP("email", "", "", "Your email")
 	loginCmd.Flags().StringP("expiry", "", "", "Expiry time")
+	loginCmd.Flags().StringP("secret", "", "", "Secret key")
 	loginCmd.Flags().StringP("server", "", addr, "Server URL")
 	rootCmd.AddCommand(loginCmd)
 

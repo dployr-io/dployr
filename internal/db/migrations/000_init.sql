@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_single_owner ON users(role) WHERE role = 'owner';
+
 -- DEPLOYMENTS TABLE
 CREATE TABLE IF NOT EXISTS deployments (
     id TEXT PRIMARY KEY,
