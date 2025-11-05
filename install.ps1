@@ -3,13 +3,28 @@
 
 param(
     [string]$InstallDir = "$env:ProgramFiles\dployr",
-    [string]$Version = "latest"
+    [string]$Version = "latest",
+    [switch]$Help
 )
 
 $ErrorActionPreference = "Stop"
 
 Write-Host "dployr Windows Installer" -ForegroundColor Green
 Write-Host "=========================" -ForegroundColor Green
+
+# Show usage if help requested
+if ($Help) {
+    Write-Host ""
+    Write-Host "Usage: .\install.ps1 [-Version <VERSION>] [-InstallDir <PATH>]"
+    Write-Host ""
+    Write-Host "Examples:"
+    Write-Host "  .\install.ps1                           # Install latest version"
+    Write-Host "  .\install.ps1 -Version v0.1.1-beta.17   # Install specific version"
+    Write-Host "  .\install.ps1 -InstallDir C:\dployr     # Custom install directory"
+    Write-Host ""
+    Write-Host "Available versions: https://github.com/dployr-io/dployr/releases"
+    exit 0
+}
 
 # Create install directory
 if (!(Test-Path $InstallDir)) {

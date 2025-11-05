@@ -6,7 +6,7 @@
 set -e
 
 INSTALL_DIR="/usr/local/bin"
-VERSION="latest"
+VERSION="${1:-latest}"
 REPO="dployr-io/dployr"
 
 # Colors
@@ -21,6 +21,18 @@ error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 echo "dployr Unix Installer"
 echo "===================="
+
+# Show usage if help requested
+if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+    echo "Usage: $0 [VERSION]"
+    echo ""
+    echo "Examples:"
+    echo "  $0                    # Install latest version"
+    echo "  $0 v0.1.1-beta.17     # Install specific version"
+    echo ""
+    echo "Available versions: https://github.com/dployr-io/dployr/releases"
+    exit 0
+fi
 
 # Check if running as root for system install
 if [[ $EUID -eq 0 ]]; then

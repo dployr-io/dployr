@@ -65,8 +65,14 @@ These binaries are automatically downloaded and configured during installation w
 
 **Linux/macOS**
 ```bash
-curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh | sudo bash
+# Install latest version
+curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh | bash
+
+# Install specific version
+curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh | bash -s v0.1.1-beta.17
 ```
+
+> **Note**: The installer automatically generates a secure secret key and creates a config file at `~/.dployr/config.toml`. The secret is shown once during installation - save it securely!
 
 ### Manual Installation
 
@@ -90,8 +96,16 @@ sudo apt update && sudo apt install caddy
 **Windows (PowerShell as Administrator)**
 
 ```powershell
+# Install latest version
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/dployr-io/dployr/master/install.ps1" -OutFile "install.ps1"
 .\install.ps1
+
+# Install specific version
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/dployr-io/dployr/master/install.ps1" -OutFile "install.ps1"
+.\install.ps1 -Version v0.1.1-beta.17
+
+# Custom install directory
+.\install.ps1 -Version latest -InstallDir "C:\dployr"
 ```
 
 ---
