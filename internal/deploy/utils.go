@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -38,23 +37,16 @@ func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.C
 	defer cancel()
 
 	if _, err := os.Stat(workDir); err == nil {
-		cmd := exec.CommandContext(ctx, "git", "-C", destDir, "pull")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = nil
-		if err := cmd.Run(); err != nil {
+		pullCmd := fmt.Sprintf("git -C %s pull", destDir)
+		if err := shared.Exec(ctx, pullCmd, "."); err != nil {
 			if ctx.Err() == context.DeadlineExceeded {
 				return fmt.Errorf("git pull timed out after 5 minutes")
 			}
 			return err
 		}
 	} else {
-		args := []string{"clone", "--branch", remote.Branch, authUrl, destDir}
-		cmd := exec.CommandContext(ctx, "git", args...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = nil
-		if err := cmd.Run(); err != nil {
+		cloneCmd := fmt.Sprintf("git clone --branch %s %s %s", remote.Branch, authUrl, destDir)
+		if err := shared.Exec(ctx, cloneCmd, "."); err != nil {
 			if ctx.Err() == context.DeadlineExceeded {
 				return fmt.Errorf("git clone timed out after 5 minutes")
 			}
@@ -63,11 +55,8 @@ func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.C
 	}
 
 	if remote.CommitHash != "" {
-		cmd := exec.CommandContext(ctx, "git", "-C", destDir, "checkout", remote.CommitHash)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = nil
-		if err := cmd.Run(); err != nil {
+		checkoutCmd := fmt.Sprintf("git -C %s checkout %s", destDir, remote.CommitHash)
+		if err := shared.Exec(ctx, checkoutCmd, "."); err != nil {
 			if ctx.Err() == context.DeadlineExceeded {
 				return fmt.Errorf("git checkout timed out after 5 minutes")
 			}
@@ -79,10 +68,6 @@ func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.C
 
 // SetupRuntime sets up the runtime environment using vfox
 func SetupRuntime(r store.RuntimeObj, workDir string) error {
-	vfox, err := utils.GetVfox()
-	if err != nil {
-		return fmt.Errorf("failed to find vfox executable: %v", err)
-	}
 
 	version := string(r.Version)
 	if version == "" {
@@ -93,24 +78,22 @@ func SetupRuntime(r store.RuntimeObj, workDir string) error {
 	defer cancel()
 
 	// Install runtime version
-	cmd := exec.CommandContext(ctx, vfox, "install", string(r.Type)+"@"+version, "-y")
-	cmd.Dir = utils.GetDataDir()
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = nil
-	cmd.Env = append(os.Environ(), "VFOX_NONINTERACTIVE=1")
-	err = cmd.Run()
+	cmd := fmt.Sprintf("vfox install %s@%s -y", string(r.Type), version)
+	err := shared.Exec(ctx, cmd, utils.GetDataDir())
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			return fmt.Errorf("vfox install timed out after 5 minutes")
+			return fmt.Errorf("vfox command timed out after 5 minutes")
 		}
-		return fmt.Errorf("vfox install failed: %v", err)
+		return fmt.Errorf("vfox command failed: %v", err)
 	}
 
-	// Verify the runtime is accessible
-	_, err = utils.GetRuntimePath(string(r.Type), version)
+	useCmd := fmt.Sprintf("vfox use %s@%s", string(r.Type), version)
+	err = shared.Exec(ctx, useCmd, utils.GetDataDir())
 	if err != nil {
-		return fmt.Errorf("runtime installation verification failed: %v", err)
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("vfox command timed out after 5 minutes")
+		}
+		return fmt.Errorf("vfox command failed: %v", err)
 	}
 
 	fmt.Printf("Runtime %s@%s installed and verified successfully\n", r.Type, version)
@@ -130,19 +113,7 @@ func InstallDeps(buildCmd, workDir string, r store.RuntimeObj) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	exe, cmdArgs, err := utils.GetExeArgs(r, buildCmd)
-	if err != nil {
-		return fmt.Errorf("failed to get executable for '%s': %v", buildCmd, err)
-	}
-
-	fmt.Printf("Resolved executable: %s, args: %v\n", exe, cmdArgs)
-
-	cmd := exec.CommandContext(ctx, exe, cmdArgs...)
-	cmd.Dir = workDir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = nil
-	err = cmd.Run()
+	err := shared.Exec(ctx, buildCmd, workDir)
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return fmt.Errorf("build command timed out after 10 minutes")

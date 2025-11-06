@@ -10,7 +10,6 @@ import (
 
 	"dployr/pkg/core/service"
 	"dployr/pkg/core/utils"
-	"dployr/pkg/store"
 )
 
 type NSSMManager struct{}
@@ -75,17 +74,20 @@ func (n *NSSMManager) Install(name, desc, runCmd, workDir string, envVars map[st
 		return err
 	}
 
-	parts := strings.Fields(runCmd)
-	if len(parts) == 0 {
-		return fmt.Errorf("RunCmd cannot be empty")
+	// Create a batch file for Windows
+	batchContent := fmt.Sprintf(`@echo off
+%s`, runCmd)
+
+	batFile := filepath.Join(workDir, "service.bat")
+	err = os.WriteFile(batFile, []byte(batchContent), 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create service batch file: %v", err)
 	}
-	exe := parts[0]
-	args := parts[1:]
+
 	name = utils.FormatName(name)
 
-	// nssm install <name> <exe> [args...]
-	installArgs := append([]string{"install", name, exe}, args...)
-	cmd := exec.Command(nssm, installArgs...)
+	// nssm install <name> <batch_file>
+	cmd := exec.Command(nssm, "install", name, batFile)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -153,34 +155,3 @@ func (n *NSSMManager) Remove(name string) error {
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
-
-func CreateRunFile(c store.Blueprint, workDir, exe string, cmdArgs []string) (string, error) {
-	cmd := exe
-	if len(cmdArgs) > 0 {
-		cmd = fmt.Sprintf("%s %s", exe, strings.Join(cmdArgs, " "))
-	}
-
-	batchContent := fmt.Sprintf(`@echo off
-%s`, cmd)
-
-	bat := filepath.Join(workDir, "service.bat")
-	err := os.WriteFile(bat, []byte(batchContent), 0755)
-	if err != nil {
-		return "", fmt.Errorf("failed to create service batch file: %v", err)
-	}
-
-	return bat, nil
-}
-
-// func GetSvcMgr() (SvcMgr, error) {
-// 	switch runtime.GOOS {
-// 	case "windows":
-// 		return &NSSMManager{}, nil
-// 	case "linux":
-// 		return nil, fmt.Errorf("systemd manager not yet implemented")
-// 	case "darwin":
-// 		return nil, fmt.Errorf("launchd manager not yet implemented")
-// 	default:
-// 		return nil, fmt.Errorf("unsupported platform")
-// 	}
-// }
