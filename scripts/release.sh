@@ -38,7 +38,7 @@ case "$BUMP_TYPE" in
 esac
 
 # Get current version from git tags
-CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+CURRENT_VERSION=$(git describe --tags --abbrev=0 "$(git rev-list --tags --max-count=1)" 2>/dev/null || echo "v0.0.0")
 CURRENT_VERSION=${CURRENT_VERSION#v}  # Remove 'v' prefix
 
 # First release starts with 0.1.0
