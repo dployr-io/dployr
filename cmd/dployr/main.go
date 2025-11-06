@@ -22,19 +22,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func getServiceManagerText() string {
-	switch runtime.GOOS {
-	case "linux":
-		return "systemd on Linux"
-	case "darwin":
-		return "launchd on macOS"
-	case "windows":
-		return "NSSM on Windows"
-	default:
-		return "systemd on Linux, launchd on macOS, or NSSM on Windows"
-	}
-}
-
 func main() {
 	cfg, err := shared.LoadConfig()
 	if err != nil {
@@ -46,25 +33,7 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:   "dployr",
 		Short: "dployr - your app, your server, your rules!",
-		Long: `
-Your app, your server, your rules!
-
-Turn any machine into a deployment platform. Deploy applications from Git repositories or Docker images with automatic reverse proxy, SSL certificates, and service management.
-
-` + "dployr" + ` gives developers a self-hosted alternative to managed platforms.  
-It combines a lightweight daemon, a CLI client, and powerful integrations to automate deployment pipelines across operating systems.
-
----
-
-` + "dployr" + ` consists of two main components:
-
-- dployr — Command-line client  
-- dployrd — Background daemon that handles deployment execution, service management, and API endpoints
-
-- SQLite for persistence  
-- Caddy for automatic HTTPS and reverse proxy  
-- ` + getServiceManagerText() + ` for service management  
-All components are written in Go and packaged as standalone binaries.`,
+		Long: "dployr gives developers a self-hosted alternative to managed platforms",
 	}
 
 	// version command
