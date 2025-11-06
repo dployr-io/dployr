@@ -182,6 +182,8 @@ func (h *AuthHandler) GenerateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.logger.Info("successfully setup owner role for", "email", req.Email)
+
 	json.NewEncoder(w).Encode(map[string]any{
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,

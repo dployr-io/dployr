@@ -2,43 +2,29 @@
 
 *Your app, your server, your rules!*
 
-Turn any machine into a deployment platform. Deploy applications from Git repositories or Docker images with automatic reverse proxy, SSL certificates, and service management.
-
----
-
 ## Overview
 
 `dployr` gives developers a self-hosted alternative to managed platforms.  
-It combines a lightweight daemon, a CLI client, and powerful integrations to automate deployment pipelines across operating systems.
 
----
-
-## Architecture
-
-`dployr` consists of two main components:
+It consists of two main components:
 
 - **dployr** — Command-line client  
-- **dployrd** — Background daemon that handles deployment execution, service management, and API endpoints
-
-- **SQLite** for persistence  
-- **Caddy** for automatic HTTPS and reverse proxy  
-- **systemd** on Linux, **launchd** on macOS, or **NSSM** on Windows for service management  
-All components are written in Go and packaged as standalone binaries.
+- **dployrd** — Background daemon that handles deployment
 
 ---
 
 ## Dependencies
 
 `dployr` relies on a few external tools to provide core functionality:
-
 | Dependency | Purpose | Platform |
 |-------------|----------|-----------|
 | [Caddy](https://caddyserver.com) | Reverse proxy and automatic HTTPS management | All |
 | [vfox](https://version-fox.dev) | Runtime and version management (Node, Python, Go, etc.) | All |
+| [SQLite](https://sqlite.org) | Embedded database for persistence and data storage | All |
 | [systemd](https://systemd.io) | Linux service manager for running `dployrd` as a background daemon | Linux |
 | [launchd](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html) | macOS service manager for running `dployrd` as a background daemon | macOS |
 | [NSSM](https://nssm.cc) | Windows service manager for running `dployrd` as a background daemon | Windows |
-> **Note:** Each operating system uses its native service manager: `systemd` on Linux, `launchd` on macOS, and `NSSM` on Windows (uses Windows Process API).
+> **Note:** Each operating system uses its native service manager: `systemd` on Linux, `launchd` on macOS, and `NSSM` on Windows.
 These binaries are automatically downloaded and configured during installation when possible.
 
 ---
@@ -72,8 +58,6 @@ curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh |
 curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh | bash -s v0.1.1-beta.17
 ```
 
-> **Note**: The installer automatically generates a secure secret key and creates a system-wide config file. The secret is shown once during installation - save it securely!
-> 
 > **Config locations:**
 > - **Linux**: `/etc/dployr/config.toml`
 > - **macOS**: `/usr/local/etc/dployr/config.toml`  
@@ -147,16 +131,7 @@ address = "localhost"
 port = 7879
 max-workers = 5
 secret = "your-secret-key"
-github-token = "ghp_xxxx"  # Optional: for private repositories
 ```
-
-Environment variables can override these values:
-
-* `ADDRESS` — Server bind address
-* `PORT` — Server port
-* `MAX_WORKERS` — Concurrent deployment limit
-* `SECRET` — JWT signing secret *(required)*
-* `GITHUB_TOKEN` — GitHub access token
 
 ---
 

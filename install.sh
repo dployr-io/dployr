@@ -230,7 +230,7 @@ case $OS in
         
         # Create dployrd user if it doesn't exist
         if ! id "dployrd" &>/dev/null; then
-            useradd --system --create-home --shell /bin/false -G dployr-admin dployrd
+            useradd --system --create-home --shell /bin/bash -G dployr-admin dployrd
             info "Created dployrd system user"
         fi
         
@@ -352,11 +352,18 @@ EOF
         ;;
 esac
 
+#
+#
+# DEBUG
+#
+#
+echo "Home directory $HOME"
+
 # Reload vfox environment for current shell
 info "Reloading vfox environment..."
 if [[ -n "$SHELL" && -f "$HOME/.bashrc" ]]; then
     # shellcheck source=/dev/null
-    source "$HOME/.bashrc"
+    source "$HOME/.bashrc" 2>&1 || warn "Failed to source ~/.bashrc: $?"
     eval "$(vfox activate bash)" || warn "Failed to reload vfox environment"
 else
     eval "$(vfox activate bash)" || warn "Failed to reload vfox environment"

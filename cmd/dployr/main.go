@@ -22,19 +22,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func getServiceManagerText() string {
-	switch runtime.GOOS {
-	case "linux":
-		return "systemd on Linux"
-	case "darwin":
-		return "launchd on macOS"
-	case "windows":
-		return "NSSM on Windows"
-	default:
-		return "systemd on Linux, launchd on macOS, or NSSM on Windows"
-	}
-}
-
 func main() {
 	cfg, err := shared.LoadConfig()
 	if err != nil {
@@ -46,25 +33,7 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:   "dployr",
 		Short: "dployr - your app, your server, your rules!",
-		Long: `
-Your app, your server, your rules!
-
-Turn any machine into a deployment platform. Deploy applications from Git repositories or Docker images with automatic reverse proxy, SSL certificates, and service management.
-
-` + "dployr" + ` gives developers a self-hosted alternative to managed platforms.  
-It combines a lightweight daemon, a CLI client, and powerful integrations to automate deployment pipelines across operating systems.
-
----
-
-` + "dployr" + ` consists of two main components:
-
-- dployr — Command-line client  
-- dployrd — Background daemon that handles deployment execution, service management, and API endpoints
-
-- SQLite for persistence  
-- Caddy for automatic HTTPS and reverse proxy  
-- ` + getServiceManagerText() + ` for service management  
-All components are written in Go and packaged as standalone binaries.`,
+		Long: "dployr gives developers a self-hosted alternative to managed platforms",
 	}
 
 	// version command
@@ -137,6 +106,14 @@ For first-time owner registration (requires secret key):
 			}
 			defer res.Body.Close()
 
+			body, err := io.ReadAll(res.Body)
+			if err != nil {
+				return fmt.Errorf("failed to read response body: %v", err)
+			}
+
+			// [DEBUG]
+			fmt.Printf("Response body: %s\n", string(body))
+
 			if res.StatusCode != http.StatusOK {
 				return fmt.Errorf("login failed with status: %d", res.StatusCode)
 			}
@@ -147,7 +124,7 @@ For first-time owner registration (requires secret key):
 				User         string `json:"user"`
 				Role         string `json:"role"`
 			}
-			if err := json.NewDecoder(res.Body).Decode(&authResp); err != nil {
+			if err := json.Unmarshal(body, &authResp); err != nil {
 				return fmt.Errorf("failed to parse response: %v", err)
 			}
 
@@ -156,7 +133,7 @@ For first-time owner registration (requires secret key):
 			if err != nil {
 				return fmt.Errorf("could not resolve user home directory: %v", err)
 			}
-			configPath := homeDir + "/.dployr/token.json"
+			cfgPath := homeDir + "/.dployr/token.json"
 
 			if err := os.Mkdir(homeDir+"/.dployr", 0700); err != nil && !os.IsExist(err) {
 				return fmt.Errorf("could not create config directory: %v", err)
@@ -169,14 +146,14 @@ For first-time owner registration (requires secret key):
 				"user":          authResp.User,
 				"role":          authResp.Role,
 			}
-			configData, err := json.MarshalIndent(cfg, "", "  ")
+			cfgData, err := json.MarshalIndent(cfg, "", "  ")
 			if err != nil {
 				return fmt.Errorf("could not marshal config: %v", err)
 			}
-			if err := os.WriteFile(configPath, configData, 0600); err != nil {
+			if err := os.WriteFile(cfgPath, cfgData, 0600); err != nil {
 				return fmt.Errorf("could not write config file: %v", err)
 			}
-			fmt.Printf("token saved to %s\n", configPath)
+			fmt.Printf("token saved to %s\n", cfgPath)
 			return nil
 		},
 	}

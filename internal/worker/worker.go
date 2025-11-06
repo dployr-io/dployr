@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -126,14 +127,19 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		shared.LogInfoF(id, logPath, "installing dependencies")
 		err := deploy.InstallDeps(d.Blueprint.BuildCmd, dir, d.Blueprint.Runtime)
 		if err != nil {
-			err = fmt.Errorf("failed to setup working directory: %s", err)
+			err = fmt.Errorf("failed to install dependencies: %s", err)
 			shared.LogErrF(id, logPath, err)
 			return err
 		}
 	}
 
 	shared.LogInfoF(id, logPath, "creating service")
-	s := &svc_runtime.NSSMManager{}
+	s, err := svc_runtime.SvcRuntime()
+	if err != nil {
+		err = fmt.Errorf("failed to default a compatible runtime manager: %s", err)
+		shared.LogErrF(id, logPath, err)
+		return err
+	}
 
 	svcName := utils.FormatName(d.Blueprint.Name)
 
@@ -149,24 +155,22 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		return nil
 	}
 
-	shared.LogInfoF(id, logPath, "creating run file")
+	shared.LogInfoF(id, logPath, "preparing run command")
 	exe, cmdArgs, err := utils.GetExeArgs(d.Blueprint.Runtime, d.Blueprint.RunCmd)
-
 	if err != nil {
 		err = fmt.Errorf("%s", err)
 		shared.LogErrF(id, logPath, err)
 		return err
 	}
 
-	bat, err := svc_runtime.CreateRunFile(d.Blueprint, dir, exe, cmdArgs)
-	if err != nil {
-		err = fmt.Errorf("%s", err)
-		shared.LogErrF(id, logPath, err)
-		return err
+	// Build the full command
+	runCmd := exe
+	if len(cmdArgs) > 0 {
+		runCmd = fmt.Sprintf("%s %s", exe, strings.Join(cmdArgs, " "))
 	}
 
 	shared.LogInfoF(id, logPath, "installing service")
-	err = s.Install(svcName, d.Blueprint.Desc, bat, dir, d.Blueprint.EnvVars)
+	err = s.Install(svcName, d.Blueprint.Desc, runCmd, dir, d.Blueprint.EnvVars)
 	if err != nil {
 		err = fmt.Errorf("service installation failed: %s", err)
 		shared.LogErrF(id, logPath, err)
