@@ -1,11 +1,11 @@
 package shared
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
-	"context"
 )
 
 func Exec(ctx context.Context, cmd string, workDir string) error {
@@ -15,11 +15,11 @@ func Exec(ctx context.Context, cmd string, workDir string) error {
 	case "windows":
 		shell = "pwsh"
 		shellFlag = "-Command"
-		setup = `if (-not (Test-Path -Path $PROFILE)) { New-Item -Type File -Path $PROFILE -Force }; Add-Content -Path $PROFILE -Value 'Invoke-Expression "$(vfox activate pwsh)"'`
+		setup = `Invoke-Expression "$(vfox activate pwsh)"`
 	default:
 		shell = "bash"
 		shellFlag = "-lc"
-		setup = `eval "$(vfox activate bash)"` // works on both macOS and Linux
+		setup = `eval "$(vfox activate bash)"`
 	}
 
 	full := fmt.Sprintf("%s && cd %s && %s", setup, workDir, cmd)
@@ -28,10 +28,7 @@ func Exec(ctx context.Context, cmd string, workDir string) error {
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	c.Stdin = os.Stdin
-	c.Env = append(os.Environ(),
-		fmt.Sprintf("VFOX_HOME=%s/.version-fox", os.Getenv("HOME")),
-	)
+	c.Env = os.Environ() 
 
 	return c.Run()
 }
-

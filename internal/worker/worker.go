@@ -116,21 +116,11 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	dir = fmt.Sprint(workingDir, "/", d.Blueprint.WorkingDir)
 
 	shared.LogInfoF(id, logPath, "installing runtime")
-	err = deploy.SetupRuntime(d.Blueprint.Runtime, dir)
+	err = deploy.SetupRuntime(d.Blueprint.Runtime, dir, d.Blueprint.BuildCmd)
 	if err != nil {
 		err = fmt.Errorf("failed to setup runtime: %s", err)
 		shared.LogErrF(id, logPath, err)
 		return err
-	}
-
-	if d.Blueprint.BuildCmd != "" {
-		shared.LogInfoF(id, logPath, "installing dependencies")
-		err := deploy.InstallDeps(d.Blueprint.BuildCmd, dir, d.Blueprint.Runtime)
-		if err != nil {
-			err = fmt.Errorf("failed to install dependencies: %s", err)
-			shared.LogErrF(id, logPath, err)
-			return err
-		}
 	}
 
 	shared.LogInfoF(id, logPath, "creating service")

@@ -67,7 +67,7 @@ func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.C
 }
 
 // SetupRuntime sets up the runtime environment using vfox
-func SetupRuntime(r store.RuntimeObj, workDir string) error {
+func SetupRuntime(r store.RuntimeObj, workDir, buildCmd string) error {
 
 	version := string(r.Version)
 	if version == "" {
@@ -87,43 +87,24 @@ func SetupRuntime(r store.RuntimeObj, workDir string) error {
 		return fmt.Errorf("vfox command failed: %v", err)
 	}
 
-	useCmd := fmt.Sprintf("vfox use %s@%s", string(r.Type), version)
+	var useCmd string
+	if buildCmd != "" {
+		useCmd = fmt.Sprintf(`eval "$(vfox env -s bash %s@%s)" && cd %s && %s`, r.Type, version, workDir, buildCmd)
+	} else {
+		useCmd = fmt.Sprintf(`eval "$(vfox env -s bash %s@%s)"`, r.Type, version)
+	}
 	err = shared.Exec(ctx, useCmd, utils.GetDataDir())
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			return fmt.Errorf("vfox command timed out after 5 minutes")
+			return fmt.Errorf("runtime setup timed out after 5 minutes")
 		}
-		return fmt.Errorf("vfox command failed: %v", err)
+		return fmt.Errorf("runtime setup failed: %v", err)
 	}
 
 	fmt.Printf("Runtime %s@%s installed and verified successfully\n", r.Type, version)
 	return nil
 }
 
-// InstallDeps installs dependencies using the build command
-func InstallDeps(buildCmd, workDir string, r store.RuntimeObj) error {
-	if buildCmd == "" {
-		fmt.Printf("No build command specified, skipping dependency installation\n")
-		return nil
-	}
-
-	fmt.Printf("Installing dependencies with command: %s\n", buildCmd)
-	fmt.Printf("Runtime: %s@%s, Working directory: %s\n", r.Type, r.Version, workDir)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-
-	err := shared.Exec(ctx, buildCmd, workDir)
-	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			return fmt.Errorf("build command timed out after 10 minutes")
-		}
-		return fmt.Errorf("build command '%s' failed: %v", buildCmd, err)
-	}
-
-	fmt.Printf("Dependencies installed successfully\n")
-	return nil
-}
 
 func buildAuthUrl(url string, config *shared.Config) (string, error) {
 	if strings.Contains(url, "@") {
