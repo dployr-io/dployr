@@ -115,23 +115,15 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	// Set the working directory for the service
 	dir = fmt.Sprint(workingDir, "/", d.Blueprint.WorkingDir)
 
-	shared.LogInfoF(id, logPath, "installing runtime")
-	err = deploy.SetupRuntime(d.Blueprint.Runtime, dir, d.Blueprint.BuildCmd)
-	if err != nil {
-		err = fmt.Errorf("failed to setup runtime: %s", err)
-		shared.LogErrF(id, logPath, err)
-		return err
-	}
+	svcName := utils.FormatName(d.Blueprint.Name)
 
-	shared.LogInfoF(id, logPath, "creating service")
+	shared.LogInfoF(id, logPath, "checking for existing service")
 	s, err := svc_runtime.SvcRuntime()
 	if err != nil {
 		err = fmt.Errorf("failed to default a compatible runtime manager: %s", err)
 		shared.LogErrF(id, logPath, err)
 		return err
 	}
-
-	svcName := utils.FormatName(d.Blueprint.Name)
 
 	status, err := s.Status(svcName)
 	if err == nil {
@@ -144,7 +136,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		time.Sleep(100 * time.Millisecond)
 		s.Remove(svcName)
 	} else {
-		// Service doesn't exist, new deployments
+		// Service doesn't exist, new deployment
 		shared.LogInfoF(id, logPath, "no existing service found, proceeding with installation")
 	}
 
@@ -162,18 +154,28 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		runCmd = fmt.Sprintf("%s %s", exe, strings.Join(cmdArgs, " "))
 	}
 
-	shared.LogInfoF(id, logPath, "installing service")
-	err = s.Install(svcName, d.Blueprint.Desc, runCmd, dir, d.Blueprint.EnvVars)
-	if err != nil {
-		err = fmt.Errorf("service installation failed: %s", err)
-		shared.LogErrF(id, logPath, err)
-		return err
+	bp := store.Blueprint{
+		Name:       svcName,
+		Desc:       d.Blueprint.Desc,
+		Source:     d.Blueprint.Source,
+		Runtime:    d.Blueprint.Runtime,
+		Remote:     d.Blueprint.Remote,
+		RunCmd:     runCmd,
+		BuildCmd:   d.Blueprint.BuildCmd,
+		Port:       d.Blueprint.Port,
+		WorkingDir: dir,
+		StaticDir:  d.Blueprint.StaticDir,
+		Image:      d.Blueprint.Image,
+		EnvVars:    d.Blueprint.EnvVars,
+		Status:     d.Blueprint.Status,
+		ProjectID:  d.Blueprint.ProjectID,
 	}
 
-	shared.LogInfoF(id, logPath, "starting service")
-	err = s.Start(svcName)
+	// Deploy app: setup runtime, build, install and start service in one go
+	shared.LogInfoF(id, logPath, "deploying application (runtime setup, build, service installation)")
+	err = deploy.DeployApp(bp)
 	if err != nil {
-		err = fmt.Errorf("service start failed: %s", err)
+		err = fmt.Errorf("deployment failed: %s", err)
 		shared.LogErrF(id, logPath, err)
 		return err
 	}

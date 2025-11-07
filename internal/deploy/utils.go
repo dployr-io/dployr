@@ -16,6 +16,8 @@ import (
 	"dployr/pkg/store"
 )
 
+type DeployRequest struct {}
+
 // SetupDir creates a working directory for the deployment
 func SetupDir(name string) (string, error) {
 	dataDir := utils.GetDataDir()
@@ -69,67 +71,72 @@ func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.C
 	return nil
 }
 
-// SetupRuntime sets up the runtime environment using vfox
-func SetupRuntime(r store.RuntimeObj, workDir, buildCmd string) error {
-	version := string(r.Version)
+// DeployApp handles runtime setup, build, and service installation
+func DeployApp(bp store.Blueprint) error {
+	version := string(bp.Runtime.Version)
 	if version == "" {
 		return fmt.Errorf("runtime version cannot be empty")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 
-	return runRuntimeScript(ctx, string(r.Type), version, workDir, buildCmd)
+	return runDeployScript(ctx, bp)
 }
 
-func runRuntimeScript(ctx context.Context, runtimeName, version, workDir, buildCmd string) error {
-	var shell string
-	var scriptContent string
-	var scriptExt string
-
+func runDeployScript(ctx context.Context, bp store.Blueprint) error {
 	if runtime.GOOS == "windows" {
-		shell = "pwsh"
-		scriptContent = scripts.PowershellScript
-		scriptExt = ".ps1"
-	} else {
-		shell = "bash"
-		scriptContent = scripts.BashScript
-		scriptExt = ".sh"
+		return fmt.Errorf("unified deployment script not yet supported on Windows")
+	}
+
+	// Use service name as description if empty
+	desc := bp.Desc
+	if desc == "" {
+		desc = fmt.Sprintf("%s service", bp.Name)
 	}
 
 	// Create temporary script file
-	tmpFile, err := os.CreateTemp("", "setup_runtime*"+scriptExt)
+	tmpFile, err := os.CreateTemp("", "deploy_app*.sh")
 	if err != nil {
 		return fmt.Errorf("failed to create temp script: %v", err)
 	}
 	defer os.Remove(tmpFile.Name())
 
 	// Write script content
-	if _, err := tmpFile.WriteString(scriptContent); err != nil {
+	if _, err := tmpFile.WriteString(scripts.DeployScript); err != nil {
 		tmpFile.Close()
 		return fmt.Errorf("failed to write script: %v", err)
 	}
 	tmpFile.Close()
 
-	// Make script executable on Unix systems
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
-			return fmt.Errorf("failed to make script executable: %v", err)
-		}
+	// Make script executable
+	if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
+		return fmt.Errorf("failed to make script executable: %v", err)
 	}
 
-	var args []string
-	if runtime.GOOS == "windows" {
-		args = []string{"-File", tmpFile.Name(), runtimeName, version, workDir, buildCmd}
-	} else {
-		args = []string{tmpFile.Name(), runtimeName, version, workDir, buildCmd}
+	// Build arguments - always include all positional args
+	buildCmd := bp.BuildCmd
+	if buildCmd == "" {
+		buildCmd = ""
 	}
 
-	cmd := exec.CommandContext(ctx, shell, args...)
+	port := fmt.Sprintf("%d", bp.Port)
+	if bp.Port == 0 {
+		port = "3000"
+	}
+
+	args := []string{tmpFile.Name(), "deploy", bp.Name, string(bp.Runtime.Type), bp.Runtime.Version, bp.WorkingDir, bp.RunCmd, desc, buildCmd, port}
+
+	// Add environment variables as KEY=VALUE pairs
+	for key, value := range bp.EnvVars {
+		args = append(args, fmt.Sprintf("%s=%s", key, value))
+	}
+
+	cmd := exec.CommandContext(ctx, "bash", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("VFOX_HOME=%s/.version-fox", os.Getenv("HOME")),
+		fmt.Sprintf("HOME=%s", os.Getenv("HOME")),
 	)
 
 	return cmd.Run()
