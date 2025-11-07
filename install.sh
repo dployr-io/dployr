@@ -104,8 +104,15 @@ fi
 
 # Install binaries
 info "Installing dployr binaries..."
-cp "$EXTRACT_DIR/dployr" "$INSTALL_DIR/" && chmod +x "$INSTALL_DIR/dployr" || error "Failed to install dployr"
-cp "$EXTRACT_DIR/dployrd" "$INSTALL_DIR/" && chmod +x "$INSTALL_DIR/dployrd" || error "Failed to install dployrd"
+if ! cp "$EXTRACT_DIR/dployr" "$INSTALL_DIR/"; then
+    error "Failed to copy dployr"
+fi
+chmod +x "$INSTALL_DIR/dployr" || error "Failed to make dployr executable"
+
+if ! cp "$EXTRACT_DIR/dployrd" "$INSTALL_DIR/"; then
+    error "Failed to copy dployrd"
+fi
+chmod +x "$INSTALL_DIR/dployrd" || error "Failed to make dployrd executable"
 
 # Install Caddy
 info "Installing Caddy..."
