@@ -81,8 +81,6 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 		return nil, fmt.Errorf("%s", msg)
 	}
 
-	// TODO: Validate deployment with JSON shema
-
 	d.logger.With(
 		"user_id", user.ID,
 		"request_id", requestID,
