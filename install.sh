@@ -124,10 +124,12 @@ else
             if command -v apt &> /dev/null; then
                 info "Installing Caddy via apt..."
                 if [[ $EUID -eq 0 ]]; then
-                    apt update && apt install -y debian-keyring debian-archive-keyring apt-transport-https
+                    apt update  
+                    apt install -y debian-keyring debian-archive-keyring apt-transport-https
                     curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
                     curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
-                    apt update && apt install caddy
+                    apt update
+                    apt install caddy
                 else
                     warn "Need root privileges to install Caddy via apt. Installing binary instead..."
                     CADDY_URL="https://github.com/caddyserver/caddy/releases/latest/download/caddy_${OS}_${ARCH}.tar.gz"
