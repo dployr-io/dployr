@@ -121,33 +121,31 @@ if command -v caddy &> /dev/null; then
 else
     case $OS in
         linux)
-            if command -v apt &> /dev/null; then
+            if [[ $EUID -eq 0 ]] && command -v apt &> /dev/null; then
                 info "Installing Caddy via apt..."
-                if [[ $EUID -eq 0 ]]; then
-                    apt update  
-                    apt install -y debian-keyring debian-archive-keyring apt-transport-https
-                    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-                    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
-                    apt update
-                    apt install caddy
-                else
-                    warn "Need root privileges to install Caddy via apt. Installing binary instead..."
-                    CADDY_URL="https://github.com/caddyserver/caddy/releases/latest/download/caddy_${OS}_${ARCH}.tar.gz"
-                    curl -L "$CADDY_URL" -o "$TEMP_DIR/caddy.tar.gz"
-                    tar -xzf "$TEMP_DIR/caddy.tar.gz" -C "$TEMP_DIR"
-                    cp "$TEMP_DIR/caddy" "$INSTALL_DIR/" && chmod +x "$INSTALL_DIR/caddy"
-                fi
-            elif command -v yum &> /dev/null || command -v dnf &> /dev/null; then
-                info "Installing Caddy via dnf/yum..."
-                if [[ $EUID -eq 0 ]]; then
-                    dnf copr enable @caddy/caddy -y && dnf install caddy -y
-                else
-                    warn "Need root privileges to install Caddy via dnf. Installing binary instead..."
-                    CADDY_URL="https://github.com/caddyserver/caddy/releases/latest/download/caddy_${OS}_${ARCH}.tar.gz"
-                    curl -L "$CADDY_URL" -o "$TEMP_DIR/caddy.tar.gz"
-                    tar -xzf "$TEMP_DIR/caddy.tar.gz" -C "$TEMP_DIR"
-                    cp "$TEMP_DIR/caddy" "$INSTALL_DIR/" && chmod +x "$INSTALL_DIR/caddy"
-                fi
+
+                # Wait for any other apt processes
+                info "Waiting for other apt processes to finish..."
+                while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+                    sleep 2
+                done
+
+                apt update
+                apt install -y debian-keyring debian-archive-keyring apt-transport-https
+
+                curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+                    | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+
+                curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+                    | tee /etc/apt/sources.list.d/caddy-stable.list
+
+                # Wait again for apt to be free before installing Caddy
+                while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+                    sleep 2
+                done
+
+                apt update
+                apt install -y caddy
             else
                 info "Installing Caddy binary..."
                 CADDY_URL="https://github.com/caddyserver/caddy/releases/latest/download/caddy_${OS}_${ARCH}.tar.gz"
@@ -170,6 +168,7 @@ else
             ;;
     esac
 fi
+
 
 # Install vfox
 info "Installing vfox..."
