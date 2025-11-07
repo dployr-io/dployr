@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -140,27 +139,13 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		shared.LogInfoF(id, logPath, "no existing service found, proceeding with installation")
 	}
 
-	shared.LogInfoF(id, logPath, "preparing run command")
-	exe, cmdArgs, err := utils.GetExeArgs(d.Blueprint.Runtime, d.Blueprint.RunCmd)
-	if err != nil {
-		err = fmt.Errorf("%s", err)
-		shared.LogErrF(id, logPath, err)
-		return err
-	}
-
-	// Build the full command
-	runCmd := exe
-	if len(cmdArgs) > 0 {
-		runCmd = fmt.Sprintf("%s %s", exe, strings.Join(cmdArgs, " "))
-	}
-
 	bp := store.Blueprint{
 		Name:       svcName,
 		Desc:       d.Blueprint.Desc,
 		Source:     d.Blueprint.Source,
 		Runtime:    d.Blueprint.Runtime,
 		Remote:     d.Blueprint.Remote,
-		RunCmd:     runCmd,
+		RunCmd:     d.Blueprint.RunCmd,
 		BuildCmd:   d.Blueprint.BuildCmd,
 		Port:       d.Blueprint.Port,
 		WorkingDir: dir,

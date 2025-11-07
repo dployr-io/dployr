@@ -9,8 +9,6 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
-
-	"dployr/pkg/store"
 )
 
 func GetDataDir() string {
@@ -33,39 +31,6 @@ func FormatName(s string) string {
 	return s
 }
 
-func GetExeArgs(r store.RuntimeObj, cmd string) (string, []string, error) {
-	parts := strings.Fields(cmd)
-	if len(parts) == 0 {
-		return "", nil, fmt.Errorf("build command cannot be empty")
-	}
-
-	runtimeType := string(r.Type)
-	runtimeVersion := string(r.Version)
-	first := parts[0]
-
-	// Check if cmd starts with a runtime name
-	var runtimePath map[string]string
-	var err error
-	if first == runtimeType {
-		runtimePath, err = GetRuntimePath(runtimeType, runtimeVersion)
-	} else {
-		runtimePath, err = GetRuntimePath(runtimeType, runtimeVersion, first)
-	}
-
-	if err != nil {
-		return "", nil, fmt.Errorf("failed to get runtime path: %s", err)
-	}
-
-	remaining := 1
-	if runtimePath[first] == "" {
-		return "", nil, fmt.Errorf("runtime path for %q not found", first)
-	}
-
-	exe := runtimePath[first]
-	cmdArgs := parts[remaining:]
-
-	return exe, cmdArgs, nil
-}
 
 // getRuntimePath finds the runtime binary in ~/.version-fox/cache/<runtime>
 func GetRuntimePath(runtime, version string, tools ...string) (map[string]string, error) {

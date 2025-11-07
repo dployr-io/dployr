@@ -55,6 +55,23 @@ install_runtime() {
     if ! vfox use --global "${runtime}@${version}" 2>&1; then
         abort "failed to use ${runtime}@${version}"
     fi
+
+    mkdir -p "${HOME}/.dployr/envs"
+    ENV_FILE="${HOME}/.dployr/envs/${runtime}-${version}.env"
+
+    log "Capturing environment for systemd"
+
+    eval "$(/usr/local/bin/vfox activate bash)" || abort "failed to activate vfox in current shell"
+
+    vfox use "${runtime}@${version}" || abort "failed to switch to ${runtime}@${version}"
+
+    {
+        echo "PATH=$PATH"
+        echo "HOME=$HOME"
+        echo "USER=$USER"
+    } > "$ENV_FILE"
+
+    log "Environment snapshot saved: $ENV_FILE"
 }
 
 # --- verify runtime ---
@@ -141,22 +158,19 @@ create_service_exe() {
     local exe_script="${HOME}/.dployr/scripts/${service_name}.sh"
     mkdir -p "$(dirname "$exe_script")"
 
-    # Generate runtime env once (static)
-    local env_file="${HOME}/.dployr/scripts/${service_name}.env"
-    /usr/local/bin/vfox env -s bash "${runtime}@${version}" > "$env_file"
+    local env_file="${HOME}/.dployr/envs/${runtime}-${version}.env"
 
     cat > "$exe_script" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 
-export HOME="/home/dployrd"
-export PATH="/home/dployrd/.vfox/bin:/usr/local/bin:/usr/bin:/bin"
-
-# Load static vfox environment
-if [ -f "${env_file}" ]; then
-    source "${env_file}"
+# Source the captured vfox environment
+if [ -f "$env_file" ]; then
+    set -a
+    source "$env_file"
+    set +a
 else
-    echo "[ERROR] Missing vfox env file: ${env_file}" >&2
+    echo "[ERROR] ENV_FILE does not exist: $env_file" >&2
     exit 1
 fi
 
@@ -166,7 +180,7 @@ exec ${run_cmd}
 EOF
 
     chmod +x "$exe_script"
-    log "Created service exe: $exe_script" >&2
+    log "Created service exe: $exe_script"
     echo "$exe_script"
 }
 
@@ -176,14 +190,15 @@ install_systemd_service() {
     local description="$2"
     local exe_script="$3"
     local workdir="$4"
+    local runtime="$5"
+    local version="$6"
 
     log "Installing systemd service: $service_name"
 
     local log_dir="${HOME}/.dployr/logs"
-    local log_file="${log_dir}/${service_name}.log"
-
     mkdir -p "$log_dir"
     sudo mkdir -p "/etc/systemd/system"
+    local log_file="${log_dir}/${service_name}.log"
 
     sudo tee "/etc/systemd/system/${service_name}.service" > /dev/null <<EOF
 [Unit]
@@ -194,11 +209,10 @@ After=network.target
 Type=simple
 User=dployrd
 WorkingDirectory=${workdir}
+ExecStart=${exe_script}
+StandardOutput=append:${log_file}
+StandardError=append:${log_file}
 
-Environment="HOME=/home/dployrd"
-Environment="PATH=/home/dployrd/.vfox/bin:/usr/local/bin:/usr/bin:/bin"
-
-ExecStart=/usr/bin/bash -c "exec ${exe_script} >> '${log_file}' 2>&1"
 Restart=always
 RestartSec=10
 
@@ -300,10 +314,10 @@ deploy() {
     run_build "$WORKDIR" "$BUILD_CMD"
     
     # Create service exe script
-    exe_script=$(create_service_exe "$SERVICE_NAME" "$RUNTIME" "$VERSION" "$WORKDIR" "$RUN_CMD")
+    exe_script=$(create_service_exe "$SERVICE_NAME" "$RUNTIME" "$VERSION" "$WORKDIR" "$RUN_CMD" | tail -n1)
     
     # Install systemd service
-    install_systemd_service "$SERVICE_NAME" "$DESCRIPTION" "$exe_script" "$WORKDIR"
+    install_systemd_service "$SERVICE_NAME" "$DESCRIPTION" "$exe_script" "$WORKDIR" "$RUNTIME" "$VERSION"
     
     # Start the service
     start_systemd_service "$SERVICE_NAME"
