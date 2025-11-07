@@ -28,7 +28,7 @@ func Exec(ctx context.Context, cmd string, workDir string) error {
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	c.Stdin = os.Stdin
-	c.Env = os.Environ() 
+	c.Env = os.Environ()
 
 	return c.Run()
 }

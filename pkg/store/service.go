@@ -40,7 +40,7 @@ type Service struct {
 	Branch         string            `json:"branch" db:"remote_branch"`
 	CommitHash     string            `json:"commit_hash" db:"remote_commit_hash"`
 	DeploymentId   string            `json:"-" db:"deployment_id"`
-	Blueprint     *Blueprint        `json:"blueprint,omitempty"`
+	Blueprint      *Blueprint        `json:"blueprint,omitempty"`
 	CreatedAt      time.Time         `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time         `json:"updated_at" db:"updated_at"`
 }

@@ -16,7 +16,7 @@ import (
 	"dployr/pkg/store"
 )
 
-type DeployRequest struct {}
+type DeployRequest struct{}
 
 // SetupDir creates a working directory for the deployment
 func SetupDir(name string) (string, error) {

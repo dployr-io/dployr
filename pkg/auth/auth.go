@@ -7,11 +7,11 @@ import (
 type TokenType string
 
 type Claims struct {
-	Email     string `json:"email"`
-	Username  string `json:"username"`   // System username for group checking
+	Email     string    `json:"email"`
+	Username  string    `json:"username"`   // System username for group checking
 	TokenType TokenType `json:"token_type"` // "access" or "refresh"
-	ExpiresAt int64  `json:"exp"`
-	IssuedAt  int64  `json:"iat"`
+	ExpiresAt int64     `json:"exp"`
+	IssuedAt  int64     `json:"iat"`
 	jwt.RegisteredClaims
 }
 

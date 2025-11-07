@@ -33,7 +33,7 @@ func NewServicer(c *shared.Config, l *slog.Logger, s store.ServiceStore, a Handl
 	return &Servicer{
 		config: c,
 		logger: l,
-		store: s,
-		api: a,
+		store:  s,
+		api:    a,
 	}
 }

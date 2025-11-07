@@ -14,11 +14,11 @@ import (
 )
 
 type LogEntry struct {
-	Id 		string    `json:"id"`
+	Id      string    `json:"id"`
 	Level   string    `json:"level"`
 	Message string    `json:"message"`
 	Time    time.Time `json:"timestamp"`
-	Error   error    `json:"error,omitempty"`
+	Error   error     `json:"error,omitempty"`
 }
 
 func NewLogger() *slog.Logger {
@@ -88,7 +88,7 @@ func LogF(name, dir string, entry LogEntry) error {
 // LogInfoF logs a info to file
 func LogInfoF(name, dir, message string) error {
 	entry := LogEntry{
-		Id: 	ulid.Make().String(),
+		Id:      ulid.Make().String(),
 		Level:   "info",
 		Message: message,
 		Time:    time.Now(),
@@ -99,7 +99,7 @@ func LogInfoF(name, dir, message string) error {
 // LogInfoF logs a warning to file
 func LogWarnF(name, dir, message string) error {
 	entry := LogEntry{
-		Id: 	ulid.Make().String(),
+		Id:      ulid.Make().String(),
 		Level:   "warn",
 		Message: message,
 		Time:    time.Now(),
@@ -110,10 +110,10 @@ func LogWarnF(name, dir, message string) error {
 // LogErrF logs an error to file
 func LogErrF(name, dir string, err error) error {
 	entry := LogEntry{
-		Id: 	ulid.Make().String(),
-		Level:   "error",
-        Error: err,
-		Time:    time.Now(),
+		Id:    ulid.Make().String(),
+		Level: "error",
+		Error: err,
+		Time:  time.Now(),
 	}
 	return LogF(name, dir, entry)
 }

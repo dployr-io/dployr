@@ -11,9 +11,9 @@ import (
 type ContextKey string
 
 const (
-	CtxUserIDKey     ContextKey = "user_id"
-	CtxRequestIDKey  ContextKey = "request_id"
-	CtxTraceIDKey    ContextKey = "trace_id"
+	CtxUserIDKey    ContextKey = "user_id"
+	CtxRequestIDKey ContextKey = "request_id"
+	CtxTraceIDKey   ContextKey = "trace_id"
 )
 
 func WithUser(ctx context.Context, id string) context.Context {
@@ -21,11 +21,11 @@ func WithUser(ctx context.Context, id string) context.Context {
 }
 
 func UserFromContext(ctx context.Context) (*store.User, error) {
-    user, ok := ctx.Value(CtxUserIDKey).(*store.User)
-    if !ok || user == nil {
-        return nil, errors.New("no authenticated user in context")
-    }
-    return user, nil
+	user, ok := ctx.Value(CtxUserIDKey).(*store.User)
+	if !ok || user == nil {
+		return nil, errors.New("no authenticated user in context")
+	}
+	return user, nil
 }
 
 func WithRequest(ctx context.Context, id string) context.Context {
@@ -35,10 +35,10 @@ func WithRequest(ctx context.Context, id string) context.Context {
 func RequestFromContext(ctx context.Context) (string, error) {
 	requestID, ok := ctx.Value(CtxRequestIDKey).(string)
 	_, err := ulid.Parse(requestID)
-    if !ok || err != nil {
-        return "", errors.New("no request id in context")
-    }
-    return requestID, nil
+	if !ok || err != nil {
+		return "", errors.New("no request id in context")
+	}
+	return requestID, nil
 }
 
 func WithTrace(ctx context.Context, id string) context.Context {
@@ -48,17 +48,16 @@ func WithTrace(ctx context.Context, id string) context.Context {
 func TraceFromContext(ctx context.Context) (string, error) {
 	traceID, ok := ctx.Value(CtxTraceIDKey).(string)
 	_, err := ulid.Parse(traceID)
-    if !ok || err != nil {
-        return "", errors.New("no trace id in context")
-    }
-    return traceID, nil
+	if !ok || err != nil {
+		return "", errors.New("no trace id in context")
+	}
+	return traceID, nil
 }
 
 func User(ctx context.Context) *store.User {
 	v, _ := UserFromContext(ctx)
 	return v
 }
-
 
 func RequestID(ctx context.Context) string {
 	if v, ok := ctx.Value(CtxRequestIDKey).(string); ok {

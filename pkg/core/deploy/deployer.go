@@ -13,7 +13,7 @@ type Deployer struct {
 	config *shared.Config
 	logger *slog.Logger
 	store  store.DeploymentStore
-	api HandleDeployment
+	api    HandleDeployment
 }
 
 func NewDeployer(c *shared.Config, l *slog.Logger, s store.DeploymentStore, a HandleDeployment) *Deployer {
@@ -21,7 +21,7 @@ func NewDeployer(c *shared.Config, l *slog.Logger, s store.DeploymentStore, a Ha
 		config: c,
 		logger: l,
 		store:  s,
-		api: a,
+		api:    a,
 	}
 }
 

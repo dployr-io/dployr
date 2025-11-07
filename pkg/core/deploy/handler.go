@@ -21,7 +21,6 @@ func NewDeploymentHandler(deployer *Deployer, logger *slog.Logger) *DeploymentHa
 	}
 }
 
-
 func (h *DeploymentHandler) CreateDeployment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -109,4 +108,3 @@ func parseLimit(s string) int {
 	}
 	return v
 }
-

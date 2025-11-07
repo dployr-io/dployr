@@ -39,7 +39,7 @@ func (h *LogStreamHandler) OpenLogStream(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// keep-alive 
+	// keep-alive
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
@@ -62,7 +62,7 @@ func (h *LogStreamHandler) OpenLogStream(w http.ResponseWriter, r *http.Request)
 		close(logChan)
 	}()
 
-	// heartbeat 
+	// heartbeat
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 

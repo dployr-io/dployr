@@ -31,7 +31,6 @@ func FormatName(s string) string {
 	return s
 }
 
-
 // getRuntimePath finds the runtime binary in ~/.version-fox/cache/<runtime>
 func GetRuntimePath(runtime, version string, tools ...string) (map[string]string, error) {
 	home, err := os.UserHomeDir()

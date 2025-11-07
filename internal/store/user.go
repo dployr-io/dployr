@@ -156,4 +156,3 @@ func (u *UserStore) GetRole(ctx context.Context, email string) (store.Role, erro
 	}
 	return store.RoleViewer, nil
 }
-
