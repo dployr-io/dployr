@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
+	"dployr/internal/scripts"
 	"dployr/pkg/core/utils"
 	"dployr/pkg/shared"
 	"dployr/pkg/store"
@@ -68,43 +71,69 @@ func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.C
 
 // SetupRuntime sets up the runtime environment using vfox
 func SetupRuntime(r store.RuntimeObj, workDir, buildCmd string) error {
-
 	version := string(r.Version)
 	if version == "" {
 		return fmt.Errorf("runtime version cannot be empty")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	// Install runtime version
-	cmd := fmt.Sprintf("vfox install %s@%s -y", string(r.Type), version)
-	err := shared.Exec(ctx, cmd, utils.GetDataDir())
-	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			return fmt.Errorf("vfox command timed out after 5 minutes")
-		}
-		return fmt.Errorf("vfox command failed: %v", err)
-	}
-
-	var useCmd string
-	if buildCmd != "" {
-		useCmd = fmt.Sprintf(`eval "$(vfox env -s bash %s@%s)" && cd %s && %s`, r.Type, version, workDir, buildCmd)
-	} else {
-		useCmd = fmt.Sprintf(`eval "$(vfox env -s bash %s@%s)"`, r.Type, version)
-	}
-	err = shared.Exec(ctx, useCmd, utils.GetDataDir())
-	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
-			return fmt.Errorf("runtime setup timed out after 5 minutes")
-		}
-		return fmt.Errorf("runtime setup failed: %v", err)
-	}
-
-	fmt.Printf("Runtime %s@%s installed and verified successfully\n", r.Type, version)
-	return nil
+	return runRuntimeScript(ctx, string(r.Type), version, workDir, buildCmd)
 }
 
+func runRuntimeScript(ctx context.Context, runtimeName, version, workDir, buildCmd string) error {
+	var shell string
+	var scriptContent string
+	var scriptExt string
+
+	if runtime.GOOS == "windows" {
+		shell = "pwsh"
+		scriptContent = scripts.PowershellScript
+		scriptExt = ".ps1"
+	} else {
+		shell = "bash"
+		scriptContent = scripts.BashScript
+		scriptExt = ".sh"
+	}
+
+	// Create temporary script file
+	tmpFile, err := os.CreateTemp("", "setup_runtime*"+scriptExt)
+	if err != nil {
+		return fmt.Errorf("failed to create temp script: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	// Write script content
+	if _, err := tmpFile.WriteString(scriptContent); err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("failed to write script: %v", err)
+	}
+	tmpFile.Close()
+
+	// Make script executable on Unix systems
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
+			return fmt.Errorf("failed to make script executable: %v", err)
+		}
+	}
+
+	var args []string
+	if runtime.GOOS == "windows" {
+		args = []string{"-File", tmpFile.Name(), runtimeName, version, workDir, buildCmd}
+	} else {
+		args = []string{tmpFile.Name(), runtimeName, version, workDir, buildCmd}
+	}
+
+	cmd := exec.CommandContext(ctx, shell, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("VFOX_HOME=%s/.version-fox", os.Getenv("HOME")),
+	)
+
+	return cmd.Run()
+}
 
 func buildAuthUrl(url string, config *shared.Config) (string, error) {
 	if strings.Contains(url, "@") {

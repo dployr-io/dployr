@@ -135,14 +135,17 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 
 	status, err := s.Status(svcName)
 	if err == nil {
+		// Service exists, remove it first
 		shared.LogWarnF(id, logPath, fmt.Sprintf("previous version of %s exists", svcName))
 		shared.LogInfoF(id, logPath, "uninstalling previous version...")
 		if status == string(service.SvcRunning) {
 			s.Stop(svcName)
 		}
-		time.Sleep(2 * time.Second)
+		time.Sleep(100 * time.Millisecond)
 		s.Remove(svcName)
-		return nil
+	} else {
+		// Service doesn't exist, new deployments
+		shared.LogInfoF(id, logPath, "no existing service found, proceeding with installation")
 	}
 
 	shared.LogInfoF(id, logPath, "preparing run command")
