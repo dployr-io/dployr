@@ -352,13 +352,6 @@ EOF
         ;;
 esac
 
-#
-#
-# DEBUG
-#
-#
-echo "Home directory $HOME"
-
 # Reload vfox environment for current shell
 info "Reloading vfox environment..."
 if [[ -n "$SHELL" && -f "$HOME/.bashrc" ]]; then
@@ -368,6 +361,38 @@ if [[ -n "$SHELL" && -f "$HOME/.bashrc" ]]; then
 else
     eval "$(vfox activate bash)" || warn "Failed to reload vfox environment"
 fi
+
+# Add safe sudo permissions for dployrd user
+info "Setting up sudo permissions for dployrd user..."
+SYSTEMCTL=$(command -v systemctl)
+TEE=$(command -v tee)
+CADDY=$(command -v caddy)
+MKDIR=$(command -v mkdir)
+RM=$(command -v rm)
+
+for cmd in SYSTEMCTL TEE CADDY MKDIR RM; do
+    if [ -z "${!cmd}" ]; then
+        error "Command $cmd not found. Cannot configure sudoers."
+    fi
+done
+
+cat > /etc/sudoers.d/dployr << EOF
+dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL daemon-reload
+dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL start *
+dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL stop *
+dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL restart *
+dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL reload *
+dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL enable *
+dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL disable *
+dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL is-active *
+dployrd ALL=(ALL) NOPASSWD: $MKDIR -p /etc/systemd/system
+dployrd ALL=(ALL) NOPASSWD: $RM -f /etc/systemd/system/*.service
+dployrd ALL=(ALL) NOPASSWD: $TEE /etc/systemd/system/*.service
+dployrd ALL=(ALL) NOPASSWD: $TEE /etc/caddy/Caddyfile
+dployrd ALL=(ALL) NOPASSWD: $CADDY validate --config /etc/caddy/Caddyfile --adapter caddyfile
+EOF
+    chmod 440 /etc/sudoers.d/dployr
+info "Sudo permissions configured for dployrd user"
 
 # Cleanup
 rm -rf "$TEMP_DIR"
