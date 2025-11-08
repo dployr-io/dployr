@@ -499,7 +499,7 @@ paths:
         - `data:` events contain log lines
         - `event: error` indicates streaming errors
         - `event: done` indicates stream completion
-        - `: heartbeat` comments are sent every 15 seconds to keep the connection alive
+        - `: heartbeat` every 15 seconds to keep the connection alive
       security:
         - BearerAuth: []
       parameters:
