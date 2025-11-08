@@ -496,7 +496,6 @@ paths:
       description: |
         Open a keep alive connection to stream logs via server sent events (SSE) (Developer+ required).
         
-        The stream sends events in SSE format:
         - `data:` events contain log lines
         - `event: error` indicates streaming errors
         - `event: done` indicates stream completion
