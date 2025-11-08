@@ -1,0 +1,22 @@
+name: sdk
+on:
+  push:
+    paths:
+      - "api/**"  
+
+jobs:
+  trigger-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger SDK repo
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.SYNC_TOKEN }}
+          repository: dployr-io/dployr-sdk
+          event-type: spec-updated
+          client-payload: |
+            {
+              "spec_url": "https://raw.githubusercontent.com/dployr-io/dployr/refs/heads/master/api/openapi.yaml",
+              "commit_sha": "${{ github.sha }}",
+              "ref": "${{ github.ref }}"
+            }

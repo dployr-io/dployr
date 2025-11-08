@@ -3,7 +3,6 @@ info:
   title: Dployr API
   description: |
     Your app, your server, your rules!
-    Language agnostic SDK for interacting with dployr daemon via an agreeable common contract.
     
     ## Authentication
     Dployr uses JWT-based authentication with access and refresh tokens:
