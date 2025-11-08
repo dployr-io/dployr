@@ -494,30 +494,57 @@ paths:
         - Logs
       summary: Open log stream
       description: |
-        Open a WebSocket connection to stream logs in real-time (Developer+ required).
-        This endpoint upgrades the HTTP connection to WebSocket.
+        Open a keep alive connection to stream logs via server sent events (SSE) (Developer+ required).
+        
+        The stream sends events in SSE format:
+        - `data:` events contain log lines
+        - `event: error` indicates streaming errors
+        - `event: done` indicates stream completion
+        - `: heartbeat` comments are sent every 15 seconds to keep the connection alive
       security:
         - BearerAuth: []
       parameters:
-        - name: service_id
+        - name: token
           in: query
-          description: Service ID to stream logs for
+          required: true
+          description: Bearer token for authentication
           schema:
             type: string
-        - name: deployment_id
+        - name: id
           in: query
-          description: Deployment ID to stream logs for
+          required: true
+          description: Service or deployment ID to stream logs for
           schema:
             type: string
       responses:
-        '101':
-          description: WebSocket connection established
+        '200':
+          description: SSE stream is successfully established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Server-Sent Events stream with log data
+                example: |
+                  data: Log line 1
+                  
+                  data: Log line 2
+                  
+                  : heartbeat
+                  
+                  event: done
+                  data: stream completed
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '405':
+          description: Method not allowed (only GET is supported)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
