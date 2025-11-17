@@ -43,3 +43,26 @@ jobs:
         with:
           name: goreleaser-dist
           path: dist/**
+
+      - name: Create discord payload
+        run: |
+          touch release-update.json
+          cat <<EOF > release-update.json
+          {
+            "content": "**New dployr release!**",
+            "embeds": [
+              {
+                "title": "Version ${{ github.ref_name }} is now live",
+                "description": "New release available",
+                "url": "https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}",
+                "color": 3066993
+              }
+            ]
+          }
+          EOF
+
+      - name: Send discord message via webhook
+        uses: tsickert/discord-webhook@v7.0.0
+        with:
+          webhook-url: ${{ secrets.WEBHOOK_URL }}
+          raw-data: release-update.json
