@@ -8,6 +8,7 @@ import (
 	"dployr/pkg/shared"
 
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/oklog/ulid/v2"
 )
 
 type Auth struct {
@@ -19,7 +20,7 @@ func Init(cfg *shared.Config) *Auth {
 }
 
 func (a Auth) NewAccessToken(email, username string) (string, error) {
-	exp := time.Now().Add(10 * time.Minute) // Short-lived access token
+	exp := time.Now().Add(10 * time.Minute)
 
 	claims := jwt.MapClaims{
 		"email":      email,
@@ -29,23 +30,24 @@ func (a Auth) NewAccessToken(email, username string) (string, error) {
 		"iat":        time.Now().Unix(),
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(a.cfg.Secret))
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	return token.SignedString(a.cfg.PrivateKey)
 }
 
-func (a Auth) NewRefreshToken(email, username string, lifespan string) (string, error) {
-	exp := time.Now()
-	if lifespan != "" && lifespan != "never" {
+func (a Auth) NewRefreshToken(email, username, lifespan string) (string, error) {
+	var exp time.Time
+
+	switch lifespan {
+	case "":
+		exp = time.Now().Add(24 * time.Hour)
+	case "never":
+		exp = time.Now().Add(10 * 365 * 24 * time.Hour)
+	default:
 		d, err := time.ParseDuration(lifespan)
 		if err != nil {
-			return "", fmt.Errorf("invalid lifespan duration: %v", err)
+			return "", err
 		}
-		exp = exp.Add(d)
-	} else if lifespan == "never" {
-		exp = exp.Add(100 * 365 * 24 * time.Hour)
-	} else {
-		// Default to 24 hours
-		exp = exp.Add(24 * time.Hour)
+		exp = time.Now().Add(d)
 	}
 
 	claims := jwt.MapClaims{
@@ -56,14 +58,34 @@ func (a Auth) NewRefreshToken(email, username string, lifespan string) (string, 
 		"iat":        time.Now().Unix(),
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(a.cfg.Secret))
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	return token.SignedString(a.cfg.PrivateKey)
+}
+
+func (a Auth) NewBootstrapToken(instanceId string) (string, error) {
+	exp := time.Now().Add(15 * time.Minute)
+	nonce := ulid.Make().String() // Single-use identifier
+
+	claims := jwt.MapClaims{
+		"instance_id": instanceId,
+		"token_type":  "bootstrap",
+		"nonce":       nonce,
+		"exp":         exp.Unix(),
+		"iat":         time.Now().Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	return token.SignedString(a.cfg.PrivateKey)
 }
 
 func (a Auth) ValidateToken(inputToken string) (*auth.Claims, error) {
 	token, err := jwt.ParseWithClaims(inputToken, &auth.Claims{}, func(t *jwt.Token) (any, error) {
-		return []byte(a.cfg.Secret), nil
+		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return a.cfg.PublicKey, nil
 	})
+
 	if err != nil {
 		return nil, err
 	}

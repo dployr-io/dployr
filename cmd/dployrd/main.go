@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -64,8 +65,11 @@ func main() {
 	w := worker.New(5, cfg, logger, ds, ss) // 5 concurrent deployments
 
 	authService := _auth.Init(cfg)
-	ah := auth.NewAuthHandler(us, logger, authService, cfg)
+	ah := auth.NewAuthHandler(us, logger, authService)
 	am := auth.NewMiddleware(authService, us)
+
+	jwksHandler := _auth.NewJWKSHandler(cfg.PublicKey)
+	http.HandleFunc("/.well-known/jwks.json", jwksHandler.ServeJWKS)
 
 	api := _deploy.Init(cfg, logger, ds, w)
 	deployer := deploy.NewDeployer(cfg, logger, ds, api)

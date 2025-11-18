@@ -73,8 +73,13 @@ paths:
                   example: "24h"
                 secret:
                   type: string
-                  description: Owner secret key (required only for first owner creation)
-                  example: "owner-secret-key"
+                  description: |
+                    Bootstrap token used to create the first owner user.
+
+                    This must be a JWT signed with the instance's private RSA key and
+                    have a token_type of "bootstrap". It is only required for the
+                    first owner creation.
+                  example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
                 username:
                   type: string
                   description: System username for role determination via groups

@@ -15,20 +15,24 @@ type AuthHandler struct {
 	store  store.UserStore
 	logger *slog.Logger
 	auth   Authenticator
-	config interface{ GetSecret() string }
 }
 
-func NewAuthHandler(store store.UserStore, logger *slog.Logger, auth Authenticator, config interface{ GetSecret() string }) *AuthHandler {
+func NewAuthHandler(store store.UserStore, logger *slog.Logger, auth Authenticator) *AuthHandler {
 	return &AuthHandler{
 		store:  store,
 		logger: logger,
 		auth:   auth,
-		config: config,
 	}
 }
 
 func (h *AuthHandler) validateOwnerSecret(providedSecret string) bool {
-	return providedSecret == h.config.GetSecret()
+	claims, err := h.auth.ValidateToken(providedSecret)
+	if err != nil {
+		h.logger.Error("invalid owner secret token", "error", err)
+		return false
+	}
+
+	return claims.TokenType == "bootstrap"
 }
 
 func (h *AuthHandler) GenerateToken(w http.ResponseWriter, r *http.Request) {

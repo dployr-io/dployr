@@ -2,8 +2,13 @@ package shared
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"dployr/pkg/core/utils"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,20 +19,18 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/golang-jwt/jwt/v4"
 )
 
 type Config struct {
 	Address        string
 	Port           int
 	MaxWorkers     int
-	Secret         string
+	PrivateKey     *rsa.PrivateKey
+	PublicKey      *rsa.PublicKey
 	GitHubToken    string
 	GitLabToken    string
 	BitBucketToken string
-}
-
-func (c *Config) GetSecret() string {
-	return c.Secret
 }
 
 func LoadConfig() (*Config, error) {
@@ -38,9 +41,10 @@ func LoadConfig() (*Config, error) {
 		return nil, err
 	}
 
-	secret := getEnv("SECRET", "")
-	if secret == "" {
-		return nil, fmt.Errorf("failed to load secret")
+	privateKey, publicKey, err := loadOrGenerateKeys()
+
+	if err != nil {
+		return nil, err
 	}
 
 	return &Config{
@@ -50,8 +54,42 @@ func LoadConfig() (*Config, error) {
 		GitHubToken:    getEnv("GITHUB_TOKEN", ""),
 		GitLabToken:    getEnv("GITLAB_TOKEN", ""),
 		BitBucketToken: getEnv("BITBUCKET_TOKEN", ""),
-		Secret:         secret,
+		PrivateKey:     privateKey,
+		PublicKey:      publicKey,
 	}, nil
+}
+
+func loadOrGenerateKeys() (*rsa.PrivateKey, *rsa.PublicKey, error) {
+	dataDir := utils.GetDataDir()
+	keyPath := filepath.Join(dataDir, "jwt_private.pem")
+
+	// Try loading existing key
+	if keyData, err := os.ReadFile(keyPath); err == nil {
+		privateKey, err := jwt.ParseRSAPrivateKeyFromPEM(keyData)
+		if err != nil {
+			return nil, nil, err
+		}
+		return privateKey, &privateKey.PublicKey, nil
+	}
+
+	// Generate new 2048-bit RSA key
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Save to disk
+	keyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+	pemData := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: keyBytes,
+	})
+
+	if err := os.WriteFile(keyPath, pemData, 0600); err != nil {
+		return nil, nil, err
+	}
+
+	return privateKey, &privateKey.PublicKey, nil
 }
 
 func LoadTomlFile(path string) error {
@@ -107,9 +145,7 @@ func GetToken() (string, error) {
 		return "", fmt.Errorf("no access token found in config. Please run 'dployr login' first")
 	}
 
-	// Check if access token is expired by trying to decode it
 	if isTokenExpired(accessToken) {
-		// Try to refresh the token
 		refreshToken, refreshExists := config["refresh_token"]
 		if !refreshExists {
 			return "", fmt.Errorf("access token expired and no refresh token available. Please run 'dployr login' again")
@@ -120,7 +156,6 @@ func GetToken() (string, error) {
 			return "", fmt.Errorf("failed to refresh access token: %v. Please run 'dployr login' again", err)
 		}
 
-		// Update the config with new access token
 		config["access_token"] = newAccessToken
 		updatedConfigData, err := json.MarshalIndent(config, "", "  ")
 		if err != nil {
@@ -141,29 +176,26 @@ func GetToken() (string, error) {
 func isTokenExpired(token string) bool {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
-		return true // Invalid token format
+		return true
 	}
 
-	// Decode the payload (second part)
 	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		return true // Can't decode, assume expired
+		return true
 	}
 
 	var claims struct {
 		Exp int64 `json:"exp"`
 	}
 	if err := json.Unmarshal(payload, &claims); err != nil {
-		return true // Can't parse, assume expired
+		return true
 	}
 
-	// Check if token expires within the next minute (add buffer)
 	return time.Now().Unix() >= (claims.Exp - 60)
 }
 
 // refreshAccessToken uses the refresh token to get a new access token
 func refreshAccessToken(refreshToken string) (string, error) {
-	// Get server address from config
 	cfg, err := LoadConfig()
 	if err != nil {
 		return "", fmt.Errorf("failed to load config: %v", err)
