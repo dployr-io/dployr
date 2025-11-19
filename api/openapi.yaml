@@ -15,11 +15,7 @@ info:
     - **Refresh Token**: Long-lived (24+ hours) for obtaining new access tokens from base
 
     ### Authentication Flow
-    1. Login against base. See https://docs.dployr.dev/auth for more details.
-    2. Use the access token with instances in the Authorization header:
-       `Authorization: Bearer <access-token>`
-    3. When the access token expires, request a new one from base using its
-       `/auth/refresh` endpoint
+    See https://docs.dployr.dev/auth for more details.
     
     ## Authorization
     Role-based access control with four levels:
