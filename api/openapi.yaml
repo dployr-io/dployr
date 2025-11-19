@@ -7,9 +7,6 @@ info:
     ## Authentication
     Dployr instances use JWT-based authentication with tokens **issued by base**.
 
-    Instances themselves do not expose login or refresh endpoints; they only
-    accept and validate bearer tokens from base using JWKS.
-
     ### Token Types (issued by base)
     - **Access Token**: Short-lived (e.g. 10 minutes) for API requests to instances
     - **Refresh Token**: Long-lived (24+ hours) for obtaining new access tokens from base
