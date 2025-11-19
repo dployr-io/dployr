@@ -3,19 +3,20 @@ package auth
 import (
 	"context"
 	"dployr/pkg/shared"
-	"dployr/pkg/store"
 	"net/http"
 )
 
+type ctxKey string
+
+const claimsCtxKey ctxKey = "claims"
+
 type Middleware struct {
-	auth      Authenticator
-	userStore store.UserStore
+	auth Authenticator
 }
 
-func NewMiddleware(auth Authenticator, userStore store.UserStore) *Middleware {
+func NewMiddleware(auth Authenticator) *Middleware {
 	return &Middleware{
-		auth:      auth,
-		userStore: userStore,
+		auth: auth,
 	}
 }
 
@@ -38,27 +39,39 @@ func (m *Middleware) Auth(next http.Handler) http.Handler {
 			return
 		}
 
-		user, err := m.userStore.GetUserByEmail(r.Context(), claims.Email)
-		if err != nil {
-			http.Error(w, "user not found", http.StatusUnauthorized)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), shared.CtxUserIDKey, user)
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, shared.CtxUserIDKey, claims.Subject)
+		ctx = context.WithValue(ctx, claimsCtxKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
-func (m *Middleware) RequireRole(required store.Role) func(http.Handler) http.Handler {
+func isPermitted(actual, required string) bool {
+	order := map[string]int{
+		"viewer":    1,
+		"developer": 2,
+		"admin":     3,
+		"owner":     4,
+	}
+
+	a, okA := order[actual]
+	r, okR := order[required]
+	if !okA || !okR {
+		return false
+	}
+	return a >= r
+}
+
+func (m *Middleware) RequireRole(required string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			user, ok := r.Context().Value(shared.CtxUserIDKey).(*store.User)
+			claims, ok := r.Context().Value(claimsCtxKey).(*Claims)
 			if !ok {
-				http.Error(w, "user not found in context", http.StatusInternalServerError)
+				http.Error(w, "claims not found in context", http.StatusInternalServerError)
 				return
 			}
 
-			if !user.Role.IsPermitted(required) {
+			if !isPermitted(claims.Perm, required) {
 				http.Error(w, "forbidden: insufficient role permissions", http.StatusForbidden)
 				return
 			}

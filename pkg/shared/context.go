@@ -21,11 +21,15 @@ func WithUser(ctx context.Context, id string) context.Context {
 }
 
 func UserFromContext(ctx context.Context) (*store.User, error) {
-	user, ok := ctx.Value(CtxUserIDKey).(*store.User)
-	if !ok || user == nil {
-		return nil, errors.New("no authenticated user in context")
+	if user, ok := ctx.Value(CtxUserIDKey).(*store.User); ok && user != nil {
+		return user, nil
 	}
-	return user, nil
+
+	if id, ok := ctx.Value(CtxUserIDKey).(string); ok && id != "" {
+		return &store.User{ID: id}, nil
+	}
+
+	return nil, errors.New("no authenticated user in context")
 }
 
 func WithRequest(ctx context.Context, id string) context.Context {

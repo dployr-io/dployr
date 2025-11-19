@@ -5,16 +5,21 @@ info:
     Your app, your server, your rules!
     
     ## Authentication
-    Dployr uses JWT-based authentication with access and refresh tokens:
-    
-    ### Token Types
-    - **Access Token**: Short-lived (10 minutes) for API requests
-    - **Refresh Token**: Long-lived (24+ hours) for obtaining new access tokens
-    
+    Dployr instances use JWT-based authentication with tokens **issued by base**.
+
+    Instances themselves do not expose login or refresh endpoints; they only
+    accept and validate bearer tokens from base using JWKS.
+
+    ### Token Types (issued by base)
+    - **Access Token**: Short-lived (e.g. 10 minutes) for API requests to instances
+    - **Refresh Token**: Long-lived (24+ hours) for obtaining new access tokens from base
+
     ### Authentication Flow
-    1. Login with `/auth/request` to get both tokens
-    2. Use access token in Authorization header: `Authorization: Bearer <access-token>`
-    3. When access token expires, use `/auth/refresh` with refresh token
+    1. Login against base. See https://docs.dployr.dev/auth for more details.
+    2. Use the access token with instances in the Authorization header:
+       `Authorization: Bearer <access-token>`
+    3. When the access token expires, request a new one from base using its
+       `/auth/refresh` endpoint
     
     ## Authorization
     Role-based access control with four levels:
@@ -22,7 +27,7 @@ info:
     - **Admin**: Infrastructure management, user management, secrets
     - **Developer**: Deploy apps, view logs and events
     - **Viewer**: Read-only access to services
-  version: 1.0.1
+  version: 1.1.1
   contact:
     name: Dployr Support
     email: hello@dployr.dev
@@ -42,198 +47,6 @@ security:
   - BearerAuth: []
 
 paths:
-  /auth/request:
-    post:
-      tags:
-        - Authentication
-      summary: Login and generate authentication tokens
-      description: |
-        Generate JWT access and refresh tokens for authentication.
-        
-        **Owner Bootstrap**: First-time setup requires a secret key to create the owner user.
-        **Role Assignment**: Users are assigned roles based on system groups or explicit owner creation.
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - email
-              properties:
-                email:
-                  type: string
-                  format: email
-                  example: user@example.com
-                  description: User email address
-                lifespan:
-                  type: string
-                  description: Refresh token lifespan (e.g., "24h", "7d", "never")
-                  example: "24h"
-                secret:
-                  type: string
-                  description: |
-                    Bootstrap token used to create the first owner user.
-
-                    This must be a JWT signed with the instance's private RSA key and
-                    have a token_type of "bootstrap". It is only required for the
-                    first owner creation.
-                  example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
-                username:
-                  type: string
-                  description: System username for role determination via groups
-                  example: "john"
-      responses:
-        '200':
-          description: Authentication successful
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LoginResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /auth/verify:
-    get:
-      tags:
-        - Authentication
-      summary: Verify authentication token
-      description: Validate a JWT access token from Authorization header
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: Token is valid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenClaims'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /auth/refresh:
-    post:
-      tags:
-        - Authentication
-      summary: Refresh access token
-      description: |
-        Generate a new access token using a valid refresh token.
-        The refresh token must be of type "refresh" and not expired.
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - refresh_token
-              properties:
-                refresh_token:
-                  type: string
-                  description: Valid refresh token
-                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-      responses:
-        '200':
-          description: New access token generated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  access_token:
-                    type: string
-                    description: New JWT access token (10 minute lifespan)
-                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  token_type:
-                    type: string
-                    example: "Bearer"
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /users:
-    get:
-      tags:
-        - Users
-      summary: List users
-      description: List all users (Admin+ required)
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: List of users
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  users:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/User'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /users/{email}/role:
-    put:
-      tags:
-        - Users
-      summary: Update user role
-      description: Update a user's role (Admin+ required, Owner required to create/modify admins)
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: email
-          in: path
-          required: true
-          description: User email
-          schema:
-            type: string
-            format: email
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - role
-              properties:
-                role:
-                  $ref: '#/components/schemas/Role'
-      responses:
-        '200':
-          description: User role updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
   /deployments:
     get:
       tags:
@@ -716,86 +529,6 @@ components:
       bearerFormat: JWT
 
   schemas:
-    Role:
-      type: string
-      enum:
-        - owner
-        - admin
-        - developer
-        - viewer
-      description: |
-        User role hierarchy (owner > admin > developer > viewer):
-        - **owner**: Full system control, manage admins, uninstall dployr
-        - **admin**: Secrets, users, proxies, shell access
-        - **developer**: Deploy apps, view logs, events, resource graph
-        - **viewer**: Read-only access to services
-
-    User:
-      type: object
-      properties:
-        id:
-          type: string
-          example: "01HN2K3M4N5P6Q7R8S9T0U1V2W"
-        email:
-          type: string
-          format: email
-          example: "user@example.com"
-        role:
-          $ref: '#/components/schemas/Role'
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-
-    LoginResponse:
-      type: object
-      properties:
-        access_token:
-          type: string
-          description: JWT access token (10 minute lifespan)
-          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-        refresh_token:
-          type: string
-          description: JWT refresh token (24+ hour lifespan)
-          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-        expires_at:
-          type: string
-          format: date-time
-          description: Refresh token expiration time
-        user:
-          type: string
-          format: email
-          description: User email
-          example: "user@example.com"
-        role:
-          $ref: '#/components/schemas/Role'
-
-    TokenClaims:
-      type: object
-      properties:
-        email:
-          type: string
-          format: email
-          example: "user@example.com"
-        username:
-          type: string
-          description: System username
-          example: "john"
-        token_type:
-          type: string
-          enum: [access, refresh]
-          description: Type of JWT token
-        exp:
-          type: integer
-          format: int64
-          description: Expiration timestamp (Unix)
-        iat:
-          type: integer
-          format: int64
-          description: Issued at timestamp (Unix)
-
     Runtime:
       type: string
       enum:

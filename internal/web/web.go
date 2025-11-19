@@ -10,7 +10,6 @@ import (
 )
 
 type WebHandler struct {
-	AuthH  *auth.AuthHandler
 	DepsH  DeploymentHandler
 	SvcH   ServiceHandler
 	LogsH  LogStreamHandler
@@ -58,10 +57,6 @@ func (w *WebHandler) NewServer(port int) error {
 		})
 	}
 
-	http.Handle("/auth/request", corsMiddleware(http.HandlerFunc(w.AuthH.GenerateToken)))
-	http.Handle("/auth/verify", corsMiddleware(http.HandlerFunc(w.AuthH.ValidateToken)))
-	http.Handle("/auth/refresh", corsMiddleware(http.HandlerFunc(w.AuthH.RefreshToken)))
-
 	depsH := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		switch req.Method {
 		case http.MethodGet:
@@ -72,7 +67,7 @@ func (w *WebHandler) NewServer(port int) error {
 			http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
-	http.Handle("/deployments", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(store.RoleDeveloper)(w.AuthM.Trace(depsH)))))
+	http.Handle("/deployments", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(w.AuthM.Trace(depsH)))))
 
 	svcListH := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if req.URL.Path != "/services" {
@@ -115,14 +110,14 @@ func (w *WebHandler) NewServer(port int) error {
 			http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
-	http.Handle("/services/", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(store.RoleDeveloper)(w.AuthM.Trace(svcH)))))
+	http.Handle("/services/", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(w.AuthM.Trace(svcH)))))
 
 	http.Handle("/logs/stream", corsMiddleware(http.HandlerFunc(w.LogsH.OpenLogStream)))
 
 	http.Handle("/proxy/status", corsMiddleware(w.AuthM.Auth(http.HandlerFunc(w.ProxyH.GetStatus))))
-	http.Handle("/proxy/restart", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(store.RoleAdmin)(http.HandlerFunc(w.ProxyH.HandleRestart)))))
-	http.Handle("/proxy/add", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(store.RoleAdmin)(http.HandlerFunc(w.ProxyH.HandleAdd)))))
-	http.Handle("/proxy/remove", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(store.RoleAdmin)(http.HandlerFunc(w.ProxyH.HandleRemove)))))
+	http.Handle("/proxy/restart", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleRestart)))))
+	http.Handle("/proxy/add", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleAdd)))))
+	http.Handle("/proxy/remove", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleRemove)))))
 
 	addr := ":" + strconv.Itoa(port)
 	log.Printf("Listening on port %s", addr)

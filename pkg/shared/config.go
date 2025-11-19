@@ -2,13 +2,8 @@ package shared
 
 import (
 	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"dployr/pkg/core/utils"
 	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"net/http"
 	"os"
@@ -19,29 +14,25 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/golang-jwt/jwt/v4"
 )
 
 type Config struct {
 	Address        string
 	Port           int
 	MaxWorkers     int
-	PrivateKey     *rsa.PrivateKey
-	PublicKey      *rsa.PublicKey
 	GitHubToken    string
 	GitLabToken    string
 	BitBucketToken string
+	BaseURL        string
+	BaseJWKSURL    string
+	InstanceID     string
+	TokenIssuer    string
+	TokenAudience  string
 }
 
 func LoadConfig() (*Config, error) {
 	configPath := getSystemConfigPath()
 	err := LoadTomlFile(configPath)
-
-	if err != nil {
-		return nil, err
-	}
-
-	privateKey, publicKey, err := loadOrGenerateKeys()
 
 	if err != nil {
 		return nil, err
@@ -54,42 +45,12 @@ func LoadConfig() (*Config, error) {
 		GitHubToken:    getEnv("GITHUB_TOKEN", ""),
 		GitLabToken:    getEnv("GITLAB_TOKEN", ""),
 		BitBucketToken: getEnv("BITBUCKET_TOKEN", ""),
-		PrivateKey:     privateKey,
-		PublicKey:      publicKey,
+		BaseURL:        getEnv("BASE_URL", ""),
+		BaseJWKSURL:    getEnv("BASE_JWKS_URL", ""),
+		InstanceID:     getEnv("INSTANCE_ID", ""),
+		TokenIssuer:    getEnv("TOKEN_ISSUER", ""),
+		TokenAudience:  getEnv("TOKEN_AUDIENCE", ""),
 	}, nil
-}
-
-func loadOrGenerateKeys() (*rsa.PrivateKey, *rsa.PublicKey, error) {
-	dataDir := utils.GetDataDir()
-	keyPath := filepath.Join(dataDir, "jwt_private.pem")
-
-	// Try loading existing key
-	if keyData, err := os.ReadFile(keyPath); err == nil {
-		privateKey, err := jwt.ParseRSAPrivateKeyFromPEM(keyData)
-		if err != nil {
-			return nil, nil, err
-		}
-		return privateKey, &privateKey.PublicKey, nil
-	}
-
-	// Generate new 2048-bit RSA key
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Save to disk
-	keyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
-	pemData := pem.EncodeToMemory(&pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: keyBytes,
-	})
-
-	if err := os.WriteFile(keyPath, pemData, 0600); err != nil {
-		return nil, nil, err
-	}
-
-	return privateKey, &privateKey.PublicKey, nil
 }
 
 func LoadTomlFile(path string) error {
@@ -201,7 +162,10 @@ func refreshAccessToken(refreshToken string) (string, error) {
 		return "", fmt.Errorf("failed to load config: %v", err)
 	}
 
-	addr := fmt.Sprintf("http://%s:%d", cfg.Address, cfg.Port)
+	baseURL := cfg.BaseURL
+	if baseURL == "" {
+		return "", fmt.Errorf("BASE_URL is not configured; CLI must talk to base, not the local daemon")
+	}
 
 	reqBody := map[string]string{
 		"refresh_token": refreshToken,
@@ -212,7 +176,8 @@ func refreshAccessToken(refreshToken string) (string, error) {
 		return "", fmt.Errorf("failed to marshal refresh request: %v", err)
 	}
 
-	resp, err := http.Post(addr+"/auth/refresh", "application/json", bytes.NewBuffer(jsonData))
+	refreshURL := strings.TrimRight(baseURL, "/") + "/auth/refresh"
+	resp, err := http.Post(refreshURL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", fmt.Errorf("failed to connect to server: %v", err)
 	}

@@ -1,101 +1,187 @@
 package auth
 
 import (
+	"crypto/rsa"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"math/big"
+	"net/http"
+	"slices"
+	"strings"
+	"sync"
 	"time"
 
-	"dployr/pkg/auth"
+	pkgAuth "dployr/pkg/auth"
 	"dployr/pkg/shared"
 
 	"github.com/golang-jwt/jwt/v4"
-	"github.com/oklog/ulid/v2"
 )
 
+type jwk struct {
+	Kty string `json:"kty"`
+	Kid string `json:"kid"`
+	Use string `json:"use"`
+	Alg string `json:"alg"`
+	N   string `json:"n"`
+	E   string `json:"e"`
+}
+
+type jwksResponse struct {
+	Keys []jwk `json:"keys"`
+}
+
 type Auth struct {
-	cfg *shared.Config
+	cfg       *shared.Config
+	mu        sync.RWMutex
+	keys      map[string]*rsa.PublicKey // kid -> key
+	lastFetch time.Time
 }
 
 func Init(cfg *shared.Config) *Auth {
-	return &Auth{cfg: cfg}
+	return &Auth{
+		cfg:  cfg,
+		keys: make(map[string]*rsa.PublicKey),
+	}
 }
 
-func (a Auth) NewAccessToken(email, username string) (string, error) {
-	exp := time.Now().Add(10 * time.Minute)
-
-	claims := jwt.MapClaims{
-		"email":      email,
-		"username":   username,
-		"token_type": "access",
-		"exp":        exp.Unix(),
-		"iat":        time.Now().Unix(),
+func (a *Auth) ValidateToken(tokenStr string) (*pkgAuth.Claims, error) {
+	if tokenStr == "" {
+		return nil, errors.New("empty token")
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	return token.SignedString(a.cfg.PrivateKey)
-}
-
-func (a Auth) NewRefreshToken(email, username, lifespan string) (string, error) {
-	var exp time.Time
-
-	switch lifespan {
-	case "":
-		exp = time.Now().Add(24 * time.Hour)
-	case "never":
-		exp = time.Now().Add(10 * 365 * 24 * time.Hour)
-	default:
-		d, err := time.ParseDuration(lifespan)
-		if err != nil {
-			return "", err
-		}
-		exp = time.Now().Add(d)
+	// First parse to inspect header and get kid/alg.
+	parser := &jwt.Parser{}
+	token, _, err := parser.ParseUnverified(tokenStr, &pkgAuth.Claims{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse token header: %w", err)
 	}
 
-	claims := jwt.MapClaims{
-		"email":      email,
-		"username":   username,
-		"token_type": "refresh",
-		"exp":        exp.Unix(),
-		"iat":        time.Now().Unix(),
+	head, ok := token.Header["kid"].(string)
+	if !ok || head == "" {
+		return nil, errors.New("missing kid in token header")
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	return token.SignedString(a.cfg.PrivateKey)
-}
-
-func (a Auth) NewBootstrapToken(instanceId string) (string, error) {
-	exp := time.Now().Add(15 * time.Minute)
-	nonce := ulid.Make().String() // Single-use identifier
-
-	claims := jwt.MapClaims{
-		"instance_id": instanceId,
-		"token_type":  "bootstrap",
-		"nonce":       nonce,
-		"exp":         exp.Unix(),
-		"iat":         time.Now().Unix(),
+	alg, _ := token.Header["alg"].(string)
+	if alg == "" || !strings.HasPrefix(alg, "RS") {
+		return nil, fmt.Errorf("unexpected signing alg: %s", alg)
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	return token.SignedString(a.cfg.PrivateKey)
-}
-
-func (a Auth) ValidateToken(inputToken string) (*auth.Claims, error) {
-	token, err := jwt.ParseWithClaims(inputToken, &auth.Claims{}, func(t *jwt.Token) (any, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
-		}
-		return a.cfg.PublicKey, nil
-	})
-
+	// Ensure JWKS is loaded.
+	pubKey, err := a.getKey(head)
 	if err != nil {
 		return nil, err
 	}
 
-	if claims, ok := token.Claims.(*auth.Claims); ok && token.Valid {
-		if time.Now().Unix() > claims.ExpiresAt {
-			return nil, fmt.Errorf("token expired")
+	// Now parse and verify with claims.
+	claims := &pkgAuth.Claims{}
+	parsed, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
+		if t.Method.Alg() != alg {
+			return nil, fmt.Errorf("unexpected signing method: %s", t.Method.Alg())
 		}
-		return claims, nil
+		return pubKey, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("token verification failed: %w", err)
+	}
+	if !parsed.Valid {
+		return nil, errors.New("invalid token")
 	}
 
-	return nil, fmt.Errorf("invalid token")
+	now := time.Now().Unix()
+	if claims.ExpiresAt != 0 && now > claims.ExpiresAt {
+		return nil, errors.New("token expired")
+	}
+
+	if a.cfg.TokenIssuer != "" && claims.Issuer != "" && claims.Issuer != a.cfg.TokenIssuer {
+		return nil, errors.New("invalid token issuer")
+	}
+	if a.cfg.TokenAudience != "" {
+		if !containsAudience(claims.Audience, a.cfg.TokenAudience) {
+			return nil, errors.New("invalid token audience")
+		}
+	}
+
+	if a.cfg.InstanceID != "" && claims.InstanceID != "" && claims.InstanceID != a.cfg.InstanceID {
+		return nil, errors.New("token not intended for this instance")
+	}
+
+	return claims, nil
+}
+
+func (a *Auth) getKey(kid string) (*rsa.PublicKey, error) {
+	a.mu.RLock()
+	key, ok := a.keys[kid]
+	stale := time.Since(a.lastFetch) > 5*time.Minute
+	a.mu.RUnlock()
+
+	if ok && !stale {
+		return key, nil
+	}
+
+	if err := a.refreshJWKS(); err != nil {
+		return nil, err
+	}
+
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	key, ok = a.keys[kid]
+	if !ok {
+		return nil, fmt.Errorf("no key for kid %s", kid)
+	}
+	return key, nil
+}
+
+func (a *Auth) refreshJWKS() error {
+	if a.cfg.BaseJWKSURL == "" {
+		return errors.New("BaseJWKSURL is not configured")
+	}
+
+	resp, err := http.Get(a.cfg.BaseJWKSURL)
+	if err != nil {
+		return fmt.Errorf("failed to fetch JWKS: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("JWKS endpoint returned status %d", resp.StatusCode)
+	}
+
+	var body jwksResponse
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return fmt.Errorf("failed to decode JWKS: %w", err)
+	}
+
+	newKeys := make(map[string]*rsa.PublicKey)
+	for _, k := range body.Keys {
+		if k.Kty != "RSA" || k.N == "" || k.E == "" {
+			continue
+		}
+
+		nBytes, err := base64.RawURLEncoding.DecodeString(k.N)
+		if err != nil {
+			continue
+		}
+		eBytes, err := base64.RawURLEncoding.DecodeString(k.E)
+		if err != nil {
+			continue
+		}
+		e := big.NewInt(0).SetBytes(eBytes).Int64()
+		pub := &rsa.PublicKey{N: new(big.Int).SetBytes(nBytes), E: int(e)}
+		newKeys[k.Kid] = pub
+	}
+
+	if len(newKeys) == 0 {
+		return errors.New("no usable keys in JWKS")
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.keys = newKeys
+	a.lastFetch = time.Now()
+	return nil
+}
+
+func containsAudience(aud []string, expected string) bool {
+	return slices.Contains(aud, expected)
 }
