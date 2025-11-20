@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,7 +11,229 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+
+	"dployr/version"
 )
+
+type BuildInfo struct {
+	Version   string `json:"version"`
+	Commit    string `json:"commit"`
+	BuildDate string `json:"build_date"`
+	GoVersion string `json:"go_version"`
+}
+
+type HardwareInfo struct {
+	OS        string  `json:"os"`
+	Arch      string  `json:"arch"`
+	Kernel    *string `json:"kernel,omitempty"`
+	Hostname  *string `json:"hostname,omitempty"`
+	CPUCount  int     `json:"cpu_count"`
+	MemTotal  *string `json:"mem_total,omitempty"`
+	MemUsed   *string `json:"mem_used,omitempty"`
+	MemFree   *string `json:"mem_free,omitempty"`
+	SwapTotal *string `json:"swap_total,omitempty"`
+	SwapUsed  *string `json:"swap_used,omitempty"`
+}
+
+type DiskUsage struct {
+	Filesystem string `json:"filesystem"`
+	Size       string `json:"size"`
+	Used       string `json:"used"`
+	Available  string `json:"available"`
+	UsePercent string `json:"use_percent"`
+	Mountpoint string `json:"mountpoint"`
+}
+
+type BlockDevice struct {
+	Name        string   `json:"name"`
+	Size        string   `json:"size"`
+	Type        string   `json:"type"`
+	Mountpoints []string `json:"mountpoints,omitempty"`
+}
+
+type StorageInfo struct {
+	Partitions []DiskUsage   `json:"partitions,omitempty"`
+	Devices    []BlockDevice `json:"devices,omitempty"`
+}
+
+type SystemInfo struct {
+	Build   BuildInfo    `json:"build"`
+	HW      HardwareInfo `json:"hardware"`
+	Storage StorageInfo  `json:"storage"`
+}
+
+func GetSystemInfo() (SystemInfo, error) {
+	var info SystemInfo
+
+	// Build info from version package
+	bi := version.GetBuildInfo()
+	info.Build = BuildInfo{
+		Version:   bi.Version,
+		Commit:    bi.Commit,
+		BuildDate: bi.Date,
+		GoVersion: bi.GoVersion,
+	}
+
+	// Hardware basics
+	info.HW.OS = runtime.GOOS
+	info.HW.Arch = runtime.GOARCH
+	info.HW.CPUCount = runtime.NumCPU()
+
+	if host, err := os.Hostname(); err == nil {
+		info.HW.Hostname = ptr(strings.TrimSpace(host))
+	}
+
+	// kernel/version info on Unix-like systems
+	if runtime.GOOS != "windows" {
+		cmd := exec.Command("uname", "-sr")
+		if out, err := cmd.Output(); err == nil {
+			k := strings.TrimSpace(string(out))
+			info.HW.Kernel = ptr(k)
+		}
+	}
+
+	// Memory info via free -h (Linux/Unix only; optional)
+	if runtime.GOOS != "windows" {
+		if out, err := exec.Command("free", "-h").Output(); err == nil {
+			parseFreeOutput(&info.HW, string(out))
+		}
+	}
+
+	// Disk usage via df -h
+	if out, err := exec.Command("df", "-h").Output(); err == nil {
+		info.Storage.Partitions = parseDfOutput(string(out))
+	}
+
+	// Block devices via lsblk
+	if runtime.GOOS != "windows" {
+		if out, err := exec.Command("lsblk", "-J", "-o", "NAME,SIZE,TYPE,MOUNTPOINTS").Output(); err == nil {
+			info.Storage.Devices = parseLsblkJSON(out)
+		} else if out, err := exec.Command("lsblk").Output(); err == nil {
+			info.Storage.Devices = parseLsblkPlain(string(out))
+		}
+	}
+
+	return info, nil
+}
+
+func ptr[T any](v T) *T { return &v }
+
+func parseFreeOutput(hw *HardwareInfo, out string) {
+	scanner := bufio.NewScanner(strings.NewReader(out))
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		if strings.HasPrefix(fields[0], "Mem:") && len(fields) >= 4 {
+			hw.MemTotal = ptr(fields[1])
+			hw.MemUsed = ptr(fields[2])
+			hw.MemFree = ptr(fields[3])
+		}
+		if strings.HasPrefix(fields[0], "Swap:") && len(fields) >= 3 {
+			hw.SwapTotal = ptr(fields[1])
+			hw.SwapUsed = ptr(fields[2])
+		}
+	}
+}
+
+func parseDfOutput(out string) []DiskUsage {
+	scanner := bufio.NewScanner(strings.NewReader(out))
+	var result []DiskUsage
+	first := true
+	for scanner.Scan() {
+		line := scanner.Text()
+		if first {
+			first = false
+			continue // skip header
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 6 {
+			continue
+		}
+		du := DiskUsage{
+			Filesystem: fields[0],
+			Size:       fields[1],
+			Used:       fields[2],
+			Available:  fields[3],
+			UsePercent: fields[4],
+			Mountpoint: fields[5],
+		}
+		result = append(result, du)
+	}
+	return result
+}
+
+func parseLsblkJSON(out []byte) []BlockDevice {
+	type lsblkMount struct {
+		Mountpoint string `json:"mountpoint"`
+	}
+	type lsblkEntry struct {
+		Name        string       `json:"name"`
+		Size        string       `json:"size"`
+		Type        string       `json:"type"`
+		Mountpoints []lsblkMount `json:"mountpoints"`
+		Children    []lsblkEntry `json:"children"`
+	}
+	type lsblkRoot struct {
+		Blockdevices []lsblkEntry `json:"blockdevices"`
+	}
+
+	var root lsblkRoot
+	if err := json.Unmarshal(out, &root); err != nil {
+		return nil
+	}
+
+	var devices []BlockDevice
+	var walk func(e lsblkEntry)
+	walk = func(e lsblkEntry) {
+		var mps []string
+		for _, m := range e.Mountpoints {
+			if m.Mountpoint != "" {
+				mps = append(mps, m.Mountpoint)
+			}
+		}
+		devices = append(devices, BlockDevice{
+			Name:        e.Name,
+			Size:        e.Size,
+			Type:        e.Type,
+			Mountpoints: mps,
+		})
+		for _, c := range e.Children {
+			walk(c)
+		}
+	}
+
+	for _, e := range root.Blockdevices {
+		walk(e)
+	}
+	return devices
+}
+
+func parseLsblkPlain(out string) []BlockDevice {
+	scanner := bufio.NewScanner(bytes.NewReader([]byte(out)))
+	var result []BlockDevice
+	first := true
+	for scanner.Scan() {
+		line := scanner.Text()
+		if first {
+			first = false
+			continue // header
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+		bd := BlockDevice{
+			Name: fields[0],
+			Size: fields[3],
+			Type: fields[5],
+		}
+		result = append(result, bd)
+	}
+	return result
+}
 
 func GetDataDir() string {
 	switch runtime.GOOS {
@@ -46,7 +270,7 @@ func GetRuntimePath(runtime, version string, tools ...string) (map[string]string
 		return nil, fmt.Errorf("%s not found in cache: %v", runtime, err)
 	}
 
-	root, err := FindVersionDir(base, entries, version)
+	root, err := FindRuntimeVersionDir(base, entries, version)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +317,8 @@ func GetRuntimePath(runtime, version string, tools ...string) (map[string]string
 	return results, nil
 }
 
-func FindVersionDir(base string, entries []os.DirEntry, version string) (string, error) {
+// get a runtime version directory
+func FindRuntimeVersionDir(base string, entries []os.DirEntry, version string) (string, error) {
 	var exactMatch, prefixMatch string
 
 	for _, e := range entries {

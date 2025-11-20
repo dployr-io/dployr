@@ -10,11 +10,12 @@ import (
 )
 
 type WebHandler struct {
-	DepsH  DeploymentHandler
-	SvcH   ServiceHandler
-	LogsH  LogStreamHandler
-	ProxyH ProxyHandler
-	AuthM  *auth.Middleware
+	DepsH   DeploymentHandler
+	SvcH    ServiceHandler
+	LogsH   LogStreamHandler
+	ProxyH  ProxyHandler
+	SystemH SystemHandler
+	AuthM   *auth.Middleware
 }
 
 type DeploymentHandler interface {
@@ -37,6 +38,12 @@ type ProxyHandler interface {
 	HandleRestart(w http.ResponseWriter, r *http.Request)
 	HandleAdd(w http.ResponseWriter, r *http.Request)
 	HandleRemove(w http.ResponseWriter, r *http.Request)
+}
+
+type SystemHandler interface {
+	GetInfo(w http.ResponseWriter, r *http.Request)
+	RunDoctor(w http.ResponseWriter, r *http.Request)
+	Install(w http.ResponseWriter, r *http.Request)
 }
 
 func (w *WebHandler) NewServer(port int) error {
@@ -118,6 +125,10 @@ func (w *WebHandler) NewServer(port int) error {
 	http.Handle("/proxy/restart", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleRestart)))))
 	http.Handle("/proxy/add", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleAdd)))))
 	http.Handle("/proxy/remove", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleRemove)))))
+
+	http.Handle("/system/info", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(http.HandlerFunc(w.SystemH.GetInfo)))))
+	http.Handle("/system/doctor", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(http.HandlerFunc(w.SystemH.RunDoctor)))))
+	http.Handle("/system/install", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.SystemH.Install)))))
 
 	addr := ":" + strconv.Itoa(port)
 	log.Printf("Listening on port %s", addr)

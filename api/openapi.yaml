@@ -516,6 +516,52 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /system/doctor:
+    post:
+      tags:
+        - System
+      summary: Run system doctor
+      description: Run system diagnostics and attempt auto-fixes for core dependencies.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Doctor completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemDoctorResult'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /system/install:
+    post:
+      tags:
+        - System
+      summary: Install or upgrade dployr
+      description: Install a specific version of dployr or the latest version, then run the system doctor.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version:
+                  type: string
+                  description: dployr version tag to install (e.g. v0.1.1-beta.17). If omitted, installs latest.
+      responses:
+        '200':
+          description: Install and doctor completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemDoctorResult'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -872,30 +918,104 @@ components:
     SystemInfo:
       type: object
       properties:
-        version:
-          type: string
-          example: "1.0.0"
-        build_date:
-          type: string
-          format: date-time
-        go_version:
-          type: string
-          example: "go1.21.0"
-        platform:
-          type: string
-          example: "linux/amd64"
-        config:
+        build:
           type: object
           properties:
-            data_dir:
+            version:
               type: string
-              example: "/var/lib/dployr"
-            log_level:
+              example: "v0.1.1-beta.17"
+            commit:
               type: string
-              example: "info"
-            port:
+              example: "a1b2c3d4"
+            build_date:
+              type: string
+              description: Build date - bundled at build time
+            go_version:
+              type: string
+              example: "go1.21.0"
+        hardware:
+          type: object
+          properties:
+            os:
+              type: string
+              example: "linux"
+            arch:
+              type: string
+              example: "amd64"
+            cpu_count:
               type: integer
-              example: 7879
+              example: 8
+            hostname:
+              type: string
+              nullable: true
+            kernel:
+              type: string
+              nullable: true
+              example: "Linux 6.8.0-35-generic"
+            mem_total:
+              type: string
+              nullable: true
+              example: "7.5Gi"
+            mem_used:
+              type: string
+              nullable: true
+            mem_free:
+              type: string
+              nullable: true
+            swap_total:
+              type: string
+              nullable: true
+            swap_used:
+              type: string
+              nullable: true
+        storage:
+          type: object
+          properties:
+            partitions:
+              type: array
+              items:
+                type: object
+                properties:
+                  filesystem:
+                    type: string
+                  size:
+                    type: string
+                  used:
+                    type: string
+                  available:
+                    type: string
+                  use_percent:
+                    type: string
+                  mountpoint:
+                    type: string
+            devices:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  size:
+                    type: string
+                  type:
+                    type: string
+                  mountpoints:
+                    type: array
+                    items:
+                      type: string
+
+    SystemDoctorResult:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "ok"
+        output:
+          type: string
+          description: Combined textual output from the doctor/install scripts
+        error:
+          type: string
+          description: Error message if status is "error"
 
     Error:
       type: object

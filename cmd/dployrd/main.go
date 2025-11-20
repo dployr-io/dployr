@@ -17,6 +17,7 @@ import (
 	_service "dployr/internal/service"
 	_store "dployr/internal/store"
 	_stream "dployr/internal/stream"
+	_system "dployr/internal/system"
 	"dployr/internal/web"
 	"dployr/internal/worker"
 	"dployr/pkg/auth"
@@ -24,6 +25,7 @@ import (
 	"dployr/pkg/core/proxy"
 	"dployr/pkg/core/service"
 	"dployr/pkg/core/stream"
+	"dployr/pkg/core/system"
 	"dployr/pkg/shared"
 	"dployr/pkg/version"
 
@@ -84,12 +86,16 @@ func main() {
 	ls := stream.NewLogStreamer(logsDir, logsService)
 	lh := stream.NewLogStreamHandler(ls, logger)
 
+	sysSvc := _system.NewDefaultService()
+	sysH := system.NewServiceHandler(sysSvc)
+
 	wh := web.WebHandler{
-		DepsH:  dh,
-		SvcH:   sh,
-		LogsH:  lh,
-		ProxyH: ph,
-		AuthM:  am,
+		DepsH:   dh,
+		SvcH:    sh,
+		LogsH:   lh,
+		ProxyH:  ph,
+		SystemH: sysH,
+		AuthM:   am,
 	}
 
 	go func() {
