@@ -25,14 +25,15 @@ func (h *DeploymentHandler) CreateDeployment(w http.ResponseWriter, r *http.Requ
 	ctx := r.Context()
 
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
 		return
 	}
 
 	var req DeployRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Error("failed to decode request body", "error", err)
-		http.Error(w, string(shared.BadRequest), http.StatusBadRequest)
+		e := shared.Errors.Request.BadRequest
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 
@@ -40,14 +41,15 @@ func (h *DeploymentHandler) CreateDeployment(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		h.logger.Error("failed to create deployment", "error", err)
 
-		// Determine the appropriate HTTP status based on error type
 		switch err.Error() {
 		case string(shared.BadRequest):
-			http.Error(w, string(shared.BadRequest), http.StatusBadRequest)
+			e := shared.Errors.Request.BadRequest
+			shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		case string(shared.RuntimeError):
-			http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+			fallthrough
 		default:
-			http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+			e := shared.Errors.Runtime.InternalServer
+			shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		}
 		return
 	}
@@ -66,35 +68,53 @@ func (h *DeploymentHandler) ListDeployments(w http.ResponseWriter, r *http.Reque
 	ctx := r.Context()
 
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
 		return
 	}
 
 	user, err := shared.UserFromContext(ctx)
 	if err != nil {
 		h.logger.Error("unauthenticated request", "error", err)
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		e := shared.Errors.Auth.Unauthorized
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 
-	limit := 10
+	limit := 20
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if parsedLimit := parseLimit(limitStr); parsedLimit > 0 {
-			limit = parsedLimit
+			if parsedLimit > 100 {
+				limit = 100
+			} else {
+				limit = parsedLimit
+			}
 		}
 	}
 
-	deployments, err := h.deployer.api.ListDeployments(ctx, user.ID, limit, 0)
+	offset := 0
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if parsedOffset := parseOffset(offsetStr); parsedOffset >= 0 {
+			offset = parsedOffset
+		}
+	}
+
+	deployments, err := h.deployer.api.ListDeployments(ctx, user.ID, limit, offset)
 	if err != nil {
 		h.logger.Error("failed to list deployments", "error", err)
-		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
+	}
+
+	resp := ListDeploymentsResponse{
+		Deployments: deployments,
+		Total:       len(deployments),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	if err := json.NewEncoder(w).Encode(deployments); err != nil {
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		h.logger.Error("failed to encode response", "error", err)
 		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
 		return
@@ -102,6 +122,14 @@ func (h *DeploymentHandler) ListDeployments(w http.ResponseWriter, r *http.Reque
 }
 
 func parseLimit(s string) int {
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return 0
+	}
+	return v
+}
+
+func parseOffset(s string) int {
 	v, err := strconv.Atoi(s)
 	if err != nil {
 		return 0

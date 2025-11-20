@@ -27,25 +27,27 @@ func NewProxyHandler(p *Proxier, l *slog.Logger) *ProxyHandler {
 
 func (h *ProxyHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
 		return
 	}
 
 	status := h.proxier.api.Status()
+	resp := ProxyStatus{Status: string(status.Status)}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	if err := json.NewEncoder(w).Encode(status); err != nil {
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		h.logger.Error("failed to encode response", "error", err)
-		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 }
 
 func (h *ProxyHandler) HandleRestart(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	if r.Method != http.MethodPost {
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
 		return
 	}
 
@@ -53,60 +55,62 @@ func (h *ProxyHandler) HandleRestart(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		h.logger.Error("failed to restart", "error", err)
-		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
+
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "Proxy restarted successfully"})
 }
 
 func (h *ProxyHandler) HandleAdd(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
 		return
 	}
 
-	var req []App
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var route ProxyRoute
+	if err := json.NewDecoder(r.Body).Decode(&route); err != nil {
 		h.logger.Error("failed to decode request body", "error", err)
-		http.Error(w, string(shared.BadRequest), http.StatusBadRequest)
+		e := shared.Errors.Request.BadRequest
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 
-	h.logger.Info("HandleAdd received request", "apps_count", len(req))
-	for i, app := range req {
-		h.logger.Info("HandleAdd app", "index", i, "domain", app.Domain, "upstream", app.Upstream, "root", app.Root, "template", app.Template)
+	app := App{
+		Domain:   route.Domain,
+		Upstream: route.Upstream,
 	}
+	apps := map[string]App{route.Domain: app}
 
-	// Convert slice to map
-	apps := make(map[string]App)
-	for _, app := range req {
-		apps[app.Domain] = app
-	}
-
-	h.logger.Info("HandleAdd converted to map", "apps_count", len(apps))
+	h.logger.Info("HandleAdd received request", "domain", route.Domain, "upstream", route.Upstream)
 	err := h.proxier.api.Add(apps)
 
 	if err != nil {
 		h.logger.Error("failed to add", "error", err)
-		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusCreated)
 
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "Route added successfully"})
 }
 
 func (h *ProxyHandler) HandleRemove(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	if r.Method != http.MethodDelete {
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
 		return
 	}
 
 	var req []string
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Error("failed to decode request body", "error", err)
-		http.Error(w, string(shared.BadRequest), http.StatusBadRequest)
+		e := shared.Errors.Request.BadRequest
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 
@@ -114,7 +118,8 @@ func (h *ProxyHandler) HandleRemove(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		h.logger.Error("failed to remove", "error", err)
-		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

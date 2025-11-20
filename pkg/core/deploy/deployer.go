@@ -25,6 +25,11 @@ func NewDeployer(c *shared.Config, l *slog.Logger, s store.DeploymentStore, a Ha
 	}
 }
 
+type ListDeploymentsResponse struct {
+	Deployments []*store.Deployment `json:"deployments"`
+	Total       int                 `json:"total"`
+}
+
 type DeployRequest struct {
 	Name        string            `json:"name" validate:"required"`
 	Description string            `json:"description,omitempty"`

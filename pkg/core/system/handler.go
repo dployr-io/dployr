@@ -3,9 +3,10 @@ package system
 import (
 	"encoding/json"
 	"net/http"
+
+	"dployr/pkg/shared"
 )
 
-// ServiceHandler exposes system operations over HTTP.
 type ServiceHandler struct {
 	Svc Service
 }
@@ -16,16 +17,14 @@ func NewServiceHandler(s Service) *ServiceHandler {
 
 func (h *ServiceHandler) GetInfo(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "method not allowed"})
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
 		return
 	}
 
 	ctx := r.Context()
 	info, err := h.Svc.GetInfo(ctx)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		shared.WriteError(w, shared.Errors.Runtime.InternalServer.HTTPStatus, string(shared.Errors.Runtime.InternalServer.Code), shared.Errors.Runtime.InternalServer.Message, nil)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -34,32 +33,30 @@ func (h *ServiceHandler) GetInfo(w http.ResponseWriter, r *http.Request) {
 
 func (h *ServiceHandler) RunDoctor(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "method not allowed"})
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
 		return
 	}
 
 	ctx := r.Context()
 	out, err := h.Svc.RunDoctor(ctx)
-	resp := map[string]string{
-		"output": out,
+	resp := DoctorResult{
+		Output: out,
 	}
 	if err != nil {
-		resp["status"] = "error"
-		resp["error"] = err.Error()
+		resp.Status = "error"
+		resp.Error = err.Error()
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
-		resp["status"] = "ok"
+		resp.Status = "ok"
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// Installs a given version (defaults to latest) and then runs the doctor.
+// Installs a given version (defaults to latest)
 func (h *ServiceHandler) Install(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "method not allowed"})
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
 		return
 	}
 
@@ -71,15 +68,15 @@ func (h *ServiceHandler) Install(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewDecoder(r.Body).Decode(&body)
 
 	out, err := h.Svc.Install(ctx, body.Version)
-	resp := map[string]string{
-		"output": out,
+	resp := DoctorResult{
+		Output: out,
 	}
 	if err != nil {
-		resp["status"] = "error"
-		resp["error"] = err.Error()
+		resp.Status = "error"
+		resp.Error = err.Error()
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
-		resp["status"] = "ok"
+		resp.Status = "ok"
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)

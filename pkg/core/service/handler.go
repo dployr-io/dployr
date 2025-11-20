@@ -26,26 +26,29 @@ func (h *ServiceHandler) GetService(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
 		return
 	}
 
 	serviceID := r.URL.Query().Get("id")
 	if serviceID == "" {
 		h.logger.Error("missing service ID in request")
-		http.Error(w, string(shared.BadRequest), http.StatusBadRequest)
+		e := shared.Errors.Request.MissingParams
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"param": "id"})
 		return
 	}
 
 	service, err := h.servicer.api.GetService(ctx, serviceID)
 	if err != nil {
 		h.logger.Error("failed to get service", "error", err, "service_id", serviceID)
-		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 
 	if service == nil {
-		http.Error(w, "Service not found", http.StatusNotFound)
+		e := shared.Errors.Resource.NotFound
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"resource": "service", "id": serviceID})
 		return
 	}
 
@@ -63,23 +66,28 @@ func (h *ServiceHandler) ListServices(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
 		return
 	}
 
 	user, err := shared.UserFromContext(ctx)
 	if err != nil {
 		h.logger.Error("unauthenticated request", "error", err)
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		e := shared.Errors.Auth.Unauthorized
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 
-	limit := 10
+	limit := 20
 	offset := 0
 
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if parsedLimit := parseLimit(limitStr); parsedLimit > 0 {
-			limit = parsedLimit
+			if parsedLimit > 100 {
+				limit = 100
+			} else {
+				limit = parsedLimit
+			}
 		}
 	}
 
@@ -92,14 +100,20 @@ func (h *ServiceHandler) ListServices(w http.ResponseWriter, r *http.Request) {
 	services, err := h.servicer.api.ListServices(ctx, user.ID, limit, offset)
 	if err != nil {
 		h.logger.Error("failed to list services", "error", err)
-		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
+	}
+
+	resp := ListServicesResponse{
+		Services: services,
+		Total:    len(services),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	if err := json.NewEncoder(w).Encode(services); err != nil {
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		h.logger.Error("failed to encode response", "error", err)
 		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
 		return
@@ -110,40 +124,51 @@ func (h *ServiceHandler) UpdateService(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
 		return
 	}
 
 	serviceID := r.URL.Query().Get("id")
 	if serviceID == "" {
 		h.logger.Error("missing service ID in request")
-		http.Error(w, string(shared.BadRequest), http.StatusBadRequest)
+		e := shared.Errors.Request.MissingParams
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"param": "id"})
 		return
 	}
 
 	var service store.Service
 	if err := json.NewDecoder(r.Body).Decode(&service); err != nil {
 		h.logger.Error("failed to decode request body", "error", err)
-		http.Error(w, string(shared.BadRequest), http.StatusBadRequest)
+		e := shared.Errors.Request.BadRequest
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 
-	err := h.servicer.api.UpdateService(ctx, serviceID, service)
+	updated, err := h.servicer.api.UpdateService(ctx, serviceID, service)
 	if err != nil {
 		h.logger.Error("failed to update service", "error", err, "service_id", serviceID)
 
 		switch err.Error() {
 		case string(shared.BadRequest):
-			http.Error(w, string(shared.BadRequest), http.StatusBadRequest)
+			e := shared.Errors.Request.BadRequest
+			shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		case string(shared.RuntimeError):
-			http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+			fallthrough
 		default:
-			http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+			e := shared.Errors.Runtime.InternalServer
+			shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		}
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(w).Encode(updated); err != nil {
+		h.logger.Error("failed to encode response", "error", err)
+		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+		return
+	}
 }
 
 func parseLimit(s string) int {

@@ -37,6 +37,15 @@ func (s *Servicer) ListServices(ctx context.Context, userID string, limit, offse
 	return s.store.ListServices(ctx, limit, offset)
 }
 
-func (s *Servicer) UpdateService(ctx context.Context, id string, svc store.Service) error {
-	return s.store.UpdateService(ctx, &svc)
+func (s *Servicer) UpdateService(ctx context.Context, id string, svc store.Service) (*store.Service, error) {
+	if err := s.store.UpdateService(ctx, &svc); err != nil {
+		return nil, err
+	}
+
+	updated, err := s.store.GetService(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return updated, nil
 }

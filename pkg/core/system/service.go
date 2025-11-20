@@ -5,7 +5,13 @@ import (
 	"dployr/pkg/core/utils"
 )
 
-// Service defines a stable interface for system operations.
+type DoctorResult struct {
+	Status string `json:"status"`
+	Output string `json:"output"`
+	Error  string `json:"error,omitempty"`
+}
+
+// Service defines an interface for system operations.
 type Service interface {
 	GetInfo(ctx context.Context) (utils.SystemInfo, error)
 	// RunDoctor runs the system doctor script and returns its combined output.

@@ -35,6 +35,15 @@ type ProxyStatusResponse struct {
 	Status service.SvcState `json:"status"`
 }
 
+type ProxyStatus struct {
+	Status string `json:"status"`
+}
+
+type ProxyRoute struct {
+	Domain   string `json:"domain"`
+	Upstream string `json:"upstream"`
+}
+
 type HandleProxy interface {
 	// Setup generates a Caddyfile from templates and persists app configuration state.
 	// It creates the config directory if needed and saves all apps to apps.json for
