@@ -9,6 +9,12 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$logDir = Join-Path $env:PROGRAMDATA "dployr"
+if (!(Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+$logFile = Join-Path $logDir "install.log"
+Start-Transcript -Path $logFile -Append | Out-Null
+Write-Host "Logging installer output to $logFile" -ForegroundColor Gray
+
 Write-Host "dployr Windows Installer" -ForegroundColor Green
 Write-Host "=========================" -ForegroundColor Green
 
@@ -211,21 +217,19 @@ if (!(Test-Path $configDir)) {
 }
 
 if (!(Test-Path $configFile)) {
-    # Generate a secure random secret
-    $secret = -join ((1..32) | ForEach {'{0:X}' -f (Get-Random -Max 16)})
-    
     $defaultConfig = @"
 # dployr configuration file
 address = "localhost"
 port = 7879
 max-workers = 5
 
-# Secret key for JWT signing (auto-generated)
-secret = "$secret"
+# Base configuration
+base_url = "https://base.dployr.dev"
+base_jwks_url = "https://base.dployr.dev/.well-known/jwks.json"
+instance_id = "my-instance-id"
 "@
     $defaultConfig | Out-File -FilePath $configFile -Encoding UTF8
     Write-Host "✓ Created system config at $configFile"
-    $global:ShowSecret = $secret
 } else {
     Write-Host "✓ Config file already exists at $configFile"
 }
@@ -241,19 +245,6 @@ Write-Host "  - nssm.exe (service manager)"
 Write-Host "  - vfox.exe (version manager)"
 Write-Host ""
 
-# Show the generated secret once
-if ($global:ShowSecret) {
-    Write-Host "==========================================" -ForegroundColor Yellow
-    Write-Host "YOUR SECRET KEY (SAVE THIS NOW!):" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "  $($global:ShowSecret)" -ForegroundColor White
-    Write-Host ""
-    Write-Host "This secret will NOT be shown again!" -ForegroundColor Red
-    Write-Host "It's saved in: $configFile" -ForegroundColor Gray
-    Write-Host "==========================================" -ForegroundColor Yellow
-    Write-Host ""
-}
-
 Write-Host "Next steps:"
 Write-Host "1. Restart your terminal to use the new PATH"
 Write-Host "2. Dployrd is now running"
@@ -263,3 +254,4 @@ Write-Host "Service management:"
 Write-Host "- Status: nssm status dployrd"
 Write-Host "- Stop: nssm stop dployrd"
 Write-Host "- Restart: nssm restart dployrd"
+Stop-Transcript | Out-Null

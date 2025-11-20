@@ -5,6 +5,19 @@
 
 set -e
 
+LOG_DIR="/var/log/dployrd"
+if [[ $EUID -eq 0 ]]; then
+    mkdir -p "$LOG_DIR"
+    LOG_FILE="$LOG_DIR/install.log"
+else
+    LOG_DIR="$HOME/.dployr"
+    mkdir -p "$LOG_DIR"
+    LOG_FILE="$LOG_DIR/install.log"
+fi
+
+exec >>"$LOG_FILE" 2>&1
+echo "Logging installer output to $LOG_FILE"
+
 INSTALL_DIR="/usr/local/bin"
 VERSION="${1:-latest}"
 REPO="dployr-io/dployr"
@@ -203,23 +216,21 @@ fi
 mkdir -p "$CONFIG_DIR"
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
-    # Generate a secure random secret
-    SECRET=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | base64 | tr -d '=+/' | cut -c1-32)
-    
     cat > "$CONFIG_FILE" << EOF
 # dployr configuration file
 address = "localhost"
 port = 7879
 max-workers = 5
 
-# Secret key
-secret = "$SECRET"
+# Base configuration
+base_url = "https://base.dployr.dev"
+base_jwks_url = "https://base.dployr.dev/.well-known/jwks.json"
+instance_id = "my-instance-id"
 EOF
     # Set proper permissions (root-owned, readable by all)
     chmod 644 "$CONFIG_FILE"
     chmod 755 "$CONFIG_DIR"
     info "Created system config at $CONFIG_FILE"
-    SHOW_SECRET="$SECRET"
 else
     info "Config file already exists at $CONFIG_FILE"
 fi
@@ -413,19 +424,6 @@ echo "  - dployr (CLI)"
 echo "  - dployrd (daemon)"
 echo "  - caddy (reverse proxy)"
 echo ""
-
-# Show the generated secret once
-if [[ -n "$SHOW_SECRET" ]]; then
-    echo "=========================================="
-    echo "YOUR SECRET KEY (SAVE THIS NOW!):"
-    echo ""
-    echo "  $SHOW_SECRET"
-    echo ""
-    echo "This secret will NOT be shown again!"
-    echo "It's saved in: $CONFIG_FILE"
-    echo "=========================================="
-    echo ""
-fi
 
 echo "Next steps:"
 if [[ $EUID -ne 0 ]]; then
