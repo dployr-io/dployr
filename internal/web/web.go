@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"dployr/pkg/auth"
+	"dployr/pkg/shared"
 	"dployr/pkg/store"
 )
 
@@ -42,15 +43,16 @@ type ProxyHandler interface {
 
 type SystemHandler interface {
 	GetInfo(w http.ResponseWriter, r *http.Request)
+	SystemStatus(w http.ResponseWriter, r *http.Request)
 	RunDoctor(w http.ResponseWriter, r *http.Request)
 	Install(w http.ResponseWriter, r *http.Request)
+	RegisterInstance(w http.ResponseWriter, r *http.Request)
 }
 
-func (w *WebHandler) NewServer(port int) error {
-	// TODO: Remove temporary CORS middleware for localhost:5173
+func (w *WebHandler) NewServer(cfg *shared.Config) error {
 	corsMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-			rw.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+			rw.Header().Set("Access-Control-Allow-Origin", cfg.BaseURL)
 			rw.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			rw.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			rw.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -127,10 +129,12 @@ func (w *WebHandler) NewServer(port int) error {
 	http.Handle("/proxy/remove", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleRemove)))))
 
 	http.Handle("/system/info", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(http.HandlerFunc(w.SystemH.GetInfo)))))
+	http.Handle("/system/status", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleViewer))(http.HandlerFunc(w.SystemH.SystemStatus)))))
 	http.Handle("/system/doctor", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(http.HandlerFunc(w.SystemH.RunDoctor)))))
 	http.Handle("/system/install", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.SystemH.Install)))))
+	http.Handle("/system/register", corsMiddleware(http.HandlerFunc(w.SystemH.RegisterInstance)))
 
-	addr := ":" + strconv.Itoa(port)
+	addr := ":" + strconv.Itoa(cfg.Port)
 	log.Printf("Listening on port %s", addr)
 	return http.ListenAndServe(addr, nil)
 }

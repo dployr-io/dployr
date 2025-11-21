@@ -31,7 +31,16 @@ func (ds DeploymentStore) CreateDeployment(ctx context.Context, deployment *stor
 		return err
 	}
 
-	_, err = stmt.ExecContext(ctx, deployment.ID, deployment.UserId, configJSON, deployment.Status, deployment.Metadata, deployment.CreatedAt, deployment.UpdatedAt)
+	createdAt := deployment.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = time.Now()
+	}
+	updatedAt := deployment.UpdatedAt
+	if updatedAt.IsZero() {
+		updatedAt = createdAt
+	}
+
+	_, err = stmt.ExecContext(ctx, deployment.ID, deployment.UserId, configJSON, deployment.Status, deployment.Metadata, createdAt.Unix(), updatedAt.Unix())
 	return err
 }
 
@@ -48,10 +57,13 @@ func (ds DeploymentStore) GetDeployment(ctx context.Context, id string) (*store.
 
 	var d store.Deployment
 	var configJSON []byte
-	err = row.Scan(&d.ID, &d.UserId, &configJSON, &d.Status, &d.Metadata, &d.CreatedAt, &d.UpdatedAt)
+	var createdAtUnix, updatedAtUnix int64
+	err = row.Scan(&d.ID, &d.UserId, &configJSON, &d.Status, &d.Metadata, &createdAtUnix, &updatedAtUnix)
 	if err != nil {
 		return nil, err
 	}
+	d.CreatedAt = time.Unix(createdAtUnix, 0)
+	d.UpdatedAt = time.Unix(updatedAtUnix, 0)
 
 	if err := json.Unmarshal(configJSON, &d.Blueprint); err != nil {
 		return nil, err
@@ -81,10 +93,13 @@ func (ds DeploymentStore) ListDeployments(ctx context.Context, limit, offset int
 	for rows.Next() {
 		var d store.Deployment
 		var blueprint []byte
-		err := rows.Scan(&d.ID, &d.UserId, &blueprint, &d.Status, &d.Metadata, &d.CreatedAt, &d.UpdatedAt)
+		var createdAtUnix, updatedAtUnix int64
+		err := rows.Scan(&d.ID, &d.UserId, &blueprint, &d.Status, &d.Metadata, &createdAtUnix, &updatedAtUnix)
 		if err != nil {
 			return nil, err
 		}
+		d.CreatedAt = time.Unix(createdAtUnix, 0)
+		d.UpdatedAt = time.Unix(updatedAtUnix, 0)
 		if err := json.Unmarshal(blueprint, &d.Blueprint); err != nil {
 			return nil, err
 		}
@@ -106,6 +121,6 @@ func (ds DeploymentStore) UpdateDeploymentStatus(ctx context.Context, id, status
 	}
 	defer stmt.Close()
 
-	_, err = stmt.ExecContext(ctx, status, time.Now(), id)
+	_, err = stmt.ExecContext(ctx, status, time.Now().Unix(), id)
 	return err
 }

@@ -23,6 +23,7 @@ func NewMiddleware(auth Authenticator) *Middleware {
 func (m *Middleware) Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
+		ctx := r.Context()
 		if authHeader == "" {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
@@ -33,13 +34,12 @@ func (m *Middleware) Auth(next http.Handler) http.Handler {
 			return
 		}
 		token := authHeader[len("Bearer "):]
-		claims, err := m.auth.ValidateToken(token)
+		claims, err := m.auth.ValidateToken(ctx, token)
 		if err != nil {
 			http.Error(w, "invalid token", http.StatusUnauthorized)
 			return
 		}
 
-		ctx := r.Context()
 		ctx = context.WithValue(ctx, shared.CtxUserIDKey, claims.Subject)
 		ctx = context.WithValue(ctx, claimsCtxKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))

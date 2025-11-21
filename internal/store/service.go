@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"dployr/pkg/store"
 )
@@ -30,8 +31,17 @@ func (s ServiceStore) CreateService(ctx context.Context, svc *store.Service) (*s
 	}
 	defer stmt.Close()
 
+	createdAt := svc.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = time.Now()
+	}
+	updatedAt := svc.UpdatedAt
+	if updatedAt.IsZero() {
+		updatedAt = createdAt
+	}
+
 	_, err = stmt.ExecContext(ctx, svc.ID, svc.Name, svc.Source, svc.Runtime, svc.RuntimeVersion, svc.RunCmd, svc.BuildCmd,
-		svc.WorkingDir, svc.StaticDir, svc.Image, svc.Remote, svc.Branch, svc.CommitHash, svc.DeploymentId, svc.CreatedAt, svc.UpdatedAt)
+		svc.WorkingDir, svc.StaticDir, svc.Image, svc.Remote, svc.Branch, svc.CommitHash, svc.DeploymentId, createdAt.Unix(), updatedAt.Unix())
 	if err != nil {
 		return nil, err
 	}
@@ -51,14 +61,17 @@ func (s ServiceStore) GetService(ctx context.Context, id string) (*store.Service
 	row := stmt.QueryRowContext(ctx, id)
 
 	var svc store.Service
+	var createdAtUnix, updatedAtUnix int64
 	err = row.Scan(
 		&svc.ID, &svc.Name, &svc.Source, &svc.Runtime, &svc.RuntimeVersion, &svc.RunCmd,
 		&svc.WorkingDir, &svc.StaticDir, &svc.Image, &svc.Remote, &svc.Branch,
-		&svc.CommitHash, &svc.DeploymentId, &svc.CreatedAt, &svc.UpdatedAt,
+		&svc.CommitHash, &svc.DeploymentId, &createdAtUnix, &updatedAtUnix,
 	)
 	if err != nil {
 		return nil, err
 	}
+	svc.CreatedAt = time.Unix(createdAtUnix, 0)
+	svc.UpdatedAt = time.Unix(updatedAtUnix, 0)
 
 	if svc.DeploymentId != "" {
 		deployment, err := s.ds.GetDeployment(ctx, svc.DeploymentId)
@@ -91,14 +104,17 @@ func (s ServiceStore) ListServices(ctx context.Context, limit, offset int) ([]*s
 	var services []*store.Service
 	for rows.Next() {
 		var svc store.Service
+		var createdAtUnix, updatedAtUnix int64
 		err := rows.Scan(
 			&svc.ID, &svc.Name, &svc.Source, &svc.Runtime, &svc.RuntimeVersion, &svc.RunCmd,
 			&svc.WorkingDir, &svc.StaticDir, &svc.Image, &svc.Remote, &svc.Branch,
-			&svc.CommitHash, &svc.DeploymentId, &svc.CreatedAt, &svc.UpdatedAt,
+			&svc.CommitHash, &svc.DeploymentId, &createdAtUnix, &updatedAtUnix,
 		)
 		if err != nil {
 			return nil, err
 		}
+		svc.CreatedAt = time.Unix(createdAtUnix, 0)
+		svc.UpdatedAt = time.Unix(updatedAtUnix, 0)
 
 		if svc.DeploymentId != "" {
 			deployment, err := s.ds.GetDeployment(ctx, svc.DeploymentId)

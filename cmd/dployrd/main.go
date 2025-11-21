@@ -58,6 +58,8 @@ func main() {
 	logger := shared.NewLogger()
 	ds := _store.NewDeploymentStore(conn)
 	ss := _store.NewServiceStore(conn, ds)
+	is := _store.NewInstanceStore(conn)
+
 	ctx := context.Background()
 	ctx = shared.WithRequest(ctx, ulid.Make().String())
 	ctx = shared.WithTrace(ctx, ulid.Make().String())
@@ -71,8 +73,8 @@ func main() {
 	deployer := deploy.NewDeployer(cfg, logger, ds, api)
 	dh := deploy.NewDeploymentHandler(deployer, logger)
 
-	_services := _service.Init(cfg, logger, ss)
-	servicer := service.NewServicer(cfg, logger, ss, _services)
+	services := _service.Init(cfg, logger, ss)
+	servicer := service.NewServicer(cfg, logger, ss, services)
 	sh := service.NewServiceHandler(servicer, logger)
 
 	proxyState := _proxy.LoadState()
@@ -86,7 +88,7 @@ func main() {
 	ls := stream.NewLogStreamer(logsDir, logsService)
 	lh := stream.NewLogStreamHandler(ls, logger)
 
-	sysSvc := _system.NewDefaultService()
+	sysSvc := _system.NewDefaultService(cfg, is)
 	sysH := system.NewServiceHandler(sysSvc)
 
 	wh := web.WebHandler{
@@ -99,7 +101,7 @@ func main() {
 	}
 
 	go func() {
-		if err := wh.NewServer(cfg.Port); err != nil {
+		if err := wh.NewServer(cfg); err != nil {
 			log.Fatalf("server error: %v", err)
 		}
 	}()

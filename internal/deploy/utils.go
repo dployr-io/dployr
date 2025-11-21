@@ -149,15 +149,8 @@ func buildAuthUrl(url string, config *shared.Config) (string, error) {
 	var token, username string
 
 	switch {
-	case strings.Contains(url, "github.com"):
-		token, username = config.GitHubToken, "git"
-	case strings.Contains(url, "gitlab.com"):
-		token, username = config.GitLabToken, "git"
-	case strings.Contains(url, "bitbucket.org"):
-		token, username = config.BitBucketToken, "git"
-	default:
-		return url, nil
 	}
+
 	if token == "" {
 		return url, nil
 	}

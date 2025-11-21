@@ -28,7 +28,8 @@ const (
 	ErrorResourceNotFound ErrorCode = "resource.not_found"
 
 	// Runtime / internal errors
-	ErrorRuntimeInternalServer ErrorCode = "runtime.internal_server_error"
+	ErrorRuntimeInternalServer      ErrorCode = "runtime.internal_server_error"
+	ErrorInstanceRegistrationFailed ErrorCode = "instance.registration_failed"
 )
 
 // Errors is a structured catalog of application errors that are currently used
@@ -44,6 +45,9 @@ var Errors = struct {
 	}
 	Resource struct {
 		NotFound ErrorDescriptor
+	}
+	Instance struct {
+		RegistrationFailed ErrorDescriptor
 	}
 	Runtime struct {
 		InternalServer ErrorDescriptor
@@ -72,5 +76,10 @@ var Errors = struct {
 		InternalServer ErrorDescriptor
 	}{
 		InternalServer: ErrorDescriptor{Code: ErrorRuntimeInternalServer, HTTPStatus: http.StatusInternalServerError, Message: "Internal server error"},
+	},
+	Instance: struct {
+		RegistrationFailed ErrorDescriptor
+	}{
+		RegistrationFailed: ErrorDescriptor{Code: ErrorInstanceRegistrationFailed, HTTPStatus: http.StatusInternalServerError, Message: "Instance registration failed"},
 	},
 }

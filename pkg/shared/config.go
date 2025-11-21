@@ -17,17 +17,10 @@ import (
 )
 
 type Config struct {
-	Address        string
-	Port           int
-	MaxWorkers     int
-	GitHubToken    string
-	GitLabToken    string
-	BitBucketToken string
-	BaseURL        string
-	BaseJWKSURL    string
-	InstanceID     string
-	TokenIssuer    string
-	TokenAudience  string
+	Address    string
+	Port       int
+	MaxWorkers int
+	BaseURL    string
 }
 
 func LoadConfig() (*Config, error) {
@@ -39,17 +32,10 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		Address:        getEnv("ADDRESS", "localhost"),
-		Port:           getEnvAsInt("PORT", 7879),
-		MaxWorkers:     getEnvAsInt("MAX_WORKERS", 5),
-		GitHubToken:    getEnv("GITHUB_TOKEN", ""),
-		GitLabToken:    getEnv("GITLAB_TOKEN", ""),
-		BitBucketToken: getEnv("BITBUCKET_TOKEN", ""),
-		BaseURL:        getEnv("BASE_URL", ""),
-		BaseJWKSURL:    getEnv("BASE_JWKS_URL", ""),
-		InstanceID:     getEnv("INSTANCE_ID", ""),
-		TokenIssuer:    getEnv("TOKEN_ISSUER", ""),
-		TokenAudience:  getEnv("TOKEN_AUDIENCE", ""),
+		Address:    getEnv("ADDRESS", "localhost"),
+		Port:       getEnvAsInt("PORT", 7879),
+		MaxWorkers: getEnvAsInt("MAX_WORKERS", 5),
+		BaseURL:    getEnv("BASE_URL", ""),
 	}, nil
 }
 

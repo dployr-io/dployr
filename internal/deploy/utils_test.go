@@ -6,11 +6,7 @@ import (
 )
 
 func TestBuildAuthUrl(t *testing.T) {
-	config := &shared.Config{
-		GitHubToken:    "ghp_test123",
-		GitLabToken:    "glpat_test456",
-		BitBucketToken: "bb_test789",
-	}
+	config := &shared.Config{}
 
 	tests := []struct {
 		name     string
@@ -66,7 +62,7 @@ func TestBuildAuthUrl(t *testing.T) {
 func TestBuildAuthUrlNoToken(t *testing.T) {
 	config := &shared.Config{}
 	url := "https://github.com/user/repo.git"
-	
+
 	result, err := buildAuthUrl(url, config)
 	if err != nil {
 		t.Errorf("buildAuthUrl() error = %v", err)

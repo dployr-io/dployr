@@ -562,6 +562,31 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /system/register:
+    post:
+      tags:
+        - System
+      summary: Register instance with base
+      description: |
+        Register this dployr instance with the dployr base.
+
+        This endpoint is typically called by base with a signed claim token and
+        instance metadata. It does **not** require authentication but validates
+        the claim against the locally stored token obtained from base during
+        installation.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterInstanceRequest'
+      responses:
+        '200':
+          description: Instance successfully registered
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -1016,6 +1041,29 @@ components:
         error:
           type: string
           description: Error message if status is "error"
+
+    RegisterInstanceRequest:
+      type: object
+      required:
+        - claim
+        - instance_id
+      properties:
+        claim:
+          type: string
+          description: Signed claim token issued by base
+          example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+        instance_id:
+          type: string
+          description: Unique identifier assigned to this instance by base
+          example: "inst_01HXYZABCDEF123456"
+        issuer:
+          type: string
+          description: Expected token issuer (for validation)
+          example: "https://base.dployr.dev"
+        audience:
+          type: string
+          description: Expected token audience (for validation)
+          example: "dployr-instance"
 
     Error:
       type: object

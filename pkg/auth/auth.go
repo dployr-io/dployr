@@ -1,6 +1,10 @@
 package auth
 
-import "github.com/golang-jwt/jwt/v4"
+import (
+	"context"
+
+	"github.com/golang-jwt/jwt/v4"
+)
 
 // Claims represents the token structure used across the system
 type Claims struct {
@@ -14,5 +18,5 @@ type Claims struct {
 }
 
 type Authenticator interface {
-	ValidateToken(inputToken string) (*Claims, error)
+	ValidateToken(ctx context.Context, inputToken string) (*Claims, error)
 }

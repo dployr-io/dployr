@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
@@ -15,6 +16,7 @@ import (
 
 	pkgAuth "dployr/pkg/auth"
 	"dployr/pkg/shared"
+	"dployr/pkg/store"
 
 	"github.com/golang-jwt/jwt/v4"
 )
@@ -34,6 +36,7 @@ type jwksResponse struct {
 
 type Auth struct {
 	cfg       *shared.Config
+	store     store.InstanceStore
 	mu        sync.RWMutex
 	keys      map[string]*rsa.PublicKey // kid -> key
 	lastFetch time.Time
@@ -46,7 +49,7 @@ func Init(cfg *shared.Config) *Auth {
 	}
 }
 
-func (a *Auth) ValidateToken(tokenStr string) (*pkgAuth.Claims, error) {
+func (a *Auth) ValidateToken(ctx context.Context, tokenStr string) (*pkgAuth.Claims, error) {
 	if tokenStr == "" {
 		return nil, errors.New("empty token")
 	}
@@ -68,8 +71,7 @@ func (a *Auth) ValidateToken(tokenStr string) (*pkgAuth.Claims, error) {
 		return nil, fmt.Errorf("unexpected signing alg: %s", alg)
 	}
 
-	// Ensure JWKS is loaded.
-	pubKey, err := a.getKey(head)
+	pub, err := a.getKey(head)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +82,7 @@ func (a *Auth) ValidateToken(tokenStr string) (*pkgAuth.Claims, error) {
 		if t.Method.Alg() != alg {
 			return nil, fmt.Errorf("unexpected signing method: %s", t.Method.Alg())
 		}
-		return pubKey, nil
+		return pub, nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("token verification failed: %w", err)
@@ -94,16 +96,25 @@ func (a *Auth) ValidateToken(tokenStr string) (*pkgAuth.Claims, error) {
 		return nil, errors.New("token expired")
 	}
 
-	if a.cfg.TokenIssuer != "" && claims.Issuer != "" && claims.Issuer != a.cfg.TokenIssuer {
+	inst, err := a.store.GetInstance(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if inst == nil {
+		return nil, errors.New("instance not found")
+	}
+
+	if inst.Issuer != "" && claims.Issuer != "" && claims.Issuer != inst.Issuer {
 		return nil, errors.New("invalid token issuer")
 	}
-	if a.cfg.TokenAudience != "" {
-		if !containsAudience(claims.Audience, a.cfg.TokenAudience) {
+	if inst.Audience != "" {
+		if !containsAudience(claims.Audience, inst.Audience) {
 			return nil, errors.New("invalid token audience")
 		}
 	}
 
-	if a.cfg.InstanceID != "" && claims.InstanceID != "" && claims.InstanceID != a.cfg.InstanceID {
+	if inst.InstanceID != "" && claims.InstanceID != "" && claims.InstanceID != inst.InstanceID {
 		return nil, errors.New("token not intended for this instance")
 	}
 
@@ -134,11 +145,11 @@ func (a *Auth) getKey(kid string) (*rsa.PublicKey, error) {
 }
 
 func (a *Auth) refreshJWKS() error {
-	if a.cfg.BaseJWKSURL == "" {
-		return errors.New("BaseJWKSURL is not configured")
+	if a.cfg.BaseURL == "" {
+		return errors.New("base_url is not configured")
 	}
 
-	resp, err := http.Get(a.cfg.BaseJWKSURL)
+	resp, err := http.Get(a.cfg.BaseURL + "/.well-known/jwks.json")
 	if err != nil {
 		return fmt.Errorf("failed to fetch JWKS: %w", err)
 	}
