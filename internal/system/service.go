@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -69,6 +70,10 @@ func (s *DefaultService) SystemStatus(ctx context.Context) (system.SystemStatus,
 	return st, nil
 }
 
+// During the installation process, this method is used to register the instance with the base,
+// used for routing traffic to this instance instead of directly hitting it.
+// This is to ensure HTTPS traffic is enforced on all dployr instances.
+// Please refer to the documentation at https://docs.dployr.dev/installation for more details.
 func (s *DefaultService) RequestDomain(ctx context.Context, token string) error {
 	if s.cfg.BaseURL == "" {
 		return fmt.Errorf("base_url is not configured")
@@ -90,7 +95,7 @@ func (s *DefaultService) RequestDomain(ctx context.Context, token string) error 
 	}
 
 	resp, err := http.Post(
-		fmt.Sprintf("%s/v1/instances/register", s.cfg.BaseURL),
+		fmt.Sprintf("%s/v1/domains", s.cfg.BaseURL),
 		"application/json",
 		strings.NewReader(fmt.Sprintf(`{"token": "%s"}`, token)))
 	if err != nil {
@@ -100,6 +105,26 @@ func (s *DefaultService) RequestDomain(ctx context.Context, token string) error 
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to assign domain: %s", resp.Status)
+	}
+
+	var data struct {
+		InstanceID string `json:"instanceId"`
+		Issuer     string `json:"issuer"`
+		Audience   string `json:"audience"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	inst := &store.Instance{
+		InstanceID: data.InstanceID,
+		Issuer:     data.Issuer,
+		Audience:   data.Audience,
+	}
+
+	if err := s.store.RegisterInstance(ctx, inst); err != nil {
+		return fmt.Errorf("failed to register instance: %w", err)
 	}
 
 	return nil
