@@ -90,7 +90,7 @@ func (s *DefaultService) RequestDomain(ctx context.Context, token string) error 
 	}
 
 	resp, err := http.Post(
-		fmt.Sprintf("%s/v1/domains", s.cfg.BaseURL),
+		fmt.Sprintf("%s/v1/instances/register", s.cfg.BaseURL),
 		"application/json",
 		strings.NewReader(fmt.Sprintf(`{"token": "%s"}`, token)))
 	if err != nil {
