@@ -2,6 +2,8 @@ package system
 
 import (
 	"context"
+	"crypto/subtle"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
@@ -108,7 +110,12 @@ func (s *DefaultService) RegisterInstance(ctx context.Context, req system.Regist
 		return fmt.Errorf("claim cannot be empty")
 	}
 
-	if token, err := s.store.GetToken(ctx); err != nil || token != req.Claim {
+	token, err := s.store.GetToken(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get token: %w", err)
+	}
+
+	if !compareBase64(token, req.Claim) {
 		return fmt.Errorf("token does not match")
 	}
 
@@ -116,17 +123,35 @@ func (s *DefaultService) RegisterInstance(ctx context.Context, req system.Regist
 		return fmt.Errorf("instance_id cannot be empty")
 	}
 
-	i := &store.Instance{
+	inst := &store.Instance{
 		InstanceID: req.InstanceID,
 		Issuer:     req.Issuer,
 		Audience:   req.Audience,
 	}
 
-	if err := s.store.RegisterInstance(ctx, i); err != nil {
+	if err := s.store.RegisterInstance(ctx, inst); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func compareBase64(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+
+	aBytes, errA := base64.StdEncoding.DecodeString(a)
+	bBytes, errB := base64.StdEncoding.DecodeString(b)
+	if errA != nil || errB != nil {
+		return false
+	}
+
+	if len(aBytes) != len(bBytes) {
+		return false
+	}
+
+	return subtle.ConstantTimeCompare(aBytes, bBytes) == 1
 }
 
 func runSystemDoctorScript(ctx context.Context, script string, extraEnv []string, store store.InstanceStore) (string, error) {
