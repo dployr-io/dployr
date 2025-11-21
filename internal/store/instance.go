@@ -51,6 +51,14 @@ func (s *InstanceStore) UpdateLastInstalledAt(ctx context.Context) error {
 	return err
 }
 
+func (s *InstanceStore) SetToken(ctx context.Context, token string) error {
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE instances SET token = ?`,
+		token,
+	)
+	return err
+}
+
 func (s *InstanceStore) GetToken(ctx context.Context) (string, error) {
 	row := s.db.QueryRowContext(ctx, `
         SELECT token
@@ -66,9 +74,8 @@ func (s *InstanceStore) GetToken(ctx context.Context) (string, error) {
 
 func (s *InstanceStore) RegisterInstance(ctx context.Context, i *store.Instance) error {
 	_, err := s.db.ExecContext(ctx, `
-		UPDATE instances SET instance_id = ?, token = ?, issuer = ?, audience = ?, registered_at = ?, last_installed_at = ?`,
+		UPDATE instances SET instance_id = ?, issuer = ?, audience = ?, registered_at = ?, last_installed_at = ?`,
 		i.InstanceID,
-		i.Token,
 		i.Issuer,
 		i.Audience,
 		time.Now().Unix(),

@@ -19,22 +19,6 @@ import (
 
 var startTime = time.Now()
 
-// Service defines an interface for system operations.
-type Service interface {
-	// GetInfo returns system information.
-	GetInfo(ctx context.Context) (utils.SystemInfo, error)
-	// RunDoctor runs the system doctor script and returns its combined output.
-	RunDoctor(ctx context.Context) (string, error)
-	// Install installs dployr; if version is empty, the latest version is installed.
-	Install(ctx context.Context, version string) (string, error)
-	// SystemStatus returns high-level health information.
-	SystemStatus(ctx context.Context) (system.SystemStatus, error)
-	// RequestDomain requests and assigns a new random domain from base to the system.
-	RequestDomain(ctx context.Context, token string) error
-	// RegisterInstance registers the system with the base and assigns an instance id
-	RegisterInstance(token string) error
-}
-
 type DefaultService struct {
 	cfg   *shared.Config
 	store store.InstanceStore
@@ -92,12 +76,23 @@ func (s *DefaultService) RequestDomain(ctx context.Context, token string) error 
 		return fmt.Errorf("token cannot be empty")
 	}
 
+	if inst, err := s.store.GetInstance(ctx); err != nil {
+		return fmt.Errorf("failed to get instance: %w", err)
+	} else if inst.InstanceID != "" {
+		fmt.Printf("instance already provisioned on %s\n", inst.RegisteredAt.Format(time.RFC3339))
+		return nil
+	}
+
+	if err := s.store.SetToken(ctx, token); err != nil {
+		return fmt.Errorf("failed to set token: %w", err)
+	}
+
 	resp, err := http.Post(
 		fmt.Sprintf("%s/v1/domains", s.cfg.BaseURL),
 		"application/json",
 		strings.NewReader(fmt.Sprintf(`{"token": "%s"}`, token)))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to assign domain: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -123,7 +118,6 @@ func (s *DefaultService) RegisterInstance(ctx context.Context, req system.Regist
 
 	i := &store.Instance{
 		InstanceID: req.InstanceID,
-		Token:      req.Claim,
 		Issuer:     req.Issuer,
 		Audience:   req.Audience,
 	}

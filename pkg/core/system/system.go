@@ -39,8 +39,8 @@ type RegisterInstanceRequest struct {
 	Audience   string `json:"audience"`
 }
 
-// Service defines an interface for system operations.
-type Service interface {
+// System defines an interface for system operations.
+type System interface {
 	// GetInfo returns system information.
 	GetInfo(ctx context.Context) (utils.SystemInfo, error)
 	// RunDoctor runs the system doctor script and returns its combined output.
@@ -55,6 +55,6 @@ type Service interface {
 	RegisterInstance(ctx context.Context, req RegisterInstanceRequest) error
 }
 
-type DefaultService struct{}
+type SystemManager struct{}
 
-func NewDefaultService() *DefaultService { return &DefaultService{} }
+func NewSystemManager() *SystemManager { return &SystemManager{} }

@@ -4,6 +4,7 @@
 param(
     [string]$InstallDir = "$env:ProgramFiles\dployr",
     [string]$Version = "latest",
+    [string]$Token,
     [switch]$Help
 )
 
@@ -20,16 +21,46 @@ Write-Host "=========================" -ForegroundColor Green
 
 # Show usage if help requested
 if ($Help) {
-    Write-Host ""
-    Write-Host "Usage: .\install.ps1 [-Version <VERSION>] [-InstallDir <PATH>]"
-    Write-Host ""
-    Write-Host "Examples:"
-    Write-Host "  .\install.ps1                           # Install latest version"
-    Write-Host "  .\install.ps1 -Version v0.1.1-beta.17   # Install specific version"
-    Write-Host "  .\install.ps1 -InstallDir C:\dployr     # Custom install directory"
-    Write-Host ""
-    Write-Host "Available versions: https://github.com/dployr-io/dployr/releases"
+    Write-Host "" 
+    Write-Host "Usage: .\install.ps1 [-Version <VERSION>] -Token <TOKEN> [-InstallDir <PATH>]" 
+    Write-Host "" 
+    Write-Host "Arguments:" 
+    Write-Host "  -Version    Optional dployr version tag (default: latest)" 
+    Write-Host "  -Token      Required install token issued by dployr base" 
+    Write-Host "  -InstallDir Optional install directory (default: $env:ProgramFiles\\dployr)" 
+    Write-Host "" 
+    Write-Host "Examples:" 
+    Write-Host "  .\install.ps1 -Token $env:DPLOYR_INSTALL_TOKEN" 
+    Write-Host "  .\install.ps1 -Version v0.1.1-beta.17 -Token $env:DPLOYR_INSTALL_TOKEN" 
+    Write-Host "  .\install.ps1 -Version latest -Token $env:DPLOYR_INSTALL_TOKEN -InstallDir C:\dployr" 
+    Write-Host "" 
+    Write-Host "Available versions: https://github.com/dployr-io/dployr/releases" 
     exit 0
+}
+
+if (-not $Token) {
+    Write-Error "Missing required -Token parameter. Run with -Help for usage."
+    exit 1
+}
+
+function Register-Instance {
+    param(
+        [string]$Token
+    )
+
+    if (-not $Token) {
+        Write-Warning "No install token provided; skipping /system/register call"
+        return
+    }
+
+    Write-Host "Registering instance with local dployrd via /system/register..."
+    try {
+        $body = @{ claim = $Token } | ConvertTo-Json
+        Invoke-RestMethod -Method Post -Uri "http://localhost:7879/system/register" -ContentType "application/json" -Body $body | Out-Null
+        Write-Host "✓ Instance registration request sent successfully"
+    } catch {
+        Write-Warning "Failed to register instance with /system/register: $_"
+    }
 }
 
 # Create install directory
@@ -199,9 +230,11 @@ try {
     
     # Start the service
     & $nssmPath start dployrd
-    
-    Write-Host "✓ dployrd service created and started"
-    Write-Host "  Control with: nssm start/stop/restart dployrd"
+    Write-Host "✓ dployrd service created and started" 
+    Write-Host "  Control with: nssm start/stop/restart dployrd" 
+
+    Start-Sleep -Seconds 1
+    Register-Instance -Token $Token
 } catch {
     Write-Warning "Failed to create/start service: $_"
     Write-Host "You can create the service manually later using NSSM"

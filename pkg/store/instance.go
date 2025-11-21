@@ -23,5 +23,6 @@ type InstanceStore interface {
 	// RegisterInstance persists the instance row on first registration.
 	RegisterInstance(ctx context.Context, i *Instance) error
 	UpdateLastInstalledAt(ctx context.Context) error
+	SetToken(ctx context.Context, token string) error
 	GetToken(ctx context.Context) (string, error)
 }

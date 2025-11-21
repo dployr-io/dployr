@@ -8,10 +8,10 @@ import (
 )
 
 type ServiceHandler struct {
-	Svc Service
+	Svc System
 }
 
-func NewServiceHandler(s Service) *ServiceHandler {
+func NewServiceHandler(s System) *ServiceHandler {
 	return &ServiceHandler{Svc: s}
 }
 

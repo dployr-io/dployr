@@ -87,14 +87,14 @@ sudo apt update && sudo apt install caddy
 ```powershell
 # Install latest version
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/dployr-io/dployr/master/install.ps1" -OutFile "install.ps1"
-.\install.ps1
+./install.ps1 -Token $env:DPLOYR_INSTALL_TOKEN
 
 # Install specific version
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/dployr-io/dployr/master/install.ps1" -OutFile "install.ps1"
-.\install.ps1 -Version v0.1.1-beta.17
+./install.ps1 -Version v0.1.1-beta.17 -Token $env:DPLOYR_INSTALL_TOKEN
 
 # Custom install directory
-.\install.ps1 -Version latest -InstallDir "C:\dployr"
+./install.ps1 -Version latest -Token $env:DPLOYR_INSTALL_TOKEN -InstallDir "C:\dployr"
 ```
 
 ---

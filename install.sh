@@ -20,6 +20,7 @@ echo "Logging installer output to $LOG_FILE"
 
 INSTALL_DIR="/usr/local/bin"
 VERSION="${1:-latest}"
+TOKEN="$2"
 REPO="dployr-io/dployr"
 
 # Colors
@@ -37,15 +38,39 @@ echo "===================="
 
 # Show usage if help requested
 if [[ "$1" == "--help" || "$1" == "-h" ]]; then
-    echo "Usage: $0 [VERSION]"
+    echo "Usage: $0 [VERSION] token"
+    echo ""
+    echo "Arguments:"
+    echo "  VERSION  Optional dployr version tag (default: latest)"
+    echo "  token    Install token obtained from dployr base"
     echo ""
     echo "Examples:"
-    echo "  $0                    # Install latest version"
-    echo "  $0 v0.1.1-beta.17     # Install specific version"
+    echo "  $0 latest eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." 
+    echo "  $0 v0.1.1-beta.17 eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." 
     echo ""
     echo "Available versions: https://github.com/dployr-io/dployr/releases"
     exit 0
 fi
+
+if [[ -z "$TOKEN" ]]; then
+    error "Missing install token argument. Run with: $0 [VERSION] token.\n\n Visit https://docs.dployr.dev/installation for more information."
+fi
+
+register_instance() {
+    local token="$1"
+
+    info "Registering instance with base..."
+    if ! curl -sS -X POST \
+        -H "Content-Type: application/json" \
+        -d "{\"claim\":\"$token\"}" \
+        "http://localhost:7879/system/register"; then
+        warn "Failed to register instance with base. Visit https://docs.dployr.dev/installation for more information."
+        return 1
+    fi
+
+    echo
+    info "Instance registration request sent successfully"
+}
 
 # Check if running as root for system install
 if [[ $EUID -eq 0 ]]; then
@@ -296,6 +321,9 @@ EOF
         systemctl enable dployrd
         systemctl start dployrd
         info "dployrd service started and enabled"
+
+		sleep 1
+		register_instance "$TOKEN" || true
         ;;
     darwin)
         # Create dployr system groups (macOS)
@@ -368,6 +396,9 @@ EOF
         launchctl load /Library/LaunchDaemons/io.dployr.dployrd.plist
         launchctl start io.dployr.dployrd
         info "dployrd service started and enabled"
+
+		sleep 1
+		register_instance "$TOKEN" || true
         ;;
 esac
 
