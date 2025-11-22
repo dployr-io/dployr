@@ -6,6 +6,7 @@
 set -e
 
 LOG_DIR="/var/log/dployrd"
+
 if [[ $EUID -eq 0 ]]; then
     mkdir -p "$LOG_DIR"
     LOG_FILE="$LOG_DIR/install.log"
@@ -19,8 +20,8 @@ exec >>"$LOG_FILE" 2>&1
 echo "Logging installer output to $LOG_FILE"
 
 INSTALL_DIR="/usr/local/bin"
-VERSION="${1:-latest}"
-TOKEN="$2"
+VERSION="latest"
+TOKEN=""
 REPO="dployr-io/dployr"
 
 # Colors
@@ -38,23 +39,55 @@ echo "===================="
 
 # Show usage if help requested
 if [[ "$1" == "--help" || "$1" == "-h" ]]; then
-    echo "Usage: $0 [version] token [public_ip_v4]"
+    echo "Usage: $0 [--version <VERSION>] [--token <TOKEN>]"
     echo ""
     echo "Arguments:"
-    echo "  VERSION  Optional dployr version tag (default: latest)"
-    echo "  token    Install token obtained from dployr base"
+    echo "  --version, -v  Optional dployr version tag (default: latest)"
+    echo "  --token, -t    Optional install token obtained from dployr base"
     echo ""
     echo "Examples:"
-    echo "  $0 latest eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." 
-    echo "  $0 v0.1.1-beta.17 eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." 
+    echo "  $0 --token eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." 
+    echo "  $0 --version v0.1.1-beta.17 --token eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." 
     echo ""
     echo "Available versions: https://github.com/dployr-io/dployr/releases"
     exit 0
 fi
 
-if [[ -z "$TOKEN" ]]; then
-    error "Missing install token argument. Run with: $0 [VERSION] token.\n\n Visit https://docs.dployr.dev/installation for more information."
-fi
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --version|-v)
+            if [[ -z "$2" ]]; then
+                error "Missing value for $1."
+            fi
+            VERSION="$2"
+            shift 2
+            ;;
+        --token|-t)
+            if [[ -z "$2" ]]; then
+                error "Missing value for $1."
+            fi
+            TOKEN="$2"
+            shift 2
+            ;;
+        --help|-h)
+            echo "Usage: $0 [--version <VERSION>] [--token <TOKEN>]"
+            echo ""
+            echo "Arguments:"
+            echo "  --version, -v  Optional dployr version tag (default: latest)"
+            echo "  --token, -t    Optional install token obtained from dployr base"
+            echo ""
+            echo "Examples:"
+            echo "  $0 --token eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." 
+            echo "  $0 --version v0.1.1-beta.17 --token eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." 
+            echo ""
+            echo "Available versions: https://github.com/dployr-io/dployr/releases"
+            exit 0
+            ;;
+        *)
+            error "Unknown argument: $1"
+            ;;
+    esac
+done
 
 register_instance() {
     local token="$1"
@@ -221,7 +254,6 @@ fi
 # Setup vfox plugins for dployrd user
 info "Setting up vfox plugins..."
 
-
 # Create system-wide config directory and file
 case $OS in
     darwin)
@@ -322,8 +354,10 @@ EOF
         systemctl start dployrd
         info "dployrd service started and enabled"
 
-		sleep 1
-		register_instance "$TOKEN" || true
+		if [[ -n "$TOKEN" ]]; then
+			sleep 1
+			register_instance "$TOKEN" || true
+		fi
         ;;
     darwin)
         # Create dployr system groups (macOS)
@@ -397,8 +431,10 @@ EOF
         launchctl start io.dployr.dployrd
         info "dployrd service started and enabled"
 
-		sleep 1
-		register_instance "$TOKEN" || true
+		if [[ -n "$TOKEN" ]]; then
+			sleep 1
+			register_instance "$TOKEN" || true
+		fi
         ;;
 esac
 

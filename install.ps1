@@ -3,7 +3,9 @@
 
 param(
     [string]$InstallDir = "$env:ProgramFiles\dployr",
+    [Alias('v')]
     [string]$Version = "latest",
+    [Alias('t')]
     [string]$Token,
     [switch]$Help
 )

@@ -51,12 +51,19 @@ These binaries are automatically downloaded and configured during installation w
 
 **Linux/macOS**
 ```bash
-# Install latest version
-curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh | bash
+# First-time setup 
+curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh \
+  | bash -s -- --token "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# Install latest version 
+curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh \
+  | bash 
 
 # Install specific version
-curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh | bash -s v0.1.1-beta.17
+curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh \
+  | bash -s -- --version v0.1.1-beta.17 
 ```
+> **Note:** You’ll need administrator privileges (`sudo`) to install, but the dployr daemon itself runs as `dployr` user, not as `root`. For details about permissions and setup, visit https://docs.dployr.dev/permissions.
 
 > **Config locations:**
 > - **Linux**: `/etc/dployr/config.toml`
@@ -87,14 +94,14 @@ sudo apt update && sudo apt install caddy
 ```powershell
 # Install latest version
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/dployr-io/dployr/master/install.ps1" -OutFile "install.ps1"
-./install.ps1 -Token $env:DPLOYR_INSTALL_TOKEN
+.\install.ps1
 
 # Install specific version
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/dployr-io/dployr/master/install.ps1" -OutFile "install.ps1"
-./install.ps1 -Version v0.1.1-beta.17 -Token $env:DPLOYR_INSTALL_TOKEN
+.\install.ps1 -Version v0.1.1-beta.17 -Token $env:DPLOYR_INSTALL_TOKEN
 
 # Custom install directory
-./install.ps1 -Version latest -Token $env:DPLOYR_INSTALL_TOKEN -InstallDir "C:\dployr"
+.\install.ps1 -Version latest -InstallDir "C:\dployr" -Token $env:DPLOYR_INSTALL_TOKEN
 ```
 
 ---
