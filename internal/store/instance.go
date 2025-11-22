@@ -20,7 +20,7 @@ func NewInstanceStore(db *sql.DB) *InstanceStore {
 func (s *InstanceStore) GetInstance(ctx context.Context) (*store.Instance, error) {
 	rows, err := s.db.QueryContext(ctx, `
         SELECT id, token, instance_id, registered_at, last_installed_at
-        FROM instances LIMIT 1`)
+        FROM instance LIMIT 1`)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (s *InstanceStore) GetInstance(ctx context.Context) (*store.Instance, error
 
 func (s *InstanceStore) UpdateLastInstalledAt(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx, `
-		UPDATE instances SET last_installed_at = ?`,
+		UPDATE instance SET last_installed_at = ?`,
 		time.Now().Unix(),
 	)
 	return err
@@ -53,7 +53,7 @@ func (s *InstanceStore) UpdateLastInstalledAt(ctx context.Context) error {
 
 func (s *InstanceStore) SetToken(ctx context.Context, token string) error {
 	_, err := s.db.ExecContext(ctx, `
-		UPDATE instances SET token = ?`,
+		UPDATE instance SET token = ?`,
 		token,
 	)
 	return err
@@ -62,7 +62,7 @@ func (s *InstanceStore) SetToken(ctx context.Context, token string) error {
 func (s *InstanceStore) GetToken(ctx context.Context) (string, error) {
 	row := s.db.QueryRowContext(ctx, `
         SELECT token
-        FROM instances LIMIT 1`)
+        FROM instance LIMIT 1`)
 
 	var token string
 	if err := row.Scan(&token); err != nil {
@@ -74,7 +74,7 @@ func (s *InstanceStore) GetToken(ctx context.Context) (string, error) {
 
 func (s *InstanceStore) RegisterInstance(ctx context.Context, i *store.Instance) error {
 	_, err := s.db.ExecContext(ctx, `
-		UPDATE instances SET instance_id = ?, issuer = ?, audience = ?, registered_at = ?, last_installed_at = ?`,
+		UPDATE instance SET instance_id = ?, issuer = ?, audience = ?, registered_at = ?, last_installed_at = ?`,
 		i.InstanceID,
 		i.Issuer,
 		i.Audience,

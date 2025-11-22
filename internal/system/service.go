@@ -72,7 +72,7 @@ func (s *DefaultService) SystemStatus(ctx context.Context) (system.SystemStatus,
 
 // During the installation process, this method is used to register the instance with the base,
 // used for routing traffic to this instance instead of directly hitting it.
-// This is to ensure HTTPS traffic is enforced on all dployr instances.
+// This is to ensure HTTPS traffic is enforced on dployr instance.
 // Please refer to the documentation at https://docs.dployr.dev/installation for more details.
 func (s *DefaultService) RequestDomain(ctx context.Context, req system.RequestDomainRequest) error {
 	if s.cfg.BaseURL == "" {

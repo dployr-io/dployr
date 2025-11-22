@@ -15,7 +15,7 @@
 
 - **`users`** – user accounts and role-based permissions (`owner`, `admin`, `developer`, `viewer`)
 - **`deployments`** – deployment records containing JSON configuration and status tracking
-- **`services`** – active service instances linked to deployments
+- **`services`** – active service instance linked to deployments
 - **`schema_migrations`** – tracks applied migrations for database evolution
 
 ---
