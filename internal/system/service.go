@@ -85,7 +85,7 @@ func (s *DefaultService) RequestDomain(ctx context.Context, req system.RequestDo
 
 	if inst, err := s.store.GetInstance(ctx); err != nil {
 		return fmt.Errorf("failed to get instance: %w", err)
-	} else if inst.InstanceID != "" {
+	} else if inst != nil && inst.InstanceID != "" {
 		fmt.Printf("instance already provisioned on %s\n", inst.RegisteredAt.Format(time.RFC3339))
 		return nil
 	}
