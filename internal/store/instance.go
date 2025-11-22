@@ -52,10 +52,25 @@ func (s *InstanceStore) UpdateLastInstalledAt(ctx context.Context) error {
 }
 
 func (s *InstanceStore) SetToken(ctx context.Context, token string) error {
-	_, err := s.db.ExecContext(ctx, `
-		UPDATE instance SET token = ?`,
+	now := time.Now().Unix()
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE instance SET token = ?, last_installed_at = ?`,
 		token,
+		now,
 	)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		_, err = s.db.ExecContext(ctx, `
+			INSERT INTO instance (id, token, instance_id, issuer, audience, registered_at, last_installed_at)
+			VALUES (?, ?, '', '', '', ?, ?)`,
+			"instance",
+			token,
+			now,
+			now,
+		)
+	}
 	return err
 }
 
@@ -73,13 +88,29 @@ func (s *InstanceStore) GetToken(ctx context.Context) (string, error) {
 }
 
 func (s *InstanceStore) RegisterInstance(ctx context.Context, i *store.Instance) error {
-	_, err := s.db.ExecContext(ctx, `
+	now := time.Now().Unix()
+	res, err := s.db.ExecContext(ctx, `
 		UPDATE instance SET instance_id = ?, issuer = ?, audience = ?, registered_at = ?, last_installed_at = ?`,
 		i.InstanceID,
 		i.Issuer,
 		i.Audience,
-		time.Now().Unix(),
-		time.Now().Unix(),
+		now,
+		now,
 	)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		_, err = s.db.ExecContext(ctx, `
+			INSERT INTO instance (id, token, instance_id, issuer, audience, registered_at, last_installed_at)
+			VALUES (?, '', ?, ?, ?, ?, ?)`,
+			"instance",
+			i.InstanceID,
+			i.Issuer,
+			i.Audience,
+			now,
+			now,
+		)
+	}
 	return err
 }
