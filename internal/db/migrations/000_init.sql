@@ -45,17 +45,18 @@ CREATE TABLE IF NOT EXISTS instance (
 CREATE TRIGGER trg_prevent_instance_updates
 BEFORE UPDATE ON instance
 FOR EACH ROW
-WHEN NEW.instance_id IS NOT NULL
 BEGIN
     SELECT
         CASE
             WHEN NEW.token IS NOT OLD.token THEN
-                RAISE(ABORT, 'token column is immutable and cannot be updated once instance_id is set')
+                RAISE(ABORT, 'token column is immutable and cannot be updated')
+            WHEN NEW.instance_id IS NOT OLD.instance_id THEN
+                RAISE(ABORT, 'instance_id column is immutable and cannot be updated')
             WHEN NEW.issuer IS NOT OLD.issuer THEN
-                RAISE(ABORT, 'issuer column is immutable and cannot be updated once instance_id is set')
+                RAISE(ABORT, 'issuer column is immutable and cannot be updated')
             WHEN NEW.audience IS NOT OLD.audience THEN
-                RAISE(ABORT, 'audience column is immutable and cannot be updated once instance_id is set')
+                RAISE(ABORT, 'audience column is immutable and cannot be updated')
             WHEN NEW.registered_at IS NOT OLD.registered_at THEN
-                RAISE(ABORT, 'registered_at column is immutable and cannot be updated once instance_id is set')
+                RAISE(ABORT, 'registered_at column is immutable and cannot be updated')
         END;
 END;
