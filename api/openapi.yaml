@@ -625,6 +625,14 @@ paths:
       responses:
         '200':
           description: Domain successfully requested and instance registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  domain:
+                    type: string
+                    example: "my-awesome-app.dployr.dev"
         '500':
           $ref: '#/components/responses/InternalServerError'
 

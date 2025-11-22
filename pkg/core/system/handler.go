@@ -143,7 +143,8 @@ func (h *ServiceHandler) RequestDomain(w http.ResponseWriter, r *http.Request) {
 	var body RequestDomainRequest
 	_ = json.NewDecoder(r.Body).Decode(&body)
 
-	if err := h.Svc.RequestDomain(ctx, body); err != nil {
+	domain, err := h.Svc.RequestDomain(ctx, body)
+	if err != nil {
 		shared.WriteError(
 			w,
 			shared.Errors.Instance.RegistrationFailed.HTTPStatus,
@@ -153,5 +154,5 @@ func (h *ServiceHandler) RequestDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	shared.WriteJSON(w, http.StatusOK, map[string]string{"domain": domain})
 }
