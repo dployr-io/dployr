@@ -105,7 +105,14 @@ install_jq() {
 }
 
 parse_json() {
-    jq -r "$1" 2>/dev/null || echo ""
+    local expr="$1"
+    local value
+    value=$(jq -r "${expr} // empty" 2>/dev/null || echo "")
+    if [[ "$value" == "null" ]]; then
+        echo ""
+    else
+        echo "$value"
+    fi
 }
 
 echo "dployr Unix Installer" >&3
@@ -171,8 +178,9 @@ register_instance() {
         info "Instance registered successfully. URL: https://$DPLOYR_DOMAIN"
         log_json "info" "Instance registered with domain: $DPLOYR_DOMAIN"
     else
-        info "Instance registration request sent"
-        log_json "info" "$response"
+        error "No domain received from base. Please check your token or see https://docs.dployr.dev/installation for help."
+        log_json "error" "Registration failed, domain not present in response: $response"
+        return 1
     fi
 }
 
