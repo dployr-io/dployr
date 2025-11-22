@@ -97,7 +97,7 @@ func (s *DefaultService) RequestDomain(ctx context.Context, req system.RequestDo
 	resp, err := http.Post(
 		fmt.Sprintf("%s/v1/domains", s.cfg.BaseURL),
 		"application/json",
-		strings.NewReader(fmt.Sprintf(`{"token": "%s", "address": "%s"}`, req.Token, req.Address)))
+		strings.NewReader(fmt.Sprintf(`{"token": "%s"}`, req.Token)))
 	if err != nil {
 		return "", fmt.Errorf("failed to assign domain: %w", err)
 	}

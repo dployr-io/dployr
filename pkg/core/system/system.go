@@ -40,8 +40,7 @@ type RegisterInstanceRequest struct {
 }
 
 type RequestDomainRequest struct {
-	Token   string `json:"token"`
-	Address string `json:"address"`
+	Token string `json:"token"`
 }
 
 type RequestDomainResponse struct {
