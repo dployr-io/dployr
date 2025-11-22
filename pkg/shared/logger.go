@@ -29,14 +29,18 @@ func NewLogger() *slog.Logger {
 }
 
 func LogWithContext(ctx context.Context) *slog.Logger {
-	requestID, _ := RequestFromContext(ctx)
-	traceID, _ := TraceFromContext(ctx)
+	requestID := RequestID(ctx)
+	traceID := TraceID(ctx)
 	user, _ := UserFromContext(ctx)
+	userID := ""
+	if user != nil {
+		userID = user.ID
+	}
 
 	attrs := []slog.Attr{
-		slog.String("request_id", safeString(&requestID)),
-		slog.String("trace_id", safeString(&traceID)),
-		slog.String("user_id", safeString(&user.ID)),
+		slog.String("request_id", requestID),
+		slog.String("trace_id", traceID),
+		slog.String("user_id", userID),
 	}
 
 	args := make([]any, len(attrs))
