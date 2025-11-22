@@ -18,5 +18,14 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 }
 
 func WriteError(w http.ResponseWriter, status int, code, message string, details any) {
-	WriteJSON(w, status, ErrorResponse{Error: message, Code: code, Details: details})
+	var d any
+	switch v := details.(type) {
+	case nil:
+		// leave d as nil
+	case error:
+		d = v.Error()
+	default:
+		d = v
+	}
+	WriteJSON(w, status, ErrorResponse{Error: message, Code: code, Details: d})
 }
