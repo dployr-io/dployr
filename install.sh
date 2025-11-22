@@ -98,14 +98,21 @@ register_instance() {
     local token="$1"
 
     info "Registering instance with base..."
-    if ! curl -sS -X POST \
+
+    local response
+    response=$(curl -sS -X POST \
         -H "Content-Type: application/json" \
         -d "{\"token\":\"$token\"}" \
-        "http://localhost:7879/system/domain"; then
-        warn "Failed to register instance with base. Visit https://docs.dployr.dev/installation for more information."
+        "http://localhost:7879/system/domain" 2>&1)
+    local status=$?
+
+    if [[ $status -ne 0 ]]; then
+        warn "Failed to register instance with base (curl exit $status). Visit https://docs.dployr.dev/installation for more information."
+        printf '%s\n' "$response" >&3
         return 1
     fi
 
+    printf '%s\n' "$response"
     echo
     info "Instance registration request sent successfully"
 }
