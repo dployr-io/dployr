@@ -17,8 +17,10 @@ else
     LOG_FILE="$LOG_DIR/install.log"
 fi
 
+# 3 = stderr for user-facing messages
+# 4 = log file for structured JSON logs
 exec 3>&2
-exec > >(tee -a "$LOG_FILE") 2>&1
+exec 4>>"$LOG_FILE"
 
 log_json() {
     local level="$1"
@@ -26,7 +28,7 @@ log_json() {
     local timestamp
     timestamp=$(date -Iseconds 2>/dev/null || date "+%Y-%m-%dT%H:%M:%S%z")
     printf '{"timestamp":"%s","level":"%s","message":"%s","pid":%d,"user":"%s"}\n' \
-        "$timestamp" "$level" "$message" "$$" "${USER:-unknown}"
+        "$timestamp" "$level" "$message" "$$" "${USER:-unknown}" >&4
 }
 
 log_json "info" "Installation started"
