@@ -126,3 +126,32 @@ func (h *ServiceHandler) RegisterInstance(w http.ResponseWriter, r *http.Request
 
 	w.WriteHeader(http.StatusOK)
 }
+
+func (h *ServiceHandler) RequestDomain(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		shared.WriteError(
+			w,
+			shared.Errors.Request.MethodNotAllowed.HTTPStatus,
+			string(shared.Errors.Request.MethodNotAllowed.Code),
+			shared.Errors.Request.MethodNotAllowed.Message,
+			nil)
+		return
+	}
+
+	ctx := r.Context()
+
+	var body RequestDomainRequest
+	_ = json.NewDecoder(r.Body).Decode(&body)
+
+	if err := h.Svc.RequestDomain(ctx, body); err != nil {
+		shared.WriteError(
+			w,
+			shared.Errors.Instance.RegistrationFailed.HTTPStatus,
+			string(shared.Errors.Instance.RegistrationFailed.Code),
+			shared.Errors.Instance.RegistrationFailed.Message,
+			err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}

@@ -24,7 +24,7 @@ info:
     See https://docs.dployr.dev/auth for more details.
   version: 1.1.1
   contact:
-    name: Dployr Support
+    name: Emmanuel Madehin
     email: hello@dployr.dev
   license:
     name: MIT
@@ -48,6 +48,7 @@ paths:
         - Deployments
       summary: List deployments
       description: Retrieve a list of deployments (Developer+ required)
+      operationId: listDeployments
       security:
         - BearerAuth: []
       parameters:
@@ -93,6 +94,7 @@ paths:
         - Deployments
       summary: Create deployment
       description: Create a new deployment (Developer+ required)
+      operationId: createDeployment
       security:
         - BearerAuth: []
       requestBody:
@@ -125,6 +127,7 @@ paths:
         - Services
       summary: List services
       description: Retrieve a list of services (Viewer+ required)
+      operationId: listServices
       security:
         - BearerAuth: []
       parameters:
@@ -170,6 +173,7 @@ paths:
         - Services
       summary: Get service
       description: Retrieve a specific service by ID (Viewer+ required)
+      operationId: getService
       security:
         - BearerAuth: []
       parameters:
@@ -200,6 +204,7 @@ paths:
         - Services
       summary: Update service
       description: Update a service configuration (Developer+ required)
+      operationId: updateService
       security:
         - BearerAuth: []
       parameters:
@@ -240,6 +245,7 @@ paths:
         - Services
       summary: Partially update service
       description: Partially update a service configuration (Developer+ required)
+      operationId: patchService
       security:
         - BearerAuth: []
       parameters:
@@ -280,6 +286,7 @@ paths:
         - Services
       summary: Delete service
       description: Delete a service (Admin+ required)
+      operationId: deleteService
       security:
         - BearerAuth: []
       parameters:
@@ -313,6 +320,7 @@ paths:
         - `event: error` indicates streaming errors
         - `event: done` indicates stream completion
         - `: heartbeat` every 15 seconds to keep the connection alive
+      operationId: openLogStream
       security:
         - BearerAuth: []
       parameters:
@@ -366,6 +374,7 @@ paths:
         - Proxy
       summary: Get proxy status
       description: Get the current status of the proxy service (Developer+ required)
+      operationId: getProxyStatus
       security:
         - BearerAuth: []
       responses:
@@ -388,6 +397,7 @@ paths:
         - Proxy
       summary: Restart proxy
       description: Restart the proxy service (Admin+ required)
+      operationId: restartProxy
       security:
         - BearerAuth: []
       responses:
@@ -414,6 +424,7 @@ paths:
         - Proxy
       summary: Add proxy route
       description: Add a new route to the proxy configuration (Admin+ required)
+      operationId: addProxyRoute
       security:
         - BearerAuth: []
       requestBody:
@@ -448,6 +459,7 @@ paths:
         - Proxy
       summary: Remove proxy route
       description: Remove a route from the proxy configuration (Admin+ required)
+      operationId: removeProxyRoute
       security:
         - BearerAuth: []
       responses:
@@ -478,6 +490,7 @@ paths:
         - System
       summary: Get system status
       description: Get overall system health and status (Viewer+ required)
+      operationId: getSystemStatus
       security:
         - BearerAuth: []
       responses:
@@ -500,6 +513,7 @@ paths:
         - System
       summary: Get system information
       description: Get system version and configuration info (Admin+ required)
+      operationId: getSystemInfo
       security:
         - BearerAuth: []
       responses:
@@ -522,6 +536,7 @@ paths:
         - System
       summary: Run system doctor
       description: Run system diagnostics and attempt auto-fixes for core dependencies.
+      operationId: runSystemDoctor
       security:
         - BearerAuth: []
       responses:
@@ -540,6 +555,7 @@ paths:
         - System
       summary: Install or upgrade dployr
       description: Install a specific version of dployr or the latest version, then run the system doctor.
+      operationId: installSystem
       security:
         - BearerAuth: []
       requestBody:
@@ -574,6 +590,7 @@ paths:
         instance metadata. It does **not** require authentication but validates
         the claim against the locally stored token obtained from base during
         installation.
+      operationId: registerInstance
       security: []
       requestBody:
         required: true
@@ -584,6 +601,30 @@ paths:
       responses:
         '200':
           description: Instance successfully registered
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /system/domain:
+    post:
+      tags:
+        - System
+      summary: Request domain from base
+      description: |
+        Request and assign a managed domain for this dployr instance from the base control plane.
+
+        This endpoint is typically called during installation with a token issued by base and
+        the instance's address. It does **not** require authentication.
+      operationId: requestDomain
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestDomainRequest'
+      responses:
+        '200':
+          description: Domain successfully requested and instance registered
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -1065,6 +1106,14 @@ components:
           description: Expected token audience (for validation)
           example: "dployr-instance"
 
+    RequestDomainRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: Installation token issued by base for this instance
     Error:
       type: object
       properties:

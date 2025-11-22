@@ -38,7 +38,7 @@ echo "===================="
 
 # Show usage if help requested
 if [[ "$1" == "--help" || "$1" == "-h" ]]; then
-    echo "Usage: $0 [VERSION] token"
+    echo "Usage: $0 [version] token [public_ip_v4]"
     echo ""
     echo "Arguments:"
     echo "  VERSION  Optional dployr version tag (default: latest)"
@@ -63,7 +63,7 @@ register_instance() {
     if ! curl -sS -X POST \
         -H "Content-Type: application/json" \
         -d "{\"claim\":\"$token\"}" \
-        "http://localhost:7879/system/register"; then
+        "http://localhost:7879/system/domain"; then
         warn "Failed to register instance with base. Visit https://docs.dployr.dev/installation for more information."
         return 1
     fi

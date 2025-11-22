@@ -39,6 +39,11 @@ type RegisterInstanceRequest struct {
 	Audience   string `json:"audience"`
 }
 
+type RequestDomainRequest struct {
+	Token   string `json:"token"`
+	Address string `json:"address"`
+}
+
 // System defines an interface for system operations.
 type System interface {
 	// GetInfo returns system information.
@@ -50,7 +55,7 @@ type System interface {
 	// SystemStatus returns high-level health information.
 	SystemStatus(ctx context.Context) (SystemStatus, error)
 	// RequestDomain requests and assigns a new random domain from base to the system.
-	RequestDomain(ctx context.Context, token string) error
+	RequestDomain(ctx context.Context, req RequestDomainRequest) error
 	// RegisterInstance registers the system with the base and assigns an instance id
 	RegisterInstance(ctx context.Context, req RegisterInstanceRequest) error
 }
