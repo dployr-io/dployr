@@ -44,6 +44,10 @@ type RequestDomainRequest struct {
 	Address string `json:"address"`
 }
 
+type RequestDomainResponse struct {
+	Domain string `json:"domain"`
+}
+
 // System defines an interface for system operations.
 type System interface {
 	// GetInfo returns system information.

@@ -154,5 +154,5 @@ func (h *ServiceHandler) RequestDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shared.WriteJSON(w, http.StatusOK, map[string]string{"domain": domain})
+	shared.WriteJSON(w, http.StatusOK, RequestDomainResponse{Domain: domain})
 }

@@ -172,21 +172,27 @@ register_instance() {
     fi
 
     log_json "info" "Registration response received"
-    local error_msg error_code
-    error_msg=$(echo "$response" | parse_json '.error.message')
-    error_code=$(echo "$response" | parse_json '.error.code')
-    DPLOYR_DOMAIN=$(echo "$response" | parse_json '.data.domain')
+    local error_msg error_code error_details display_msg
+    error_msg=$(echo "$response" | parse_json '.error')
+    error_code=$(echo "$response" | parse_json '.code')
+    error_details=$(echo "$response" | parse_json '.details')
+    DPLOYR_DOMAIN=$(echo "$response" | parse_json '.domain')
+    display_msg=${error_details:-$error_msg}
 
     if [[ -n "$DPLOYR_DOMAIN" ]]; then
         info "Instance registered successfully. URL: https://$DPLOYR_DOMAIN"
         log_json "info" "Instance registered with domain: $DPLOYR_DOMAIN"
-    elif [[ "$error_code" == "ERROR.AUTH.BAD_TOKEN.code" ]]; then
-        error "Token already used"
-        log_json "error" "Registration failed: $error_msg (code: $error_code)"
+    elif [[ -n "$error_code" ]]; then
+        if [[ "$error_code" == "auth.bad_token" ]]; then
+            error "Invalid or expired token. Please generate a new token or see https://docs.dployr.dev/installation for help. Error: $display_msg (code: $error_code)"
+        else
+            error "Instance registration failed. Please see https://docs.dployr.dev/installation for help. Error: $display_msg (code: $error_code)"
+        fi
+        log_json "error" "Registration failed: $display_msg (code: $error_code)"
         return 1
     else
-        error "No domain received from base. Please check your token or see https://docs.dployr.dev/installation for help."
-        log_json "error" "Registration failed, domain not present in response: $error_msg (code: $error_code)"
+        error "Instance registration failed with unexpected response: $response"
+        log_json "error" "Registration failed, unexpected response: $response"
         return 1
     fi
 }

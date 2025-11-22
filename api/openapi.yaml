@@ -628,11 +628,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  domain:
-                    type: string
-                    example: "my-awesome-app.dployr.dev"
+                $ref: '#/components/schemas/RequestDomainResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -1122,6 +1118,13 @@ components:
         token:
           type: string
           description: Installation token issued by base for this instance
+    RequestDomainResponse:
+      type: object
+      properties:
+        domain:
+          type: string
+          description: Assigned domain for this instance
+          example: "my-awesome-app.dployr.dev"
     Error:
       type: object
       properties:

@@ -105,13 +105,16 @@ func (s *DefaultService) RequestDomain(ctx context.Context, req system.RequestDo
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp struct {
-			Message string `json:"message"`
-			Code    string `json:"code"`
+			Success bool `json:"success"`
+			Error   struct {
+				Message string `json:"message"`
+				Code    string `json:"code"`
+			} `json:"error"`
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
 			return "", fmt.Errorf("failed to assign domain: %s", resp.Status)
 		}
-		return "", fmt.Errorf("%s (code: %s)", errResp.Message, errResp.Code)
+		return "", fmt.Errorf("%s (code: %s)", errResp.Error.Message, errResp.Error.Code)
 	}
 
 	var data struct {
