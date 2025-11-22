@@ -18,6 +18,20 @@ $logFile = Join-Path $logDir "install.log"
 Start-Transcript -Path $logFile -Append | Out-Null
 Write-Host "Logging installer output to $logFile" -ForegroundColor Gray
 
+function Invoke-Fatal {
+    param(
+        [string]$Message
+    )
+
+    Write-Error $Message
+    if (Test-Path $logFile) {
+        Write-Host "[LOG] Last 20 lines from $logFile:" -ForegroundColor Yellow
+        Get-Content $logFile -Tail 20 | Write-Host
+        Write-Host "[INFO] Full log available at: $logFile" -ForegroundColor Yellow
+    }
+    exit 1
+}
+
 Write-Host "dployr Windows Installer" -ForegroundColor Green
 Write-Host "=========================" -ForegroundColor Green
 
@@ -41,8 +55,7 @@ if ($Help) {
 }
 
 if (-not $Token) {
-    Write-Error "Missing required -Token parameter. Run with -Help for usage."
-    exit 1
+    Invoke-Fatal "Missing required -Token parameter. Run with -Help for usage."
 }
 
 function Register-Instance {
@@ -82,8 +95,7 @@ if ($Version -eq "latest") {
         $Version = $release.tag_name
         Write-Host "Latest version: $Version"
     } catch {
-        Write-Error "Failed to get latest version: $_"
-        exit 1
+        Invoke-Fatal "Failed to get latest version: $_"
     }
 }
 
@@ -123,8 +135,7 @@ try {
     Remove-Item $tempExtract -Recurse -Force
     Write-Host "✓ dployr binaries installed"
 } catch {
-    Write-Error "Failed to download dployr: $_"
-    exit 1
+    Invoke-Fatal "Failed to download dployr: $_"
 }
 
 # Download and install Caddy
@@ -143,8 +154,7 @@ try {
     Remove-Item $caddyZip
     Write-Host "✓ Caddy installed"
 } catch {
-    Write-Error "Failed to install Caddy: $_"
-    exit 1
+    Invoke-Fatal "Failed to install Caddy: $_"
 }
 
 # Download and install NSSM
@@ -169,8 +179,7 @@ try {
     Remove-Item "$env:TEMP\nssm-2.24" -Recurse -Force
     Write-Host "✓ NSSM installed"
 } catch {
-    Write-Error "Failed to install NSSM: $_"
-    exit 1
+    Invoke-Fatal "Failed to install NSSM: $_"
 }
 
 # Install vfox

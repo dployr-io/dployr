@@ -5,6 +5,8 @@
 
 set -e
 
+START_TIME=$(date +%s)
+
 LOG_DIR="/var/log/dployrd"
 
 if [[ $EUID -eq 0 ]]; then
@@ -16,7 +18,12 @@ else
     LOG_FILE="$LOG_DIR/install.log"
 fi
 
+exec 3>&2
 exec >>"$LOG_FILE" 2>&1
+echo ""  
+echo ""
+echo ""
+echo "[$(date -Iseconds)] INSTALL START pid=$$ user=${USER:-unknown}"
 echo "Logging installer output to $LOG_FILE"
 
 INSTALL_DIR="/usr/local/bin"
@@ -32,7 +39,19 @@ NC='\033[0m'
 
 info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
-error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+error() {
+    local msg="$1"
+    echo -e "${RED}[ERROR]${NC} $msg"
+
+    if command -v tail >/dev/null 2>&1 && [[ -f "$LOG_FILE" ]]; then
+        echo -e "${YELLOW}[LOG]${NC} Last 20 lines from $LOG_FILE:" >&3
+        tail -n 20 "$LOG_FILE" >&3 || true
+    fi
+
+    echo -e "${YELLOW}[INFO]${NC} Full log available at: $LOG_FILE" >&3
+
+    exit 1
+}
 
 echo "dployr Unix Installer"
 echo "===================="
