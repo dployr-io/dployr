@@ -172,14 +172,21 @@ register_instance() {
     fi
 
     log_json "info" "Registration response received"
-
+    local error_msg error_code
+    error_msg=$(echo "$response" | parse_json '.error.message')
+    error_code=$(echo "$response" | parse_json '.error.code')
     DPLOYR_DOMAIN=$(echo "$response" | parse_json '.data.domain')
+
     if [[ -n "$DPLOYR_DOMAIN" ]]; then
         info "Instance registered successfully. URL: https://$DPLOYR_DOMAIN"
         log_json "info" "Instance registered with domain: $DPLOYR_DOMAIN"
+    elif [[ "$error_code" == "ERROR.AUTH.BAD_TOKEN.code" ]]; then
+        error "Token already used"
+        log_json "error" "Registration failed: $error_msg (code: $error_code)"
+        return 1
     else
         error "No domain received from base. Please check your token or see https://docs.dployr.dev/installation for help."
-        log_json "error" "Registration failed, domain not present in response: $response"
+        log_json "error" "Registration failed, domain not present in response: $error_msg (code: $error_code)"
         return 1
     fi
 }
