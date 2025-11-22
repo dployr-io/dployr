@@ -173,7 +173,7 @@ register_instance() {
 
     log_json "info" "Registration response received"
 
-    DPLOYR_DOMAIN=$(echo "$response" | parse_json '.domain')
+    DPLOYR_DOMAIN=$(echo "$response" | parse_json '.data.domain')
     if [[ -n "$DPLOYR_DOMAIN" ]]; then
         info "Instance registered successfully. URL: https://$DPLOYR_DOMAIN"
         log_json "info" "Instance registered with domain: $DPLOYR_DOMAIN"
