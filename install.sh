@@ -21,6 +21,7 @@ echo "Logging installer output to $LOG_FILE"
 INSTALL_DIR="/usr/local/bin"
 VERSION="${1:-latest}"
 TOKEN="$2"
+PUBLIC_IP_V4="$3"
 REPO="dployr-io/dployr"
 
 # Colors
@@ -38,11 +39,12 @@ echo "===================="
 
 # Show usage if help requested
 if [[ "$1" == "--help" || "$1" == "-h" ]]; then
-    echo "Usage: $0 [VERSION] token"
+    echo "Usage: $0 [version] token [public_ip_v4]"
     echo ""
     echo "Arguments:"
-    echo "  VERSION  Optional dployr version tag (default: latest)"
-    echo "  token    Install token obtained from dployr base"
+    echo "  version       Optional dployr version tag (default: latest)"
+    echo "  token         Install token obtained from dployr base"
+    echo "  public_ip_v4  Optional public IP address of the instance"
     echo ""
     echo "Examples:"
     echo "  $0 latest eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." 
@@ -56,14 +58,46 @@ if [[ -z "$TOKEN" ]]; then
     error "Missing install token argument. Run with: $0 [VERSION] token.\n\n Visit https://docs.dployr.dev/installation for more information."
 fi
 
+# Simplified best effort for Public IP detection
+# If behind a Proxy, this might fail and would generally
+# be recommended to provide the IP during installation
+# See https://docs.dployr.dev/installation for more information
+detect_public_ip_address() {
+    local ip=""
+    
+    # Try external service for public IP (handles NAT/VPS)
+    ip=$(curl -s --connect-timeout 2 --max-time 3 "https://api.ipify.org" 2>/dev/null)
+    
+    # Validate it's a public IP
+    if [[ "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && is_public_ip "$ip"; then
+        PUBLIC_IP_V4="$ip"
+        return 0
+    fi
+    
+    # Fallback to local interface
+    if [[ $OS == "linux" ]]; then
+        ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+    elif [[ $OS == "darwin" ]]; then
+        ip=$(ifconfig 2>/dev/null | grep "inet " | grep -v "127.0.0.1" | awk '{print $2}' | head -n1)
+    fi
+    
+    PUBLIC_IP_V4="${ip:-127.0.0.1}"
+}
+
 register_instance() {
     local token="$1"
+    
+    if [[ -z "$PUBLIC_IP_V4" ]]; then
+        info "Public IP was not provided. Attempting auto-detection..."
+
+        detect_public_ip_address
+    fi
 
     info "Registering instance with base..."
     if ! curl -sS -X POST \
         -H "Content-Type: application/json" \
-        -d "{\"claim\":\"$token\"}" \
-        "http://localhost:7879/system/register"; then
+        -d "{\"token\":\"$token\", \"address\":\"$PUBLIC_IP_V4\"}" \
+        "http://localhost:7879/system/domain"; then
         warn "Failed to register instance with base. Visit https://docs.dployr.dev/installation for more information."
         return 1
     fi
@@ -323,7 +357,7 @@ EOF
         info "dployrd service started and enabled"
 
 		sleep 1
-		register_instance "$TOKEN" || true
+		register_instance "$TOKEN" "$PUBLIC_IP_V4" || true
         ;;
     darwin)
         # Create dployr system groups (macOS)
@@ -398,7 +432,7 @@ EOF
         info "dployrd service started and enabled"
 
 		sleep 1
-		register_instance "$TOKEN" || true
+		register_instance "$TOKEN" "$PUBLIC_IP_V4" || true
         ;;
 esac
 

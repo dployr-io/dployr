@@ -74,12 +74,12 @@ func (s *DefaultService) SystemStatus(ctx context.Context) (system.SystemStatus,
 // used for routing traffic to this instance instead of directly hitting it.
 // This is to ensure HTTPS traffic is enforced on all dployr instances.
 // Please refer to the documentation at https://docs.dployr.dev/installation for more details.
-func (s *DefaultService) RequestDomain(ctx context.Context, token string) error {
+func (s *DefaultService) RequestDomain(ctx context.Context, req system.RequestDomainRequest) error {
 	if s.cfg.BaseURL == "" {
 		return fmt.Errorf("base_url is not configured")
 	}
 
-	if token == "" {
+	if req.Token == "" {
 		return fmt.Errorf("token cannot be empty")
 	}
 
@@ -90,14 +90,14 @@ func (s *DefaultService) RequestDomain(ctx context.Context, token string) error 
 		return nil
 	}
 
-	if err := s.store.SetToken(ctx, token); err != nil {
+	if err := s.store.SetToken(ctx, req.Token); err != nil {
 		return fmt.Errorf("failed to set token: %w", err)
 	}
 
 	resp, err := http.Post(
 		fmt.Sprintf("%s/v1/domains", s.cfg.BaseURL),
 		"application/json",
-		strings.NewReader(fmt.Sprintf(`{"token": "%s"}`, token)))
+		strings.NewReader(fmt.Sprintf(`{"token": "%s", "address": "%s"}`, req.Token, req.Address)))
 	if err != nil {
 		return fmt.Errorf("failed to assign domain: %w", err)
 	}

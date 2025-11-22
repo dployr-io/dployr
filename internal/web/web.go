@@ -47,6 +47,7 @@ type SystemHandler interface {
 	RunDoctor(w http.ResponseWriter, r *http.Request)
 	Install(w http.ResponseWriter, r *http.Request)
 	RegisterInstance(w http.ResponseWriter, r *http.Request)
+	RequestDomain(w http.ResponseWriter, r *http.Request)
 }
 
 func (w *WebHandler) NewServer(cfg *shared.Config) error {
@@ -133,6 +134,7 @@ func (w *WebHandler) NewServer(cfg *shared.Config) error {
 	http.Handle("/system/doctor", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(http.HandlerFunc(w.SystemH.RunDoctor)))))
 	http.Handle("/system/install", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.SystemH.Install)))))
 	http.Handle("/system/register", corsMiddleware(http.HandlerFunc(w.SystemH.RegisterInstance)))
+	http.Handle("/system/domain", corsMiddleware(http.HandlerFunc(w.SystemH.RequestDomain)))
 
 	addr := ":" + strconv.Itoa(cfg.Port)
 	log.Printf("Listening on port %s", addr)
