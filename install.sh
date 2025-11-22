@@ -19,7 +19,7 @@ else
 fi
 
 exec 3>&2
-exec >>"$LOG_FILE" 2>&1
+exec > >(tee -a "$LOG_FILE") 2>&1
 echo ""  
 echo ""
 echo ""
