@@ -100,7 +100,7 @@ register_instance() {
     info "Registering instance with base..."
     if ! curl -sS -X POST \
         -H "Content-Type: application/json" \
-        -d "{\"claim\":\"$token\"}" \
+        -d "{\"token\":\"$token\"}" \
         "http://localhost:7879/system/domain"; then
         warn "Failed to register instance with base. Visit https://docs.dployr.dev/installation for more information."
         return 1
