@@ -25,18 +25,21 @@ func (m *Middleware) Auth(next http.Handler) http.Handler {
 		authHeader := r.Header.Get("Authorization")
 		ctx := r.Context()
 		if authHeader == "" {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			e := shared.Errors.Auth.Unauthorized
+			shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 			return
 		}
 
 		if len(authHeader) <= len("Bearer ") || authHeader[:len("Bearer ")] != "Bearer " {
-			http.Error(w, "invalid token", http.StatusUnauthorized)
+			e := shared.Errors.Auth.Unauthorized
+			shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 			return
 		}
 		token := authHeader[len("Bearer "):]
 		claims, err := m.auth.ValidateToken(ctx, token)
 		if err != nil {
-			http.Error(w, "invalid token", http.StatusUnauthorized)
+			e := shared.Errors.Auth.Unauthorized
+			shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 			return
 		}
 
@@ -67,12 +70,14 @@ func (m *Middleware) RequireRole(required string) func(http.Handler) http.Handle
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			claims, ok := r.Context().Value(claimsCtxKey).(*Claims)
 			if !ok {
-				http.Error(w, "claims not found in context", http.StatusInternalServerError)
+				e := shared.Errors.Runtime.InternalServer
+				shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 				return
 			}
 
 			if !isPermitted(claims.Perm, required) {
-				http.Error(w, "forbidden: insufficient role permissions", http.StatusForbidden)
+				e := shared.Errors.Auth.Forbidden
+				shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 				return
 			}
 

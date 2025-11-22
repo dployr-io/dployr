@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"dployr/pkg/shared"
 )
 
 type LogStreamHandler struct {
@@ -23,19 +25,22 @@ func (h *LogStreamHandler) OpenLogStream(w http.ResponseWriter, r *http.Request)
 	ctx := r.Context()
 
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		e := shared.Errors.Request.MethodNotAllowed
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 
 	token := r.URL.Query().Get("token")
 	if token == "" {
-		http.Error(w, "missing bearer token parameter", http.StatusUnauthorized)
+		e := shared.Errors.Request.MissingParams
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"param": "token"})
 		return
 	}
 
 	id := r.URL.Query().Get("id")
 	if id == "" {
-		http.Error(w, "missing id parameter", http.StatusBadRequest)
+		e := shared.Errors.Request.MissingParams
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"param": "id"})
 		return
 	}
 
@@ -47,7 +52,8 @@ func (h *LogStreamHandler) OpenLogStream(w http.ResponseWriter, r *http.Request)
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, "streaming not supported", http.StatusInternalServerError)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 

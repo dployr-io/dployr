@@ -57,7 +57,8 @@ func (h *ServiceHandler) GetService(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewEncoder(w).Encode(service); err != nil {
 		h.logger.Error("failed to encode response", "error", err)
-		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 }
@@ -115,7 +116,8 @@ func (h *ServiceHandler) ListServices(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		h.logger.Error("failed to encode response", "error", err)
-		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 }
@@ -166,7 +168,8 @@ func (h *ServiceHandler) UpdateService(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewEncoder(w).Encode(updated); err != nil {
 		h.logger.Error("failed to encode response", "error", err)
-		http.Error(w, string(shared.RuntimeError), http.StatusInternalServerError)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 }

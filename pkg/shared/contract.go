@@ -23,6 +23,7 @@ const (
 
 	// Auth errors
 	ErrorAuthUnauthorized ErrorCode = "auth.unauthorized"
+	ErrorAuthForbidden    ErrorCode = "auth.forbidden"
 
 	// Resource errors
 	ErrorResourceNotFound ErrorCode = "resource.not_found"
@@ -42,6 +43,7 @@ var Errors = struct {
 	}
 	Auth struct {
 		Unauthorized ErrorDescriptor
+		Forbidden    ErrorDescriptor
 	}
 	Resource struct {
 		NotFound ErrorDescriptor
@@ -64,8 +66,10 @@ var Errors = struct {
 	},
 	Auth: struct {
 		Unauthorized ErrorDescriptor
+		Forbidden    ErrorDescriptor
 	}{
 		Unauthorized: ErrorDescriptor{Code: ErrorAuthUnauthorized, HTTPStatus: http.StatusUnauthorized, Message: "Unauthorized"},
+		Forbidden:    ErrorDescriptor{Code: ErrorAuthForbidden, HTTPStatus: http.StatusForbidden, Message: "Forbidden"},
 	},
 	Resource: struct {
 		NotFound ErrorDescriptor

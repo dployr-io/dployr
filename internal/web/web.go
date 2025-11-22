@@ -74,21 +74,24 @@ func (w *WebHandler) NewServer(cfg *shared.Config) error {
 		case http.MethodPost:
 			w.DepsH.CreateDeployment(rw, req)
 		default:
-			http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
+			e := shared.Errors.Request.MethodNotAllowed
+			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, nil)
 		}
 	})
 	http.Handle("/deployments", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(w.AuthM.Trace(depsH)))))
 
 	svcListH := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if req.URL.Path != "/services" {
-			http.NotFound(rw, req)
+			e := shared.Errors.Resource.NotFound
+			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"resource": "service", "path": req.URL.Path})
 			return
 		}
 		switch req.Method {
 		case http.MethodGet:
 			w.SvcH.ListServices(rw, req)
 		default:
-			http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
+			e := shared.Errors.Request.MethodNotAllowed
+			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, nil)
 		}
 	})
 	http.Handle("/services", corsMiddleware(w.AuthM.Auth(w.AuthM.Trace(svcListH))))
@@ -102,7 +105,8 @@ func (w *WebHandler) NewServer(cfg *shared.Config) error {
 
 		serviceID := path[len("/services/"):]
 		if serviceID == "" {
-			http.NotFound(rw, req)
+			e := shared.Errors.Resource.NotFound
+			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"resource": "service", "id": serviceID})
 			return
 		}
 
@@ -117,7 +121,8 @@ func (w *WebHandler) NewServer(cfg *shared.Config) error {
 		case http.MethodPut:
 			w.SvcH.UpdateService(rw, req)
 		default:
-			http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
+			e := shared.Errors.Request.MethodNotAllowed
+			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, nil)
 		}
 	})
 	http.Handle("/services/", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(w.AuthM.Trace(svcH)))))

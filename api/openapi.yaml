@@ -1174,7 +1174,7 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             error: "Unauthorized"
-            code: "AUTH_REQUIRED"
+            code: "auth.unauthorized"
 
     Forbidden:
       description: Insufficient permissions
@@ -1184,7 +1184,7 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             error: "Insufficient permissions"
-            code: "FORBIDDEN"
+            code: "auth.forbidden"
 
     NotFound:
       description: Resource not found
@@ -1194,7 +1194,7 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             error: "Resource not found"
-            code: "NOT_FOUND"
+            code: "resource.not_found"
 
     ValidationError:
       description: Validation error
@@ -1211,7 +1211,17 @@ components:
             $ref: '#/components/schemas/Error'
           example:
             error: "Internal server error"
-            code: "INTERNAL_ERROR"
+            code: "runtime.internal_server_error"
+
+    MethodNotAllowed:
+      description: Method not allowed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Method not allowed"
+            code: "request.method_not_allowed"
 
 tags:
   - name: Authentication
