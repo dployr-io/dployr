@@ -36,6 +36,7 @@ INSTALL_DIR="/usr/local/bin"
 VERSION="latest"
 TOKEN=""
 REPO="dployr-io/dployr"
+DPLOYR_DOMAIN=""
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -162,12 +163,11 @@ register_instance() {
     fi
 
     log_json "info" "Registration response received"
-    
-    local domain
-    domain=$(echo "$response" | parse_json '.domain')
-    if [[ -n "$domain" ]]; then
-        info "Instance registered successfully. URL: https://$domain"
-        log_json "info" "Instance registered with domain: $domain"
+
+    DPLOYR_DOMAIN=$(echo "$response" | parse_json '.domain')
+    if [[ -n "$DPLOYR_DOMAIN" ]]; then
+        info "Instance registered successfully. URL: https://$DPLOYR_DOMAIN"
+        log_json "info" "Instance registered with domain: $DPLOYR_DOMAIN"
     else
         info "Instance registration request sent"
         log_json "info" "$response"
@@ -510,6 +510,7 @@ Next steps:
 EOF
 
 [[ $EUID -ne 0 ]] && echo "- Add $INSTALL_DIR to your PATH" >&3
+[[ -n "$DPLOYR_DOMAIN" ]] && echo "- Instance URL: https://$DPLOYR_DOMAIN" >&3
 cat >&3 << EOF
 - The dployrd daemon is running as a system service
 - Use the CLI: dployr --help
