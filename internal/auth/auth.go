@@ -42,10 +42,11 @@ type Auth struct {
 	lastFetch time.Time
 }
 
-func Init(cfg *shared.Config) *Auth {
+func Init(cfg *shared.Config, s store.InstanceStore) *Auth {
 	return &Auth{
-		cfg:  cfg,
-		keys: make(map[string]*rsa.PublicKey),
+		cfg:   cfg,
+		store: s,
+		keys:  make(map[string]*rsa.PublicKey),
 	}
 }
 
