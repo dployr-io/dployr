@@ -563,11 +563,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                version:
-                  type: string
-                  description: dployr version tag to install (e.g. v0.1.1-beta.17). If omitted, installs latest.
+              $ref: '#/components/schemas/InstallRequest'
       responses:
         '200':
           description: Install and doctor completed
@@ -1118,6 +1114,12 @@ components:
         token:
           type: string
           description: Installation token issued by base for this instance
+    InstallRequest:
+      type: object
+      properties:
+        version:
+          type: string
+          description: dployr version tag to install (e.g. v0.1.1-beta.17). If omitted, installs latest.
     RequestDomainResponse:
       type: object
       properties:

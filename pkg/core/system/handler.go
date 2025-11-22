@@ -78,9 +78,7 @@ func (h *ServiceHandler) Install(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	var body struct {
-		Version string `json:"version"`
-	}
+	var body InstallRequest
 	_ = json.NewDecoder(r.Body).Decode(&body)
 
 	out, err := h.Svc.Install(ctx, body.Version)

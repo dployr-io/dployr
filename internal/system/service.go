@@ -117,28 +117,39 @@ func (s *DefaultService) RequestDomain(ctx context.Context, req system.RequestDo
 		return "", fmt.Errorf("%s (code: %s)", errResp.Error.Message, errResp.Error.Code)
 	}
 
-	var data struct {
-		InstanceID string `json:"instanceId"`
-		Domain     string `json:"domain"`
-		Issuer     string `json:"issuer"`
-		Audience   string `json:"audience"`
+	var body struct {
+		Success bool `json:"success"`
+		Data    struct {
+			InstanceID string `json:"instanceId"`
+			Domain     string `json:"domain"`
+			Issuer     string `json:"issuer"`
+			Audience   string `json:"audience"`
+		} `json:"data"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
+	if !body.Success {
+		return "", fmt.Errorf("base returned unsuccessful response without error payload")
+	}
+
+	if strings.TrimSpace(body.Data.Domain) == "" {
+		return "", fmt.Errorf("base returned empty domain")
+	}
+
 	inst := &store.Instance{
-		InstanceID: data.InstanceID,
-		Issuer:     data.Issuer,
-		Audience:   data.Audience,
+		InstanceID: body.Data.InstanceID,
+		Issuer:     body.Data.Issuer,
+		Audience:   body.Data.Audience,
 	}
 
 	if err := s.store.RegisterInstance(ctx, inst); err != nil {
 		return "", fmt.Errorf("failed to register instance: %w", err)
 	}
 
-	return data.Domain, nil
+	return body.Data.Domain, nil
 }
 
 func (s *DefaultService) RegisterInstance(ctx context.Context, req system.RegisterInstanceRequest) error {

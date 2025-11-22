@@ -47,6 +47,10 @@ type RequestDomainResponse struct {
 	Domain string `json:"domain"`
 }
 
+type InstallRequest struct {
+	Version string `json:"version"`
+}
+
 // System defines an interface for system operations.
 type System interface {
 	// GetInfo returns system information.
