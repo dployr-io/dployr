@@ -159,7 +159,7 @@ func (a *Auth) refreshJWKS() error {
 		return errors.New("base_url is not configured")
 	}
 
-	resp, err := http.Get(a.cfg.BaseURL + "/.well-known/jwks.json")
+	resp, err := http.Get(a.cfg.BaseURL + "/v1/jwks/.well-known/jwks.json")
 	if err != nil {
 		return fmt.Errorf("failed to fetch JWKS: %w", err)
 	}

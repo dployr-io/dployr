@@ -269,7 +269,6 @@ max-workers = 5
 
 # Base configuration
 base_url = "https://base.dployr.dev"
-base_jwks_url = "https://base.dployr.dev/.well-known/jwks.json"
 instance_id = "my-instance-id"
 "@
     $defaultConfig | Out-File -FilePath $configFile -Encoding UTF8

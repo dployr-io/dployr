@@ -348,7 +348,6 @@ port = 7879
 max-workers = 5
 
 base_url = "https://base.dployr.dev"
-base_jwks_url = "https://base.dployr.dev/.well-known/jwks.json"
 instance_id = "my-instance-id"
 EOF
     chmod 644 "$CONFIG_FILE"
