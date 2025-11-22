@@ -46,8 +46,8 @@ if [[ "$1" == "--help" || "$1" == "-h" ]]; then
     echo "  --token, -t    Optional install token obtained from dployr base"
     echo ""
     echo "Examples:"
-    echo "  $0 --token eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." 
-    echo "  $0 --version v0.1.1-beta.17 --token eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." 
+    echo "  $0 --version v0.3.1-beta.9"
+    echo "  $0 --version v0.3.1-beta.9 --token eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." 
     echo ""
     echo "Available versions: https://github.com/dployr-io/dployr/releases"
     exit 0
@@ -68,20 +68,6 @@ while [[ $# -gt 0 ]]; do
             fi
             TOKEN="$2"
             shift 2
-            ;;
-        --help|-h)
-            echo "Usage: $0 [--version <VERSION>] [--token <TOKEN>]"
-            echo ""
-            echo "Arguments:"
-            echo "  --version, -v  Optional dployr version tag (default: latest)"
-            echo "  --token, -t    Optional install token obtained from dployr base"
-            echo ""
-            echo "Examples:"
-            echo "  $0 --token eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." 
-            echo "  $0 --version v0.1.1-beta.17 --token eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." 
-            echo ""
-            echo "Available versions: https://github.com/dployr-io/dployr/releases"
-            exit 0
             ;;
         *)
             error "Unknown argument: $1"
