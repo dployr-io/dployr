@@ -31,6 +31,8 @@ func (h *ProxyHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.logger.Info("proxy.get_status request", "method", r.Method, "path", r.URL.Path)
+
 	status := h.proxier.api.Status()
 	resp := ProxyStatus{Status: string(status.Status)}
 
@@ -51,6 +53,8 @@ func (h *ProxyHandler) HandleRestart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.logger.Info("proxy.restart request", "method", r.Method, "path", r.URL.Path)
+
 	err := h.proxier.api.Restart()
 
 	if err != nil {
@@ -70,6 +74,8 @@ func (h *ProxyHandler) HandleAdd(w http.ResponseWriter, r *http.Request) {
 		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
 		return
 	}
+
+	h.logger.Info("proxy.add_route request", "method", r.Method, "path", r.URL.Path)
 
 	var route ProxyRoute
 	if err := json.NewDecoder(r.Body).Decode(&route); err != nil {
@@ -105,6 +111,8 @@ func (h *ProxyHandler) HandleRemove(w http.ResponseWriter, r *http.Request) {
 		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
 		return
 	}
+
+	h.logger.Info("proxy.remove_route request", "method", r.Method, "path", r.URL.Path)
 
 	var req []string
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

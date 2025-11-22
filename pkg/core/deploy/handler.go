@@ -23,6 +23,7 @@ func NewDeploymentHandler(deployer *Deployer, logger *slog.Logger) *DeploymentHa
 
 func (h *DeploymentHandler) CreateDeployment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	h.logger.Info("deploy.create_deployment request", "method", r.Method, "path", r.URL.Path)
 
 	if r.Method != http.MethodPost {
 		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
@@ -67,6 +68,7 @@ func (h *DeploymentHandler) CreateDeployment(w http.ResponseWriter, r *http.Requ
 
 func (h *DeploymentHandler) ListDeployments(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	h.logger.Info("deploy.list_deployments request", "method", r.Method, "path", r.URL.Path)
 
 	if r.Method != http.MethodGet {
 		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)

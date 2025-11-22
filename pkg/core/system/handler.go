@@ -22,8 +22,11 @@ func (h *ServiceHandler) GetInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+	logger := shared.LogWithContext(ctx)
+	logger.Info("system.get_info request")
 	info, err := h.Svc.GetInfo(ctx)
 	if err != nil {
+		logger.Error("system.get_info failed", "error", err)
 		shared.WriteError(w, shared.Errors.Runtime.InternalServer.HTTPStatus, string(shared.Errors.Runtime.InternalServer.Code), shared.Errors.Runtime.InternalServer.Message, nil)
 		return
 	}
@@ -38,8 +41,11 @@ func (h *ServiceHandler) SystemStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+	logger := shared.LogWithContext(ctx)
+	logger.Info("system.status request")
 	status, err := h.Svc.SystemStatus(ctx)
 	if err != nil {
+		logger.Error("system.status failed", "error", err)
 		shared.WriteError(w, shared.Errors.Runtime.InternalServer.HTTPStatus, string(shared.Errors.Runtime.InternalServer.Code), shared.Errors.Runtime.InternalServer.Message, nil)
 		return
 	}
@@ -55,6 +61,8 @@ func (h *ServiceHandler) RunDoctor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+	logger := shared.LogWithContext(ctx)
+	logger.Info("system.run_doctor request")
 	out, err := h.Svc.RunDoctor(ctx)
 	resp := DoctorResult{
 		Output: out,
@@ -77,6 +85,8 @@ func (h *ServiceHandler) Install(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+	logger := shared.LogWithContext(ctx)
+	logger.Info("system.install request")
 
 	var body InstallRequest
 	_ = json.NewDecoder(r.Body).Decode(&body)
@@ -108,11 +118,13 @@ func (h *ServiceHandler) RegisterInstance(w http.ResponseWriter, r *http.Request
 	}
 
 	ctx := r.Context()
+	logger := shared.LogWithContext(ctx)
 
 	var body RegisterInstanceRequest
 	_ = json.NewDecoder(r.Body).Decode(&body)
 
 	if err := h.Svc.RegisterInstance(ctx, body); err != nil {
+		logger.Error("system.register_instance failed", "error", err)
 		shared.WriteError(
 			w,
 			shared.Errors.Instance.RegistrationFailed.HTTPStatus,
@@ -137,12 +149,14 @@ func (h *ServiceHandler) RequestDomain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+	logger := shared.LogWithContext(ctx)
 
 	var body RequestDomainRequest
 	_ = json.NewDecoder(r.Body).Decode(&body)
 
 	domain, err := h.Svc.RequestDomain(ctx, body)
 	if err != nil {
+		logger.Error("system.request_domain failed", "error", err)
 		shared.WriteError(
 			w,
 			shared.Errors.Instance.RegistrationFailed.HTTPStatus,

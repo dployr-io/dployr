@@ -24,6 +24,7 @@ func NewServiceHandler(servicer *Servicer, logger *slog.Logger) *ServiceHandler 
 
 func (h *ServiceHandler) GetService(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	h.logger.Info("service.get_service request", "method", r.Method, "path", r.URL.Path)
 
 	if r.Method != http.MethodGet {
 		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
@@ -65,6 +66,7 @@ func (h *ServiceHandler) GetService(w http.ResponseWriter, r *http.Request) {
 
 func (h *ServiceHandler) ListServices(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	h.logger.Info("service.list_services request", "method", r.Method, "path", r.URL.Path)
 
 	if r.Method != http.MethodGet {
 		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
@@ -124,6 +126,7 @@ func (h *ServiceHandler) ListServices(w http.ResponseWriter, r *http.Request) {
 
 func (h *ServiceHandler) UpdateService(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	h.logger.Info("service.update_service request", "method", r.Method, "path", r.URL.Path)
 
 	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
 		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)

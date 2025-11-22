@@ -99,24 +99,33 @@ func (a *Auth) ValidateToken(ctx context.Context, tokenStr string) (*pkgAuth.Cla
 
 	inst, err := a.store.GetInstance(ctx)
 	if err != nil {
+		shared.LogWithContext(ctx).Error("failed to get instance for token", "error", err)
 		return nil, err
 	}
 
 	if inst == nil {
-		return nil, errors.New("instance not found")
+		err := errors.New("instance not found")
+		shared.LogWithContext(ctx).Error("token validation failed", "error", err)
+		return nil, err
 	}
 
 	if inst.Issuer != "" && claims.Issuer != "" && claims.Issuer != inst.Issuer {
-		return nil, errors.New("invalid token issuer")
+		err := errors.New("invalid token issuer")
+		shared.LogWithContext(ctx).Error("token validation failed", "error", err)
+		return nil, err
 	}
 	if inst.Audience != "" {
 		if !containsAudience(claims.Audience, inst.Audience) {
-			return nil, errors.New("invalid token audience")
+			err := errors.New("invalid token audience")
+			shared.LogWithContext(ctx).Error("token validation failed", "error", err)
+			return nil, err
 		}
 	}
 
 	if inst.InstanceID != "" && claims.InstanceID != "" && claims.InstanceID != inst.InstanceID {
-		return nil, errors.New("token not intended for this instance")
+		err := errors.New("token not intended for this instance")
+		shared.LogWithContext(ctx).Error("token validation failed", "error", err)
+		return nil, err
 	}
 
 	return claims, nil
