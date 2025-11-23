@@ -90,11 +90,10 @@ func (s *InstanceStore) GetToken(ctx context.Context) (string, error) {
 func (s *InstanceStore) RegisterInstance(ctx context.Context, i *store.Instance) error {
 	now := time.Now().Unix()
 	res, err := s.db.ExecContext(ctx, `
-		UPDATE instance SET instance_id = ?, issuer = ?, audience = ?, registered_at = ?, last_installed_at = ?`,
+		UPDATE instance SET instance_id = ?, issuer = ?, audience = ?, last_installed_at = ?`,
 		i.InstanceID,
 		i.Issuer,
 		i.Audience,
-		now,
 		now,
 	)
 	if err != nil {

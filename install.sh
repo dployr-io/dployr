@@ -79,7 +79,17 @@ install_jq() {
     case $OS in
         linux)
             if command -v apt &>/dev/null; then
-                apt update -qq && apt install -y -qq jq
+                while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+                    sleep 1
+                done
+
+                apt update -qq
+
+                while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+                    sleep 1
+                done
+
+                apt install -y -qq jq
             elif command -v yum &>/dev/null; then
                 yum install -y -q jq
             else
