@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"dployr/internal/scripts"
@@ -22,13 +23,19 @@ import (
 
 var startTime = time.Now()
 
+var (
+	currentModeMu sync.RWMutex
+	currentMode   = system.ModeReady
+)
+
 type DefaultService struct {
-	cfg   *shared.Config
-	store store.InstanceStore
+	cfg     *shared.Config
+	store   store.InstanceStore
+	results store.TaskResultStore
 }
 
-func NewDefaultService(cfg *shared.Config, store store.InstanceStore) *DefaultService {
-	return &DefaultService{cfg: cfg, store: store}
+func NewDefaultService(cfg *shared.Config, store store.InstanceStore, results store.TaskResultStore) *DefaultService {
+	return &DefaultService{cfg: cfg, store: store, results: results}
 }
 
 func (s *DefaultService) GetInfo(ctx context.Context) (utils.SystemInfo, error) {
@@ -68,6 +75,51 @@ func (s *DefaultService) SystemStatus(ctx context.Context) (system.SystemStatus,
 	st.Proxy.Routes = 0
 
 	return st, nil
+}
+
+func (s *DefaultService) GetTasks(ctx context.Context, status string) (system.TaskSummary, error) {
+	if status == "" || status == "pending" {
+		return system.TaskSummary{Count: currentPendingTasks()}, nil
+	}
+
+	switch status {
+	case "completed":
+		if s.results == nil {
+			return system.TaskSummary{Count: 0}, nil
+		}
+		results, err := s.results.ListUnsent(ctx)
+		if err != nil {
+			return system.TaskSummary{}, err
+		}
+		return system.TaskSummary{Count: len(results)}, nil
+	default:
+		return system.TaskSummary{}, fmt.Errorf("unsupported status %q", status)
+	}
+}
+
+// GetMode returns the current daemon mode.
+func (s *DefaultService) GetMode(ctx context.Context) (system.ModeStatus, error) {
+	currentModeMu.RLock()
+	defer currentModeMu.RUnlock()
+	return system.ModeStatus{Mode: currentMode}, nil
+}
+
+// SetMode updates the daemon mode.
+func (s *DefaultService) SetMode(ctx context.Context, req system.SetModeRequest) (system.ModeStatus, error) {
+	mode := req.Mode
+	if mode == "" {
+		mode = system.ModeReady
+	}
+
+	if mode != system.ModeReady && mode != system.ModeUpdating {
+		return system.ModeStatus{}, fmt.Errorf("unsupported mode %q", mode)
+	}
+
+	currentModeMu.Lock()
+	currentMode = mode
+	currentModeMu.Unlock()
+
+	return system.ModeStatus{Mode: mode}, nil
 }
 
 // During the installation process, this method is used to register the instance with the base,

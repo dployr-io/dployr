@@ -41,6 +41,16 @@ CREATE TABLE IF NOT EXISTS instance (
     last_installed_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
+-- TASK RESULTS TABLE
+CREATE TABLE IF NOT EXISTS task_results (
+    id TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    result JSON NOT NULL DEFAULT '{}',
+    error TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    synced_at INTEGER
+);
+
 -- Prevent updates to instance table
 CREATE TRIGGER trg_prevent_instance_updates
 BEFORE UPDATE ON instance

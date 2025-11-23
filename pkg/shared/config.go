@@ -17,10 +17,11 @@ import (
 )
 
 type Config struct {
-	Address    string
-	Port       int
-	MaxWorkers int
-	BaseURL    string
+	Address      string
+	Port         int
+	MaxWorkers   int
+	BaseURL      string
+	SyncInterval time.Duration
 }
 
 func LoadConfig() (*Config, error) {
@@ -32,10 +33,11 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		Address:    getEnv("ADDRESS", "localhost"),
-		Port:       getEnvAsInt("PORT", 7879),
-		MaxWorkers: getEnvAsInt("MAX_WORKERS", 5),
-		BaseURL:    getEnv("BASE_URL", ""),
+		Address:      getEnv("ADDRESS", "localhost"),
+		Port:         getEnvAsInt("PORT", 7879),
+		MaxWorkers:   getEnvAsInt("MAX_WORKERS", 5),
+		BaseURL:      getEnv("BASE_URL", ""),
+		SyncInterval: getEnvAsDuration("SYNC_INTERVAL", 30*time.Second),
 	}, nil
 }
 
@@ -59,6 +61,43 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+const (
+	minSyncInterval = 5 * time.Second
+	maxSyncInterval = 5 * time.Minute
+)
+
+func getEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
+	value := os.Getenv(key)
+	if value == "" {
+		return sanitizeSyncInterval(defaultValue)
+	}
+	if d, err := time.ParseDuration(value); err == nil {
+		return sanitizeSyncInterval(d)
+	}
+	if intValue, err := strconv.Atoi(value); err == nil {
+		return sanitizeSyncInterval(time.Duration(intValue) * time.Second)
+	}
+	return sanitizeSyncInterval(defaultValue)
+}
+
+// SanitizeSyncInterval clamps a duration to safe sync bounds.
+func SanitizeSyncInterval(v time.Duration) time.Duration {
+	if v <= 0 {
+		return 30 * time.Second
+	}
+	if v < minSyncInterval {
+		return minSyncInterval
+	}
+	if v > maxSyncInterval {
+		return maxSyncInterval
+	}
+	return v
+}
+
+func sanitizeSyncInterval(v time.Duration) time.Duration {
+	return SanitizeSyncInterval(v)
 }
 
 func getEnvAsInt(key string, defaultValue int) int {

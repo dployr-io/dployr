@@ -10,6 +10,16 @@ type ctxKey string
 
 const claimsCtxKey ctxKey = "claims"
 
+type Role string
+
+const (
+	RoleViewer    Role = "viewer"
+	RoleDeveloper Role = "developer"
+	RoleAdmin     Role = "admin"
+	RoleOwner     Role = "owner"
+	RoleAgent     Role = "agent" // M2M role for daemon-to-base communication
+)
+
 type Middleware struct {
 	auth Authenticator
 }
@@ -54,19 +64,55 @@ func (m *Middleware) Auth(next http.Handler) http.Handler {
 }
 
 func isPermitted(actual, required string) bool {
-	order := map[string]int{
-		"viewer":    1,
-		"developer": 2,
-		"admin":     3,
-		"owner":     4,
-	}
-
-	a, okA := order[actual]
-	r, okR := order[required]
+	a, okA := parseRole(actual)
+	r, okR := parseRole(required)
 	if !okA || !okR {
 		return false
 	}
-	return a >= r
+	return roleAllows(a, r)
+}
+
+func parseRole(s string) (Role, bool) {
+	switch s {
+	case string(RoleViewer):
+		return RoleViewer, true
+	case string(RoleDeveloper):
+		return RoleDeveloper, true
+	case string(RoleAdmin):
+		return RoleAdmin, true
+	case string(RoleOwner):
+		return RoleOwner, true
+	case string(RoleAgent):
+		return RoleAgent, true
+	default:
+		return "", false
+	}
+}
+
+// roleAllows encodes which roles can act as which others in a single place.
+// Higher-privilege roles are explicitly listed instead of using numeric weights.
+func roleAllows(actual, required Role) bool {
+	if actual == required {
+		return true
+	}
+	switch actual {
+	case RoleOwner:
+		return required == RoleAdmin || required == RoleDeveloper || required == RoleViewer
+	case RoleAdmin:
+		return required == RoleDeveloper || required == RoleViewer
+	case RoleDeveloper:
+		return required == RoleViewer
+	case RoleAgent:
+		// Agent can act as viewer for read-only tasks
+		return required == RoleViewer
+	default:
+		return false
+	}
+}
+
+// IsPermitted is a public wrapper for checking role permissions.
+func IsPermitted(actual, required string) bool {
+	return isPermitted(actual, required)
 }
 
 func (m *Middleware) RequireRole(required string) func(http.Handler) http.Handler {

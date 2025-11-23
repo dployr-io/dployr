@@ -59,6 +59,7 @@ func main() {
 	ds := _store.NewDeploymentStore(conn)
 	ss := _store.NewServiceStore(conn, ds)
 	is := _store.NewInstanceStore(conn)
+	trs := _store.NewTaskResultStore(conn)
 
 	ctx := context.Background()
 	ctx = shared.WithRequest(ctx, ulid.Make().String())
@@ -88,7 +89,7 @@ func main() {
 	ls := stream.NewLogStreamer(logsDir, logsService)
 	lh := stream.NewLogStreamHandler(ls, logger)
 
-	sysSvc := _system.NewDefaultService(cfg, is)
+	sysSvc := _system.NewDefaultService(cfg, is, trs)
 	sysH := system.NewServiceHandler(sysSvc)
 
 	wh := web.WebHandler{
@@ -100,6 +101,10 @@ func main() {
 		AuthM:   am,
 	}
 
+	mux := wh.BuildMux(cfg)
+
+	syncer := _system.NewSyncer(cfg, logger, is, trs, mux)
+
 	go func() {
 		if err := wh.NewServer(cfg); err != nil {
 			log.Fatalf("server error: %v", err)
@@ -108,6 +113,10 @@ func main() {
 
 	go func() {
 		w.Start(ctx)
+	}()
+
+	go func() {
+		syncer.Start(ctx)
 	}()
 
 	stop := make(chan os.Signal, 1)

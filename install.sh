@@ -114,6 +114,100 @@ install_jq() {
     fi
 }
 
+# get_daemon_port tries to read the HTTP port from the config file,
+# falling back to the default 7879.
+get_daemon_port() {
+    local cfg_file
+
+    case $OS in
+        darwin)
+            cfg_file="/usr/local/etc/dployr/config.toml"
+            ;;
+        *)
+            cfg_file="/etc/dployr/config.toml"
+            ;;
+    esac
+
+    if [[ -r "$cfg_file" ]]; then
+        local p
+        p=$(grep -E '^port[[:space:]]*=' "$cfg_file" | head -1 | sed 's/[^0-9]*\([0-9][0-9]*\).*/\1/' || true)
+        if [[ -n "$p" ]]; then
+            echo "$p"
+            return 0
+        fi
+    fi
+
+    echo "7879"
+}
+
+# wait_for_pending_tasks blocks for a short period while there are
+# in-progress deployments reported by the daemon. On first install or
+# when the daemon is not running, it returns immediately.
+wait_for_pending_tasks() {
+    # If daemon is not running yet, nothing to wait for.
+    if ! pgrep -x "dployrd" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    # jq is installed earlier; curl is expected to be available.
+    if ! command -v curl >/dev/null 2>&1; then
+        return 0
+    fi
+
+    local port
+    port=$(get_daemon_port)
+
+    info "Checking for pending tasks before upgrade (port $port)..."
+
+    # Best-effort: tell the daemon we are entering an updating window.
+    curl -sS -X POST \
+        -H "Content-Type: application/json" \
+        -d '{"mode":"updating"}' \
+        "http://localhost:${port}/system/mode" >/dev/null 2>&1 || true
+
+    local attempts=0
+    local max_attempts=24 # ~2 minutes total at 5s intervals
+
+    while (( attempts < max_attempts )); do
+        attempts=$((attempts + 1))
+
+        local resp
+        resp=$(curl -sS "http://localhost:${port}/system/tasks?status=pending" || true)
+        if [[ -z "$resp" ]]; then
+            # If we can't talk to the daemon, do not block the install.
+            warn "Could not query dployrd for pending deployments; continuing with install."
+            return 0
+        fi
+
+        local count
+        count=$(echo "$resp" | jq '.count' 2>/dev/null || echo "")
+        if [[ -z "$count" ]]; then
+            warn "Could not parse pending tasks response; continuing with install."
+            return 0
+        fi
+
+        if [[ "$count" -eq 0 ]]; then
+            info "No pending tasks detected. Proceeding with install."
+            # Best-effort: mark daemon as ready again.
+            curl -sS -X POST \
+                -H "Content-Type: application/json" \
+                -d '{"mode":"ready"}' \
+                "http://localhost:${port}/system/mode" >/dev/null 2>&1 || true
+            return 0
+        fi
+
+        info "There are $count pending tasks. Waiting for them to finish before install (attempt $attempts/$max_attempts)..."
+        sleep 1
+    done
+
+    warn "Timed out waiting for pending deployments to finish. Proceeding with install."
+    # Even on timeout, attempt to return daemon to ready mode.
+    curl -sS -X POST \
+        -H "Content-Type: application/json" \
+        -d '{"mode":"ready"}' \
+        "http://localhost:${port}/system/mode" >/dev/null 2>&1 || true
+}
+
 parse_json() {
     local expr="$1"
     local value
@@ -251,6 +345,10 @@ tar -xzf "$TEMP_DIR/dployr.tar.gz" -C "$TEMP_DIR" || error "Failed to extract dp
 EXTRACT_DIR="$TEMP_DIR/dployr-$PLATFORM-$ARCH"
 
 if pgrep -x "dployrd" > /dev/null; then
+    # Give any in-flight deployments a chance to complete before
+    # stopping the daemon for upgrade.
+    wait_for_pending_tasks
+
     info "Stopping running dployrd daemon..."
     case $OS in
         linux)

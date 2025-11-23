@@ -54,6 +54,80 @@ func (h *ServiceHandler) SystemStatus(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(status)
 }
 
+func (h *ServiceHandler) Tasks(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
+		return
+	}
+
+	ctx := r.Context()
+	logger := shared.LogWithContext(ctx)
+	status := r.URL.Query().Get("status")
+	if status == "" {
+		status = "pending"
+	}
+
+	logger.Info("system.tasks request", "status", status)
+
+	summary, err := h.Svc.GetTasks(ctx, status)
+	if err != nil {
+		logger.Error("system.tasks failed", "error", err)
+		shared.WriteError(w, shared.Errors.Runtime.InternalServer.HTTPStatus, string(shared.Errors.Runtime.InternalServer.Code), shared.Errors.Runtime.InternalServer.Message, nil)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(summary)
+}
+
+func (h *ServiceHandler) GetMode(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
+		return
+	}
+
+	ctx := r.Context()
+	logger := shared.LogWithContext(ctx)
+	logger.Info("system.get_mode request")
+
+	status, err := h.Svc.GetMode(ctx)
+	if err != nil {
+		logger.Error("system.get_mode failed", "error", err)
+		shared.WriteError(w, shared.Errors.Runtime.InternalServer.HTTPStatus, string(shared.Errors.Runtime.InternalServer.Code), shared.Errors.Runtime.InternalServer.Message, nil)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(status)
+}
+
+func (h *ServiceHandler) SetMode(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
+		return
+	}
+
+	ctx := r.Context()
+	logger := shared.LogWithContext(ctx)
+	logger.Info("system.set_mode request")
+
+	var body SetModeRequest
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if body.Mode == "" {
+		body.Mode = ModeReady
+	}
+
+	status, err := h.Svc.SetMode(ctx, body)
+	if err != nil {
+		logger.Error("system.set_mode failed", "error", err)
+		shared.WriteError(w, shared.Errors.Runtime.InternalServer.HTTPStatus, string(shared.Errors.Runtime.InternalServer.Code), shared.Errors.Runtime.InternalServer.Message, nil)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(status)
+}
+
 func (h *ServiceHandler) RunDoctor(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)

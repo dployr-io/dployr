@@ -48,9 +48,15 @@ type SystemHandler interface {
 	Install(w http.ResponseWriter, r *http.Request)
 	RegisterInstance(w http.ResponseWriter, r *http.Request)
 	RequestDomain(w http.ResponseWriter, r *http.Request)
+	Tasks(w http.ResponseWriter, r *http.Request)
+	GetMode(w http.ResponseWriter, r *http.Request)
+	SetMode(w http.ResponseWriter, r *http.Request)
 }
 
-func (w *WebHandler) NewServer(cfg *shared.Config) error {
+// BuildMux creates and returns the configured HTTP multiplexer.
+func (w *WebHandler) BuildMux(cfg *shared.Config) *http.ServeMux {
+	mux := http.NewServeMux()
+
 	corsMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 			rw.Header().Set("Access-Control-Allow-Origin", cfg.BaseURL)
@@ -78,7 +84,7 @@ func (w *WebHandler) NewServer(cfg *shared.Config) error {
 			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, nil)
 		}
 	})
-	http.Handle("/deployments", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(w.AuthM.Trace(depsH)))))
+	mux.Handle("/deployments", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(w.AuthM.Trace(depsH)))))
 
 	svcListH := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if req.URL.Path != "/services" {
@@ -94,7 +100,7 @@ func (w *WebHandler) NewServer(cfg *shared.Config) error {
 			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, nil)
 		}
 	})
-	http.Handle("/services", corsMiddleware(w.AuthM.Auth(w.AuthM.Trace(svcListH))))
+	mux.Handle("/services", corsMiddleware(w.AuthM.Auth(w.AuthM.Trace(svcListH))))
 
 	svcH := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		path := req.URL.Path
@@ -125,23 +131,41 @@ func (w *WebHandler) NewServer(cfg *shared.Config) error {
 			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, nil)
 		}
 	})
-	http.Handle("/services/", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(w.AuthM.Trace(svcH)))))
+	mux.Handle("/services/", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(w.AuthM.Trace(svcH)))))
 
-	http.Handle("/logs/stream", corsMiddleware(http.HandlerFunc(w.LogsH.OpenLogStream)))
+	mux.Handle("/logs/stream", corsMiddleware(http.HandlerFunc(w.LogsH.OpenLogStream)))
 
-	http.Handle("/proxy/status", corsMiddleware(w.AuthM.Auth(http.HandlerFunc(w.ProxyH.GetStatus))))
-	http.Handle("/proxy/restart", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleRestart)))))
-	http.Handle("/proxy/add", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleAdd)))))
-	http.Handle("/proxy/remove", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleRemove)))))
+	mux.Handle("/proxy/status", corsMiddleware(w.AuthM.Auth(http.HandlerFunc(w.ProxyH.GetStatus))))
+	mux.Handle("/proxy/restart", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleRestart)))))
+	mux.Handle("/proxy/add", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleAdd)))))
+	mux.Handle("/proxy/remove", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleRemove)))))
 
-	http.Handle("/system/info", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(http.HandlerFunc(w.SystemH.GetInfo)))))
-	http.Handle("/system/status", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleViewer))(http.HandlerFunc(w.SystemH.SystemStatus)))))
-	http.Handle("/system/doctor", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(http.HandlerFunc(w.SystemH.RunDoctor)))))
-	http.Handle("/system/install", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.SystemH.Install)))))
-	http.Handle("/system/register", corsMiddleware(http.HandlerFunc(w.SystemH.RegisterInstance)))
-	http.Handle("/system/domain", corsMiddleware(http.HandlerFunc(w.SystemH.RequestDomain)))
+	mux.Handle("/system/info", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(http.HandlerFunc(w.SystemH.GetInfo)))))
+	mux.Handle("/system/status", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleViewer))(http.HandlerFunc(w.SystemH.SystemStatus)))))
+	mux.Handle("/system/tasks", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleViewer))(http.HandlerFunc(w.SystemH.Tasks)))))
+	mux.Handle("/system/doctor", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(http.HandlerFunc(w.SystemH.RunDoctor)))))
+	mux.Handle("/system/install", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.SystemH.Install)))))
+	mux.Handle("/system/register", corsMiddleware(http.HandlerFunc(w.SystemH.RegisterInstance)))
+	mux.Handle("/system/domain", corsMiddleware(http.HandlerFunc(w.SystemH.RequestDomain)))
+	mux.Handle("/system/mode", corsMiddleware(w.AuthM.Auth(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		switch req.Method {
+		case http.MethodGet:
+			w.AuthM.RequireRole(string(store.RoleViewer))(http.HandlerFunc(w.SystemH.GetMode)).ServeHTTP(rw, req)
+		case http.MethodPost:
+			w.AuthM.RequireRole(string(auth.RoleAgent))(http.HandlerFunc(w.SystemH.SetMode)).ServeHTTP(rw, req)
+		default:
+			e := shared.Errors.Request.MethodNotAllowed
+			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, nil)
+		}
+	}))))
 
+	return mux
+}
+
+// NewServer starts the HTTP server.
+func (w *WebHandler) NewServer(cfg *shared.Config) error {
+	mux := w.BuildMux(cfg)
 	addr := ":" + strconv.Itoa(cfg.Port)
 	log.Printf("Listening on port %s", addr)
-	return http.ListenAndServe(addr, nil)
+	return http.ListenAndServe(addr, mux)
 }

@@ -51,6 +51,31 @@ type InstallRequest struct {
 	Version string `json:"version"`
 }
 
+// TaskSummary represents a simple count of tasks for a given status.
+type TaskSummary struct {
+	Count int `json:"count"`
+}
+
+// Mode represents the current mode.
+// "ready"   – normal operation, syncer active.
+// "updating" – in the middle of an update/installation cycle.
+type Mode string
+
+const (
+	ModeReady    Mode = "ready"
+	ModeUpdating Mode = "updating"
+)
+
+// ModeStatus describes the current daemon mode.
+type ModeStatus struct {
+	Mode Mode `json:"mode"`
+}
+
+// SetModeRequest is used by the agent to change the daemon mode.
+type SetModeRequest struct {
+	Mode Mode `json:"mode"`
+}
+
 // System defines an interface for system operations.
 type System interface {
 	// GetInfo returns system information.
@@ -65,6 +90,12 @@ type System interface {
 	RequestDomain(ctx context.Context, req RequestDomainRequest) (string, error)
 	// RegisterInstance registers the system with the base and assigns an instance id
 	RegisterInstance(ctx context.Context, req RegisterInstanceRequest) error
+	// GetTasks returns a summary of tasks for the given status (e.g. "pending", "completed").
+	GetTasks(ctx context.Context, status string) (TaskSummary, error)
+	// GetMode returns the current daemon mode.
+	GetMode(ctx context.Context) (ModeStatus, error)
+	// SetMode updates the daemon mode.
+	SetMode(ctx context.Context, req SetModeRequest) (ModeStatus, error)
 }
 
 type SystemManager struct{}

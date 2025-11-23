@@ -22,7 +22,7 @@ info:
     - **Viewer**: Read-only access to services
 
     See https://docs.dployr.dev/auth for more details.
-  version: 1.1.1
+  version: 1.2.0
   contact:
     name: Emmanuel Madehin
     email: hello@dployr.dev
@@ -595,7 +595,6 @@ paths:
             schema:
               $ref: '#/components/schemas/RegisterInstanceRequest'
       responses:
-        '200':
           description: Instance successfully registered
         '500':
           $ref: '#/components/responses/InternalServerError'
@@ -625,6 +624,115 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RequestDomainResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /system/tasks:
+    get:
+      tags:
+        - System
+      summary: Get task summary
+      description: |
+        Return a simple count of tasks for a given status.
+
+        - `pending`: tasks that are currently in progress on this daemon.
+        - `completed`: tasks that have finished execution but have not yet
+          been fully acknowledged by base.
+
+        Viewer+ role is required.
+      operationId: getSystemTasks
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Task status to summarize ("pending" or "completed")
+          required: false
+          schema:
+            type: string
+            enum: [pending, completed]
+            default: pending
+      responses:
+        '200':
+          description: Task summary for the given status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /system/mode:
+    get:
+      tags:
+        - System
+      summary: Get daemon mode
+      description: |
+        Return the current high-level mode of the daemon.
+
+        - `ready`: normal operation, syncer active.
+        - `updating`: an installation or upgrade is in progress; syncer
+          skips fetching new tasks from base.
+
+        Viewer+ role is required.
+      operationId: getDaemonMode
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current daemon mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModeStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - System
+      summary: Set daemon mode
+      description: |
+        Update the high-level mode of the daemon.
+
+        This endpoint is intended for **agent role** automation only.
+
+        - `ready`: resume normal operation.
+        - `updating`: enter an update window; the syncer will stop
+          fetching new tasks from base until the mode is set back to
+          `ready`.
+      operationId: setDaemonMode
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetModeRequest'
+      responses:
+        '200':
+          description: Updated daemon mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModeStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
