@@ -58,17 +58,9 @@ FOR EACH ROW
 BEGIN
     SELECT
         CASE
-            WHEN NEW.token IS NOT OLD.token THEN
-                RAISE(ABORT, 'token column is immutable and cannot be updated')
             WHEN NEW.instance_id IS NOT OLD.instance_id
                  AND OLD.instance_id <> '' THEN
                 RAISE(ABORT, 'instance_id column is immutable and cannot be updated')
-            WHEN NEW.issuer IS NOT OLD.issuer
-                 AND OLD.issuer <> '' THEN
-                RAISE(ABORT, 'issuer column is immutable and cannot be updated')
-            WHEN NEW.audience IS NOT OLD.audience
-                 AND OLD.audience <> '' THEN
-                RAISE(ABORT, 'audience column is immutable and cannot be updated')
             WHEN NEW.registered_at IS NOT OLD.registered_at THEN
                 RAISE(ABORT, 'registered_at column is immutable and cannot be updated')
         END;

@@ -54,10 +54,13 @@ type syncResponse struct {
 	} `json:"data"`
 }
 
-// storedResults is the on-disk representation of completed task results
-// that have not yet been acknowledged by base.
-type storedResults struct {
-	Results []*tasks.Result `json:"results"`
+// agentTokenResponse is the response envelope from base when exchanging an
+// instance credential for a short-lived agent access token.
+type agentTokenResponse struct {
+	Success bool `json:"success"`
+	Data    struct {
+		Token string `json:"token"`
+	} `json:"data"`
 }
 
 func NewSyncer(cfg *shared.Config, logger *slog.Logger, inst store.InstanceStore, results store.TaskResultStore, handler http.Handler) *Syncer {
@@ -114,6 +117,22 @@ func (s *Syncer) syncOnce(ctx context.Context) error {
 		return nil
 	}
 
+	// Exchange the stored instance token for a short-lived agent token which
+	// is then used to authenticate the status call.
+	bootstrapToken, err := s.instStore.GetToken(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load instance token: %w", err)
+	}
+	if strings.TrimSpace(bootstrapToken) == "" {
+		// Instance has not been provisioned with a token yet; nothing to sync.
+		return nil
+	}
+
+	agentToken, err := s.fetchAgentToken(ctx, bootstrapToken)
+	if err != nil {
+		return fmt.Errorf("failed to obtain agent token: %w", err)
+	}
+
 	sysInfo, err := utils.GetSystemInfo()
 	if err != nil {
 		s.logger.Warn("failed to get system info", "error", err)
@@ -145,6 +164,7 @@ func (s *Syncer) syncOnce(ctx context.Context) error {
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+agentToken)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -203,6 +223,44 @@ func (s *Syncer) syncOnce(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// fetchAgentToken exchanges a long-lived instance credential (bootstrap token)
+// for a short-lived agent access token that can be used to authenticate agent
+// calls (e.g. /v1/agent/instances/{id}/status).
+func (s *Syncer) fetchAgentToken(ctx context.Context, bootstrapToken string) (string, error) {
+	base := strings.TrimRight(s.cfg.BaseURL, "/")
+	if base == "" {
+		return "", fmt.Errorf("base_url is not configured")
+	}
+
+	url := fmt.Sprintf("%s/v1/agent/token", base)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, http.NoBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to build agent token request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(bootstrapToken))
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("agent token request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("agent token request returned status %d", resp.StatusCode)
+	}
+
+	var body agentTokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return "", fmt.Errorf("failed to decode agent token response: %w", err)
+	}
+	if !body.Success || strings.TrimSpace(body.Data.Token) == "" {
+		return "", fmt.Errorf("agent token response was unsuccessful or empty")
+	}
+
+	return body.Data.Token, nil
 }
 
 // toTaskResults converts stored TaskResult records into wire-level tasks.Result.

@@ -3,6 +3,7 @@ package system
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"dployr/pkg/shared"
 )
@@ -211,6 +212,29 @@ func (h *ServiceHandler) RegisterInstance(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *ServiceHandler) Registered(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		e := shared.Errors.Request.MethodNotAllowed
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
+		return
+	}
+
+	ctx := r.Context()
+	logger := shared.LogWithContext(ctx)
+	logger.Info("system.registered request")
+
+	status, err := h.Svc.IsRegistered(ctx)
+	if err != nil {
+		logger.Error("system.registered failed", "error", err)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(status)
+}
+
 func (h *ServiceHandler) RequestDomain(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		shared.WriteError(
@@ -241,4 +265,37 @@ func (h *ServiceHandler) RequestDomain(w http.ResponseWriter, r *http.Request) {
 	}
 
 	shared.WriteJSON(w, http.StatusOK, RequestDomainResponse{Domain: domain})
+}
+
+func (h *ServiceHandler) UpdateBootstrapToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		shared.WriteError(
+			w,
+			shared.Errors.Request.MethodNotAllowed.HTTPStatus,
+			string(shared.Errors.Request.MethodNotAllowed.Code),
+			shared.Errors.Request.MethodNotAllowed.Message,
+			nil,
+		)
+		return
+	}
+
+	ctx := r.Context()
+	logger := shared.LogWithContext(ctx)
+
+	var body UpdateBootstrapTokenRequest
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if strings.TrimSpace(body.Token) == "" {
+		e := shared.Errors.Request.BadRequest
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), "bootstrap token cannot be empty", nil)
+		return
+	}
+
+	if err := h.Svc.UpdateBootstrapToken(ctx, body); err != nil {
+		logger.Error("system.update_bootstrap_token failed", "error", err)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

@@ -627,6 +627,34 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /system/token/rotate:
+    post:
+      tags:
+        - System
+      summary: Update instance bootstrap token
+      description: |
+        Replace the locally stored bootstrap token for this instance.
+      operationId: updateBootstrapToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  description: New bootstrap token JWT issued by base for this instance
+      responses:
+        '200':
+          description: Bootstrap token updated successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /system/tasks:
     get:
       tags:

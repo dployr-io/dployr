@@ -51,6 +51,8 @@ type SystemHandler interface {
 	Tasks(w http.ResponseWriter, r *http.Request)
 	GetMode(w http.ResponseWriter, r *http.Request)
 	SetMode(w http.ResponseWriter, r *http.Request)
+	UpdateBootstrapToken(w http.ResponseWriter, r *http.Request)
+	Registered(w http.ResponseWriter, r *http.Request)
 }
 
 // BuildMux creates and returns the configured HTTP multiplexer.
@@ -147,6 +149,8 @@ func (w *WebHandler) BuildMux(cfg *shared.Config) *http.ServeMux {
 	mux.Handle("/system/install", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.SystemH.Install)))))
 	mux.Handle("/system/register", corsMiddleware(http.HandlerFunc(w.SystemH.RegisterInstance)))
 	mux.Handle("/system/domain", corsMiddleware(http.HandlerFunc(w.SystemH.RequestDomain)))
+	mux.Handle("/system/token/rotate", corsMiddleware(http.HandlerFunc(w.SystemH.UpdateBootstrapToken)))
+	mux.Handle("/system/registered", corsMiddleware(http.HandlerFunc(w.SystemH.Registered)))
 	mux.Handle("/system/mode", corsMiddleware(w.AuthM.Auth(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		switch req.Method {
 		case http.MethodGet:

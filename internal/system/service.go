@@ -122,6 +122,27 @@ func (s *DefaultService) SetMode(ctx context.Context, req system.SetModeRequest)
 	return system.ModeStatus{Mode: mode}, nil
 }
 
+func (s *DefaultService) UpdateBootstrapToken(ctx context.Context, req system.UpdateBootstrapTokenRequest) error {
+	if strings.TrimSpace(req.Token) == "" {
+		return fmt.Errorf("bootstrap token cannot be empty")
+	}
+
+	return s.store.SetToken(ctx, req.Token)
+}
+
+func (s *DefaultService) IsRegistered(ctx context.Context) (system.RegistrationStatus, error) {
+	inst, err := s.store.GetInstance(ctx)
+	if err != nil {
+		return system.RegistrationStatus{}, err
+	}
+	if inst == nil {
+		return system.RegistrationStatus{Registered: false}, nil
+	}
+
+	registered := strings.TrimSpace(inst.InstanceID) != "" && !inst.RegisteredAt.IsZero()
+	return system.RegistrationStatus{Registered: registered}, nil
+}
+
 // During the installation process, this method is used to register the instance with the base,
 // used for routing traffic to this instance instead of directly hitting it.
 // This is to ensure HTTPS traffic is enforced on dployr instance.

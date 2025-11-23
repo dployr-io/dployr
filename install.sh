@@ -260,6 +260,26 @@ done
 register_instance() {
     local token="$1"
 
+    info "Checking if instance is already registered..."
+
+    local reg
+    reg=$(curl -sS "http://localhost:7879/system/registered" 2>/dev/null || true)
+    local is_registered
+    is_registered=$(echo "$reg" | parse_json '.registered')
+    if [[ "$is_registered" == "true" ]]; then
+        info "Instance already registered with base; skipping registration."
+
+        # Update local copy of bootstrap token
+        if [[ -n "$token" ]]; then
+            curl -sS -X POST \
+                -H "Content-Type: application/json" \
+                -d "{\"token\":\"$token\"}" \
+                "http://localhost:7879/system/token/rotate" >/dev/null 2>&1 || true
+        fi
+
+        return 0
+    fi
+
     info "Registering instance with base..."
 
     local response

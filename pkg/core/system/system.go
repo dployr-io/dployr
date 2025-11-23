@@ -76,6 +76,16 @@ type SetModeRequest struct {
 	Mode Mode `json:"mode"`
 }
 
+// UpdateBootstrapTokenRequest is used to bootstrap token
+type UpdateBootstrapTokenRequest struct {
+	Token string `json:"token"`
+}
+
+// RegistrationStatus reports whether the instance has been registered
+type RegistrationStatus struct {
+	Registered bool `json:"registered"`
+}
+
 // System defines an interface for system operations.
 type System interface {
 	// GetInfo returns system information.
@@ -96,6 +106,10 @@ type System interface {
 	GetMode(ctx context.Context) (ModeStatus, error)
 	// SetMode updates the daemon mode.
 	SetMode(ctx context.Context, req SetModeRequest) (ModeStatus, error)
+
+	UpdateBootstrapToken(ctx context.Context, req UpdateBootstrapTokenRequest) error
+	// IsRegistered returns true if this daemon has been registered with base.
+	IsRegistered(ctx context.Context) (RegistrationStatus, error)
 }
 
 type SystemManager struct{}
