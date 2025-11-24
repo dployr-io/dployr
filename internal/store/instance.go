@@ -19,7 +19,7 @@ func NewInstanceStore(db *sql.DB) *InstanceStore {
 
 func (s *InstanceStore) GetInstance(ctx context.Context) (*store.Instance, error) {
 	rows, err := s.db.QueryContext(ctx, `
-        SELECT id, token, instance_id, registered_at, last_installed_at
+        SELECT id, bootstrap_token, access_token, instance_id, registered_at, last_installed_at
         FROM instance LIMIT 1`)
 	if err != nil {
 		return nil, err
@@ -30,7 +30,7 @@ func (s *InstanceStore) GetInstance(ctx context.Context) (*store.Instance, error
 		var inst store.Instance
 		var registeredAtUnix, lastInstalledAtUnix int64
 
-		if err := rows.Scan(&inst.ID, &inst.Token, &inst.InstanceID, &registeredAtUnix, &lastInstalledAtUnix); err != nil {
+		if err := rows.Scan(&inst.ID, &inst.BootstrapToken, &inst.AccessToken, &inst.InstanceID, &registeredAtUnix, &lastInstalledAtUnix); err != nil {
 			return nil, err
 		}
 
@@ -51,10 +51,10 @@ func (s *InstanceStore) UpdateLastInstalledAt(ctx context.Context) error {
 	return err
 }
 
-func (s *InstanceStore) SetToken(ctx context.Context, token string) error {
+func (s *InstanceStore) SetBootstrapToken(ctx context.Context, token string) error {
 	now := time.Now().Unix()
 	res, err := s.db.ExecContext(ctx, `
-		UPDATE instance SET token = ?, last_installed_at = ?`,
+		UPDATE instance SET bootstrap_token = ?, last_installed_at = ?`,
 		token,
 		now,
 	)
@@ -63,8 +63,45 @@ func (s *InstanceStore) SetToken(ctx context.Context, token string) error {
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		_, err = s.db.ExecContext(ctx, `
-			INSERT INTO instance (id, token, instance_id, issuer, audience, registered_at, last_installed_at)
-			VALUES (?, ?, '', '', '', ?, ?)`,
+			INSERT INTO instance (id, bootstrap_token, access_token, instance_id, issuer, audience, registered_at, last_installed_at)
+			VALUES (?, ?, '', '', '', '', ?, ?)`,
+			"instance",
+			token,
+			"",
+			now,
+			now,
+		)
+	}
+	return err
+}
+
+func (s *InstanceStore) GetBootstrapToken(ctx context.Context) (string, error) {
+	row := s.db.QueryRowContext(ctx, `
+		SELECT bootstrap_token
+		FROM instance LIMIT 1`)
+
+	var token string
+	if err := row.Scan(&token); err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+func (s *InstanceStore) SetAccessToken(ctx context.Context, token string) error {
+	now := time.Now().Unix()
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE instance SET access_token = ?, last_installed_at = ?`,
+		token,
+		now,
+	)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		_, err = s.db.ExecContext(ctx, `
+			INSERT INTO instance (id, bootstrap_token, access_token, instance_id, issuer, audience, registered_at, last_installed_at)
+			VALUES (?, '', ?, '', '', ?, ?)`,
 			"instance",
 			token,
 			now,
@@ -74,17 +111,21 @@ func (s *InstanceStore) SetToken(ctx context.Context, token string) error {
 	return err
 }
 
-func (s *InstanceStore) GetToken(ctx context.Context) (string, error) {
+func (s *InstanceStore) GetAccessToken(ctx context.Context) (string, error) {
 	row := s.db.QueryRowContext(ctx, `
-        SELECT token
-        FROM instance LIMIT 1`)
+		SELECT access_token
+		FROM instance LIMIT 1`)
 
-	var token string
+	var token sql.NullString
 	if err := row.Scan(&token); err != nil {
 		return "", err
 	}
 
-	return token, nil
+	if !token.Valid {
+		return "", nil
+	}
+
+	return token.String, nil
 }
 
 func (s *InstanceStore) RegisterInstance(ctx context.Context, i *store.Instance) error {
@@ -101,8 +142,8 @@ func (s *InstanceStore) RegisterInstance(ctx context.Context, i *store.Instance)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		_, err = s.db.ExecContext(ctx, `
-			INSERT INTO instance (id, token, instance_id, issuer, audience, registered_at, last_installed_at)
-			VALUES (?, '', ?, ?, ?, ?, ?)`,
+			INSERT INTO instance (id, bootstrap_token, access_token, instance_id, issuer, audience, registered_at, last_installed_at)
+			VALUES (?, '', '', ?, ?, ?, ?)`,
 			"instance",
 			i.InstanceID,
 			i.Issuer,

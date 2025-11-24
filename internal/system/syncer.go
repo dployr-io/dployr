@@ -37,11 +37,12 @@ import (
 const baseWSCACertPEM = ""
 
 type Syncer struct {
-	cfg         *shared.Config
-	logger      *slog.Logger
-	instStore   store.InstanceStore
-	resultStore store.TaskResultStore
-	executor    *Executor
+	cfg               *shared.Config
+	logger            *slog.Logger
+	instStore         store.InstanceStore
+	resultStore       store.TaskResultStore
+	executor          *Executor
+	agentTokenBackoff time.Duration
 }
 
 // wsMessage represents WebSocket messages exchanged with base.
@@ -80,6 +81,76 @@ func NewSyncer(cfg *shared.Config, logger *slog.Logger, inst store.InstanceStore
 	}
 }
 
+// obtainAgentTokenWithBackoff repeatedly calls fetchAgentToken using the
+// bootstrap token. It performs a few quick retries and then backs off
+// exponentially between attempts, using a single Syncer-level backoff value
+// that is reset on successful acquisition.
+func (s *Syncer) obtainAgentTokenWithBackoff(ctx context.Context, bootstrapToken string) (string, error) {
+	const (
+		maxBackoff   = 12 * time.Hour
+		startBackoff = time.Minute
+	)
+
+	for attempt := 0; ; attempt++ {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+
+		token, err := s.fetchAgentToken(ctx, bootstrapToken)
+		if err == nil && strings.TrimSpace(token) != "" {
+			// Reset backoff on success so future failures start fresh.
+			s.agentTokenBackoff = 0
+			return token, nil
+		}
+
+		// First few attempts: retry almost immediately.
+		if attempt < 3 {
+			select {
+			case <-ctx.Done():
+				return "", ctx.Err()
+			case <-time.After(2 * time.Second):
+			}
+			continue
+		}
+
+		// Apply exponential backoff bewtween 1m and 12h.
+		if s.agentTokenBackoff <= 0 {
+			s.agentTokenBackoff = startBackoff
+		} else {
+			s.agentTokenBackoff *= 2
+			if s.agentTokenBackoff > maxBackoff {
+				s.agentTokenBackoff = maxBackoff
+			}
+		}
+
+		sleep := jitter(s.agentTokenBackoff)
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(sleep):
+		}
+	}
+}
+
+func (s *Syncer) ensureAccessToken(ctx context.Context, bootstrapToken string) (string, error) {
+	accessToken, err := s.instStore.GetAccessToken(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to load access token: %w", err)
+	}
+	if strings.TrimSpace(accessToken) != "" {
+		return accessToken, nil
+	}
+
+	accessToken, err = s.obtainAgentTokenWithBackoff(ctx, bootstrapToken)
+	if err != nil {
+		return "", fmt.Errorf("failed to obtain agent token: %w", err)
+	}
+	if err := s.instStore.SetAccessToken(ctx, accessToken); err != nil {
+		s.logger.Error("failed to persist access token", "error", err)
+	}
+	return accessToken, nil
+}
+
 func (s *Syncer) Start(ctx context.Context) {
 	for {
 		select {
@@ -107,7 +178,7 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 		return nil
 	}
 
-	bootstrapToken, err := s.instStore.GetToken(ctx)
+	bootstrapToken, err := s.instStore.GetBootstrapToken(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load instance token: %w", err)
 	}
@@ -115,9 +186,9 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 		return nil
 	}
 
-	agentToken, err := s.fetchAgentToken(ctx, bootstrapToken)
+	accessToken, err := s.ensureAccessToken(ctx, bootstrapToken)
 	if err != nil {
-		return fmt.Errorf("failed to obtain agent token: %w", err)
+		return err
 	}
 
 	clientCert, err := s.ensureClientCertificate(inst.InstanceID)
@@ -125,9 +196,22 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure client certificate: %w", err)
 	}
 
-	if err := s.publishClientCertificate(ctx, inst.InstanceID, agentToken, clientCert); err != nil {
+	if err := s.publishClientCertificate(ctx, inst.InstanceID, accessToken, clientCert); err != nil {
+		var httpErr *httpError
+		if errors.As(err, &httpErr) && (httpErr.StatusCode == http.StatusUnauthorized || httpErr.StatusCode == http.StatusForbidden) {
+			// Access token no longer valid; clear and try once with a fresh token.
+			if err := s.instStore.SetAccessToken(ctx, ""); err != nil {
+				s.logger.Error("failed to clear invalid access token", "error", err)
+			} else if accessToken, err = s.ensureAccessToken(ctx, bootstrapToken); err == nil {
+				if err := s.publishClientCertificate(ctx, inst.InstanceID, accessToken, clientCert); err == nil {
+					goto ws_dial
+				}
+			}
+		}
 		return fmt.Errorf("failed to publish client certificate: %w", err)
 	}
+
+ws_dial:
 
 	wsURL := strings.Replace(s.cfg.BaseURL, "https://", "wss://", 1) +
 		fmt.Sprintf("/v1/agent/instances/%s/ws", inst.InstanceID)
@@ -139,7 +223,7 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 
 	opts := &websocket.DialOptions{
 		HTTPHeader: http.Header{
-			"Authorization": []string{"Bearer " + agentToken},
+			"Authorization": []string{"Bearer " + accessToken},
 		},
 		HTTPClient: &http.Client{
 			Transport: &http.Transport{
@@ -148,10 +232,30 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 		},
 	}
 
-	conn, _, err := websocket.Dial(ctx, wsURL, opts)
+	conn, resp, err := websocket.Dial(ctx, wsURL, opts)
 	if err != nil {
+		// If the access token was rejected during WS upgrade, clear and try once
+		// with a fresh token before giving up.
+		status := 0
+		if resp != nil {
+			status = resp.StatusCode
+		}
+		if status == http.StatusUnauthorized || status == http.StatusForbidden {
+			if err := s.instStore.SetAccessToken(ctx, ""); err != nil {
+				s.logger.Error("failed to clear invalid access token", "error", err)
+			} else if accessToken, err = s.ensureAccessToken(ctx, bootstrapToken); err == nil {
+				opts.HTTPHeader.Set("Authorization", "Bearer "+accessToken)
+				if conn2, resp2, err2 := websocket.Dial(ctx, wsURL, opts); err2 == nil {
+					conn = conn2
+					_ = resp2
+					goto ws_connected
+				}
+			}
+		}
 		return fmt.Errorf("websocket dial failed: %w", err)
 	}
+
+ws_connected:
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
 	s.logger.Info("websocket connected to base")

@@ -127,7 +127,7 @@ func (s *DefaultService) UpdateBootstrapToken(ctx context.Context, req system.Up
 		return fmt.Errorf("bootstrap token cannot be empty")
 	}
 
-	return s.store.SetToken(ctx, req.Token)
+	return s.store.SetBootstrapToken(ctx, req.Token)
 }
 
 func (s *DefaultService) IsRegistered(ctx context.Context) (system.RegistrationStatus, error) {
@@ -163,7 +163,7 @@ func (s *DefaultService) RequestDomain(ctx context.Context, req system.RequestDo
 		return "", nil
 	}
 
-	if err := s.store.SetToken(ctx, req.Token); err != nil {
+	if err := s.store.SetBootstrapToken(ctx, req.Token); err != nil {
 		return "", fmt.Errorf("failed to set token: %w", err)
 	}
 
@@ -230,7 +230,7 @@ func (s *DefaultService) RegisterInstance(ctx context.Context, req system.Regist
 		return fmt.Errorf("claim cannot be empty")
 	}
 
-	token, err := s.store.GetToken(ctx)
+	token, err := s.store.GetBootstrapToken(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get token: %w", err)
 	}
