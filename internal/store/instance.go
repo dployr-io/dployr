@@ -29,9 +29,17 @@ func (s *InstanceStore) GetInstance(ctx context.Context) (*store.Instance, error
 	if rows.Next() {
 		var inst store.Instance
 		var registeredAtUnix, lastInstalledAtUnix int64
+		var bootstrap, access sql.NullString
 
-		if err := rows.Scan(&inst.ID, &inst.BootstrapToken, &inst.AccessToken, &inst.InstanceID, &registeredAtUnix, &lastInstalledAtUnix); err != nil {
+		if err := rows.Scan(&inst.ID, &bootstrap, &access, &inst.InstanceID, &registeredAtUnix, &lastInstalledAtUnix); err != nil {
 			return nil, err
+		}
+
+		if bootstrap.Valid {
+			inst.BootstrapToken = bootstrap.String
+		}
+		if access.Valid {
+			inst.AccessToken = access.String
 		}
 
 		inst.RegisteredAt = time.Unix(registeredAtUnix, 0)
