@@ -3,21 +3,38 @@ package system
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	crand "crypto/rand"
+	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"math/rand"
 	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
 	coresystem "dployr/pkg/core/system"
-	"dployr/pkg/core/utils"
 	"dployr/pkg/shared"
 	"dployr/pkg/store"
 	"dployr/pkg/tasks"
-	"dployr/version"
+
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 )
+
+const baseWSCACertPEM = ""
 
 type Syncer struct {
 	cfg         *shared.Config
@@ -27,12 +44,11 @@ type Syncer struct {
 	executor    *Executor
 }
 
-// syncRequest is the payload sent to base when polling for tasks.
-type syncRequest struct {
-	Version           string          `json:"version"`
-	CompatibilityDate string          `json:"compatibility_date"`
-	System            any             `json:"system"`
-	CompletedTasks    []*tasks.Result `json:"completed_tasks"`
+// wsMessage represents WebSocket messages exchanged with base.
+type wsMessage struct {
+	Kind  string     `json:"kind"`
+	Items []syncTask `json:"items,omitempty"`
+	IDs   []string   `json:"ids,omitempty"`
 }
 
 // syncTask represents a single task returned by base.
@@ -43,15 +59,6 @@ type syncTask struct {
 	Status  string          `json:"status"`
 	Created int64           `json:"createdAt"`
 	Updated int64           `json:"updatedAt"`
-}
-
-// syncResponse is the response envelope from base.
-type syncResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-	Data    struct {
-		Tasks []syncTask `json:"tasks"`
-	} `json:"data"`
 }
 
 // agentTokenResponse is the response envelope from base when exchanging an
@@ -74,39 +81,22 @@ func NewSyncer(cfg *shared.Config, logger *slog.Logger, inst store.InstanceStore
 }
 
 func (s *Syncer) Start(ctx context.Context) {
-	interval := shared.SanitizeSyncInterval(s.cfg.SyncInterval)
-	if interval <= 0 {
-		return
-	}
-
-	ticker := time.NewTicker(jitter(interval))
-	defer ticker.Stop()
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			if err := s.syncOnce(ctx); err != nil {
-				s.logger.Error("sync failed", "error", err)
+		default:
+			if err := s.runWSConnection(ctx); err != nil {
+				s.logger.Error("websocket connection failed", "error", err)
+				time.Sleep(jitter(10 * time.Second))
 			}
-			ticker.Reset(jitter(interval))
 		}
 	}
 }
 
-func (s *Syncer) syncOnce(ctx context.Context) error {
+func (s *Syncer) runWSConnection(ctx context.Context) error {
 	if s.cfg.BaseURL == "" {
 		return fmt.Errorf("base_url is not configured")
-	}
-
-	// If the daemon is in updating mode, skip syncing until it returns to ready.
-	currentModeMu.RLock()
-	mode := currentMode
-	currentModeMu.RUnlock()
-	if mode == coresystem.ModeUpdating {
-		s.logger.Info("skipping sync while daemon is in updating mode")
-		return nil
 	}
 
 	inst, err := s.instStore.GetInstance(ctx)
@@ -117,14 +107,11 @@ func (s *Syncer) syncOnce(ctx context.Context) error {
 		return nil
 	}
 
-	// Exchange the stored instance token for a short-lived agent token which
-	// is then used to authenticate the status call.
 	bootstrapToken, err := s.instStore.GetToken(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load instance token: %w", err)
 	}
 	if strings.TrimSpace(bootstrapToken) == "" {
-		// Instance has not been provisioned with a token yet; nothing to sync.
 		return nil
 	}
 
@@ -133,80 +120,276 @@ func (s *Syncer) syncOnce(ctx context.Context) error {
 		return fmt.Errorf("failed to obtain agent token: %w", err)
 	}
 
-	sysInfo, err := utils.GetSystemInfo()
+	clientCert, err := s.ensureClientCertificate(inst.InstanceID)
 	if err != nil {
-		s.logger.Warn("failed to get system info", "error", err)
+		return fmt.Errorf("failed to ensure client certificate: %w", err)
 	}
 
-	// Load any previously completed tasks that have not yet been
-	// acknowledged by base and include them in this request.
+	if err := s.publishClientCertificate(ctx, inst.InstanceID, agentToken, clientCert); err != nil {
+		return fmt.Errorf("failed to publish client certificate: %w", err)
+	}
+
+	wsURL := strings.Replace(s.cfg.BaseURL, "https://", "wss://", 1) +
+		fmt.Sprintf("/v1/agent/instances/%s/ws", inst.InstanceID)
+
+	tlsConfig, err := s.buildPinnedTLSConfig(clientCert)
+	if err != nil {
+		return fmt.Errorf("failed to build TLS config: %w", err)
+	}
+
+	opts := &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Authorization": []string{"Bearer " + agentToken},
+		},
+		HTTPClient: &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: tlsConfig,
+			},
+		},
+	}
+
+	conn, _, err := websocket.Dial(ctx, wsURL, opts)
+	if err != nil {
+		return fmt.Errorf("websocket dial failed: %w", err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	s.logger.Info("websocket connected to base")
+
 	pending, err := s.resultStore.ListUnsent(ctx)
-	if err != nil {
-		s.logger.Error("failed to load pending task results", "error", err)
-	}
-
-	body := syncRequest{
-		Version:           version.GetVersion(),
-		CompatibilityDate: time.Now().Format("2006-01-02"),
-		System:            sysInfo,
-		CompletedTasks:    toTaskResults(pending),
-	}
-
-	data, err := json.Marshal(body)
-	if err != nil {
-		return fmt.Errorf("failed to marshal sync payload: %w", err)
-	}
-
-	url := fmt.Sprintf("%s/v1/agent/instances/%s/status", strings.TrimRight(s.cfg.BaseURL, "/"), inst.InstanceID)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
-	if err != nil {
-		return fmt.Errorf("failed to build sync request: %w", err)
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+agentToken)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("sync request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("sync request returned status %d", resp.StatusCode)
-	}
-
-	var res syncResponse
-
-	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
-		return fmt.Errorf("failed to decode sync response: %w", err)
-	}
-
-	if !res.Success {
-		return fmt.Errorf("sync response marked unsuccessful: %s", res.Message)
-	}
-
-	// At this point base has accepted our completed task results,
-	// so we can safely mark them as synced in the database.
-	if len(pending) > 0 {
+	if err == nil && len(pending) > 0 {
 		ids := make([]string, 0, len(pending))
 		for _, r := range pending {
 			ids = append(ids, r.ID)
 		}
-		if err := s.resultStore.MarkSynced(ctx, ids); err != nil {
-			s.logger.Error("failed to mark task results as synced", "error", err)
+		if err := s.sendWSMessage(ctx, conn, wsMessage{Kind: "ack", IDs: ids}); err == nil {
+			s.resultStore.MarkSynced(ctx, ids)
 		}
 	}
 
-	if len(res.Data.Tasks) == 0 {
+	if err := s.sendWSMessage(ctx, conn, wsMessage{Kind: "pull"}); err != nil {
+		return fmt.Errorf("failed to send initial pull: %w", err)
+	}
+
+	// Read loop.
+	for {
+		var msg wsMessage
+		if err := wsjson.Read(ctx, conn, &msg); err != nil {
+			return fmt.Errorf("websocket read failed: %w", err)
+		}
+
+		switch msg.Kind {
+		case "task":
+			s.handleTasks(ctx, conn, msg.Items)
+		}
+	}
+}
+
+func (s *Syncer) buildPinnedTLSConfig(clientCert tls.Certificate) (*tls.Config, error) {
+	var pool *x509.CertPool // nil => use system roots
+
+	if s.cfg.WSCertPath != "" {
+		b, err := os.ReadFile(s.cfg.WSCertPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read pinned cert from %s: %w", s.cfg.WSCertPath, err)
+		}
+		p := x509.NewCertPool()
+		if !p.AppendCertsFromPEM(b) {
+			return nil, fmt.Errorf("failed to parse pinned cert from %s", s.cfg.WSCertPath)
+		}
+		pool = p
+	} else if baseWSCACertPEM != "" {
+		p := x509.NewCertPool()
+		if !p.AppendCertsFromPEM([]byte(baseWSCACertPEM)) {
+			return nil, fmt.Errorf("failed to parse embedded WebSocket CA cert")
+		}
+		pool = p
+	}
+
+	return &tls.Config{
+		RootCAs:      pool, // nil => system roots
+		Certificates: []tls.Certificate{clientCert},
+		MinVersion:   tls.VersionTLS12,
+	}, nil
+}
+
+func (s *Syncer) ensureClientCertificate(instanceID string) (tls.Certificate, error) {
+	certPath, keyPath := defaultClientCertPaths()
+
+	if fileExists(certPath) && fileExists(keyPath) {
+		return tls.LoadX509KeyPair(certPath, keyPath)
+	}
+
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), crand.Reader)
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("generate ecdsa key: %w", err)
+	}
+
+	serial, err := crand.Int(crand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		serial = big.NewInt(time.Now().UnixNano())
+	}
+
+	tmpl := &x509.Certificate{
+		SerialNumber:          serial,
+		Subject:               pkix.Name{CommonName: fmt.Sprintf("dployr-instance:%s", strings.TrimSpace(instanceID))},
+		NotBefore:             time.Now().Add(-5 * time.Minute),
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour), // 1 year
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		BasicConstraintsValid: true,
+	}
+
+	der, err := x509.CreateCertificate(crand.Reader, tmpl, tmpl, &priv.PublicKey, priv)
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("create certificate: %w", err)
+	}
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyBytes, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("marshal private key: %w", err)
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyBytes})
+
+	dir := filepath.Dir(certPath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return tls.Certificate{}, fmt.Errorf("mkdir %s: %w", dir, err)
+	}
+
+	if err := os.WriteFile(certPath, certPEM, 0o644); err != nil {
+		return tls.Certificate{}, fmt.Errorf("write cert: %w", err)
+	}
+	if err := os.WriteFile(keyPath, keyPEM, 0o600); err != nil {
+		return tls.Certificate{}, fmt.Errorf("write key: %w", err)
+	}
+
+	return tls.X509KeyPair(certPEM, keyPEM)
+}
+
+func defaultClientCertPaths() (certPath, keyPath string) {
+	var dir string
+	switch runtime.GOOS {
+	case "windows":
+		dir = filepath.Join(os.Getenv("PROGRAMDATA"), "dployr")
+	case "darwin":
+		dir = "/usr/local/etc/dployr"
+	default:
+		dir = "/etc/dployr"
+	}
+	return filepath.Join(dir, "client.crt"), filepath.Join(dir, "client.key")
+}
+
+func fileExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	if _, err := os.Stat(path); err == nil {
+		return true
+	}
+	return false
+}
+
+// publishClientCertificate registers or rotates the client certificate with base
+// using the agent access token. It first tries POST and falls back to PUT on
+// conflict.
+func (s *Syncer) publishClientCertificate(ctx context.Context, instanceID, agentToken string, cert tls.Certificate) error {
+	if len(cert.Certificate) == 0 {
+		return fmt.Errorf("client certificate is empty")
+	}
+
+	parsed, err := x509.ParseCertificate(cert.Certificate[0])
+	if err != nil {
+		return fmt.Errorf("failed to parse client certificate: %w", err)
+	}
+
+	// Compute SPKI SHA-256 fingerprint in base64
+	hash := sha256.Sum256(parsed.RawSubjectPublicKeyInfo)
+	spki := base64.StdEncoding.EncodeToString(hash[:])
+
+	body := map[string]any{
+		"pem":         string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: parsed.Raw})),
+		"spki_sha256": spki,
+		"subject":     parsed.Subject.String(),
+		"not_after":   parsed.NotAfter.Format(time.RFC3339Nano),
+	}
+
+	base := strings.TrimRight(s.cfg.BaseURL, "/")
+	if base == "" {
+		return fmt.Errorf("base_url is not configured")
+	}
+
+	url := fmt.Sprintf("%s/v1/agent/instances/%s/cert", base, instanceID)
+
+	if err := s.sendCertRequest(ctx, http.MethodPost, url, agentToken, body); err != nil {
+		var httpErr *httpError
+		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusConflict {
+			// Cert already exists; attempt rotation via PUT request
+			return s.sendCertRequest(ctx, http.MethodPut, url, agentToken, body)
+		}
+		return err
+	}
+
+	return nil
+}
+
+type httpError struct {
+	StatusCode int
+	Msg        string
+}
+
+func (e *httpError) Error() string { return e.Msg }
+
+func (s *Syncer) sendCertRequest(ctx context.Context, method, url, agentToken string, body map[string]any) error {
+	data, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("failed to marshal cert payload: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("failed to build cert request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(agentToken))
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("cert request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil
 	}
 
-	s.logger.Info("received tasks from base", "count", len(res.Data.Tasks))
+	return &httpError{StatusCode: resp.StatusCode, Msg: fmt.Sprintf("cert request returned status %d", resp.StatusCode)}
+}
 
-	// Execute tasks and collect results to be sent on the next sync.
-	var completedTasks []*tasks.Result
-	for _, t := range res.Data.Tasks {
+func (s *Syncer) sendWSMessage(ctx context.Context, conn *websocket.Conn, msg wsMessage) error {
+	return wsjson.Write(ctx, conn, msg)
+}
+
+func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []syncTask) {
+	currentModeMu.RLock()
+	mode := currentMode
+	currentModeMu.RUnlock()
+	if mode == coresystem.ModeUpdating {
+		s.logger.Info("skipping tasks while daemon is in updating mode")
+		return
+	}
+
+	if len(items) == 0 {
+		return
+	}
+
+	s.logger.Info("received tasks from base", "count", len(items))
+
+	var completedIDs []string
+	var completedResults []*tasks.Result
+
+	for _, t := range items {
 		task := &tasks.Task{
 			ID:      t.ID,
 			Type:    t.Type,
@@ -215,14 +398,20 @@ func (s *Syncer) syncOnce(ctx context.Context) error {
 		}
 
 		result := s.executor.Execute(ctx, task)
-		completedTasks = append(completedTasks, result)
+		completedResults = append(completedResults, result)
+		completedIDs = append(completedIDs, t.ID)
 	}
 
-	if err := s.resultStore.SaveResults(ctx, fromTaskResults(completedTasks)); err != nil {
+	if err := s.resultStore.SaveResults(ctx, fromTaskResults(completedResults)); err != nil {
 		s.logger.Error("failed to persist completed task results", "error", err)
+		return
 	}
 
-	return nil
+	if len(completedIDs) > 0 {
+		if err := s.sendWSMessage(ctx, conn, wsMessage{Kind: "ack", IDs: completedIDs}); err != nil {
+			s.logger.Error("failed to send ack", "error", err)
+		}
+	}
 }
 
 // fetchAgentToken exchanges a long-lived instance credential (bootstrap token)

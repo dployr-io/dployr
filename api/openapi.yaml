@@ -764,6 +764,86 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /v1/agent/instances/{instanceId}/cert:
+    post:
+      tags:
+        - Agent
+      summary: Register agent client certificate
+      description: |
+        Register the mTLS client certificate for a specific agent instance.
+
+        This endpoint is called by the agent daemon using an **agent access token**
+        obtained from base. It is typically invoked automatically before opening
+        the WebSocket control channel.
+      operationId: registerAgentCert
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          description: Agent instance identifier
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientCertUpdate'
+      responses:
+        '204':
+          description: Client certificate registered successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Certificate already exists for this instance
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - Agent
+      summary: Rotate agent client certificate
+      description: |
+        Rotate the mTLS client certificate for a specific agent instance.
+
+        This is typically used when the agent has generated a new keypair and
+        needs to replace the previously registered certificate.
+      operationId: rotateAgentCert
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: instanceId
+          in: path
+          required: true
+          description: Agent instance identifier
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientCertUpdate'
+      responses:
+        '204':
+          description: Client certificate rotated successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   securitySchemes:
     BearerAuth:

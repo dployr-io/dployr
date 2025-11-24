@@ -22,6 +22,7 @@ type Config struct {
 	MaxWorkers   int
 	BaseURL      string
 	SyncInterval time.Duration
+	WSCertPath   string
 }
 
 func LoadConfig() (*Config, error) {
@@ -38,6 +39,7 @@ func LoadConfig() (*Config, error) {
 		MaxWorkers:   getEnvAsInt("MAX_WORKERS", 5),
 		BaseURL:      getEnv("BASE_URL", ""),
 		SyncInterval: getEnvAsDuration("SYNC_INTERVAL", 30*time.Second),
+		WSCertPath:   getEnv("WS_CERT_PATH", ""),
 	}, nil
 }
 
