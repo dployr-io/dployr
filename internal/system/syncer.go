@@ -191,9 +191,9 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 		return nil
 	}
 
-	// Enrich context with instance_id for all subsequent logs
+	// Enrich context and attach instance_id explicitly for logging
 	ctx = context.WithValue(ctx, ctxKeyInstanceID, inst.InstanceID)
-	logger := s.logger.WithContext(ctx)
+	logger := s.logger.WithContext(ctx).With("instance_id", inst.InstanceID)
 
 	logger.Debug("syncer: loading bootstrap token")
 	bootstrapToken, err := s.instStore.GetBootstrapToken(ctx)

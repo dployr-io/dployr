@@ -2,6 +2,13 @@
 
 *Your app, your server, your rules!*
 
+[![Tests](https://github.com/dployr-io/dployr/actions/workflows/tests.yml/badge.svg)](https://github.com/dployr-io/dployr/actions/workflows/tests.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/dployr-io/dployr.svg)](https://pkg.go.dev/github.com/dployr-io/dployr)
+[![Go Report Card](https://goreportcard.com/badge/github.com/dployr-io/dployr)](https://goreportcard.com/report/github.com/dployr-io/dployr)
+[![Release](https://img.shields.io/github/v/release/dployr-io/dployr)](https://github.com/dployr-io/dployr/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go)](https://go.dev/dl/)
+
 ## Overview
 
 `dployr` gives developers a self-hosted alternative to managed platforms.  
@@ -10,6 +17,69 @@ It consists of two main components:
 
 - **dployr** — Command-line client  
 - **dployrd** — Background daemon that handles deployment
+
+## Quickstart (5 minutes)
+
+Linux/macOS
+
+```bash
+# First time install
+curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh \
+  | bash -s -- --token "<bootstrap_token>"
+
+# Install latest version
+curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh | bash
+
+# Start the daemon
+dployrd
+```
+
+Windows (PowerShell as Administrator)
+
+```powershell
+iwr "https://raw.githubusercontent.com/dployr-io/dployr/master/install.ps1" -OutFile install.ps1
+.\install.ps1  # add -Token $env:DPLOYR_INSTALL_TOKEN (first time install)
+
+dployrd.exe
+```
+
+## Verify
+
+- Version: `dployrd --version`
+- Logs (JSON): `/var/log/dployrd/app.log` (Linux/macOS) or ProgramData on Windows
+- Daemon should start and log a websocket mTLS connection attempt to Base.
+
+## First deploy
+
+```bash
+dployr deploy \
+  --name hello-world \
+  --source remote \
+  --runtime nodejs \
+  --version 18 \
+  --remote https://github.com/dployr-io/dployr-examples \
+  --branch master \
+  --build-cmd "npm install" \
+  --run-cmd "npm start" \
+  --working-dir "nodejs" \
+  --port 3000
+```
+
+## Concepts
+
+- CLI vs Daemon: CLI issues commands; daemon (`dployrd`) executes and syncs with Base.
+- Sync: long‑lived WSS + mTLS. Daemon generates a client cert and publishes it to Base.
+- Tokens: `bootstrap_token` (long‑lived, stored in DB) → exchanged for short‑lived `access_token` (auto‑refreshed).
+- Persistence: SQLite for instance metadata, tokens, deployments, services, task results.
+- Logging: structured JSON to stdout + `/var/log/dployrd/app.log` for remote debugging.
+
+## Troubleshooting 
+
+- No bootstrap token: set it in config or rerun installer with `--token`.
+- WS auth errors (401/403): daemon clears `access_token` and reacquires; check logs.
+- mTLS/cert issues: ensure pinned CA/cert path is correct if you customized certs.
+- Permissions: service managers may require admin/root for install/start.
+- Where are logs? `/var/log/dployrd/app.log` (Linux/macOS). On Windows, see ProgramData/dployr.
 
 ---
 
