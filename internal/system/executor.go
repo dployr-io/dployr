@@ -98,13 +98,13 @@ func (e *Executor) Execute(ctx context.Context, task *tasks.Task) *tasks.Result 
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	// Authorization: extract user_token from payload;
+	// Authorization: extract token from payload;
 	var bearer string
 	if len(task.Payload) > 0 {
 		var p map[string]any
 		if json.Unmarshal(task.Payload, &p) == nil {
-			if ut, ok := p["user_token"].(string); ok && strings.TrimSpace(ut) != "" {
-				bearer = strings.TrimSpace(ut)
+			if t, ok := p["token"].(string); ok && strings.TrimSpace(t) != "" {
+				bearer = strings.TrimSpace(t)
 			}
 		}
 	}

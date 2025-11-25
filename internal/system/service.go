@@ -20,7 +20,7 @@ import (
 	"github.com/dployr-io/dployr/pkg/core/utils"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
-	"github.com/dployr-io/dployr/version"
+	"github.com/dployr-io/dployr/pkg/version"
 	"github.com/golang-jwt/jwt/v4"
 )
 
@@ -46,7 +46,7 @@ func (s *DefaultService) GetInfo(ctx context.Context) (utils.SystemInfo, error) 
 }
 
 func (s *DefaultService) RunDoctor(ctx context.Context) (string, error) {
-	ver := version.GetVersion()
+	ver := version.Short()
 	return runSystemDoctorScript(ctx, scripts.SystemDoctorScript, []string{"DPLOYR_VERSION=" + ver}, s.store)
 }
 
@@ -71,7 +71,7 @@ func (s *DefaultService) SystemStatus(ctx context.Context) (system.SystemStatus,
 	var st system.SystemStatus
 	st.Status = "healthy"
 	st.Mode = currentMode
-	st.Version = version.GetVersion()
+	st.Version = version.Short()
 	st.Uptime = uptime.String()
 	st.Services.Total = 0
 	st.Services.Running = 0

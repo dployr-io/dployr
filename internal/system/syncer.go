@@ -15,6 +15,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -344,6 +345,8 @@ ws_connected:
 	atomic.AddUint64(&wsConnectsTotal, 1)
 	setWSConnected(true)
 	lastWSConnect.Store(time.Now())
+	// clear last error on successful connect
+	lastWSError.Store("")
 
 	pending, err := s.resultStore.ListUnsent(ctx)
 	if err == nil && len(pending) > 0 {
@@ -367,6 +370,12 @@ ws_connected:
 		if err := wsjson.Read(ctx, conn, &msg); err != nil {
 			if websocket.CloseStatus(err) == websocket.StatusNormalClosure || websocket.CloseStatus(err) == websocket.StatusGoingAway {
 				logger.Info("syncer: websocket closed", "status", websocket.CloseStatus(err))
+				atomic.AddUint64(&wsDisconnectsTotal, 1)
+				setWSConnected(false)
+				return nil
+			}
+			if errors.Is(err, io.EOF) {
+				logger.Info("syncer: websocket closed (EOF)")
 				atomic.AddUint64(&wsDisconnectsTotal, 1)
 				setWSConnected(false)
 				return nil

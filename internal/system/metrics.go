@@ -36,9 +36,13 @@ func (m *Metrics) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 
 	bi := version.GetBuildInfo()
+	commit := bi.Commit
+	if len(commit) > 8 {
+		commit = commit[:8]
+	}
 	buf.WriteString("# HELP dployr_build_info Build information\n")
 	buf.WriteString("# TYPE dployr_build_info gauge\n")
-	fmt.Fprintf(&buf, "dployr_build_info{version=\"%s\",commit=\"%s\",go_version=\"%s\"} 1\n\n", bi.Version, bi.Commit, bi.GoVersion)
+	fmt.Fprintf(&buf, "dployr_build_info{version=\"%s\",commit=\"%s\",go_version=\"%s\"} 1\n\n", bi.Version, commit, bi.GoVersion)
 
 	buf.WriteString("# HELP dployr_ws_connected Whether websocket to base is connected (1=yes)\n")
 	buf.WriteString("# TYPE dployr_ws_connected gauge\n")
