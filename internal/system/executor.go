@@ -12,8 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"dployr/pkg/shared"
-	"dployr/pkg/tasks"
+	"github.com/dployr-io/dployr/pkg/shared"
+	"github.com/dployr-io/dployr/pkg/tasks"
 
 	"github.com/oklog/ulid/v2"
 )

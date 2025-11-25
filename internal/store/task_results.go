@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"dployr/pkg/store"
+	"github.com/dployr-io/dployr/pkg/store"
 )
 
 // TaskResultStore implements store.TaskResultStore using SQLite.

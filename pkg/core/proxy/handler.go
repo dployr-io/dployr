@@ -1,10 +1,11 @@
 package proxy
 
 import (
-	"dployr/pkg/shared"
 	"encoding/json"
 	"log"
 	"net/http"
+
+	"github.com/dployr-io/dployr/pkg/shared"
 )
 
 type ProxyHandler struct {

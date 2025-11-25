@@ -1,10 +1,11 @@
 package auth
 
 import (
-	"dployr/pkg/store"
 	"os/exec"
 	"os/user"
 	"strings"
+
+	"github.com/dployr-io/dployr/pkg/store"
 )
 
 // System group to role mapping

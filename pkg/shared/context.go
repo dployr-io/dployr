@@ -2,8 +2,9 @@ package shared
 
 import (
 	"context"
-	"dployr/pkg/store"
 	"errors"
+
+	"github.com/dployr-io/dployr/pkg/store"
 
 	"github.com/oklog/ulid/v2"
 )

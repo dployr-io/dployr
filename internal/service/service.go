@@ -2,8 +2,9 @@ package service
 
 import (
 	"context"
-	"dployr/pkg/shared"
-	"dployr/pkg/store"
+
+	"github.com/dployr-io/dployr/pkg/shared"
+	"github.com/dployr-io/dployr/pkg/store"
 )
 
 type Servicer struct {

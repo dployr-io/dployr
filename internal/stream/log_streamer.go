@@ -3,11 +3,12 @@ package stream
 import (
 	"bufio"
 	"context"
-	"dployr/pkg/core/utils"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/dployr-io/dployr/pkg/core/utils"
 )
 
 type LogsStreamer struct {

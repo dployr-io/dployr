@@ -2,13 +2,14 @@ package db
 
 import (
 	"database/sql"
-	"dployr/pkg/core/utils"
 	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/dployr-io/dployr/pkg/core/utils"
 
 	_ "modernc.org/sqlite"
 )

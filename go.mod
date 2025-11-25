@@ -1,4 +1,4 @@
-module dployr
+module github.com/dployr-io/dployr
 
 go 1.24.0
 

@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"strings"
 
-	"dployr/version"
+	"github.com/dployr-io/dployr/version"
 )
 
 type BuildInfo struct {

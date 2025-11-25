@@ -2,7 +2,8 @@ package system
 
 import (
 	"context"
-	"dployr/pkg/core/utils"
+
+	"github.com/dployr-io/dployr/pkg/core/utils"
 )
 
 type DoctorResult struct {

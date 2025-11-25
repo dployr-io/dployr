@@ -15,12 +15,12 @@ import (
 	"sync"
 	"time"
 
-	"dployr/internal/scripts"
-	"dployr/pkg/core/system"
-	"dployr/pkg/core/utils"
-	"dployr/pkg/shared"
-	"dployr/pkg/store"
-	"dployr/version"
+	"github.com/dployr-io/dployr/internal/scripts"
+	"github.com/dployr-io/dployr/pkg/core/system"
+	"github.com/dployr-io/dployr/pkg/core/utils"
+	"github.com/dployr-io/dployr/pkg/shared"
+	"github.com/dployr-io/dployr/pkg/store"
+	"github.com/dployr-io/dployr/version"
 )
 
 var startTime = time.Now()

@@ -2,8 +2,9 @@ package auth
 
 import (
 	"context"
-	"dployr/pkg/shared"
 	"net/http"
+
+	"github.com/dployr-io/dployr/pkg/shared"
 )
 
 type ctxKey string

@@ -9,12 +9,12 @@ DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Build flags
 LDFLAGS = -s -w \
-	-X dployr/pkg/version.Version=$(VERSION) \
-	-X dployr/pkg/version.GitCommit=$(COMMIT) \
-	-X dployr/pkg/version.BuildDate=$(DATE)
+	-X github.com/dployr-io/github.com/dployr-io/dployr/pkg/version.Version=$(VERSION) \
+	-X github.com/dployr-io/github.com/dployr-io/dployr/pkg/version.GitCommit=$(COMMIT) \
+	-X github.com/dployr-io/github.com/dployr-io/dployr/pkg/version.BuildDate=$(DATE)
 
-CLI_LDFLAGS = $(LDFLAGS) -X dployr/pkg/version.Component=dployr
-DAEMON_LDFLAGS = $(LDFLAGS) -X dployr/pkg/version.Component=dployrd
+CLI_LDFLAGS = $(LDFLAGS) -X github.com/dployr-io/github.com/dployr-io/dployr/pkg/version.Component=dployr
+DAEMON_LDFLAGS = $(LDFLAGS) -X github.com/dployr-io/github.com/dployr-io/dployr/pkg/version.Component=dployrd
 
 # Build directory
 BUILD_DIR = ./dist

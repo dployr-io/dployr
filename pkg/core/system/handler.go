@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"dployr/pkg/shared"
+	"github.com/dployr-io/dployr/pkg/shared"
 )
 
 type ServiceHandler struct {

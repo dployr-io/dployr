@@ -1,8 +1,8 @@
 package worker
 
 import (
-	"dployr/pkg/shared"
-	"dployr/pkg/store"
+	"github.com/dployr-io/dployr/pkg/shared"
+	"github.com/dployr-io/dployr/pkg/store"
 )
 
 type Worker struct {

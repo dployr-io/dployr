@@ -1,7 +1,7 @@
 package proxy
 
 import (
-	"dployr/pkg/core/service"
+	"github.com/dployr-io/dployr/pkg/core/service"
 )
 
 type TemplateType string

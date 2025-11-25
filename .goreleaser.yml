@@ -24,10 +24,10 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
-      - -X dployr/pkg/version.Version={{.Version}}
-      - -X dployr/pkg/version.GitCommit={{.FullCommit}}
-      - -X dployr/pkg/version.BuildDate={{.Date}}
-      - -X dployr/pkg/version.Component=dployr
+      - -X github.com/dployr-io/dployr/pkg/version.Version={{.Version}}
+      - -X github.com/dployr-io/dployr/pkg/version.GitCommit={{.FullCommit}}
+      - -X github.com/dployr-io/dployr/pkg/version.BuildDate={{.Date}}
+      - -X github.com/dployr-io/dployr/pkg/version.Component=dployr
 
   - id: dployrd
     main: ./cmd/dployrd
@@ -46,10 +46,10 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
-      - -X dployr/pkg/version.Version={{.Version}}
-      - -X dployr/pkg/version.GitCommit={{.FullCommit}}
-      - -X dployr/pkg/version.BuildDate={{.Date}}
-      - -X dployr/pkg/version.Component=dployrd
+      - -X github.com/dployr-io/dployr/pkg/version.Version={{.Version}}
+      - -X github.com/dployr-io/dployr/pkg/version.GitCommit={{.FullCommit}}
+      - -X github.com/dployr-io/dployr/pkg/version.BuildDate={{.Date}}
+      - -X github.com/dployr-io/dployr/pkg/version.Component=dployrd
 
 archives:
   - id: default

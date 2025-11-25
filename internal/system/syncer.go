@@ -24,10 +24,10 @@ import (
 	"strings"
 	"time"
 
-	coresystem "dployr/pkg/core/system"
-	"dployr/pkg/shared"
-	"dployr/pkg/store"
-	"dployr/pkg/tasks"
+	coresystem "github.com/dployr-io/dployr/pkg/core/system"
+	"github.com/dployr-io/dployr/pkg/shared"
+	"github.com/dployr-io/dployr/pkg/store"
+	"github.com/dployr-io/dployr/pkg/tasks"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"

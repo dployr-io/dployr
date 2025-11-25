@@ -38,6 +38,16 @@ jobs:
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
           SCOOP_TAP_GITHUB_TOKEN: ${{ secrets.SCOOP_TAP_GITHUB_TOKEN }}
 
+      - name: Publish Go module
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GOPROXY: https://proxy.golang.org
+          GO111MODULE: on
+          MODULE_PATH: github.com/dployr-io/dployr
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          go list -m "${MODULE_PATH}@${VERSION}"
+
       - name: Upload dist artifacts
         uses: actions/upload-artifact@v4
         with:

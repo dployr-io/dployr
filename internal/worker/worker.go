@@ -7,12 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"dployr/internal/deploy"
-	"dployr/internal/svc_runtime"
-	"dployr/pkg/core/service"
-	"dployr/pkg/core/utils"
-	"dployr/pkg/shared"
-	"dployr/pkg/store"
+	"github.com/dployr-io/dployr/pkg/core/service"
+	"github.com/dployr-io/dployr/pkg/core/utils"
+	"github.com/dployr-io/dployr/pkg/shared"
+	"github.com/dployr-io/dployr/pkg/store"
+
+	"github.com/dployr-io/dployr/internal/deploy"
+	"github.com/dployr-io/dployr/internal/svc_runtime"
 )
 
 type Worker struct {

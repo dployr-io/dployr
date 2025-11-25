@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"dployr/pkg/shared"
-	"dployr/pkg/store"
+	"github.com/dployr-io/dployr/pkg/shared"
+	"github.com/dployr-io/dployr/pkg/store"
 )
 
 // Mock stores for testing

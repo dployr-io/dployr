@@ -2,9 +2,10 @@ package shared
 
 import (
 	"context"
-	"dployr/pkg/store"
 	"testing"
 	"time"
+
+	"github.com/dployr-io/dployr/pkg/store"
 )
 
 func TestContextEnrichment(t *testing.T) {

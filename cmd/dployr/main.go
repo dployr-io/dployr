@@ -3,12 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"dployr/pkg/core/deploy"
-	"dployr/pkg/core/proxy"
-	"dployr/pkg/core/utils"
-	"dployr/pkg/shared"
-	"dployr/pkg/store"
-	"dployr/pkg/version"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,6 +12,13 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/dployr-io/dployr/pkg/core/deploy"
+	"github.com/dployr-io/dployr/pkg/core/proxy"
+	"github.com/dployr-io/dployr/pkg/core/utils"
+	"github.com/dployr-io/dployr/pkg/shared"
+	"github.com/dployr-io/dployr/pkg/store"
+	"github.com/dployr-io/dployr/pkg/version"
 
 	"github.com/spf13/cobra"
 )

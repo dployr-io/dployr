@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"dployr/pkg/shared"
+	"github.com/dployr-io/dployr/pkg/shared"
 )
 
 type LogStreamHandler struct {

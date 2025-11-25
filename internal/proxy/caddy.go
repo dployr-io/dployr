@@ -13,9 +13,9 @@ import (
 	"text/template"
 	"time"
 
-	"dployr/pkg/core/proxy"
-	"dployr/pkg/core/service"
-	"dployr/pkg/core/utils"
+	"github.com/dployr-io/dployr/pkg/core/proxy"
+	"github.com/dployr-io/dployr/pkg/core/service"
+	"github.com/dployr-io/dployr/pkg/core/utils"
 )
 
 //go:embed templates/*.tpl

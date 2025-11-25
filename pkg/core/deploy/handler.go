@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"dployr/pkg/shared"
+	"github.com/dployr-io/dployr/pkg/shared"
 )
 
 type DeploymentHandler struct {

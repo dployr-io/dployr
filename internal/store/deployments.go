@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"dployr/pkg/store"
+	"github.com/dployr-io/dployr/pkg/store"
 )
 
 type DeploymentStore struct {

@@ -6,8 +6,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"dployr/internal/scripts"
-	"dployr/pkg/core/utils"
+	"github.com/dployr-io/dployr/pkg/core/utils"
+
+	"github.com/dployr-io/dployr/internal/scripts"
 )
 
 type SystemdManager struct{}

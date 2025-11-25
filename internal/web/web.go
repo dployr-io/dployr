@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"dployr/pkg/auth"
-	"dployr/pkg/shared"
-	"dployr/pkg/store"
+	"github.com/dployr-io/dployr/pkg/auth"
+	"github.com/dployr-io/dployr/pkg/shared"
+	"github.com/dployr-io/dployr/pkg/store"
 )
 
 type WebHandler struct {

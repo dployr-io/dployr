@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"time"
 
-	"dployr/pkg/store"
+	"github.com/dployr-io/dployr/pkg/store"
 )
 
 // InstanceStore provides DB-backed access to the single local instance record.

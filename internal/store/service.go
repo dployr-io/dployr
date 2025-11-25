@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"time"
 
-	"dployr/pkg/store"
+	"github.com/dployr-io/dployr/pkg/store"
 )
 
 type ServiceStore struct {

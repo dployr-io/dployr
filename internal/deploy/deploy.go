@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"dployr/pkg/core/deploy"
-	"dployr/pkg/shared"
-	"dployr/pkg/store"
+	"github.com/dployr-io/dployr/pkg/core/deploy"
+	"github.com/dployr-io/dployr/pkg/shared"
+	"github.com/dployr-io/dployr/pkg/store"
 
 	"github.com/oklog/ulid/v2"
 )
