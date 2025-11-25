@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"time"
 
 	"github.com/dployr-io/dployr/pkg/store"
@@ -28,10 +29,10 @@ func (s *InstanceStore) GetInstance(ctx context.Context) (*store.Instance, error
 
 	if rows.Next() {
 		var inst store.Instance
-		var registeredAtUnix, lastInstalledAtUnix int64
+		var registeredAtRaw, lastInstalledRaw string
 		var bootstrap, access sql.NullString
 
-		if err := rows.Scan(&inst.ID, &bootstrap, &access, &inst.InstanceID, &registeredAtUnix, &lastInstalledAtUnix); err != nil {
+		if err := rows.Scan(&inst.ID, &bootstrap, &access, &inst.InstanceID, &registeredAtRaw, &lastInstalledRaw); err != nil {
 			return nil, err
 		}
 
@@ -40,6 +41,15 @@ func (s *InstanceStore) GetInstance(ctx context.Context) (*store.Instance, error
 		}
 		if access.Valid {
 			inst.AccessToken = access.String
+		}
+
+		registeredAtUnix, err := strconv.ParseInt(registeredAtRaw, 10, 64)
+		if err != nil {
+			registeredAtUnix = 0
+		}
+		lastInstalledAtUnix, err := strconv.ParseInt(lastInstalledRaw, 10, 64)
+		if err != nil {
+			lastInstalledAtUnix = registeredAtUnix
 		}
 
 		inst.RegisteredAt = time.Unix(registeredAtUnix, 0)
