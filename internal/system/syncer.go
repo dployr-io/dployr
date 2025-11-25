@@ -592,24 +592,6 @@ func (s *Syncer) fetchAgentToken(ctx context.Context, bootstrapToken string) (st
 	return body.Data.Token, nil
 }
 
-// toTaskResults converts stored TaskResult records into wire-level tasks.Result.
-func toTaskResults(records []*store.TaskResult) []*tasks.Result {
-	if len(records) == 0 {
-		return nil
-	}
-
-	out := make([]*tasks.Result, 0, len(records))
-	for _, r := range records {
-		out = append(out, &tasks.Result{
-			ID:     r.ID,
-			Status: r.Status,
-			Result: r.Result,
-			Error:  r.Error,
-		})
-	}
-	return out
-}
-
 // fromTaskResults converts wire-level tasks.Result into stored TaskResult
 // records for persistence.
 func fromTaskResults(results []*tasks.Result) []*store.TaskResult {

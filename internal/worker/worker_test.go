@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,16 +12,21 @@ import (
 
 // Mock stores for testing
 type mockDeploymentStore struct {
+	mu          sync.Mutex
 	deployments map[string]*store.Deployment
 	statusCalls []string
 }
 
 func (m *mockDeploymentStore) CreateDeployment(ctx context.Context, d *store.Deployment) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.deployments[d.ID] = d
 	return nil
 }
 
 func (m *mockDeploymentStore) GetDeployment(ctx context.Context, id string) (*store.Deployment, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if d, ok := m.deployments[id]; ok {
 		return d, nil
 	}
@@ -28,6 +34,8 @@ func (m *mockDeploymentStore) GetDeployment(ctx context.Context, id string) (*st
 }
 
 func (m *mockDeploymentStore) ListDeployments(ctx context.Context, limit, offset int) ([]*store.Deployment, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	var result []*store.Deployment
 	for _, d := range m.deployments {
 		result = append(result, d)
@@ -36,11 +44,21 @@ func (m *mockDeploymentStore) ListDeployments(ctx context.Context, limit, offset
 }
 
 func (m *mockDeploymentStore) UpdateDeploymentStatus(ctx context.Context, id, status string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if d, ok := m.deployments[id]; ok {
 		d.Status = store.Status(status)
 		m.statusCalls = append(m.statusCalls, status)
 	}
 	return nil
+}
+
+func (m *mockDeploymentStore) statusCallsSnapshot() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]string, len(m.statusCalls))
+	copy(out, m.statusCalls)
+	return out
 }
 
 type mockServiceStore struct {
@@ -249,14 +267,16 @@ func TestWorker_StatusUpdates(t *testing.T) {
 		// Give it time to update status
 		time.Sleep(100 * time.Millisecond)
 
+		calls := deployStore.statusCallsSnapshot()
+
 		// Check that status update was called
-		if len(deployStore.statusCalls) == 0 {
+		if len(calls) == 0 {
 			t.Error("expected at least one status update call")
 		}
 
 		// First call should be in_progress
-		if len(deployStore.statusCalls) > 0 && deployStore.statusCalls[0] != string(store.StatusInProgress) {
-			t.Errorf("expected first status update to be 'in_progress', got %s", deployStore.statusCalls[0])
+		if len(calls) > 0 && calls[0] != string(store.StatusInProgress) {
+			t.Errorf("expected first status update to be 'in_progress', got %s", calls[0])
 		}
 	})
 }
