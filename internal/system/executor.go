@@ -18,19 +18,26 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
+// AccessTokenProvider provides the current agent access token.
+type AccessTokenProvider interface {
+	GetAccessToken(ctx context.Context) (string, error)
+}
+
 // Executor runs tasks by routing them through existing HTTP handlers.
 type Executor struct {
 	logger  *shared.Logger
 	handler http.Handler
+	tokens  AccessTokenProvider
 }
 
 var pendingTasks int64
 
 // NewExecutor creates a task executor that uses the web server's routes.
-func NewExecutor(logger *shared.Logger, handler http.Handler) *Executor {
+func NewExecutor(logger *shared.Logger, handler http.Handler, tokens AccessTokenProvider) *Executor {
 	return &Executor{
 		logger:  logger,
 		handler: handler,
+		tokens:  tokens,
 	}
 }
 
@@ -72,6 +79,11 @@ func (e *Executor) Execute(ctx context.Context, task *tasks.Task) *tasks.Result 
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	if e.tokens != nil {
+		if tok, _ := e.tokens.GetAccessToken(ctx); strings.TrimSpace(tok) != "" {
+			req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(tok))
+		}
+	}
 	rr := httptest.NewRecorder()
 	logger.Debug("routing task to handler", "method", method, "path", path)
 	e.handler.ServeHTTP(rr, req)

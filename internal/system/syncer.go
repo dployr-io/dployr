@@ -80,7 +80,7 @@ func NewSyncer(cfg *shared.Config, logger *shared.Logger, inst store.InstanceSto
 		logger:      logger,
 		instStore:   inst,
 		resultStore: results,
-		executor:    NewExecutor(logger, handler),
+		executor:    NewExecutor(logger, handler, inst),
 	}
 }
 
