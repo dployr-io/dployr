@@ -33,10 +33,11 @@ CREATE TABLE IF NOT EXISTS services (
 -- INSTANCE TABLE
 CREATE TABLE IF NOT EXISTS instance (
     id TEXT PRIMARY KEY,
-    token TEXT NOT NULL,
     instance_id TEXT NOT NULL,
     issuer TEXT NOT NULL,
     audience TEXT NOT NULL,
+    bootstrap_token TEXT NOT NULL,
+    access_token TEXT NOT NULL,
     registered_at INTEGER NOT NULL DEFAULT (unixepoch()),
     last_installed_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
