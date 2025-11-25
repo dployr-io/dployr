@@ -35,6 +35,21 @@ make build-daemon             # Build daemon for local testing
 ./dist/dployr --help          # Test CLI commands
 ```
 
+### Pre‑flight checks (must pass)
+
+Run local checks that mirror CI:
+
+```bash
+make ci                       # full local CI parity
+
+# or run individually
+gofmt -s -l .                 # must output nothing
+go vet ./...
+staticcheck ./...
+go build ./...
+go test -race -count=1 ./...
+```
+
 ---
 
 ## Architecture Guidelines
@@ -61,16 +76,15 @@ make build-daemon             # Build daemon for local testing
 
 * Use `gofmt` and `goimports`
 * Follow [Effective Go](https://go.dev/doc/effective_go) guidelines
-* Prefer composition over inheritance
 * Keep interfaces small and focused
 
 ### Error Handling
 
 ```go
-// ✅ Good: wrap errors with context
+// [✓] Good: wrap errors with context
 return fmt.Errorf("failed to create deployment %s: %w", id, err)
 
-// ❌ Bad: generic error message
+// [X] Bad: generic error message
 return err
 ```
 
