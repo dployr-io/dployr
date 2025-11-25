@@ -2,7 +2,6 @@ package stream
 
 import (
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -11,10 +10,10 @@ import (
 
 type LogStreamHandler struct {
 	streamer *LogStreamer
-	logger   *slog.Logger
+	logger   *shared.Logger
 }
 
-func NewLogStreamHandler(streamer *LogStreamer, logger *slog.Logger) *LogStreamHandler {
+func NewLogStreamHandler(streamer *LogStreamer, logger *shared.Logger) *LogStreamHandler {
 	return &LogStreamHandler{
 		streamer: streamer,
 		logger:   logger,

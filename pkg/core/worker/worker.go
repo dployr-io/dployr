@@ -1,15 +1,13 @@
 package worker
 
 import (
-	"log/slog"
-
 	"dployr/pkg/shared"
 	"dployr/pkg/store"
 )
 
 type Worker struct {
 	maxConcurrent int
-	logger        *slog.Logger
+	logger        *shared.Logger
 	store         store.DeploymentStore
 	config        *shared.Config
 	semaphore     chan struct{}
@@ -17,7 +15,7 @@ type Worker struct {
 	queue         chan string
 }
 
-func NewWorker(m int, c *shared.Config, l *slog.Logger, s store.DeploymentStore) *Worker {
+func NewWorker(m int, c *shared.Config, l *shared.Logger, s store.DeploymentStore) *Worker {
 	return &Worker{
 		maxConcurrent: m,
 		logger:        l,

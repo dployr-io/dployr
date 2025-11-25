@@ -1,6 +1,8 @@
 package system
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"crypto/subtle"
 	"encoding/base64"
@@ -256,6 +258,63 @@ func (s *DefaultService) RegisterInstance(ctx context.Context, req system.Regist
 	return nil
 }
 
+// streamCommandOutput runs a command and streams stdout/stderr line-by-line as structured logs.
+// Returns the combined output and any error.
+func streamCommandOutput(cmd *exec.Cmd, logger *shared.Logger) (string, error) {
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return "", fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return "", fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
+
+	var output bytes.Buffer
+	var wg sync.WaitGroup
+
+	// Stream stdout as info logs
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		scanner := bufio.NewScanner(stdoutPipe)
+		for scanner.Scan() {
+			line := scanner.Text()
+			output.WriteString(line + "\n")
+			logger.Info(line)
+		}
+	}()
+
+	// Stream stderr as warn/error logs
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		scanner := bufio.NewScanner(stderrPipe)
+		for scanner.Scan() {
+			line := scanner.Text()
+			output.WriteString(line + "\n")
+			// Heuristic: lines with "error" or "fatal" are errors, others are warnings
+			if strings.Contains(strings.ToLower(line), "error") || strings.Contains(strings.ToLower(line), "fatal") {
+				logger.Error(line)
+			} else {
+				logger.Warn(line)
+			}
+		}
+	}()
+
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("failed to start command: %w", err)
+	}
+
+	// Wait for streaming to complete
+	wg.Wait()
+
+	// Wait for command to finish
+	err = cmd.Wait()
+
+	return output.String(), err
+}
+
 func compareBase64(a, b string) bool {
 	if a == "" || b == "" {
 		return false
@@ -293,7 +352,10 @@ func runSystemDoctorScript(ctx context.Context, script string, extraEnv []string
 
 	cmd := exec.CommandContext(ctx, "bash", f.Name())
 	cmd.Env = append(os.Environ(), extraEnv...)
-	out, err := cmd.CombinedOutput()
+
+	// Stream stdout and stderr as structured logs
+	logger := shared.NewLogger().With("component", "installer", "script", "system_doctor")
+	out, err := streamCommandOutput(cmd, logger)
 	store.UpdateLastInstalledAt(ctx)
-	return string(out), err
+	return out, err
 }

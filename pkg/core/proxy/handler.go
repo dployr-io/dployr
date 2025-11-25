@@ -4,16 +4,15 @@ import (
 	"dployr/pkg/shared"
 	"encoding/json"
 	"log"
-	"log/slog"
 	"net/http"
 )
 
 type ProxyHandler struct {
 	proxier *Proxier
-	logger  *slog.Logger
+	logger  *shared.Logger
 }
 
-func NewProxyHandler(p *Proxier, l *slog.Logger) *ProxyHandler {
+func NewProxyHandler(p *Proxier, l *shared.Logger) *ProxyHandler {
 	err := p.api.Setup(p.apps)
 	if err != nil {
 		log.Fatalf("%s", err)

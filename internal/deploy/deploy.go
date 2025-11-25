@@ -3,7 +3,6 @@ package deploy
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"dployr/pkg/core/deploy"
@@ -19,13 +18,13 @@ type Dispatcher interface {
 
 type Deployer struct {
 	cfg    *shared.Config
-	logger *slog.Logger
+	logger *shared.Logger
 	store  store.DeploymentStore
 	job    Dispatcher
 }
 
 // Init creates a new Deployer instance
-func Init(c *shared.Config, l *slog.Logger, s store.DeploymentStore, j Dispatcher) *Deployer {
+func Init(c *shared.Config, l *shared.Logger, s store.DeploymentStore, j Dispatcher) *Deployer {
 	return &Deployer{
 		cfg:    c,
 		logger: l,

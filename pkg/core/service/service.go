@@ -2,9 +2,9 @@ package service
 
 import (
 	"context"
+
 	"dployr/pkg/shared"
 	"dployr/pkg/store"
-	"log/slog"
 )
 
 type SvcState string
@@ -17,7 +17,7 @@ const (
 
 type Servicer struct {
 	config *shared.Config
-	logger *slog.Logger
+	logger *shared.Logger
 	store  store.ServiceStore
 	api    HandleService
 }
@@ -34,7 +34,7 @@ type HandleService interface {
 	UpdateService(ctx context.Context, id string, status store.Service) (*store.Service, error)
 }
 
-func NewServicer(c *shared.Config, l *slog.Logger, s store.ServiceStore, a HandleService) *Servicer {
+func NewServicer(c *shared.Config, l *shared.Logger, s store.ServiceStore, a HandleService) *Servicer {
 	return &Servicer{
 		config: c,
 		logger: l,

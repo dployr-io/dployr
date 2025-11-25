@@ -4,16 +4,15 @@ import (
 	"context"
 	"dployr/pkg/shared"
 	"dployr/pkg/store"
-	"log/slog"
 )
 
 type Servicer struct {
 	cfg    *shared.Config
-	logger *slog.Logger
+	logger *shared.Logger
 	store  store.ServiceStore
 }
 
-func Init(cfg *shared.Config, logger *slog.Logger, store store.ServiceStore) *Servicer {
+func Init(cfg *shared.Config, logger *shared.Logger, store store.ServiceStore) *Servicer {
 	return &Servicer{
 		cfg:    cfg,
 		logger: logger,

@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"path/filepath"
 	"sync"
 	"time"
@@ -18,7 +17,7 @@ import (
 
 type Worker struct {
 	maxConcurrent int
-	logger        *slog.Logger
+	logger        *shared.Logger
 	depsStore     store.DeploymentStore
 	svcStore      store.ServiceStore
 	cfg           *shared.Config
@@ -29,7 +28,7 @@ type Worker struct {
 }
 
 // New creates a new Worker instance
-func New(m int, c *shared.Config, l *slog.Logger, d store.DeploymentStore, s store.ServiceStore) *Worker {
+func New(m int, c *shared.Config, l *shared.Logger, d store.DeploymentStore, s store.ServiceStore) *Worker {
 	return &Worker{
 		maxConcurrent: m,
 		logger:        l,

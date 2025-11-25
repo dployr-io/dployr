@@ -2,33 +2,70 @@ package shared
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
-	"time"
-
-	"github.com/oklog/ulid/v2"
+	"runtime"
+	"sync"
 )
 
-type LogEntry struct {
-	Id      string    `json:"id"`
-	Level   string    `json:"level"`
-	Message string    `json:"message"`
-	Time    time.Time `json:"timestamp"`
-	Error   error     `json:"error,omitempty"`
+var (
+	defaultLogger     *Logger
+	defaultLoggerOnce sync.Once
+)
+
+// Logger wraps slog with multi-sink (stdout + file) and context-aware logging.
+type Logger struct {
+	logger *slog.Logger
 }
 
-func NewLogger() *slog.Logger {
-	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+// NewLogger creates a unified logger that writes structured JSON to both stdout and a file.
+func NewLogger() *Logger {
+	defaultLoggerOnce.Do(func() {
+		logFile := getLogFilePath()
+		if err := os.MkdirAll(filepath.Dir(logFile), 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to create log dir: %v\n", err)
+		}
+
+		f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to open log file: %v\n", err)
+			f = nil
+		}
+
+		var writers []io.Writer
+		writers = append(writers, os.Stdout)
+		if f != nil {
+			writers = append(writers, f)
+		}
+
+		multi := io.MultiWriter(writers...)
+		handler := slog.NewJSONHandler(multi, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		})
+
+		defaultLogger = &Logger{
+			logger: slog.New(handler),
+		}
 	})
-	return slog.New(handler)
+	return defaultLogger
 }
 
-func LogWithContext(ctx context.Context) *slog.Logger {
+func getLogFilePath() string {
+	switch runtime.GOOS {
+	case "windows":
+		return filepath.Join(os.Getenv("PROGRAMDATA"), "dployr", "logs", "app.log")
+	case "darwin":
+		return "/usr/local/var/log/dployrd/app.log"
+	default:
+		return "/var/log/dployrd/app.log"
+	}
+}
+
+// WithContext returns a logger enriched with context fields (request_id, trace_id, user_id, instance_id).
+func (l *Logger) WithContext(ctx context.Context) *Logger {
 	requestID := RequestID(ctx)
 	traceID := TraceID(ctx)
 	user, _ := UserFromContext(ctx)
@@ -37,87 +74,73 @@ func LogWithContext(ctx context.Context) *slog.Logger {
 		userID = user.ID
 	}
 
-	attrs := []slog.Attr{
+	instanceID := ""
+	if v := ctx.Value("instance_id"); v != nil {
+		if id, ok := v.(string); ok {
+			instanceID = id
+		}
+	}
+
+	attrs := []any{
 		slog.String("request_id", requestID),
 		slog.String("trace_id", traceID),
 		slog.String("user_id", userID),
 	}
-
-	args := make([]any, len(attrs))
-	for i, a := range attrs {
-		args[i] = a
+	if instanceID != "" {
+		attrs = append(attrs, slog.String("instance_id", instanceID))
 	}
 
-	return slog.With(args...)
+	return &Logger{logger: l.logger.With(attrs...)}
 }
 
-func safeString(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
+// Debug logs a debug-level message.
+func (l *Logger) Debug(msg string, args ...any) {
+	l.logger.Debug(msg, args...)
 }
 
-// LogF creates a log file and writes a LogEntry
-func LogF(name, dir string, entry LogEntry) error {
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create log directory: %w", err)
-	}
+// Info logs an info-level message.
+func (l *Logger) Info(msg string, args ...any) {
+	l.logger.Info(msg, args...)
+}
 
-	logFile := filepath.Join(dir, fmt.Sprintf("%s.log", strings.ToLower(name)))
-	file, openErr := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if openErr != nil {
-		return fmt.Errorf("failed to create log file: %w", openErr)
-	}
-	defer file.Close()
+// Warn logs a warning-level message.
+func (l *Logger) Warn(msg string, args ...any) {
+	l.logger.Warn(msg, args...)
+}
 
-	if entry.Time.IsZero() {
-		entry.Time = time.Now()
-	}
+// Error logs an error-level message.
+func (l *Logger) Error(msg string, args ...any) {
+	l.logger.Error(msg, args...)
+}
 
-	data, err := json.Marshal(entry)
-	if err != nil {
-		fmt.Fprintf(file, "[%s] %s: %s", entry.Level, entry.Time.Format(time.RFC3339), entry.Message)
-		if entry.Error != nil {
-			fmt.Fprintf(file, "%s", entry.Error)
-		}
-		fmt.Fprintln(file)
-		return nil
-	}
+// With returns a logger with additional fields.
+func (l *Logger) With(args ...any) *Logger {
+	return &Logger{logger: l.logger.With(args...)}
+}
 
-	fmt.Fprintln(file, string(data))
+// LogWithContext is a legacy helper; use logger.WithContext(ctx) instead.
+// Kept for backward compatibility during migration.
+func LogWithContext(ctx context.Context) *Logger {
+	return NewLogger().WithContext(ctx)
+}
+
+// File-based logging helpers for deployment-specific logs
+// These write to separate files per deployment/task
+
+func LogInfoF(name, dir, message string) error {
+	logger := NewLogger().With("deployment_id", name, "log_type", "deployment")
+	logger.Info(message)
 	return nil
 }
 
-// LogInfoF logs a info to file
-func LogInfoF(name, dir, message string) error {
-	entry := LogEntry{
-		Id:      ulid.Make().String(),
-		Level:   "info",
-		Message: message,
-		Time:    time.Now(),
-	}
-	return LogF(name, dir, entry)
-}
-
-// LogInfoF logs a warning to file
 func LogWarnF(name, dir, message string) error {
-	entry := LogEntry{
-		Id:      ulid.Make().String(),
-		Level:   "warn",
-		Message: message,
-		Time:    time.Now(),
-	}
-	return LogF(name, dir, entry)
+	logger := NewLogger().With("deployment_id", name, "log_type", "deployment")
+	logger.Warn(message)
+	return nil
 }
 
-// LogErrF logs an error to file
 func LogErrF(name, dir string, err error) error {
-	entry := LogEntry{
-		Id:    ulid.Make().String(),
-		Level: "error",
-		Error: err,
-		Time:  time.Now(),
-	}
-	return LogF(name, dir, entry)
+	logger := NewLogger().With("deployment_id", name, "log_type", "deployment")
+	logger.Error(err.Error(), "error", err)
+	return nil
 }

@@ -15,7 +15,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"log/slog"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -34,11 +33,15 @@ import (
 	"github.com/coder/websocket/wsjson"
 )
 
+type syncerCtxKey string
+
+const ctxKeyInstanceID syncerCtxKey = "instance_id"
+
 const baseWSCACertPEM = ""
 
 type Syncer struct {
 	cfg               *shared.Config
-	logger            *slog.Logger
+	logger            *shared.Logger
 	instStore         store.InstanceStore
 	resultStore       store.TaskResultStore
 	executor          *Executor
@@ -71,7 +74,7 @@ type agentTokenResponse struct {
 	} `json:"data"`
 }
 
-func NewSyncer(cfg *shared.Config, logger *slog.Logger, inst store.InstanceStore, results store.TaskResultStore, handler http.Handler) *Syncer {
+func NewSyncer(cfg *shared.Config, logger *shared.Logger, inst store.InstanceStore, results store.TaskResultStore, handler http.Handler) *Syncer {
 	return &Syncer{
 		cfg:         cfg,
 		logger:      logger,
@@ -96,14 +99,19 @@ func (s *Syncer) obtainAgentTokenWithBackoff(ctx context.Context, bootstrapToken
 			return "", ctx.Err()
 		}
 
+		if attempt > 0 {
+			s.logger.Debug("syncer: retrying agent token fetch", "attempt", attempt)
+		}
+
 		token, err := s.fetchAgentToken(ctx, bootstrapToken)
 		if err == nil && strings.TrimSpace(token) != "" {
-			// Reset backoff on success so future failures start fresh.
 			s.agentTokenBackoff = 0
+			s.logger.Debug("syncer: agent token obtained", "attempt", attempt)
 			return token, nil
 		}
 
-		// First few attempts: retry almost immediately.
+		s.logger.Debug("syncer: agent token fetch failed", "attempt", attempt, "error", err)
+
 		if attempt < 3 {
 			select {
 			case <-ctx.Done():
@@ -113,7 +121,6 @@ func (s *Syncer) obtainAgentTokenWithBackoff(ctx context.Context, bootstrapToken
 			continue
 		}
 
-		// Apply exponential backoff bewtween 1m and 12h.
 		if s.agentTokenBackoff <= 0 {
 			s.agentTokenBackoff = startBackoff
 		} else {
@@ -124,6 +131,7 @@ func (s *Syncer) obtainAgentTokenWithBackoff(ctx context.Context, bootstrapToken
 		}
 
 		sleep := jitter(s.agentTokenBackoff)
+		s.logger.Debug("syncer: applying exponential backoff", "backoff_ms", sleep.Milliseconds(), "attempt", attempt)
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
@@ -138,16 +146,19 @@ func (s *Syncer) ensureAccessToken(ctx context.Context, bootstrapToken string) (
 		return "", fmt.Errorf("failed to load access token: %w", err)
 	}
 	if strings.TrimSpace(accessToken) != "" {
+		s.logger.Debug("syncer: using cached access token")
 		return accessToken, nil
 	}
 
+	s.logger.Info("syncer: obtaining agent access token")
 	accessToken, err = s.obtainAgentTokenWithBackoff(ctx, bootstrapToken)
 	if err != nil {
 		return "", fmt.Errorf("failed to obtain agent token: %w", err)
 	}
 	if err := s.instStore.SetAccessToken(ctx, accessToken); err != nil {
-		s.logger.Error("failed to persist access token", "error", err)
+		s.logger.Error("syncer: failed to persist access token", "error", err)
 	}
+	s.logger.Debug("syncer: access token persisted")
 	return accessToken, nil
 }
 
@@ -170,19 +181,27 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 		return fmt.Errorf("base_url is not configured")
 	}
 
+	s.logger.Debug("syncer: checking instance registration")
 	inst, err := s.instStore.GetInstance(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get instance: %w", err)
 	}
 	if inst == nil || strings.TrimSpace(inst.InstanceID) == "" {
+		s.logger.Debug("syncer: instance not registered; skipping WS connect")
 		return nil
 	}
 
+	// Enrich context with instance_id for all subsequent logs
+	ctx = context.WithValue(ctx, ctxKeyInstanceID, inst.InstanceID)
+	logger := s.logger.WithContext(ctx)
+
+	logger.Debug("syncer: loading bootstrap token")
 	bootstrapToken, err := s.instStore.GetBootstrapToken(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load instance token: %w", err)
 	}
 	if strings.TrimSpace(bootstrapToken) == "" {
+		logger.Debug("syncer: bootstrap token not set; skipping WS connect")
 		return nil
 	}
 
@@ -191,35 +210,47 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 		return err
 	}
 
+	logger.Debug("syncer: ensuring client certificate", "instance_id", inst.InstanceID)
 	clientCert, err := s.ensureClientCertificate(inst.InstanceID)
 	if err != nil {
 		return fmt.Errorf("failed to ensure client certificate: %w", err)
 	}
 
+	if len(clientCert.Certificate) > 0 {
+		if parsed, err := x509.ParseCertificate(clientCert.Certificate[0]); err == nil {
+			logger.Info("syncer: client certificate ready", "cn", parsed.Subject.CommonName, "not_after", parsed.NotAfter.Format(time.RFC3339))
+		}
+	}
+
+	logger.Info("syncer: publishing client certificate")
 	if err := s.publishClientCertificate(ctx, inst.InstanceID, accessToken, clientCert); err != nil {
 		var httpErr *httpError
 		if errors.As(err, &httpErr) && (httpErr.StatusCode == http.StatusUnauthorized || httpErr.StatusCode == http.StatusForbidden) {
-			// Access token no longer valid; clear and try once with a fresh token.
+			logger.Warn("syncer: access token rejected; refreshing and retrying", "status", httpErr.StatusCode)
 			if err := s.instStore.SetAccessToken(ctx, ""); err != nil {
-				s.logger.Error("failed to clear invalid access token", "error", err)
+				logger.Error("syncer: failed to clear invalid access token", "error", err)
 			} else if accessToken, err = s.ensureAccessToken(ctx, bootstrapToken); err == nil {
 				if err := s.publishClientCertificate(ctx, inst.InstanceID, accessToken, clientCert); err == nil {
+					logger.Debug("syncer: cert publish succeeded after token refresh")
 					goto ws_dial
 				}
 			}
 		}
 		return fmt.Errorf("failed to publish client certificate: %w", err)
 	}
+	logger.Debug("syncer: client certificate published")
 
 ws_dial:
 
 	wsURL := strings.Replace(s.cfg.BaseURL, "https://", "wss://", 1) +
 		fmt.Sprintf("/v1/agent/instances/%s/ws", inst.InstanceID)
 
+	logger.Info("syncer: dialing websocket", "host", s.cfg.BaseURL)
 	tlsConfig, err := s.buildPinnedTLSConfig(clientCert)
 	if err != nil {
 		return fmt.Errorf("failed to build TLS config: %w", err)
 	}
+	logger.Debug("syncer: TLS config built", "pinned_roots", tlsConfig.RootCAs != nil)
 
 	opts := &websocket.DialOptions{
 		HTTPHeader: http.Header{
@@ -234,20 +265,21 @@ ws_dial:
 
 	conn, resp, err := websocket.Dial(ctx, wsURL, opts)
 	if err != nil {
-		// If the access token was rejected during WS upgrade, clear and try once
-		// with a fresh token before giving up.
 		status := 0
 		if resp != nil {
 			status = resp.StatusCode
 		}
+		logger.Debug("syncer: websocket dial failed", "status", status, "error", err)
 		if status == http.StatusUnauthorized || status == http.StatusForbidden {
+			logger.Warn("syncer: websocket upgrade rejected; refreshing token and retrying", "status", status)
 			if err := s.instStore.SetAccessToken(ctx, ""); err != nil {
-				s.logger.Error("failed to clear invalid access token", "error", err)
+				logger.Error("syncer: failed to clear invalid access token", "error", err)
 			} else if accessToken, err = s.ensureAccessToken(ctx, bootstrapToken); err == nil {
 				opts.HTTPHeader.Set("Authorization", "Bearer "+accessToken)
 				if conn2, resp2, err2 := websocket.Dial(ctx, wsURL, opts); err2 == nil {
 					conn = conn2
 					_ = resp2
+					logger.Debug("syncer: websocket connected after token refresh")
 					goto ws_connected
 				}
 			}
@@ -258,7 +290,7 @@ ws_dial:
 ws_connected:
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	s.logger.Info("websocket connected to base")
+	logger.Info("syncer: websocket connected to base")
 
 	pending, err := s.resultStore.ListUnsent(ctx)
 	if err == nil && len(pending) > 0 {
@@ -266,25 +298,29 @@ ws_connected:
 		for _, r := range pending {
 			ids = append(ids, r.ID)
 		}
+		logger.Debug("syncer: sending pending acks", "count", len(ids))
 		if err := s.sendWSMessage(ctx, conn, wsMessage{Kind: "ack", IDs: ids}); err == nil {
 			s.resultStore.MarkSynced(ctx, ids)
 		}
 	}
 
+	logger.Debug("syncer: sending initial pull")
 	if err := s.sendWSMessage(ctx, conn, wsMessage{Kind: "pull"}); err != nil {
 		return fmt.Errorf("failed to send initial pull: %w", err)
 	}
 
-	// Read loop.
 	for {
 		var msg wsMessage
 		if err := wsjson.Read(ctx, conn, &msg); err != nil {
+			logger.Error("syncer: websocket read failed; will reconnect", "error", err)
 			return fmt.Errorf("websocket read failed: %w", err)
 		}
 
+		logger.Debug("syncer: received message", "kind", msg.Kind)
 		switch msg.Kind {
 		case "task":
-			s.handleTasks(ctx, conn, msg.Items)
+			logger.Debug("syncer: received tasks", "count", len(msg.Items))
+			s.handleTasks(ctx, conn, msg.Items, logger)
 		}
 	}
 }
@@ -475,12 +511,12 @@ func (s *Syncer) sendWSMessage(ctx context.Context, conn *websocket.Conn, msg ws
 	return wsjson.Write(ctx, conn, msg)
 }
 
-func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []syncTask) {
+func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []syncTask, logger *shared.Logger) {
 	currentModeMu.RLock()
 	mode := currentMode
 	currentModeMu.RUnlock()
 	if mode == coresystem.ModeUpdating {
-		s.logger.Info("skipping tasks while daemon is in updating mode")
+		logger.Info("skipping tasks while daemon is in updating mode")
 		return
 	}
 
@@ -488,7 +524,7 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 		return
 	}
 
-	s.logger.Info("received tasks from base", "count", len(items))
+	logger.Info("received tasks from base", "count", len(items))
 
 	var completedIDs []string
 	var completedResults []*tasks.Result
@@ -507,13 +543,13 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 	}
 
 	if err := s.resultStore.SaveResults(ctx, fromTaskResults(completedResults)); err != nil {
-		s.logger.Error("failed to persist completed task results", "error", err)
+		logger.Error("failed to persist completed task results", "error", err)
 		return
 	}
 
 	if len(completedIDs) > 0 {
 		if err := s.sendWSMessage(ctx, conn, wsMessage{Kind: "ack", IDs: completedIDs}); err != nil {
-			s.logger.Error("failed to send ack", "error", err)
+			logger.Error("failed to send ack", "error", err)
 		}
 	}
 }

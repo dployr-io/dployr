@@ -2,7 +2,6 @@ package deploy
 
 import (
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -11,10 +10,10 @@ import (
 
 type DeploymentHandler struct {
 	deployer *Deployer
-	logger   *slog.Logger
+	logger   *shared.Logger
 }
 
-func NewDeploymentHandler(deployer *Deployer, logger *slog.Logger) *DeploymentHandler {
+func NewDeploymentHandler(deployer *Deployer, logger *shared.Logger) *DeploymentHandler {
 	return &DeploymentHandler{
 		deployer: deployer,
 		logger:   logger,

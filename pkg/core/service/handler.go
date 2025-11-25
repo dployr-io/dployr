@@ -2,7 +2,6 @@ package service
 
 import (
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -12,10 +11,10 @@ import (
 
 type ServiceHandler struct {
 	servicer *Servicer
-	logger   *slog.Logger
+	logger   *shared.Logger
 }
 
-func NewServiceHandler(servicer *Servicer, logger *slog.Logger) *ServiceHandler {
+func NewServiceHandler(servicer *Servicer, logger *shared.Logger) *ServiceHandler {
 	return &ServiceHandler{
 		servicer: servicer,
 		logger:   logger,

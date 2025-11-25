@@ -2,7 +2,6 @@ package deploy
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"dployr/pkg/shared"
@@ -11,12 +10,12 @@ import (
 
 type Deployer struct {
 	config *shared.Config
-	logger *slog.Logger
+	logger *shared.Logger
 	store  store.DeploymentStore
 	api    HandleDeployment
 }
 
-func NewDeployer(c *shared.Config, l *slog.Logger, s store.DeploymentStore, a HandleDeployment) *Deployer {
+func NewDeployer(c *shared.Config, l *shared.Logger, s store.DeploymentStore, a HandleDeployment) *Deployer {
 	return &Deployer{
 		config: c,
 		logger: l,

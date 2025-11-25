@@ -2,8 +2,6 @@ package worker
 
 import (
 	"context"
-	"log/slog"
-	"os"
 	"testing"
 	"time"
 
@@ -78,7 +76,7 @@ func (m *mockServiceStore) UpdateService(ctx context.Context, svc *store.Service
 
 func TestWorker_New(t *testing.T) {
 	cfg := &shared.Config{}
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := shared.NewLogger()
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
 
@@ -103,7 +101,7 @@ func TestWorker_New(t *testing.T) {
 
 func TestWorker_Submit(t *testing.T) {
 	cfg := &shared.Config{}
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := shared.NewLogger()
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
 
@@ -137,7 +135,7 @@ func TestWorker_Submit(t *testing.T) {
 
 func TestWorker_ActiveJobs(t *testing.T) {
 	cfg := &shared.Config{}
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := shared.NewLogger()
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
 
@@ -185,7 +183,7 @@ func TestWorker_ActiveJobs(t *testing.T) {
 
 func TestWorker_Semaphore(t *testing.T) {
 	cfg := &shared.Config{}
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := shared.NewLogger()
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
 
@@ -219,7 +217,7 @@ func TestWorker_Semaphore(t *testing.T) {
 
 func TestWorker_StatusUpdates(t *testing.T) {
 	cfg := &shared.Config{}
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := shared.NewLogger()
 	deployStore := &mockDeploymentStore{
 		deployments: make(map[string]*store.Deployment),
 		statusCalls: []string{},
@@ -265,7 +263,7 @@ func TestWorker_StatusUpdates(t *testing.T) {
 
 func TestWorker_ContextCancellation(t *testing.T) {
 	cfg := &shared.Config{}
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := shared.NewLogger()
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
 
@@ -298,7 +296,7 @@ func TestWorker_ContextCancellation(t *testing.T) {
 
 func TestWorker_DuplicateJobPrevention(t *testing.T) {
 	cfg := &shared.Config{}
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := shared.NewLogger()
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
 
