@@ -83,13 +83,18 @@ install_jq() {
                     sleep 1
                 done
 
-                apt update -qq
+                apt update -qq || warn "apt update failed while installing jq; attempting fallback download"
 
                 while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
                     sleep 1
                 done
 
-                apt install -y -qq jq
+                if ! apt install -y -qq jq; then
+                    warn "apt install jq failed; falling back to static jq binary download"
+                    local jq_url="https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64"
+                    curl -sL "$jq_url" -o "$INSTALL_DIR/jq" || error "Failed to download jq binary from $jq_url"
+                    chmod +x "$INSTALL_DIR/jq"
+                fi
             elif command -v yum &>/dev/null; then
                 yum install -y -q jq
             else
