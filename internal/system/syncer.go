@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	coresystem "github.com/dployr-io/dployr/pkg/core/system"
@@ -32,6 +33,53 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 )
+
+var wsConnected int32
+var wsReconnects uint64
+var lastWSConnect atomic.Value // time.Time
+var lastWSError atomic.Value   // string
+
+var wsConnectsTotal uint64
+var wsDisconnectsTotal uint64
+var agentTokenRefreshSuccessTotal uint64
+var agentTokenRefreshFailedTotal uint64
+
+func setWSConnected(v bool) {
+	if v {
+		atomic.StoreInt32(&wsConnected, 1)
+	} else {
+		atomic.StoreInt32(&wsConnected, 0)
+	}
+}
+
+func WSConnected() bool { return atomic.LoadInt32(&wsConnected) == 1 }
+
+func WSReconnectsSinceStart() uint64 { return atomic.LoadUint64(&wsReconnects) }
+
+func WSLastConnect() (t time.Time) {
+	if v := lastWSConnect.Load(); v != nil {
+		t = v.(time.Time)
+	}
+	return
+}
+
+func WSLastError() *string {
+	if v := lastWSError.Load(); v != nil {
+		s := v.(string)
+		if s != "" {
+			return &s
+		}
+	}
+	return nil
+}
+
+func wsConnectTotal() uint64 { return atomic.LoadUint64(&wsConnectsTotal) }
+
+func wsDisconnectTotal() uint64 { return atomic.LoadUint64(&wsDisconnectsTotal) }
+
+func agentTokenRefreshTotals() (success, failed uint64) {
+	return atomic.LoadUint64(&agentTokenRefreshSuccessTotal), atomic.LoadUint64(&agentTokenRefreshFailedTotal)
+}
 
 type syncerCtxKey string
 
@@ -153,8 +201,10 @@ func (s *Syncer) ensureAccessToken(ctx context.Context, bootstrapToken string) (
 	s.logger.Info("syncer: obtaining agent access token")
 	accessToken, err = s.obtainAgentTokenWithBackoff(ctx, bootstrapToken)
 	if err != nil {
+		atomic.AddUint64(&agentTokenRefreshFailedTotal, 1)
 		return "", fmt.Errorf("failed to obtain agent token: %w", err)
 	}
+	atomic.AddUint64(&agentTokenRefreshSuccessTotal, 1)
 	if err := s.instStore.SetAccessToken(ctx, accessToken); err != nil {
 		s.logger.Error("syncer: failed to persist access token", "error", err)
 	}
@@ -291,6 +341,9 @@ ws_connected:
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
 	logger.Info("syncer: websocket connected to base")
+	atomic.AddUint64(&wsConnectsTotal, 1)
+	setWSConnected(true)
+	lastWSConnect.Store(time.Now())
 
 	pending, err := s.resultStore.ListUnsent(ctx)
 	if err == nil && len(pending) > 0 {
@@ -312,7 +365,22 @@ ws_connected:
 	for {
 		var msg wsMessage
 		if err := wsjson.Read(ctx, conn, &msg); err != nil {
+			if websocket.CloseStatus(err) == websocket.StatusNormalClosure || websocket.CloseStatus(err) == websocket.StatusGoingAway {
+				logger.Info("syncer: websocket closed", "status", websocket.CloseStatus(err))
+				atomic.AddUint64(&wsDisconnectsTotal, 1)
+				setWSConnected(false)
+				return nil
+			}
 			logger.Error("syncer: websocket read failed; will reconnect", "error", err)
+			setWSConnected(false)
+			atomic.AddUint64(&wsReconnects, 1)
+			atomic.AddUint64(&wsDisconnectsTotal, 1)
+			// cap error length to 256
+			msgErr := err.Error()
+			if len(msgErr) > 256 {
+				msgErr = msgErr[:256]
+			}
+			lastWSError.Store(msgErr)
 			return fmt.Errorf("websocket read failed: %w", err)
 		}
 

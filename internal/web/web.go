@@ -11,12 +11,13 @@ import (
 )
 
 type WebHandler struct {
-	DepsH   DeploymentHandler
-	SvcH    ServiceHandler
-	LogsH   LogStreamHandler
-	ProxyH  ProxyHandler
-	SystemH SystemHandler
-	AuthM   *auth.Middleware
+	DepsH    DeploymentHandler
+	SvcH     ServiceHandler
+	LogsH    LogStreamHandler
+	ProxyH   ProxyHandler
+	SystemH  SystemHandler
+	AuthM    *auth.Middleware
+	MetricsH http.Handler
 }
 
 type DeploymentHandler interface {
@@ -162,6 +163,10 @@ func (w *WebHandler) BuildMux(cfg *shared.Config) *http.ServeMux {
 			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, nil)
 		}
 	}))))
+
+	if w.MetricsH != nil {
+		mux.Handle("/metrics", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(w.MetricsH))))
+	}
 
 	return mux
 }

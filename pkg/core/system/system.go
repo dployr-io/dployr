@@ -28,9 +28,53 @@ type SystemProxyStatus struct {
 // SystemStatus describes high-level health information about the daemon.
 type SystemStatus struct {
 	Status   string               `json:"status"`
+	Mode     Mode                 `json:"mode"`
+	Version  string               `json:"version"`
 	Uptime   string               `json:"uptime"`
 	Services SystemServicesStatus `json:"services"`
 	Proxy    SystemProxyStatus    `json:"proxy"`
+	Health   SystemHealth         `json:"health"`
+	Debug    *SystemDebug         `json:"debug,omitempty"`
+}
+
+type SystemHealth struct {
+	Overall string `json:"overall"` // ok|degraded|down
+	WS      string `json:"ws"`
+	Tasks   string `json:"tasks"`
+	Auth    string `json:"auth"`
+}
+
+type SystemDebug struct {
+	WS    WSDebug    `json:"ws"`
+	Tasks TasksDebug `json:"tasks"`
+	Auth  *AuthDebug `json:"auth,omitempty"`
+	Cert  *CertDebug `json:"cert,omitempty"`
+}
+
+type WSDebug struct {
+	Connected            bool    `json:"connected"`
+	LastConnectAtRFC3339 string  `json:"last_connect_at"`
+	ReconnectsSinceStart uint64  `json:"reconnects_since_start"`
+	LastError            *string `json:"last_error,omitempty"`
+}
+
+type TasksDebug struct {
+	Inflight          int    `json:"inflight"`
+	DoneUnsent        int    `json:"done_unsent"`
+	LastTaskID        string `json:"last_task_id,omitempty"`
+	LastTaskStatus    string `json:"last_task_status,omitempty"`
+	LastTaskDurMs     int64  `json:"last_task_dur_ms,omitempty"`
+	LastTaskAtRFC3339 string `json:"last_task_at,omitempty"`
+}
+
+type AuthDebug struct {
+	AgentTokenAgeS      int64 `json:"agent_token_age_s"`
+	AgentTokenExpiresIn int64 `json:"agent_token_expires_in_s"`
+}
+
+type CertDebug struct {
+	NotAfterRFC3339 string `json:"not_after"`
+	DaysRemaining   int    `json:"days_remaining"`
 }
 
 type RegisterInstanceRequest struct {

@@ -92,14 +92,16 @@ func main() {
 
 	sysSvc := _system.NewDefaultService(cfg, is, trs)
 	sysH := system.NewServiceHandler(sysSvc)
+	metricsH := _system.NewMetrics(cfg, is, trs)
 
 	wh := web.WebHandler{
-		DepsH:   dh,
-		SvcH:    sh,
-		LogsH:   lh,
-		ProxyH:  ph,
-		SystemH: sysH,
-		AuthM:   am,
+		DepsH:    dh,
+		SvcH:     sh,
+		LogsH:    lh,
+		ProxyH:   ph,
+		SystemH:  sysH,
+		AuthM:    am,
+		MetricsH: metricsH,
 	}
 
 	mux := wh.BuildMux(cfg)

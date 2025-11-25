@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -31,6 +32,24 @@ type Executor struct {
 }
 
 var pendingTasks int64
+
+type lastExecInfo struct {
+	ID     string
+	Status string
+	DurMs  int64
+	At     time.Time
+}
+
+var lastExec atomic.Value // stores lastExecInfo
+
+var taskExecutedSuccessTotal uint64
+var taskExecutedFailedTotal uint64
+
+var taskExecBuckets = []float64{0.01, 0.05, 0.1, 0.25}
+var taskExecCounts [5]uint64
+var taskExecSum float64
+var taskExecCount uint64
+var taskExecMu sync.Mutex
 
 // NewExecutor creates a task executor that uses the web server's routes.
 func NewExecutor(logger *shared.Logger, handler http.Handler, tokens AccessTokenProvider) *Executor {
@@ -79,10 +98,18 @@ func (e *Executor) Execute(ctx context.Context, task *tasks.Task) *tasks.Result 
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	if e.tokens != nil {
-		if tok, _ := e.tokens.GetAccessToken(ctx); strings.TrimSpace(tok) != "" {
-			req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(tok))
+	// Authorization: extract user_token from payload;
+	var bearer string
+	if len(task.Payload) > 0 {
+		var p map[string]any
+		if json.Unmarshal(task.Payload, &p) == nil {
+			if ut, ok := p["user_token"].(string); ok && strings.TrimSpace(ut) != "" {
+				bearer = strings.TrimSpace(ut)
+			}
 		}
+	}
+	if bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+bearer)
 	}
 	rr := httptest.NewRecorder()
 	logger.Debug("routing task to handler", "method", method, "path", path)
@@ -101,21 +128,77 @@ func (e *Executor) Execute(ctx context.Context, task *tasks.Task) *tasks.Result 
 			json.Unmarshal(respBody, &result)
 		}
 
-		return &tasks.Result{
+		res := &tasks.Result{
 			ID:     task.ID,
 			Status: "done",
 			Result: result,
 		}
+		lastExec.Store(lastExecInfo{ID: task.ID, Status: "done", DurMs: duration.Milliseconds(), At: time.Now()})
+		atomic.AddUint64(&taskExecutedSuccessTotal, 1)
+		recordTaskExecHistogram(duration)
+		return res
 	}
 
 	logger.Error("task failed", "status_code", resp.StatusCode, "duration_ms", duration.Milliseconds(), "response_bytes", len(respBody), "response", string(respBody))
-	return &tasks.Result{
+	res := &tasks.Result{
 		ID:     task.ID,
 		Status: "failed",
 		Error:  fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(respBody)),
 	}
+	lastExec.Store(lastExecInfo{ID: task.ID, Status: "failed", DurMs: duration.Milliseconds(), At: time.Now()})
+	atomic.AddUint64(&taskExecutedFailedTotal, 1)
+	recordTaskExecHistogram(duration)
+	return res
 }
 
 func currentPendingTasks() int {
 	return int(atomic.LoadInt64(&pendingTasks))
+}
+
+func getLastExec() (info *lastExecInfo) {
+	if v := lastExec.Load(); v != nil {
+		le := v.(lastExecInfo)
+		return &le
+	}
+	return nil
+}
+
+func taskExecutionTotals() (success, failed uint64) {
+	return atomic.LoadUint64(&taskExecutedSuccessTotal), atomic.LoadUint64(&taskExecutedFailedTotal)
+}
+
+type taskExecHistogram struct {
+	Buckets []float64
+	Counts  []uint64
+	Sum     float64
+	Count   uint64
+}
+
+func recordTaskExecHistogram(d time.Duration) {
+	sec := d.Seconds()
+	idx := len(taskExecBuckets)
+	for i, b := range taskExecBuckets {
+		if sec <= b {
+			idx = i
+			break
+		}
+	}
+	taskExecMu.Lock()
+	defer taskExecMu.Unlock()
+	taskExecCounts[idx]++
+	taskExecSum += sec
+	taskExecCount++
+}
+
+func taskExecHistogramSnapshot() taskExecHistogram {
+	taskExecMu.Lock()
+	defer taskExecMu.Unlock()
+	counts := make([]uint64, len(taskExecCounts))
+	copy(counts, taskExecCounts[:])
+	return taskExecHistogram{
+		Buckets: append([]float64(nil), taskExecBuckets...),
+		Counts:  counts,
+		Sum:     taskExecSum,
+		Count:   taskExecCount,
+	}
 }

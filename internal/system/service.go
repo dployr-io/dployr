@@ -21,6 +21,7 @@ import (
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
 	"github.com/dployr-io/dployr/version"
+	"github.com/golang-jwt/jwt/v4"
 )
 
 var startTime = time.Now()
@@ -69,6 +70,8 @@ func (s *DefaultService) SystemStatus(ctx context.Context) (system.SystemStatus,
 
 	var st system.SystemStatus
 	st.Status = "healthy"
+	st.Mode = currentMode
+	st.Version = version.GetVersion()
 	st.Uptime = uptime.String()
 	st.Services.Total = 0
 	st.Services.Running = 0
@@ -76,7 +79,114 @@ func (s *DefaultService) SystemStatus(ctx context.Context) (system.SystemStatus,
 	st.Proxy.Status = "running"
 	st.Proxy.Routes = 0
 
+	// Derive health (simple rules).
+	wsOK := WSConnected()
+	st.Health.WS = tern(wsOK, "ok", "down")
+	// Tasks
+	inflight := currentPendingTasks()
+	doneUnsent := 0
+	if s.results != nil {
+		if rs, err := s.results.ListUnsent(ctx); err == nil {
+			doneUnsent = len(rs)
+		}
+	}
+	if inflight == 0 && doneUnsent == 0 {
+		st.Health.Tasks = "ok"
+	} else if !wsOK && inflight > 0 {
+		st.Health.Tasks = "degraded"
+	} else {
+		st.Health.Tasks = "ok"
+	}
+
+	// Auth health/debug derived from stored agent access token (JWT exp/iat).
+	st.Health.Auth = "down"
+	var authDbg *system.AuthDebug
+	if s.store != nil {
+		if tok, err := s.store.GetAccessToken(ctx); err == nil && strings.TrimSpace(tok) != "" {
+			claims := &jwt.RegisteredClaims{}
+			parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+			if _, _, err := parser.ParseUnverified(strings.TrimSpace(tok), claims); err == nil {
+				now := time.Now()
+				var expTime, iatTime time.Time
+				if claims.ExpiresAt != nil {
+					expTime = claims.ExpiresAt.Time
+				}
+				if claims.IssuedAt != nil {
+					iatTime = claims.IssuedAt.Time
+				}
+				age := int64(0)
+				if !iatTime.IsZero() {
+					age = int64(now.Sub(iatTime).Seconds())
+				}
+				ttl := int64(0)
+				if !expTime.IsZero() {
+					ttl = int64(expTime.Sub(now).Seconds())
+				}
+				if age < 0 {
+					age = 0
+				}
+				if ttl < 0 {
+					ttl = 0
+				}
+				authDbg = &system.AuthDebug{
+					AgentTokenAgeS:      age,
+					AgentTokenExpiresIn: ttl,
+				}
+				if ttl == 0 {
+					st.Health.Auth = "down"
+				} else {
+					st.Health.Auth = "ok"
+				}
+			}
+		}
+	}
+	st.Health.Overall = worst(st.Health.WS, st.Health.Tasks, st.Health.Auth)
+
+	// Debug section
+	dbg := system.SystemDebug{
+		WS: system.WSDebug{
+			Connected:            wsOK,
+			LastConnectAtRFC3339: WSLastConnect().Format(time.RFC3339),
+			ReconnectsSinceStart: WSReconnectsSinceStart(),
+			LastError:            WSLastError(),
+		},
+		Tasks: system.TasksDebug{
+			Inflight:   inflight,
+			DoneUnsent: doneUnsent,
+		},
+	}
+	if authDbg != nil {
+		dbg.Auth = authDbg
+	}
+	if le := getLastExec(); le != nil {
+		dbg.Tasks.LastTaskID = le.ID
+		dbg.Tasks.LastTaskStatus = le.Status
+		dbg.Tasks.LastTaskDurMs = le.DurMs
+		dbg.Tasks.LastTaskAtRFC3339 = le.At.Format(time.RFC3339)
+	}
+	st.Debug = &dbg
+
 	return st, nil
+}
+
+func tern[T any](cond bool, a, b T) T {
+	if cond {
+		return a
+	}
+	return b
+}
+
+func worst(vals ...string) string {
+	rank := map[string]int{"ok": 0, "degraded": 1, "down": 2}
+	w := "ok"
+	m := 0
+	for _, v := range vals {
+		if r, ok := rank[v]; ok && r > m {
+			m = r
+			w = v
+		}
+	}
+	return w
 }
 
 func (s *DefaultService) GetTasks(ctx context.Context, status string) (system.TaskSummary, error) {
