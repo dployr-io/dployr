@@ -33,7 +33,7 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:   "dployr",
 		Short: "dployr - your app, your server, your rules!",
-		Long: "dployr gives developers a self-hosted alternative to managed platforms",
+		Long:  "dployr gives developers a self-hosted alternative to managed platforms",
 	}
 
 	// version command

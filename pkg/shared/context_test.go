@@ -55,7 +55,7 @@ func TestMeta(t *testing.T) {
 	ctx := context.Background()
 	ctx = WithRequest(ctx, "req123")
 	ctx = WithTrace(ctx, "trace456")
-	
+
 	user := &store.User{ID: "user789", Email: "test@example.com"}
 	ctx = context.WithValue(ctx, CtxUserIDKey, user)
 

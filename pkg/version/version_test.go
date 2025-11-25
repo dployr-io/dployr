@@ -28,7 +28,7 @@ func TestInfoString(t *testing.T) {
 	}
 
 	result := info.String()
-	
+
 	if !strings.Contains(result, "1.0.0") {
 		t.Error("String() should contain version")
 	}
