@@ -415,7 +415,7 @@ func defaultClientCertPaths() (certPath, keyPath string) {
 	case "darwin":
 		dir = "/usr/local/etc/dployr"
 	default:
-		dir = "/etc/dployr"
+		dir = "/var/lib/dployrd"
 	}
 	return filepath.Join(dir, "client.crt"), filepath.Join(dir, "client.key")
 }
