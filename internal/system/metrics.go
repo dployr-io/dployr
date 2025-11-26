@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dployr-io/dployr/pkg/core/utils"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
 	"github.com/dployr-io/dployr/version"
@@ -96,7 +97,10 @@ func (m *Metrics) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	cum += h.Counts[len(h.Buckets)]
 	fmt.Fprintf(&buf, "dployr_task_exec_seconds_bucket{le=\"+Inf\"} %d\n", cum)
 	fmt.Fprintf(&buf, "dployr_task_exec_seconds_sum %f\n", h.Sum)
-	fmt.Fprintf(&buf, "dployr_task_exec_seconds_count %d\n", h.Count)
+	fmt.Fprintf(&buf, "dployr_task_exec_seconds_count %d\n\n", h.Count)
+
+	// System resource metrics
+	m.writeSystemMetrics(&buf)
 
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 	_, _ = w.Write(buf.Bytes())
@@ -139,4 +143,97 @@ func (m *Metrics) agentTokenTTLSeconds(ctx context.Context) int64 {
 		return 0
 	}
 	return ttl
+}
+
+func (m *Metrics) writeSystemMetrics(buf *bytes.Buffer) {
+	sysInfo, err := utils.GetSystemInfo()
+	if err != nil {
+		return
+	}
+
+	// CPU count
+	buf.WriteString("# HELP dployr_system_cpu_count Number of CPU cores\n")
+	buf.WriteString("# TYPE dployr_system_cpu_count gauge\n")
+	fmt.Fprintf(buf, "dployr_system_cpu_count %d\n\n", sysInfo.HW.CPUCount)
+
+	// Memory metrics (parse human-readable values to bytes)
+	if sysInfo.HW.MemTotal != nil {
+		if bytes := parseHumanBytes(*sysInfo.HW.MemTotal); bytes > 0 {
+			buf.WriteString("# HELP dployr_system_memory_total_bytes Total system memory in bytes\n")
+			buf.WriteString("# TYPE dployr_system_memory_total_bytes gauge\n")
+			fmt.Fprintf(buf, "dployr_system_memory_total_bytes %d\n\n", bytes)
+		}
+	}
+
+	if sysInfo.HW.MemUsed != nil {
+		if bytes := parseHumanBytes(*sysInfo.HW.MemUsed); bytes > 0 {
+			buf.WriteString("# HELP dployr_system_memory_used_bytes Used system memory in bytes\n")
+			buf.WriteString("# TYPE dployr_system_memory_used_bytes gauge\n")
+			fmt.Fprintf(buf, "dployr_system_memory_used_bytes %d\n\n", bytes)
+		}
+	}
+
+	if sysInfo.HW.MemFree != nil {
+		if bytes := parseHumanBytes(*sysInfo.HW.MemFree); bytes > 0 {
+			buf.WriteString("# HELP dployr_system_memory_free_bytes Free system memory in bytes\n")
+			buf.WriteString("# TYPE dployr_system_memory_free_bytes gauge\n")
+			fmt.Fprintf(buf, "dployr_system_memory_free_bytes %d\n\n", bytes)
+		}
+	}
+
+	// Disk usage metrics for each partition
+	for _, part := range sysInfo.Storage.Partitions {
+		if size := parseHumanBytes(part.Size); size > 0 {
+			buf.WriteString("# HELP dployr_system_disk_total_bytes Total disk space in bytes\n")
+			buf.WriteString("# TYPE dployr_system_disk_total_bytes gauge\n")
+			fmt.Fprintf(buf, "dployr_system_disk_total_bytes{mountpoint=\"%s\",filesystem=\"%s\"} %d\n", part.Mountpoint, part.Filesystem, size)
+		}
+		if used := parseHumanBytes(part.Used); used > 0 {
+			buf.WriteString("# HELP dployr_system_disk_used_bytes Used disk space in bytes\n")
+			buf.WriteString("# TYPE dployr_system_disk_used_bytes gauge\n")
+			fmt.Fprintf(buf, "dployr_system_disk_used_bytes{mountpoint=\"%s\",filesystem=\"%s\"} %d\n", part.Mountpoint, part.Filesystem, used)
+		}
+		if avail := parseHumanBytes(part.Available); avail > 0 {
+			buf.WriteString("# HELP dployr_system_disk_available_bytes Available disk space in bytes\n")
+			buf.WriteString("# TYPE dployr_system_disk_available_bytes gauge\n")
+			fmt.Fprintf(buf, "dployr_system_disk_available_bytes{mountpoint=\"%s\",filesystem=\"%s\"} %d\n\n", part.Mountpoint, part.Filesystem, avail)
+		}
+	}
+}
+
+// parseHumanBytes converts human-readable byte strings (e.g., "8.0G", "1.5T") to bytes.
+// Returns 0 if parsing fails.
+func parseHumanBytes(s string) int64 {
+	s = strings.TrimSpace(s)
+	if s == "" || s == "0" {
+		return 0
+	}
+
+	// Extract numeric part and unit
+	var val float64
+	var unit string
+	if _, err := fmt.Sscanf(s, "%f%s", &val, &unit); err != nil {
+		return 0
+	}
+
+	// Convert based on unit (case-insensitive)
+	unit = strings.ToUpper(unit)
+	multiplier := int64(1)
+	switch unit {
+	case "K", "KB", "KI", "KIB":
+		multiplier = 1024
+	case "M", "MB", "MI", "MIB":
+		multiplier = 1024 * 1024
+	case "G", "GB", "GI", "GIB":
+		multiplier = 1024 * 1024 * 1024
+	case "T", "TB", "TI", "TIB":
+		multiplier = 1024 * 1024 * 1024 * 1024
+	case "P", "PB", "PI", "PIB":
+		multiplier = 1024 * 1024 * 1024 * 1024 * 1024
+	default:
+		// No unit or unrecognized, assume bytes
+		multiplier = 1
+	}
+
+	return int64(val * float64(multiplier))
 }

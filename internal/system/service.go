@@ -69,19 +69,18 @@ func (s *DefaultService) SystemStatus(ctx context.Context) (system.SystemStatus,
 	uptime := time.Since(startTime).Truncate(time.Second)
 
 	var st system.SystemStatus
-	st.Status = "healthy"
+	st.Status = system.SystemStatusHealthy
 	st.Mode = currentMode
-	st.Version = version.Short()
 	st.Uptime = uptime.String()
 	st.Services.Total = 0
 	st.Services.Running = 0
 	st.Services.Stopped = 0
-	st.Proxy.Status = "running"
+	st.Proxy.Status = system.ProxyStatusRunning
 	st.Proxy.Routes = 0
 
 	// Derive health (simple rules).
 	wsOK := WSConnected()
-	st.Health.WS = tern(wsOK, "ok", "down")
+	st.Health.WS = tern(wsOK, system.HealthOK, system.HealthDown)
 	// Tasks
 	inflight := currentPendingTasks()
 	doneUnsent := 0
@@ -91,55 +90,16 @@ func (s *DefaultService) SystemStatus(ctx context.Context) (system.SystemStatus,
 		}
 	}
 	if inflight == 0 && doneUnsent == 0 {
-		st.Health.Tasks = "ok"
+		st.Health.Tasks = system.HealthOK
 	} else if !wsOK && inflight > 0 {
-		st.Health.Tasks = "degraded"
+		st.Health.Tasks = system.HealthDegraded
 	} else {
-		st.Health.Tasks = "ok"
+		st.Health.Tasks = system.HealthOK
 	}
 
 	// Auth health/debug derived from stored agent access token (JWT exp/iat).
-	st.Health.Auth = "down"
 	var authDbg *system.AuthDebug
-	if s.store != nil {
-		if tok, err := s.store.GetAccessToken(ctx); err == nil && strings.TrimSpace(tok) != "" {
-			claims := &jwt.RegisteredClaims{}
-			parser := jwt.NewParser(jwt.WithoutClaimsValidation())
-			if _, _, err := parser.ParseUnverified(strings.TrimSpace(tok), claims); err == nil {
-				now := time.Now()
-				var expTime, iatTime time.Time
-				if claims.ExpiresAt != nil {
-					expTime = claims.ExpiresAt.Time
-				}
-				if claims.IssuedAt != nil {
-					iatTime = claims.IssuedAt.Time
-				}
-				age := int64(0)
-				if !iatTime.IsZero() {
-					age = int64(now.Sub(iatTime).Seconds())
-				}
-				ttl := int64(0)
-				if !expTime.IsZero() {
-					ttl = int64(expTime.Sub(now).Seconds())
-				}
-				if age < 0 {
-					age = 0
-				}
-				if ttl < 0 {
-					ttl = 0
-				}
-				authDbg = &system.AuthDebug{
-					AgentTokenAgeS:      age,
-					AgentTokenExpiresIn: ttl,
-				}
-				if ttl == 0 {
-					st.Health.Auth = "down"
-				} else {
-					st.Health.Auth = "ok"
-				}
-			}
-		}
-	}
+	st.Health.Auth, authDbg = s.computeAuthHealthFromToken(ctx)
 	st.Health.Overall = worst(st.Health.WS, st.Health.Tasks, st.Health.Auth)
 
 	// Debug section
@@ -176,9 +136,62 @@ func tern[T any](cond bool, a, b T) T {
 	return b
 }
 
+// computeAuthHealthFromToken checks the agent access token and returns health status and debug info.
+func (s *DefaultService) computeAuthHealthFromToken(ctx context.Context) (string, *system.AuthDebug) {
+	if s.store == nil {
+		return system.HealthDown, nil
+	}
+
+	tok, err := s.store.GetAccessToken(ctx)
+	if err != nil || strings.TrimSpace(tok) == "" {
+		return system.HealthDown, nil
+	}
+
+	claims := &jwt.RegisteredClaims{}
+	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+	if _, _, err := parser.ParseUnverified(strings.TrimSpace(tok), claims); err != nil {
+		return system.HealthDown, nil
+	}
+
+	now := time.Now()
+	var expTime, iatTime time.Time
+	if claims.ExpiresAt != nil {
+		expTime = claims.ExpiresAt.Time
+	}
+	if claims.IssuedAt != nil {
+		iatTime = claims.IssuedAt.Time
+	}
+
+	age := int64(0)
+	if !iatTime.IsZero() {
+		age = int64(now.Sub(iatTime).Seconds())
+	}
+	ttl := int64(0)
+	if !expTime.IsZero() {
+		ttl = int64(expTime.Sub(now).Seconds())
+	}
+	if age < 0 {
+		age = 0
+	}
+	if ttl < 0 {
+		ttl = 0
+	}
+
+	authDbg := &system.AuthDebug{
+		AgentTokenAgeS:      age,
+		AgentTokenExpiresIn: ttl,
+	}
+
+	if ttl == 0 {
+		return system.HealthDown, authDbg
+	}
+	return system.HealthOK, authDbg
+}
+
+// worst returns the most severe status string among the provided values.
 func worst(vals ...string) string {
-	rank := map[string]int{"ok": 0, "degraded": 1, "down": 2}
-	w := "ok"
+	rank := map[string]int{system.HealthOK: 0, system.HealthDegraded: 1, system.HealthDown: 2}
+	w := system.HealthOK
 	m := 0
 	for _, v := range vals {
 		if r, ok := rank[v]; ok && r > m {

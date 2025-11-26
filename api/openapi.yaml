@@ -1171,6 +1171,11 @@ components:
           type: string
           enum: [healthy, degraded, unhealthy]
           example: "healthy"
+        mode:
+          type: string
+          description: High-level daemon mode
+          enum: [ready, updating]
+          example: "ready"
         uptime:
           type: string
           description: System uptime duration
@@ -1196,6 +1201,109 @@ components:
             routes:
               type: integer
               example: 3
+        health:
+          type: object
+          properties:
+            overall:
+              type: string
+              description: Overall health status
+              enum: [ok, degraded, down]
+            ws:
+              type: string
+              description: WebSocket health status
+              enum: [ok, degraded, down]
+            tasks:
+              type: string
+              description: Task execution health status
+              enum: [ok, degraded, down]
+            auth:
+              type: string
+              description: Auth/token health status
+              enum: [ok, degraded, down]
+        debug:
+          type: object
+          nullable: true
+          properties:
+            ws:
+              type: object
+              properties:
+                connected:
+                  type: boolean
+                last_connect_at:
+                  type: string
+                  format: date-time
+                reconnects_since_start:
+                  type: integer
+                last_error:
+                  type: string
+                  nullable: true
+            tasks:
+              type: object
+              properties:
+                inflight:
+                  type: integer
+                done_unsent:
+                  type: integer
+                last_task_id:
+                  type: string
+                  nullable: true
+                last_task_status:
+                  type: string
+                  nullable: true
+                last_task_dur_ms:
+                  type: integer
+                  nullable: true
+                last_task_at:
+                  type: string
+                  format: date-time
+                  nullable: true
+            auth:
+              type: object
+              nullable: true
+              properties:
+                agent_token_age_s:
+                  type: integer
+                agent_token_expires_in_s:
+                  type: integer
+            system:
+              type: object
+              nullable: true
+              properties:
+                cpu_count:
+                  type: integer
+                mem_total_bytes:
+                  type: integer
+                  format: int64
+                  nullable: true
+                mem_used_bytes:
+                  type: integer
+                  format: int64
+                  nullable: true
+                mem_free_bytes:
+                  type: integer
+                  format: int64
+                  nullable: true
+                disks:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      filesystem:
+                        type: string
+                      mountpoint:
+                        type: string
+                      size_bytes:
+                        type: integer
+                        format: int64
+                        nullable: true
+                      used_bytes:
+                        type: integer
+                        format: int64
+                        nullable: true
+                      available_bytes:
+                        type: integer
+                        format: int64
+                        nullable: true
 
     SystemInfo:
       type: object

@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -29,9 +30,11 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/oklog/ulid/v2"
 
 	"github.com/dployr-io/dployr/pkg/core/system"
+	"github.com/dployr-io/dployr/pkg/core/utils"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
 	"github.com/dployr-io/dployr/pkg/tasks"
@@ -57,7 +60,64 @@ func setWSConnected(v bool) {
 		atomic.StoreInt32(&wsConnected, 0)
 	}
 }
-func buildAgentUpdate(instanceID string) *system.AgentUpdateV1 {
+
+// computeAuthHealth checks the agent access token and returns health status and debug info
+func computeAuthHealth(ctx context.Context, instStore store.InstanceStore) (health string, debug *system.AuthDebug) {
+	health = system.HealthDown
+	if instStore == nil {
+		return
+	}
+
+	tok, err := instStore.GetAccessToken(ctx)
+	if err != nil || strings.TrimSpace(tok) == "" {
+		return
+	}
+
+	claims := &jwt.RegisteredClaims{}
+	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+	if _, _, err := parser.ParseUnverified(strings.TrimSpace(tok), claims); err != nil {
+		return
+	}
+
+	now := time.Now()
+	var expTime, iatTime time.Time
+	if claims.ExpiresAt != nil {
+		expTime = claims.ExpiresAt.Time
+	}
+	if claims.IssuedAt != nil {
+		iatTime = claims.IssuedAt.Time
+	}
+
+	age := int64(0)
+	if !iatTime.IsZero() {
+		age = int64(now.Sub(iatTime).Seconds())
+	}
+	ttl := int64(0)
+	if !expTime.IsZero() {
+		ttl = int64(expTime.Sub(now).Seconds())
+	}
+	if age < 0 {
+		age = 0
+	}
+	if ttl < 0 {
+		ttl = 0
+	}
+
+	debug = &system.AuthDebug{
+		AgentTokenAgeS:      age,
+		AgentTokenExpiresIn: ttl,
+	}
+
+	if ttl == 0 {
+		health = system.HealthDown
+	} else {
+		health = system.HealthOK
+	}
+
+	return
+}
+
+func buildAgentUpdate(ctx context.Context, instanceID string, instStore store.InstanceStore) *system.UpdateV1 {
 	bi := version.GetBuildInfo()
 	seq := atomic.AddUint64(&updateSeq, 1)
 	uptime := time.Since(startTime).Seconds()
@@ -65,22 +125,121 @@ func buildAgentUpdate(instanceID string) *system.AgentUpdateV1 {
 	mode := currentMode
 	currentModeMu.RUnlock()
 
-	return &system.AgentUpdateV1{
-		Schema:       "agent.update.v1",
-		Seq:          seq,
-		Epoch:        fmt.Sprintf("%s-%d", strings.TrimSpace(instanceID), startTime.Unix()),
-		Full:         false,
-		InstanceID:   instanceID,
-		AgentVersion: bi.Version,
+	// Compute health status
+	wsOK := WSConnected()
+	wsHealth := system.HealthDown
+	if wsOK {
+		wsHealth = system.HealthOK
+	}
+
+	inflight := currentPendingTasks()
+	tasksHealth := system.HealthOK
+	if inflight > 0 && !wsOK {
+		tasksHealth = system.HealthDegraded
+	}
+
+	// Auth health: check agent access token expiration
+	authHealth, authDbg := computeAuthHealth(ctx, instStore)
+
+	// Overall health: worst of WS, Tasks, Auth
+	overallHealth := worstHealth(wsHealth, tasksHealth, authHealth)
+
+	// Build debug info
+	dbg := &system.SystemDebug{
+		WS: system.WSDebug{
+			Connected:            wsOK,
+			LastConnectAtRFC3339: WSLastConnect().Format(time.RFC3339),
+			ReconnectsSinceStart: WSReconnectsSinceStart(),
+			LastError:            WSLastError(),
+		},
+		Tasks: system.TasksDebug{
+			Inflight:   inflight,
+			DoneUnsent: 0, // Not available in this context
+		},
+		Auth: authDbg,
+	}
+	if le := getLastExec(); le != nil {
+		dbg.Tasks.LastTaskID = le.ID
+		dbg.Tasks.LastTaskStatus = le.Status
+		dbg.Tasks.LastTaskDurMs = le.DurMs
+		dbg.Tasks.LastTaskAtRFC3339 = le.At.Format(time.RFC3339)
+	}
+
+	// Populate system resource details (CPU, memory, disk) into debug struct.
+	if sysInfo, err := utils.GetSystemInfo(); err == nil {
+		res := &system.SystemResourcesDebug{
+			CPUCount: sysInfo.HW.CPUCount,
+		}
+		if sysInfo.HW.MemTotal != nil {
+			if v := parseHumanBytes(*sysInfo.HW.MemTotal); v > 0 {
+				res.MemTotalBytes = v
+			}
+		}
+		if sysInfo.HW.MemUsed != nil {
+			if v := parseHumanBytes(*sysInfo.HW.MemUsed); v > 0 {
+				res.MemUsedBytes = v
+			}
+		}
+		if sysInfo.HW.MemFree != nil {
+			if v := parseHumanBytes(*sysInfo.HW.MemFree); v > 0 {
+				res.MemFreeBytes = v
+			}
+		}
+		for _, p := range sysInfo.Storage.Partitions {
+			entry := system.DiskDebugEntry{
+				Filesystem: p.Filesystem,
+				Mountpoint: p.Mountpoint,
+			}
+			if v := parseHumanBytes(p.Size); v > 0 {
+				entry.SizeBytes = v
+			}
+			if v := parseHumanBytes(p.Used); v > 0 {
+				entry.UsedBytes = v
+			}
+			if v := parseHumanBytes(p.Available); v > 0 {
+				entry.AvailableBytes = v
+			}
+			res.Disks = append(res.Disks, entry)
+		}
+		dbg.System = res
+	}
+
+	// System status
+	sts := &system.SystemStatus{
+		Status: system.SystemStatusHealthy,
+		Mode:   mode,
+		Uptime: strconv.FormatInt(int64(uptime), 10),
+		Services: system.SystemServicesStatus{
+			Total:   0,
+			Running: 0,
+			Stopped: 0,
+		},
+		Proxy: system.SystemProxyStatus{
+			Status: system.ProxyStatusRunning,
+			Routes: 0,
+		},
+		Health: system.SystemHealth{
+			Overall: overallHealth,
+			WS:      wsHealth,
+			Tasks:   tasksHealth,
+			Auth:    authHealth,
+		},
+		Debug: dbg,
+	}
+
+	return &system.UpdateV1{
+		Schema:     "v1",
+		Seq:        seq,
+		Epoch:      fmt.Sprintf("%s-%d", strings.TrimSpace(instanceID), startTime.Unix()),
+		Full:       false,
+		InstanceID: instanceID,
+		Version:    version.GetVersion(),
 		Platform: system.PlatformInfo{
 			OS:   runtime.GOOS,
 			Arch: runtime.GOARCH,
 			Go:   bi.GoVersion,
 		},
-		Status: &system.AgentStatus{
-			Mode:    string(mode),
-			UptimeS: int64(uptime),
-		},
+		Status: sts,
 	}
 }
 
@@ -133,14 +292,14 @@ type Syncer struct {
 
 // wsMessage represents WebSocket messages exchanged with base.
 type wsMessage struct {
-	ID       string                `json:"id,omitempty"`
-	TS       time.Time             `json:"ts,omitempty"`
-	Kind     string                `json:"kind"`
-	Items    []syncTask            `json:"items,omitempty"`
-	IDs      []string              `json:"ids,omitempty"`
-	Update   *system.AgentUpdateV1 `json:"update,omitempty"`
-	Hello    *system.HelloV1       `json:"hello,omitempty"`
-	HelloAck *system.HelloAckV1    `json:"hello_ack,omitempty"`
+	ID       string             `json:"id,omitempty"`
+	TS       time.Time          `json:"ts,omitempty"`
+	Kind     string             `json:"kind"`
+	Items    []syncTask         `json:"items,omitempty"`
+	IDs      []string           `json:"ids,omitempty"`
+	Update   *system.UpdateV1   `json:"update,omitempty"`
+	Hello    *system.HelloV1    `json:"hello,omitempty"`
+	HelloAck *system.HelloAckV1 `json:"hello_ack,omitempty"`
 }
 
 // syncTask represents a single task returned by base.
@@ -399,7 +558,7 @@ ws_connected:
 		h := &system.HelloV1{
 			Schema:           "agent.hello.v1",
 			InstanceID:       inst.InstanceID,
-			AgentVersion:     bi.Version,
+			Version:          bi.Version,
 			Platform:         platform,
 			Capabilities:     []string{"tasks.v1", "updates.v1"},
 			SchemasSupported: []string{"agent.update.v1"},
@@ -447,7 +606,7 @@ ws_connected:
 			case <-connCtx.Done():
 				return
 			case <-time.After(jitter(updateInterval)):
-				upd := buildAgentUpdate(inst.InstanceID)
+				upd := buildAgentUpdate(connCtx, inst.InstanceID, s.instStore)
 				msg := wsMessage{
 					ID:     ulid.Make().String(),
 					TS:     time.Now(),
@@ -840,4 +999,22 @@ func jitter(base time.Duration) time.Duration {
 
 	n := rand.Int63n(int64(2*delta+1)) - int64(delta)
 	return base + time.Duration(n)
+}
+
+// worstHealth returns the worst health status from a list of health statuses.
+func worstHealth(vals ...string) string {
+	rank := map[string]int{
+		system.HealthOK:       0,
+		system.HealthDegraded: 1,
+		system.HealthDown:     2,
+	}
+	w := system.HealthOK
+	m := 0
+	for _, v := range vals {
+		if r, ok := rank[v]; ok && r > m {
+			m = r
+			w = v
+		}
+	}
+	return w
 }

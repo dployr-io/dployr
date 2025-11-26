@@ -7,6 +7,27 @@ import (
 	"github.com/dployr-io/dployr/pkg/core/utils"
 )
 
+// Health status
+const (
+	HealthOK       = "ok"
+	HealthDegraded = "degraded"
+	HealthDown     = "down"
+)
+
+// System status
+const (
+	SystemStatusHealthy   = "healthy"
+	SystemStatusDegraded  = "degraded"
+	SystemStatusUnhealthy = "unhealthy"
+)
+
+// Proxy status
+const (
+	ProxyStatusRunning = "running"
+	ProxyStatusStopped = "stopped"
+	ProxyStatusUnknown = "unknown"
+)
+
 type DoctorResult struct {
 	Status string `json:"status"`
 	Output string `json:"output"`
@@ -30,7 +51,6 @@ type SystemProxyStatus struct {
 type SystemStatus struct {
 	Status   string               `json:"status"`
 	Mode     Mode                 `json:"mode"`
-	Version  string               `json:"version"`
 	Uptime   string               `json:"uptime"`
 	Services SystemServicesStatus `json:"services"`
 	Proxy    SystemProxyStatus    `json:"proxy"`
@@ -46,10 +66,29 @@ type SystemHealth struct {
 }
 
 type SystemDebug struct {
-	WS    WSDebug    `json:"ws"`
-	Tasks TasksDebug `json:"tasks"`
-	Auth  *AuthDebug `json:"auth,omitempty"`
-	Cert  *CertDebug `json:"cert,omitempty"`
+	WS     WSDebug               `json:"ws"`
+	Tasks  TasksDebug            `json:"tasks"`
+	Auth   *AuthDebug            `json:"auth,omitempty"`
+	Cert   *CertDebug            `json:"cert,omitempty"`
+	System *SystemResourcesDebug `json:"system,omitempty"`
+}
+
+// SystemResourcesDebug provides high-level system resource information for debugging.
+type SystemResourcesDebug struct {
+	CPUCount      int              `json:"cpu_count"`
+	MemTotalBytes int64            `json:"mem_total_bytes,omitempty"`
+	MemUsedBytes  int64            `json:"mem_used_bytes,omitempty"`
+	MemFreeBytes  int64            `json:"mem_free_bytes,omitempty"`
+	Disks         []DiskDebugEntry `json:"disks,omitempty"`
+}
+
+// DiskDebugEntry represents disk usage for a single filesystem/mountpoint.
+type DiskDebugEntry struct {
+	Filesystem     string `json:"filesystem"`
+	Mountpoint     string `json:"mountpoint"`
+	SizeBytes      int64  `json:"size_bytes,omitempty"`
+	UsedBytes      int64  `json:"used_bytes,omitempty"`
+	AvailableBytes int64  `json:"available_bytes,omitempty"`
 }
 
 type WSDebug struct {
@@ -102,17 +141,17 @@ type TaskSummary struct {
 	Count int `json:"count"`
 }
 
-// AgentUpdateV1 represents the status update payload sent from the agent to base.
+// UpdateV1 represents the status update payload sent from the agent to base.
 // This struct defines the core schema relied upon by clients interacting with the dployr API.
-type AgentUpdateV1 struct {
-	Schema       string       `json:"schema"`
-	Seq          uint64       `json:"seq"`
-	Epoch        string       `json:"epoch"`
-	Full         bool         `json:"full"`
-	InstanceID   string       `json:"instance_id"`
-	AgentVersion string       `json:"agent_version"`
-	Platform     PlatformInfo `json:"platform"`
-	Status       *AgentStatus `json:"status,omitempty"`
+type UpdateV1 struct {
+	Schema     string        `json:"schema"`
+	Seq        uint64        `json:"seq"`
+	Epoch      string        `json:"epoch"`
+	Full       bool          `json:"full"`
+	InstanceID string        `json:"instance_id"`
+	Version    string        `json:"version"`
+	Platform   PlatformInfo  `json:"platform"`
+	Status     *SystemStatus `json:"status,omitempty"`
 }
 
 // PlatformInfo describes the runtime platform of the agent.
@@ -122,17 +161,11 @@ type PlatformInfo struct {
 	Go   string `json:"go"`
 }
 
-// AgentStatus describes the current mode and uptime of the agent.
-type AgentStatus struct {
-	Mode    string `json:"mode"`
-	UptimeS int64  `json:"uptime_s"`
-}
-
 // HelloV1 is sent by the agent when establishing a WebSocket connection.
 type HelloV1 struct {
 	Schema           string       `json:"schema"`
 	InstanceID       string       `json:"instance_id"`
-	AgentVersion     string       `json:"agent_version"`
+	Version          string       `json:"version"`
 	Platform         PlatformInfo `json:"platform"`
 	Capabilities     []string     `json:"capabilities,omitempty"`
 	SchemasSupported []string     `json:"schemas_supported,omitempty"`
