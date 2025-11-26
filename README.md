@@ -11,12 +11,20 @@
 
 ## Overview
 
-`dployr` gives developers a self-hosted alternative to managed platforms.  
+dployr is a self‑hosted platform with a globally distributed control‑plane (“base”) and lightweight agents that run on your infrastructure.
 
-It consists of two main components:
+You interact with base through:
+- The web dashboard (dployr‑app), or
+- The CLI (dployr‑cli)
 
-- **dployr** — Command-line client  
-- **dployrd** — Background daemon that handles deployment
+Both use the same programmatic, RBAC‑aware API with full auditing. Anything you do in the UI can be scripted with the CLI or called directly.
+
+It consists of four components:
+
+- dployr‑base — Globally distributed control‑plane (API, scheduling, storage). Single source of truth.
+- dployrd — Daemon on each instance. Connects to base over mTLS, executes tasks, and reports status.
+- dployr‑cli — RBAC‑aware command‑line client that talks to base from anywhere.
+- dployr‑app — Web dashboard built on the same API for managing projects, deployments, and environments.
 
 ## Quickstart (5 minutes)
 
@@ -49,14 +57,14 @@ dployrd.exe
 - Logs (JSON): `/var/log/dployrd/app.log` (Linux/macOS) or ProgramData on Windows
 - Daemon should start and log a websocket mTLS connection attempt to Base.
 
-## First deploy
+## Quick deploy
 
 ```bash
 dployr deploy \
   --name hello-world \
   --source remote \
   --runtime nodejs \
-  --version 18 \
+  --version 20 \
   --remote https://github.com/dployr-io/dployr-examples \
   --branch master \
   --build-cmd "npm install" \
@@ -232,15 +240,16 @@ dployr login --email user@example.com
 dployr deploy \
   --name old-county-times \
   --source remote \
-  --runtime nodejs \
-  --version 18 \
+  --runtime php \
+  --version 8.3 \
   --remote https://github.com/dployr-io/dployr-examples \
   --branch master \
-  --build-cmd "npm install" \
-  --run-cmd "npm start" \
-  --working-dir "nodejs" \
+  --build-cmd "composer install" \
+  --run-cmd "php -S localhost:3000" \
+  --working-dir "php" \
   --port 3000
 ```
+For detailed deployment examples—including interactive guides—visit: https://docs.dployr.dev/runtimes/quick-deploy
 
 ### List Deployments
 
