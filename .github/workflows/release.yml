@@ -40,10 +40,11 @@ jobs:
       - name: Publish Go module
         if: startsWith(github.ref, 'refs/tags/v')
         env:
-          GOPROXY: https://proxy.golang.org
           GO111MODULE: on
           MODULE_PATH: github.com/dployr-io/dployr
         run: |
+          go env -w GOPROXY=direct
+          go env -w GOSUMDB=off
           VERSION="${GITHUB_REF_NAME}"
           go list -m "${MODULE_PATH}@${VERSION}"
 
