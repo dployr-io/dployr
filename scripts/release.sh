@@ -156,6 +156,14 @@ if [[ -n $(git status --porcelain) ]]; then
     error "Working directory is not clean. Commit or stash changes first."
 fi
 
+# If promoting from a beta to a stable release, create an empty commit so the
+# stable tag points to a unique commit (avoids ambiguity when multiple tags
+# point to the same commit).
+if [[ "$CURRENT_VERSION" =~ -beta\. ]] && [[ "$IS_BETA" == "false" ]]; then
+    info "Creating empty commit for $NEW_VERSION to ensure unique commit for stable release..."
+    git commit --allow-empty -m "Release $NEW_VERSION"
+fi
+
 # Create and push tag
 info "Creating tag $NEW_VERSION..."
 git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
