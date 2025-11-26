@@ -57,47 +57,7 @@ func setWSConnected(v bool) {
 		atomic.StoreInt32(&wsConnected, 0)
 	}
 }
-
-type AgentUpdateV1 struct {
-	Schema       string       `json:"schema"`
-	Seq          uint64       `json:"seq"`
-	Epoch        string       `json:"epoch"`
-	Full         bool         `json:"full"`
-	InstanceID   string       `json:"instance_id"`
-	AgentVersion string       `json:"agent_version"`
-	Platform     PlatformInfo `json:"platform"`
-	Status       *AgentStatus `json:"status,omitempty"`
-}
-
-type PlatformInfo struct {
-	OS   string `json:"os"`
-	Arch string `json:"arch"`
-	Go   string `json:"go"`
-}
-
-type AgentStatus struct {
-	Mode    string `json:"mode"`
-	UptimeS int64  `json:"uptime_s"`
-}
-
-type HelloV1 struct {
-	Schema           string       `json:"schema"`
-	InstanceID       string       `json:"instance_id"`
-	AgentVersion     string       `json:"agent_version"`
-	Platform         PlatformInfo `json:"platform"`
-	Capabilities     []string     `json:"capabilities,omitempty"`
-	SchemasSupported []string     `json:"schemas_supported,omitempty"`
-}
-
-type HelloAckV1 struct {
-	Schema          string    `json:"schema"`
-	Accept          bool      `json:"accept"`
-	Reason          string    `json:"reason,omitempty"`
-	FeaturesEnabled []string  `json:"features_enabled,omitempty"`
-	ServerTime      time.Time `json:"server_time"`
-}
-
-func buildAgentUpdate(instanceID string) *AgentUpdateV1 {
+func buildAgentUpdate(instanceID string) *system.AgentUpdateV1 {
 	bi := version.GetBuildInfo()
 	seq := atomic.AddUint64(&updateSeq, 1)
 	uptime := time.Since(startTime).Seconds()
@@ -105,19 +65,19 @@ func buildAgentUpdate(instanceID string) *AgentUpdateV1 {
 	mode := currentMode
 	currentModeMu.RUnlock()
 
-	return &AgentUpdateV1{
+	return &system.AgentUpdateV1{
 		Schema:       "agent.update.v1",
 		Seq:          seq,
 		Epoch:        fmt.Sprintf("%s-%d", strings.TrimSpace(instanceID), startTime.Unix()),
 		Full:         false,
 		InstanceID:   instanceID,
 		AgentVersion: bi.Version,
-		Platform: PlatformInfo{
+		Platform: system.PlatformInfo{
 			OS:   runtime.GOOS,
 			Arch: runtime.GOARCH,
 			Go:   bi.GoVersion,
 		},
-		Status: &AgentStatus{
+		Status: &system.AgentStatus{
 			Mode:    string(mode),
 			UptimeS: int64(uptime),
 		},
@@ -173,14 +133,14 @@ type Syncer struct {
 
 // wsMessage represents WebSocket messages exchanged with base.
 type wsMessage struct {
-	ID       string         `json:"id,omitempty"`
-	TS       time.Time      `json:"ts,omitempty"`
-	Kind     string         `json:"kind"`
-	Items    []syncTask     `json:"items,omitempty"`
-	IDs      []string       `json:"ids,omitempty"`
-	Update   *AgentUpdateV1 `json:"update,omitempty"`
-	Hello    *HelloV1       `json:"hello,omitempty"`
-	HelloAck *HelloAckV1    `json:"hello_ack,omitempty"`
+	ID       string                `json:"id,omitempty"`
+	TS       time.Time             `json:"ts,omitempty"`
+	Kind     string                `json:"kind"`
+	Items    []syncTask            `json:"items,omitempty"`
+	IDs      []string              `json:"ids,omitempty"`
+	Update   *system.AgentUpdateV1 `json:"update,omitempty"`
+	Hello    *system.HelloV1       `json:"hello,omitempty"`
+	HelloAck *system.HelloAckV1    `json:"hello_ack,omitempty"`
 }
 
 // syncTask represents a single task returned by base.
@@ -435,8 +395,8 @@ ws_connected:
 	// send hello; non-blocking handshake
 	{
 		bi := version.GetBuildInfo()
-		platform := PlatformInfo{OS: runtime.GOOS, Arch: runtime.GOARCH, Go: bi.GoVersion}
-		h := &HelloV1{
+		platform := system.PlatformInfo{OS: runtime.GOOS, Arch: runtime.GOARCH, Go: bi.GoVersion}
+		h := &system.HelloV1{
 			Schema:           "agent.hello.v1",
 			InstanceID:       inst.InstanceID,
 			AgentVersion:     bi.Version,

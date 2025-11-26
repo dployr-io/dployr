@@ -2,6 +2,7 @@ package system
 
 import (
 	"context"
+	"time"
 
 	"github.com/dployr-io/dployr/pkg/core/utils"
 )
@@ -101,6 +102,51 @@ type TaskSummary struct {
 	Count int `json:"count"`
 }
 
+// AgentUpdateV1 represents the status update payload sent from the agent to base.
+// This struct defines the core schema relied upon by clients interacting with the dployr API.
+type AgentUpdateV1 struct {
+	Schema       string       `json:"schema"`
+	Seq          uint64       `json:"seq"`
+	Epoch        string       `json:"epoch"`
+	Full         bool         `json:"full"`
+	InstanceID   string       `json:"instance_id"`
+	AgentVersion string       `json:"agent_version"`
+	Platform     PlatformInfo `json:"platform"`
+	Status       *AgentStatus `json:"status,omitempty"`
+}
+
+// PlatformInfo describes the runtime platform of the agent.
+type PlatformInfo struct {
+	OS   string `json:"os"`
+	Arch string `json:"arch"`
+	Go   string `json:"go"`
+}
+
+// AgentStatus describes the current mode and uptime of the agent.
+type AgentStatus struct {
+	Mode    string `json:"mode"`
+	UptimeS int64  `json:"uptime_s"`
+}
+
+// HelloV1 is sent by the agent when establishing a WebSocket connection.
+type HelloV1 struct {
+	Schema           string       `json:"schema"`
+	InstanceID       string       `json:"instance_id"`
+	AgentVersion     string       `json:"agent_version"`
+	Platform         PlatformInfo `json:"platform"`
+	Capabilities     []string     `json:"capabilities,omitempty"`
+	SchemasSupported []string     `json:"schemas_supported,omitempty"`
+}
+
+// HelloAckV1 is sent by base to acknowledge the agent hello.
+type HelloAckV1 struct {
+	Schema          string    `json:"schema"`
+	Accept          bool      `json:"accept"`
+	Reason          string    `json:"reason,omitempty"`
+	FeaturesEnabled []string  `json:"features_enabled,omitempty"`
+	ServerTime      time.Time `json:"server_time"`
+}
+
 // Mode represents the current mode.
 // "ready"   – normal operation, syncer active.
 // "updating" – in the middle of an update/installation cycle.
@@ -151,7 +197,7 @@ type System interface {
 	GetMode(ctx context.Context) (ModeStatus, error)
 	// SetMode updates the daemon mode.
 	SetMode(ctx context.Context, req SetModeRequest) (ModeStatus, error)
-
+	// UpdateBootstrapToken updates the bootstrap token.
 	UpdateBootstrapToken(ctx context.Context, req UpdateBootstrapTokenRequest) error
 	// IsRegistered returns true if this daemon has been registered with base.
 	IsRegistered(ctx context.Context) (RegistrationStatus, error)
