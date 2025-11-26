@@ -23,6 +23,7 @@ type Config struct {
 	BaseURL      string
 	SyncInterval time.Duration
 	WSCertPath   string
+	TaskDedupTTL time.Duration
 }
 
 func LoadConfig() (*Config, error) {
@@ -40,6 +41,7 @@ func LoadConfig() (*Config, error) {
 		BaseURL:      getEnv("BASE_URL", ""),
 		SyncInterval: getEnvAsDuration("SYNC_INTERVAL", 30*time.Second),
 		WSCertPath:   getEnv("WS_CERT_PATH", ""),
+		TaskDedupTTL: getEnvAsPositiveDuration("TASK_DEDUP_TTL", 5*time.Minute),
 	}, nil
 }
 
@@ -67,9 +69,10 @@ func getEnv(key, defaultValue string) string {
 
 const (
 	minSyncInterval = 5 * time.Second
-	maxSyncInterval = 5 * time.Minute
+	maxSyncInterval = 30 * time.Second
 )
 
+// getEnvAsDuration returns a sanitized duration from an environment variable.
 func getEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
 	value := os.Getenv(key)
 	if value == "" {
@@ -82,6 +85,21 @@ func getEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
 		return sanitizeSyncInterval(time.Duration(intValue) * time.Second)
 	}
 	return sanitizeSyncInterval(defaultValue)
+}
+
+// getEnvAsPositiveDuration returns a positive duration from an environment variable.
+func getEnvAsPositiveDuration(key string, defaultValue time.Duration) time.Duration {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	if d, err := time.ParseDuration(value); err == nil && d > 0 {
+		return d
+	}
+	if intValue, err := strconv.Atoi(value); err == nil && intValue > 0 {
+		return time.Duration(intValue) * time.Second
+	}
+	return defaultValue
 }
 
 // SanitizeSyncInterval clamps a duration to safe sync bounds.

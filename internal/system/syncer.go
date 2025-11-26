@@ -23,16 +23,19 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
-	coresystem "github.com/dployr-io/dployr/pkg/core/system"
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
+	"github.com/oklog/ulid/v2"
+
+	"github.com/dployr-io/dployr/pkg/core/system"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
 	"github.com/dployr-io/dployr/pkg/tasks"
-
-	"github.com/coder/websocket"
-	"github.com/coder/websocket/wsjson"
+	"github.com/dployr-io/dployr/version"
 )
 
 var wsConnected int32
@@ -45,11 +48,79 @@ var wsDisconnectsTotal uint64
 var agentTokenRefreshSuccessTotal uint64
 var agentTokenRefreshFailedTotal uint64
 
+var updateSeq uint64
+
 func setWSConnected(v bool) {
 	if v {
 		atomic.StoreInt32(&wsConnected, 1)
 	} else {
 		atomic.StoreInt32(&wsConnected, 0)
+	}
+}
+
+type AgentUpdateV1 struct {
+	Schema       string       `json:"schema"`
+	Seq          uint64       `json:"seq"`
+	Epoch        string       `json:"epoch"`
+	Full         bool         `json:"full"`
+	InstanceID   string       `json:"instance_id"`
+	AgentVersion string       `json:"agent_version"`
+	Platform     PlatformInfo `json:"platform"`
+	Status       *AgentStatus `json:"status,omitempty"`
+}
+
+type PlatformInfo struct {
+	OS   string `json:"os"`
+	Arch string `json:"arch"`
+	Go   string `json:"go"`
+}
+
+type AgentStatus struct {
+	Mode    string `json:"mode"`
+	UptimeS int64  `json:"uptime_s"`
+}
+
+type HelloV1 struct {
+	Schema           string       `json:"schema"`
+	InstanceID       string       `json:"instance_id"`
+	AgentVersion     string       `json:"agent_version"`
+	Platform         PlatformInfo `json:"platform"`
+	Capabilities     []string     `json:"capabilities,omitempty"`
+	SchemasSupported []string     `json:"schemas_supported,omitempty"`
+}
+
+type HelloAckV1 struct {
+	Schema          string    `json:"schema"`
+	Accept          bool      `json:"accept"`
+	Reason          string    `json:"reason,omitempty"`
+	FeaturesEnabled []string  `json:"features_enabled,omitempty"`
+	ServerTime      time.Time `json:"server_time"`
+}
+
+func buildAgentUpdate(instanceID string) *AgentUpdateV1 {
+	bi := version.GetBuildInfo()
+	seq := atomic.AddUint64(&updateSeq, 1)
+	uptime := time.Since(startTime).Seconds()
+	currentModeMu.RLock()
+	mode := currentMode
+	currentModeMu.RUnlock()
+
+	return &AgentUpdateV1{
+		Schema:       "agent.update.v1",
+		Seq:          seq,
+		Epoch:        fmt.Sprintf("%s-%d", strings.TrimSpace(instanceID), startTime.Unix()),
+		Full:         false,
+		InstanceID:   instanceID,
+		AgentVersion: bi.Version,
+		Platform: PlatformInfo{
+			OS:   runtime.GOOS,
+			Arch: runtime.GOARCH,
+			Go:   bi.GoVersion,
+		},
+		Status: &AgentStatus{
+			Mode:    string(mode),
+			UptimeS: int64(uptime),
+		},
 	}
 }
 
@@ -95,13 +166,21 @@ type Syncer struct {
 	resultStore       store.TaskResultStore
 	executor          *Executor
 	agentTokenBackoff time.Duration
+
+	dedupeMu sync.Mutex
+	dedupe   map[string]time.Time
 }
 
 // wsMessage represents WebSocket messages exchanged with base.
 type wsMessage struct {
-	Kind  string     `json:"kind"`
-	Items []syncTask `json:"items,omitempty"`
-	IDs   []string   `json:"ids,omitempty"`
+	ID       string         `json:"id,omitempty"`
+	TS       time.Time      `json:"ts,omitempty"`
+	Kind     string         `json:"kind"`
+	Items    []syncTask     `json:"items,omitempty"`
+	IDs      []string       `json:"ids,omitempty"`
+	Update   *AgentUpdateV1 `json:"update,omitempty"`
+	Hello    *HelloV1       `json:"hello,omitempty"`
+	HelloAck *HelloAckV1    `json:"hello_ack,omitempty"`
 }
 
 // syncTask represents a single task returned by base.
@@ -130,6 +209,7 @@ func NewSyncer(cfg *shared.Config, logger *shared.Logger, inst store.InstanceSto
 		instStore:   inst,
 		resultStore: results,
 		executor:    NewExecutor(logger, handler, inst),
+		dedupe:      make(map[string]time.Time),
 	}
 }
 
@@ -339,6 +419,7 @@ ws_dial:
 	}
 
 ws_connected:
+
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
 	logger.Info("syncer: websocket connected to base")
@@ -348,6 +429,24 @@ ws_connected:
 	// clear last error on successful connect
 	lastWSError.Store("")
 
+	connCtx, cancelConn := context.WithCancel(ctx)
+	defer cancelConn()
+
+	// send hello; non-blocking handshake
+	{
+		bi := version.GetBuildInfo()
+		platform := PlatformInfo{OS: runtime.GOOS, Arch: runtime.GOARCH, Go: bi.GoVersion}
+		h := &HelloV1{
+			Schema:           "agent.hello.v1",
+			InstanceID:       inst.InstanceID,
+			AgentVersion:     bi.Version,
+			Platform:         platform,
+			Capabilities:     []string{"tasks.v1", "updates.v1"},
+			SchemasSupported: []string{"agent.update.v1"},
+		}
+		_ = s.sendWSMessage(connCtx, conn, wsMessage{ID: ulid.Make().String(), TS: time.Now(), Kind: "hello", Hello: h})
+	}
+
 	pending, err := s.resultStore.ListUnsent(ctx)
 	if err == nil && len(pending) > 0 {
 		ids := make([]string, 0, len(pending))
@@ -355,19 +454,57 @@ ws_connected:
 			ids = append(ids, r.ID)
 		}
 		logger.Debug("syncer: sending pending acks", "count", len(ids))
-		if err := s.sendWSMessage(ctx, conn, wsMessage{Kind: "ack", IDs: ids}); err == nil {
+		if err := s.sendWSMessage(ctx, conn, wsMessage{ID: ulid.Make().String(), TS: time.Now(), Kind: "ack", IDs: ids}); err == nil {
 			s.resultStore.MarkSynced(ctx, ids)
 		}
 	}
 
 	logger.Debug("syncer: sending initial pull")
-	if err := s.sendWSMessage(ctx, conn, wsMessage{Kind: "pull"}); err != nil {
+	if err := s.sendWSMessage(connCtx, conn, wsMessage{ID: ulid.Make().String(), TS: time.Now(), Kind: "pull"}); err != nil {
 		return fmt.Errorf("failed to send initial pull: %w", err)
 	}
 
+	interval := shared.SanitizeSyncInterval(s.cfg.SyncInterval)
+	go func() {
+		for {
+			select {
+			case <-connCtx.Done():
+				return
+			case <-time.After(jitter(interval)):
+				logger.Debug("syncer: sending periodic pull")
+				if err := s.sendWSMessage(connCtx, conn, wsMessage{ID: ulid.Make().String(), TS: time.Now(), Kind: "pull"}); err != nil {
+					logger.Error("syncer: failed to send periodic pull", "error", err)
+					return
+				}
+			}
+		}
+	}()
+
+	updateInterval := shared.SanitizeSyncInterval(s.cfg.SyncInterval)
+	go func() {
+		for {
+			select {
+			case <-connCtx.Done():
+				return
+			case <-time.After(jitter(updateInterval)):
+				upd := buildAgentUpdate(inst.InstanceID)
+				msg := wsMessage{
+					ID:     ulid.Make().String(),
+					TS:     time.Now(),
+					Kind:   "update",
+					Update: upd,
+				}
+				if err := s.sendWSMessage(connCtx, conn, msg); err != nil {
+					logger.Error("syncer: failed to send update", "error", err)
+					return
+				}
+			}
+		}
+	}()
+
 	for {
 		var msg wsMessage
-		if err := wsjson.Read(ctx, conn, &msg); err != nil {
+		if err := wsjson.Read(connCtx, conn, &msg); err != nil {
 			if websocket.CloseStatus(err) == websocket.StatusNormalClosure || websocket.CloseStatus(err) == websocket.StatusGoingAway {
 				logger.Info("syncer: websocket closed", "status", websocket.CloseStatus(err))
 				atomic.AddUint64(&wsDisconnectsTotal, 1)
@@ -395,6 +532,14 @@ ws_connected:
 
 		logger.Debug("syncer: received message", "kind", msg.Kind)
 		switch msg.Kind {
+		case "hello_ack":
+			if msg.HelloAck != nil {
+				if !msg.HelloAck.Accept {
+					logger.Warn("syncer: hello rejected by base", "reason", msg.HelloAck.Reason)
+				}
+				// features/hints can be used in future
+				// inform about new minor, major version
+			}
 		case "task":
 			logger.Debug("syncer: received tasks", "count", len(msg.Items))
 			s.handleTasks(ctx, conn, msg.Items, logger)
@@ -592,7 +737,7 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 	currentModeMu.RLock()
 	mode := currentMode
 	currentModeMu.RUnlock()
-	if mode == coresystem.ModeUpdating {
+	if mode == system.ModeUpdating {
 		logger.Info("skipping tasks while daemon is in updating mode")
 		return
 	}
@@ -607,6 +752,11 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 	var completedResults []*tasks.Result
 
 	for _, t := range items {
+		if s.taskSeenRecently(t.ID) {
+			logger.Info("skipping previously completed task", "task_id", t.ID)
+			completedIDs = append(completedIDs, t.ID)
+			continue
+		}
 		task := &tasks.Task{
 			ID:      t.ID,
 			Type:    t.Type,
@@ -617,6 +767,7 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 		result := s.executor.Execute(ctx, task)
 		completedResults = append(completedResults, result)
 		completedIDs = append(completedIDs, t.ID)
+		s.markTaskSeen(t.ID)
 	}
 
 	if err := s.resultStore.SaveResults(ctx, fromTaskResults(completedResults)); err != nil {
@@ -625,10 +776,39 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 	}
 
 	if len(completedIDs) > 0 {
-		if err := s.sendWSMessage(ctx, conn, wsMessage{Kind: "ack", IDs: completedIDs}); err != nil {
+		if err := s.sendWSMessage(ctx, conn, wsMessage{ID: ulid.Make().String(), TS: time.Now(), Kind: "ack", IDs: completedIDs}); err != nil {
 			logger.Error("failed to send ack", "error", err)
 		}
 	}
+}
+
+func (s *Syncer) taskSeenRecently(id string) bool {
+	now := time.Now()
+	s.dedupeMu.Lock()
+	defer s.dedupeMu.Unlock()
+	// cleanup expired entries opportunistically
+	for k, exp := range s.dedupe {
+		if now.After(exp) {
+			delete(s.dedupe, k)
+		}
+	}
+	if exp, ok := s.dedupe[id]; ok {
+		if now.Before(exp) {
+			return true
+		}
+		delete(s.dedupe, id)
+	}
+	return false
+}
+
+func (s *Syncer) markTaskSeen(id string) {
+	ttl := s.cfg.TaskDedupTTL
+	if ttl <= 0 {
+		ttl = 5 * time.Minute
+	}
+	s.dedupeMu.Lock()
+	s.dedupe[id] = time.Now().Add(ttl)
+	s.dedupeMu.Unlock()
 }
 
 // fetchAgentToken exchanges a long-lived instance credential (bootstrap token)
