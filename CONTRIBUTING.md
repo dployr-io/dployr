@@ -197,7 +197,7 @@ test(store): add integration tests for user roles
 ### Release Checklist
 
 * [ ] All tests pass
-* [ ] Documentation updated
+* [ ] Docs polished—every package should have a clear `doc.go` explaining what it does.
 * [ ] Commit messages are clean (users will see these)
 * [ ] Consider beta release first: `./scripts/release.sh patch --beta`
 * [ ] Version bumped appropriately
