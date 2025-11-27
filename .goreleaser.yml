@@ -27,7 +27,10 @@ builds:
       - -X github.com/dployr-io/dployr/pkg/version.Version={{.Version}}
       - -X github.com/dployr-io/dployr/pkg/version.GitCommit={{.FullCommit}}
       - -X github.com/dployr-io/dployr/pkg/version.BuildDate={{.Date}}
-      - -X github.com/dployr-io/dployr/pkg/version.Component=dployrd
+      - -X github.com/dployr-io/dployr/pkg/version.Component=dployr
+      - -X github.com/dployr-io/dployr/version.Version={{.Version}}
+      - -X github.com/dployr-io/dployr/version.Commit={{.FullCommit}}
+      - -X github.com/dployr-io/dployr/version.Date={{.Date}}
 
   - id: dployrd
     main: ./cmd/dployrd
@@ -50,6 +53,9 @@ builds:
       - -X github.com/dployr-io/dployr/pkg/version.GitCommit={{.FullCommit}}
       - -X github.com/dployr-io/dployr/pkg/version.BuildDate={{.Date}}
       - -X github.com/dployr-io/dployr/pkg/version.Component=dployrd
+      - -X github.com/dployr-io/dployr/version.Version={{.Version}}
+      - -X github.com/dployr-io/dployr/version.Commit={{.FullCommit}}
+      - -X github.com/dployr-io/dployr/version.Date={{.Date}}
 
 archives:
   - id: default

@@ -159,7 +159,6 @@ type UpdateV1 struct {
 type PlatformInfo struct {
 	OS   string `json:"os"`
 	Arch string `json:"arch"`
-	Go   string `json:"go"`
 }
 
 // HelloV1 is sent by the agent when establishing a WebSocket connection.

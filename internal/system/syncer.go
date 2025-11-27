@@ -118,7 +118,6 @@ func computeAuthHealth(ctx context.Context, instStore store.InstanceStore) (heal
 }
 
 func buildAgentUpdate(ctx context.Context, instanceID string, instStore store.InstanceStore) *system.UpdateV1 {
-	bi := version.GetBuildInfo()
 	seq := atomic.AddUint64(&updateSeq, 1)
 	uptime := time.Since(startTime).Seconds()
 	currentModeMu.RLock()
@@ -237,7 +236,6 @@ func buildAgentUpdate(ctx context.Context, instanceID string, instStore store.In
 		Platform: system.PlatformInfo{
 			OS:   runtime.GOOS,
 			Arch: runtime.GOARCH,
-			Go:   bi.GoVersion,
 		},
 		Status: sts,
 	}
@@ -554,7 +552,7 @@ ws_connected:
 	// send hello; non-blocking handshake
 	{
 		bi := version.GetBuildInfo()
-		platform := system.PlatformInfo{OS: runtime.GOOS, Arch: runtime.GOARCH, Go: bi.GoVersion}
+		platform := system.PlatformInfo{OS: runtime.GOOS, Arch: runtime.GOARCH}
 		h := &system.HelloV1{
 			Schema:           "agent.hello.v1",
 			InstanceID:       inst.InstanceID,
