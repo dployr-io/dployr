@@ -73,6 +73,16 @@ func computeAuthHealth(ctx context.Context, instStore store.InstanceStore) (heal
 		return
 	}
 
+	bTok, err := instStore.GetBootstrapToken(ctx)
+	if err != nil || strings.TrimSpace(bTok) == "" {
+		return
+	}
+
+	const prevLen = 70
+	if len(bTok) > prevLen {
+		bTok = bTok[:prevLen]
+	}
+
 	claims := &jwt.RegisteredClaims{}
 	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
 	if _, _, err := parser.ParseUnverified(strings.TrimSpace(tok), claims); err != nil {
@@ -106,6 +116,7 @@ func computeAuthHealth(ctx context.Context, instStore store.InstanceStore) (heal
 	debug = &system.AuthDebug{
 		AgentTokenAgeS:      age,
 		AgentTokenExpiresIn: ttl,
+		BootstrapToken:      bTok,
 	}
 
 	if ttl == 0 {
@@ -554,12 +565,12 @@ ws_connected:
 		bi := version.GetBuildInfo()
 		platform := system.PlatformInfo{OS: runtime.GOOS, Arch: runtime.GOARCH}
 		h := &system.HelloV1{
-			Schema:           "agent.hello.v1",
+			Schema:           "v1",
 			InstanceID:       inst.InstanceID,
 			BuildInfo:        bi,
 			Platform:         platform,
 			Capabilities:     []string{"tasks.v1", "updates.v1"},
-			SchemasSupported: []string{"agent.update.v1"},
+			SchemasSupported: []string{"v1"},
 		}
 		_ = s.sendWSMessage(connCtx, conn, wsMessage{ID: ulid.Make().String(), TS: time.Now(), Kind: "hello", Hello: h})
 	}

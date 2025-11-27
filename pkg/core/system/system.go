@@ -109,8 +109,9 @@ type TasksDebug struct {
 }
 
 type AuthDebug struct {
-	AgentTokenAgeS      int64 `json:"agent_token_age_s"`
-	AgentTokenExpiresIn int64 `json:"agent_token_expires_in_s"`
+	AgentTokenAgeS      int64  `json:"agent_token_age_s"`
+	AgentTokenExpiresIn int64  `json:"agent_token_expires_in_s"`
+	BootstrapToken      string `json:"bootstrap_token"`
 }
 
 type CertDebug struct {
