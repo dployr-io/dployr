@@ -126,10 +126,11 @@ func parseFreeOutput(hw *HardwareInfo, out string) {
 		if len(fields) < 2 {
 			continue
 		}
-		if strings.HasPrefix(fields[0], "Mem:") && len(fields) >= 4 {
+		if strings.HasPrefix(fields[0], "Mem:") && len(fields) >= 7 {
+			// free -h output: total used free shared buff/cache available
 			hw.MemTotal = ptr(fields[1])
 			hw.MemUsed = ptr(fields[2])
-			hw.MemFree = ptr(fields[3])
+			hw.MemFree = ptr(fields[6])
 		}
 		if strings.HasPrefix(fields[0], "Swap:") && len(fields) >= 3 {
 			hw.SwapTotal = ptr(fields[1])
