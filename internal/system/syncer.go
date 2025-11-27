@@ -184,6 +184,16 @@ func buildAgentUpdate(ctx context.Context, instanceID string, instStore store.In
 				res.MemFreeBytes = v
 			}
 		}
+		if sysInfo.HW.SwapTotal != nil {
+			if v := parseHumanBytes(*sysInfo.HW.SwapTotal); v > 0 {
+				res.SwapTotalBytes = v
+			}
+		}
+		if sysInfo.HW.SwapUsed != nil {
+			if v := parseHumanBytes(*sysInfo.HW.SwapUsed); v > 0 {
+				res.SwapUsedBytes = v
+			}
+		}
 		for _, p := range sysInfo.Storage.Partitions {
 			entry := system.DiskDebugEntry{
 				Filesystem: p.Filesystem,

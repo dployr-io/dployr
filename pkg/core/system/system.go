@@ -76,11 +76,13 @@ type SystemDebug struct {
 
 // SystemResourcesDebug provides high-level system resource information for debugging.
 type SystemResourcesDebug struct {
-	CPUCount      int              `json:"cpu_count"`
-	MemTotalBytes int64            `json:"mem_total_bytes,omitempty"`
-	MemUsedBytes  int64            `json:"mem_used_bytes,omitempty"`
-	MemFreeBytes  int64            `json:"mem_free_bytes,omitempty"`
-	Disks         []DiskDebugEntry `json:"disks,omitempty"`
+	CPUCount       int              `json:"cpu_count"`
+	MemTotalBytes  int64            `json:"mem_total_bytes,omitempty"`
+	MemUsedBytes   int64            `json:"mem_used_bytes,omitempty"`
+	MemFreeBytes   int64            `json:"mem_free_bytes,omitempty"`
+	SwapTotalBytes int64            `json:"swap_total_bytes,omitempty"`
+	SwapUsedBytes  int64            `json:"swap_used_bytes,omitempty"`
+	Disks          []DiskDebugEntry `json:"disks,omitempty"`
 }
 
 // DiskDebugEntry represents disk usage for a single filesystem/mountpoint.

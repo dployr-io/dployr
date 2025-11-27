@@ -181,6 +181,23 @@ func (m *Metrics) writeSystemMetrics(buf *bytes.Buffer) {
 		}
 	}
 
+	// Swap metrics
+	if sysInfo.HW.SwapTotal != nil {
+		if bytes := parseHumanBytes(*sysInfo.HW.SwapTotal); bytes > 0 {
+			buf.WriteString("# HELP dployr_system_swap_total_bytes Total swap space in bytes\n")
+			buf.WriteString("# TYPE dployr_system_swap_total_bytes gauge\n")
+			fmt.Fprintf(buf, "dployr_system_swap_total_bytes %d\n\n", bytes)
+		}
+	}
+
+	if sysInfo.HW.SwapUsed != nil {
+		if bytes := parseHumanBytes(*sysInfo.HW.SwapUsed); bytes > 0 {
+			buf.WriteString("# HELP dployr_system_swap_used_bytes Used swap space in bytes\n")
+			buf.WriteString("# TYPE dployr_system_swap_used_bytes gauge\n")
+			fmt.Fprintf(buf, "dployr_system_swap_used_bytes %d\n\n", bytes)
+		}
+	}
+
 	// Disk usage metrics for each partition
 	for _, part := range sysInfo.Storage.Partitions {
 		if size := parseHumanBytes(part.Size); size > 0 {

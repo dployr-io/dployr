@@ -1283,6 +1283,14 @@ components:
                   type: integer
                   format: int64
                   nullable: true
+                swap_total_bytes:
+                  type: integer
+                  format: int64
+                  nullable: true
+                swap_used_bytes:
+                  type: integer
+                  format: int64
+                  nullable: true
                 disks:
                   type: array
                   items:
