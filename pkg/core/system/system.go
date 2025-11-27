@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/dployr-io/dployr/pkg/core/utils"
+	"github.com/dployr-io/dployr/version"
 )
 
 // Health status
@@ -144,14 +145,14 @@ type TaskSummary struct {
 // UpdateV1 represents the status update payload sent from the agent to base.
 // This struct defines the core schema relied upon by clients interacting with the dployr API.
 type UpdateV1 struct {
-	Schema     string        `json:"schema"`
-	Seq        uint64        `json:"seq"`
-	Epoch      string        `json:"epoch"`
-	Full       bool          `json:"full"`
-	InstanceID string        `json:"instance_id"`
-	Version    string        `json:"version"`
-	Platform   PlatformInfo  `json:"platform"`
-	Status     *SystemStatus `json:"status,omitempty"`
+	Schema     string            `json:"schema"`
+	Seq        uint64            `json:"seq"`
+	Epoch      string            `json:"epoch"`
+	Full       bool              `json:"full"`
+	InstanceID string            `json:"instance_id"`
+	BuildInfo  version.BuildInfo `json:"build_info"`
+	Platform   PlatformInfo      `json:"platform"`
+	Status     *SystemStatus     `json:"status,omitempty"`
 }
 
 // PlatformInfo describes the runtime platform of the agent.
@@ -163,12 +164,12 @@ type PlatformInfo struct {
 
 // HelloV1 is sent by the agent when establishing a WebSocket connection.
 type HelloV1 struct {
-	Schema           string       `json:"schema"`
-	InstanceID       string       `json:"instance_id"`
-	Version          string       `json:"version"`
-	Platform         PlatformInfo `json:"platform"`
-	Capabilities     []string     `json:"capabilities,omitempty"`
-	SchemasSupported []string     `json:"schemas_supported,omitempty"`
+	Schema           string            `json:"schema"`
+	InstanceID       string            `json:"instance_id"`
+	BuildInfo        version.BuildInfo `json:"build_info"`
+	Platform         PlatformInfo      `json:"platform"`
+	Capabilities     []string          `json:"capabilities,omitempty"`
+	SchemasSupported []string          `json:"schemas_supported,omitempty"`
 }
 
 // HelloAckV1 is sent by base to acknowledge the agent hello.

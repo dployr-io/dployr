@@ -233,7 +233,7 @@ func buildAgentUpdate(ctx context.Context, instanceID string, instStore store.In
 		Epoch:      fmt.Sprintf("%s-%d", strings.TrimSpace(instanceID), startTime.Unix()),
 		Full:       false,
 		InstanceID: instanceID,
-		Version:    version.GetVersion(),
+		BuildInfo:  version.GetBuildInfo(),
 		Platform: system.PlatformInfo{
 			OS:   runtime.GOOS,
 			Arch: runtime.GOARCH,
@@ -558,7 +558,7 @@ ws_connected:
 		h := &system.HelloV1{
 			Schema:           "agent.hello.v1",
 			InstanceID:       inst.InstanceID,
-			Version:          bi.Version,
+			BuildInfo:        bi,
 			Platform:         platform,
 			Capabilities:     []string{"tasks.v1", "updates.v1"},
 			SchemasSupported: []string{"agent.update.v1"},

@@ -1394,6 +1394,90 @@ components:
                     items:
                       type: string
 
+    BuildInfo:
+      type: object
+      description: Build metadata for the running daemon.
+      properties:
+        version:
+          type: string
+          example: "0.4.3"
+        commit:
+          type: string
+          example: "ad34cc94"
+        date:
+          type: string
+          description: Build date bundled at build time
+          example: "2025-11-26T21:50:07Z"
+        go_version:
+          type: string
+          example: "go1.23.0"
+
+    PlatformInfo:
+      type: object
+      description: Runtime platform information for the daemon.
+      properties:
+        os:
+          type: string
+          example: "linux"
+        arch:
+          type: string
+          example: "amd64"
+        go:
+          type: string
+          example: "go1.23.0"
+
+    AgentHello:
+      type: object
+      description: Initial hello message sent by the agent over WebSocket.
+      properties:
+        schema:
+          type: string
+          example: "agent.hello.v1"
+        instance_id:
+          type: string
+          example: "inst_01HXYZABCDEF123456"
+        build_info:
+          $ref: '#/components/schemas/BuildInfo'
+        platform:
+          $ref: '#/components/schemas/PlatformInfo'
+        capabilities:
+          type: array
+          items:
+            type: string
+          example: ["tasks.v1", "updates.v1"]
+        schemas_supported:
+          type: array
+          items:
+            type: string
+          example: ["agent.update.v1"]
+
+    AgentUpdate:
+      type: object
+      description: Periodic status update sent by the daemon over WebSocket.
+      properties:
+        schema:
+          type: string
+          example: "v1"
+        seq:
+          type: integer
+          format: int64
+          description: Monotonic sequence number for this connection.
+        epoch:
+          type: string
+          description: Logical epoch identifier for this instance.
+          example: "inst_01HXYZABCDEF123456-1732699234"
+        full:
+          type: boolean
+          description: Whether this is a full status update.
+        instance_id:
+          type: string
+        build_info:
+          $ref: '#/components/schemas/BuildInfo'
+        platform:
+          $ref: '#/components/schemas/PlatformInfo'
+        status:
+          $ref: '#/components/schemas/SystemStatus'
+
     SystemDoctorResult:
       type: object
       properties:
