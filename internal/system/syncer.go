@@ -661,11 +661,7 @@ ws_connected:
 		}
 
 		ctxMsg := shared.WithTrace(ctx, ulid.Make().String()) // new trace per WS message
-		wsMsgID := msg.RequestID
-		if wsMsgID == "" {
-			wsMsgID = msg.ID
-		}
-		msgLogger := s.logger.WithContext(ctxMsg).With("instance_id", inst.InstanceID, "ws_msg_id", wsMsgID)
+		msgLogger := s.logger.WithContext(ctxMsg).With("instance_id", inst.InstanceID)
 
 		msgLogger.Debug("syncer: received message", "kind", msg.Kind)
 		switch msg.Kind {
