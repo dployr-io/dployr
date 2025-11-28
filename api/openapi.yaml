@@ -1412,6 +1412,79 @@ components:
           type: string
           example: "go1.23.0"
 
+    LogEntry:
+      type: object
+      description: |
+        Structured log entry as emitted by the daemon logger.
+
+        This mirrors the JSON output produced by the daemon's slog-based logger
+        and is used in log_chunk WebSocket messages and log streaming.
+      properties:
+        time:
+          type: string
+          format: date-time
+          description: RFC3339 timestamp of the log entry.
+          example: "2025-11-28T16:52:03.436565635Z"
+        level:
+          type: string
+          description: Log level.
+          enum: [DEBUG, INFO, WARN, ERROR]
+          example: "INFO"
+        msg:
+          type: string
+          description: Primary log message.
+          example: "syncer: received message"
+      additionalProperties:
+        description: Additional structured attributes attached to the log entry.
+        example: "01KB5NWMWTFFA8CQDW63NCGWG5"
+        oneOf:
+          - type: string
+          - type: number
+          - type: boolean
+
+    LogChunk:
+      type: object
+      description: |
+        Batch of structured log entries sent as a log_chunk message over the
+        agent WebSocket connection or used by higher-level log streaming APIs.
+      properties:
+        streamId:
+          type: string
+          description: Opaque stream identifier provided by the caller.
+          example: "01KB5NWMWTFFA8CQDW63NCGWG5"
+        logType:
+          type: string
+          description: Logical log stream type.
+          enum: [app, install]
+          example: "app"
+        entries:
+          type: array
+          description: Ordered list of structured log entries in this chunk.
+          items:
+            $ref: '#/components/schemas/LogEntry'
+        eof:
+          type: boolean
+          description: |
+            Indicates that the stream has reached the end of file for the
+            current log source. In tailing mode, new entries may still arrive
+            later. In historical mode, eof=true implies no more data.
+          example: false
+        hasMore:
+          type: boolean
+          description: |
+            When true, there are more historical log entries available after
+            this chunk. Clients can use the offset field to request the next
+            page of history.
+          example: true
+        offset:
+          type: integer
+          format: int64
+          description: |
+            Byte offset in the underlying log file immediately after the last
+            entry in this chunk. Can be used as a cursor for subsequent
+            historical log requests.
+          example: 52480
+
     PlatformInfo:
       type: object
       description: Runtime platform information for the daemon.

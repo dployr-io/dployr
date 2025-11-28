@@ -33,6 +33,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/oklog/ulid/v2"
 
+	"github.com/dployr-io/dployr/pkg/core/logs"
 	"github.com/dployr-io/dployr/pkg/core/system"
 	"github.com/dployr-io/dployr/pkg/core/utils"
 	"github.com/dployr-io/dployr/pkg/shared"
@@ -310,6 +311,7 @@ type wsMessage struct {
 	Update    *system.UpdateV1   `json:"update,omitempty"`
 	Hello     *system.HelloV1    `json:"hello,omitempty"`
 	HelloAck  *system.HelloAckV1 `json:"hello_ack,omitempty"`
+	LogChunk  *logs.LogChunk     `json:"log_chunk,omitempty"`
 }
 
 // syncTask represents a single task returned by base.
@@ -558,6 +560,10 @@ ws_connected:
 	lastWSConnect.Store(time.Now())
 	// clear last error on successful connect
 	lastWSError.Store("")
+
+	// Set WebSocket connection in executor for log streaming
+	s.executor.SetWSConn(conn)
+	defer s.executor.SetWSConn(nil)
 
 	connCtx, cancelConn := context.WithCancel(ctx)
 	defer cancelConn()

@@ -13,10 +13,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
+	"github.com/oklog/ulid/v2"
+
+	"github.com/dployr-io/dployr/internal/logs"
+	corelogs "github.com/dployr-io/dployr/pkg/core/logs"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/tasks"
-
-	"github.com/oklog/ulid/v2"
 )
 
 // AccessTokenProvider provides the current agent access token.
@@ -26,9 +30,11 @@ type AccessTokenProvider interface {
 
 // Executor runs tasks by routing them through existing HTTP handlers.
 type Executor struct {
-	logger  *shared.Logger
-	handler http.Handler
-	tokens  AccessTokenProvider
+	logger   *shared.Logger
+	handler  http.Handler
+	tokens   AccessTokenProvider
+	wsConn   *websocket.Conn
+	wsConnMu sync.RWMutex
 }
 
 var pendingTasks int64
@@ -60,11 +66,111 @@ func NewExecutor(logger *shared.Logger, handler http.Handler, tokens AccessToken
 	}
 }
 
+// SetWSConn sets the WebSocket connection for log streaming.
+func (e *Executor) SetWSConn(conn *websocket.Conn) {
+	e.wsConnMu.Lock()
+	defer e.wsConnMu.Unlock()
+	e.wsConn = conn
+}
+
+// sendLogChunkToBase sends a log chunk to the base via WebSocket.
+func (e *Executor) sendLogChunkToBase(ctx context.Context, chunk corelogs.LogChunk) error {
+	e.wsConnMu.RLock()
+	conn := e.wsConn
+	e.wsConnMu.RUnlock()
+
+	if conn == nil {
+		return fmt.Errorf("no websocket connection")
+	}
+
+	msg := map[string]interface{}{
+		"kind":     "log_chunk",
+		"streamId": chunk.StreamID,
+		"logType":  chunk.LogType,
+		"entries":  chunk.Entries,
+		"eof":      chunk.EOF,
+		"hasMore":  chunk.HasMore,
+		"offset":   chunk.Offset,
+	}
+
+	return wsjson.Write(ctx, conn, msg)
+}
+
+// handleLogStream handles the logs/stream:post task type.
+func (e *Executor) handleLogStream(task *tasks.Task) *tasks.Result {
+	var payload struct {
+		Token     string `json:"token"`
+		LogType   string `json:"logType"`
+		StreamID  string `json:"streamId"`
+		Mode      string `json:"mode,omitempty"`      // "tail" or "historical"
+		StartFrom int64  `json:"startFrom,omitempty"` // Byte offset
+		Limit     int    `json:"limit,omitempty"`     // Max entries for historical
+	}
+
+	if err := json.Unmarshal(task.Payload, &payload); err != nil {
+		return &tasks.Result{
+			ID:     task.ID,
+			Status: "failed",
+			Error:  fmt.Sprintf("invalid payload: %v", err),
+		}
+	}
+
+	// Default to tail mode
+	mode := corelogs.StreamModeTail
+	if payload.Mode == "historical" {
+		mode = corelogs.StreamModeHistorical
+	}
+
+	// Default startFrom to -1 for tailing from end of file
+	startFrom := payload.StartFrom
+	if startFrom == 0 && mode == corelogs.StreamModeTail {
+		startFrom = -1
+	}
+
+	e.logger.Info("starting log stream", "stream_id", payload.StreamID, "log_type", payload.LogType, "mode", mode, "start_from", startFrom)
+
+	// Start streaming in background
+	go func() {
+		streamCtx := context.Background()
+		logHandler := logs.NewHandler(e.logger)
+
+		opts := corelogs.StreamOptions{
+			StreamID:  payload.StreamID,
+			LogType:   payload.LogType,
+			Mode:      mode,
+			StartFrom: startFrom,
+			Limit:     payload.Limit,
+		}
+
+		err := logHandler.StreamLogs(streamCtx, opts, func(chunk corelogs.LogChunk) error {
+			return e.sendLogChunkToBase(streamCtx, chunk)
+		})
+
+		if err != nil {
+			e.logger.Error("log streaming failed", "error", err, "stream_id", payload.StreamID)
+		}
+	}()
+
+	return &tasks.Result{
+		ID:     task.ID,
+		Status: "done",
+		Result: map[string]interface{}{
+			"message": "log streaming started",
+			"mode":    string(mode),
+		},
+	}
+}
+
 // Execute runs a task by converting it to an HTTP request and routing it internally.
 func (e *Executor) Execute(ctx context.Context, task *tasks.Task) *tasks.Result {
 	start := time.Now()
 	atomic.AddInt64(&pendingTasks, 1)
 	defer atomic.AddInt64(&pendingTasks, -1)
+
+	// Handle logs/stream:post specially
+	if task.Type == "logs/stream:post" {
+		return e.handleLogStream(task)
+	}
 
 	parts := strings.SplitN(task.Type, ":", 2)
 	if len(parts) != 2 {
