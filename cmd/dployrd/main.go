@@ -29,8 +29,6 @@ import (
 	_system "github.com/dployr-io/dployr/internal/system"
 	"github.com/dployr-io/dployr/internal/web"
 	"github.com/dployr-io/dployr/internal/worker"
-
-	"github.com/oklog/ulid/v2"
 )
 
 func main() {
@@ -63,8 +61,6 @@ func main() {
 	trs := _store.NewTaskResultStore(conn)
 
 	ctx := context.Background()
-	ctx = shared.WithRequest(ctx, ulid.Make().String())
-	ctx = shared.WithTrace(ctx, ulid.Make().String())
 
 	w := worker.New(5, cfg, logger, ds, ss) // 5 concurrent deployments
 

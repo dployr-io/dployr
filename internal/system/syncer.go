@@ -658,19 +658,22 @@ ws_connected:
 			return fmt.Errorf("websocket read failed: %w", err)
 		}
 
-		logger.Debug("syncer: received message", "kind", msg.Kind)
+		ctxMsg := shared.WithTrace(ctx, ulid.Make().String())
+		msgLogger := s.logger.WithContext(ctxMsg).With("instance_id", inst.InstanceID, "ws_msg_id", msg.ID)
+
+		msgLogger.Debug("syncer: received message", "kind", msg.Kind)
 		switch msg.Kind {
 		case "hello_ack":
 			if msg.HelloAck != nil {
 				if !msg.HelloAck.Accept {
-					logger.Warn("syncer: hello rejected by base", "reason", msg.HelloAck.Reason)
+					msgLogger.Warn("syncer: hello rejected by base", "reason", msg.HelloAck.Reason)
 				}
 				// features/hints can be used in future
 				// inform about new minor, major version
 			}
 		case "task":
-			logger.Debug("syncer: received tasks", "count", len(msg.Items))
-			s.handleTasks(ctx, conn, msg.Items, logger)
+			msgLogger.Debug("syncer: received tasks", "count", len(msg.Items))
+			s.handleTasks(ctxMsg, conn, msg.Items, msgLogger)
 		}
 	}
 }
@@ -892,7 +895,12 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 			Status:  t.Status,
 		}
 
-		result := s.executor.Execute(ctx, task)
+		tctx := shared.WithRequest(ctx, t.ID)
+		tctx = shared.WithTrace(tctx, ulid.Make().String())
+		tlog := logger.WithContext(tctx)
+		tlog.Debug("syncer: executing task", "task_id", t.ID, "type", t.Type)
+
+		result := s.executor.Execute(tctx, task)
 		completedResults = append(completedResults, result)
 		completedIDs = append(completedIDs, t.ID)
 		s.markTaskSeen(t.ID)
