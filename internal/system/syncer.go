@@ -302,8 +302,8 @@ type Syncer struct {
 // wsMessage represents WebSocket messages exchanged with base.
 type wsMessage struct {
 	ID        string             `json:"id,omitempty"`
-	RequestID string             `json:"requestId,omitempty"`
-	TS        time.Time          `json:"ts,omitempty"`
+	RequestID string             `json:"request_id,omitempty"`
+	TS        time.Time          `json:"ts"`
 	Kind      string             `json:"kind"`
 	Items     []syncTask         `json:"items,omitempty"`
 	IDs       []string           `json:"ids,omitempty"`
