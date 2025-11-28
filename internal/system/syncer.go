@@ -301,14 +301,15 @@ type Syncer struct {
 
 // wsMessage represents WebSocket messages exchanged with base.
 type wsMessage struct {
-	ID       string             `json:"id,omitempty"`
-	TS       time.Time          `json:"ts,omitempty"`
-	Kind     string             `json:"kind"`
-	Items    []syncTask         `json:"items,omitempty"`
-	IDs      []string           `json:"ids,omitempty"`
-	Update   *system.UpdateV1   `json:"update,omitempty"`
-	Hello    *system.HelloV1    `json:"hello,omitempty"`
-	HelloAck *system.HelloAckV1 `json:"hello_ack,omitempty"`
+	ID        string             `json:"id,omitempty"`
+	RequestID string             `json:"requestId,omitempty"`
+	TS        time.Time          `json:"ts,omitempty"`
+	Kind      string             `json:"kind"`
+	Items     []syncTask         `json:"items,omitempty"`
+	IDs       []string           `json:"ids,omitempty"`
+	Update    *system.UpdateV1   `json:"update,omitempty"`
+	Hello     *system.HelloV1    `json:"hello,omitempty"`
+	HelloAck  *system.HelloAckV1 `json:"hello_ack,omitempty"`
 }
 
 // syncTask represents a single task returned by base.
@@ -452,6 +453,7 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 
 	// Enrich context and attach instance_id explicitly for logging
 	ctx = context.WithValue(ctx, ctxKeyInstanceID, inst.InstanceID)
+	ctx = shared.EnrichContext(ctx)
 	logger := s.logger.WithContext(ctx).With("instance_id", inst.InstanceID)
 
 	logger.Debug("syncer: loading bootstrap token")
@@ -658,8 +660,12 @@ ws_connected:
 			return fmt.Errorf("websocket read failed: %w", err)
 		}
 
-		ctxMsg := shared.WithTrace(ctx, ulid.Make().String())
-		msgLogger := s.logger.WithContext(ctxMsg).With("instance_id", inst.InstanceID, "ws_msg_id", msg.ID)
+		ctxMsg := shared.WithTrace(ctx, ulid.Make().String()) // new trace per WS message
+		wsMsgID := msg.RequestID
+		if wsMsgID == "" {
+			wsMsgID = msg.ID
+		}
+		msgLogger := s.logger.WithContext(ctxMsg).With("instance_id", inst.InstanceID, "ws_msg_id", wsMsgID)
 
 		msgLogger.Debug("syncer: received message", "kind", msg.Kind)
 		switch msg.Kind {
