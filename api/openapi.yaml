@@ -1,3 +1,6 @@
+# Copyright 2025 Emmanuel Madehin
+# SPDX-License-Identifier: Apache-2.0
+
 openapi: 3.0.4
 info:
   title: Dployr API
@@ -27,7 +30,7 @@ info:
     name: Emmanuel Madehin
     email: hello@dployr.dev
   license:
-    name: MIT
+    name: Apache License, Version 2.0
     url: https://raw.githubusercontent.com/dployr-io/dployr/refs/heads/master/LICENSE
 
 servers:

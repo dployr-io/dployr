@@ -1,3 +1,6 @@
+// Copyright 2025 Emmanuel Madehin
+// SPDX-License-Identifier: Apache-2.0
+
 // Package system defines the public contract for daemon-level operations in dployr.
 //
 // It models system health, registration, installation/upgrade, domain requests,

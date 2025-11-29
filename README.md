@@ -6,7 +6,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/dployr-io/dployr.svg)](https://pkg.go.dev/github.com/dployr-io/dployr)
 [![Go Report Card](https://goreportcard.com/badge/github.com/dployr-io/dployr)](https://goreportcard.com/report/github.com/dployr-io/dployr)
 [![Release](https://img.shields.io/github/v/release/dployr-io/dployr)](https://github.com/dployr-io/dployr/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Apache License, Version 2.0](https://img.shields.io/badge/License-Apache%20License%2C%20Version%202.0-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go)](https://go.dev/dl/)
 
 ## Overview
@@ -324,7 +324,7 @@ make test
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+Apache License, Version 2.0 — see [LICENSE](LICENSE) for details.
 
 ---
 

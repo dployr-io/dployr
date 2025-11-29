@@ -1,3 +1,6 @@
+// Copyright 2025 Emmanuel Madehin
+// SPDX-License-Identifier: Apache-2.0
+
 // Package auth implements authentication primitives and middleware for the daemon's HTTP API.
 // It defines core token validation, claims, and user role handling, with middleware supporting
 // authentication and permission checks for protected endpoints. Concrete authentication logic

@@ -1,4 +1,6 @@
-# dployr Windows Installer
+# Copyright 2025 Emmanuel Madehin
+# SPDX-License-Identifier: Apache-2.0
+
 # Downloads and installs dployr, dployrd, Caddy, and NSSM
 
 param(

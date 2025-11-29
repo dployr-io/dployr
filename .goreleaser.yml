@@ -1,3 +1,6 @@
+# Copyright 2025 Emmanuel Madehin
+# SPDX-License-Identifier: Apache-2.0
+
 version: 2
 
 project_name: dployr
@@ -121,7 +124,7 @@ brews:
       name: homebrew-dployr
     homepage: https://github.com/dployr-io/homebrew-dployr
     description: "Your app, your server, your rules!"
-    license: MIT
+    license: Apache License, Version 2.0
     dependencies:
       - name: caddy
     install: |-
@@ -138,7 +141,7 @@ scoops:
       name: scoop-dployr
     homepage: https://github.com/dployr-io/scoop-dployr
     description: "Your app, your server, your rules!"
-    license: MIT
+    license: Apache License, Version 2.0
     depends:
       - "caddy"
       - "nssm"

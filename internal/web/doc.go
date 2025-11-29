@@ -1,3 +1,6 @@
+// Copyright 2025 Emmanuel Madehin
+// SPDX-License-Identifier: Apache-2.0
+
 // Package web provides the HTTP server and multiplexer for the daemon's web API.
 // It wires together core handlers (deployment, service, proxy, log streaming, system)
 // and manages all external HTTP endpoints exposed by the daemon.

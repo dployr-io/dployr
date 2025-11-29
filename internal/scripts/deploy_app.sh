@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# Copyright 2025 Emmanuel Madehin
+# SPDX-License-Identifier: Apache-2.0
+
 # deploy_app.sh — unified deployment script
 # Handles runtime setup, build, and service installation in one go
 # Usage: deploy_app.sh <action> <service_name> <runtime> <version> <workdir> <run_cmd> <description> <build_cmd> <port> [env_vars...]

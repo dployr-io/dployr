@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# Copyright 2025 Emmanuel Madehin
+# SPDX-License-Identifier: Apache-2.0
+
 # systemd.sh — manages systemd system services
 # Usage: systemd.sh <action> <name> [description] [exec_start] [working_dir]
 

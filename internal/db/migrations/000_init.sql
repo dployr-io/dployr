@@ -1,3 +1,6 @@
+-- Copyright 2025 Emmanuel Madehin
+-- SPDX-License-Identifier: Apache-2.0
+
 -- DEPLOYMENTS TABLE
 CREATE TABLE IF NOT EXISTS deployments (
     id TEXT PRIMARY KEY,

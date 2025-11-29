@@ -1,4 +1,5 @@
-# dployr Makefile
+# Copyright 2025 Emmanuel Madehin
+# SPDX-License-Identifier: Apache-2.0
 
 .PHONY: build build-cli build-daemon clean test version release-major release-minor release-patch release-beta help ci
 

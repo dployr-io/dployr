@@ -1,3 +1,6 @@
+// Copyright 2025 Emmanuel Madehin
+// SPDX-License-Identifier: Apache-2.0
+
 // Package store defines data models and interfaces for persistence in dployr.
 //
 // It models users, deployments, services, instances, and task results, and provides

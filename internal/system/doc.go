@@ -1,3 +1,6 @@
+// Copyright 2025 Emmanuel Madehin
+// SPDX-License-Identifier: Apache-2.0
+
 // Package system implements the daemon's system service: sync, install/upgrade,
 // registration, and health. It owns the WebSocket connection to base, periodic
 // pulls and state updates, and local task result handling with deduplication.

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Copyright 2025 Emmanuel Madehin
+# SPDX-License-Identifier: Apache-2.0
+
 # Simple release script for dployr
 # Usage: ./scripts/release.sh [major|minor|patch] [--beta]
 
