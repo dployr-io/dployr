@@ -21,7 +21,7 @@ Both use the same programmatic, RBAC‑aware API with full auditing. Anything yo
 
 It consists of four components:
 
-- dployr‑base — Globally distributed control‑plane (API, scheduling, storage). Single source of truth.
+- dployr‑base — Globally distributed control‑plane (API, scheduling, storage).
 - dployrd — Daemon on each instance. Connects to base over mTLS, executes tasks, and reports status.
 - dployr‑cli — RBAC‑aware command‑line client that talks to base from anywhere.
 - dployr‑app — Web dashboard built on the same API for managing projects, deployments, and environments.
