@@ -557,6 +557,13 @@ ws_connected:
 
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
+	// Set message size limit
+	maxSize := s.cfg.WSMaxMessageSize
+	if maxSize <= 0 {
+		maxSize = 10 * 1024 * 1024 // 10MB default
+	}
+	conn.SetReadLimit(maxSize)
+
 	logger.Info("syncer: websocket connected to base")
 	atomic.AddUint64(&wsConnectsTotal, 1)
 	setWSConnected(true)

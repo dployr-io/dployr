@@ -20,13 +20,14 @@ import (
 )
 
 type Config struct {
-	Address      string
-	Port         int
-	MaxWorkers   int
-	BaseURL      string
-	SyncInterval time.Duration
-	WSCertPath   string
-	TaskDedupTTL time.Duration
+	Address          string
+	Port             int
+	MaxWorkers       int
+	BaseURL          string
+	SyncInterval     time.Duration
+	WSCertPath       string
+	WSMaxMessageSize int64
+	TaskDedupTTL     time.Duration
 }
 
 func LoadConfig() (*Config, error) {
@@ -38,13 +39,14 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		Address:      getEnv("ADDRESS", "localhost"),
-		Port:         getEnvAsInt("PORT", 7879),
-		MaxWorkers:   getEnvAsInt("MAX_WORKERS", 5),
-		BaseURL:      getEnv("BASE_URL", ""),
-		SyncInterval: getEnvAsDuration("SYNC_INTERVAL", 30*time.Second),
-		WSCertPath:   getEnv("WS_CERT_PATH", ""),
-		TaskDedupTTL: getEnvAsPositiveDuration("TASK_DEDUP_TTL", 5*time.Minute),
+		Address:          getEnv("ADDRESS", "localhost"),
+		Port:             getEnvAsInt("PORT", 7879),
+		MaxWorkers:       getEnvAsInt("MAX_WORKERS", 5),
+		BaseURL:          getEnv("BASE_URL", ""),
+		SyncInterval:     getEnvAsDuration("SYNC_INTERVAL", 30*time.Second),
+		WSCertPath:       getEnv("WS_CERT_PATH", ""),
+		WSMaxMessageSize: getEnvAsInt64("WS_MAX_MESSAGE_SIZE", 10*1024*1024), // 10MB default
+		TaskDedupTTL:     getEnvAsPositiveDuration("TASK_DEDUP_TTL", 5*time.Minute),
 	}, nil
 }
 
@@ -126,6 +128,15 @@ func sanitizeSyncInterval(v time.Duration) time.Duration {
 func getEnvAsInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return defaultValue
+}
+
+func getEnvAsInt64(key string, defaultValue int64) int64 {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.ParseInt(value, 10, 64); err == nil {
 			return intValue
 		}
 	}

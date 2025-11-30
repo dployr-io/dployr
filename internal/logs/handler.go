@@ -77,6 +77,10 @@ func (h *Handler) streamHistorical(ctx context.Context, file *os.File, opts logs
 		limit = 100 // Default limit
 	}
 
+	// Max chunk size in bytes (reserve space for JSON overhead)
+	const maxChunkBytes = 8 * 1024 * 1024
+	estimatedSize := 0
+
 	for len(entries) < limit {
 		select {
 		case <-ctx.Done():
@@ -95,7 +99,24 @@ func (h *Handler) streamHistorical(ctx context.Context, file *os.File, opts logs
 
 		entry := h.parseLogLine(line)
 		if entry != nil {
+			entrySize := len(entry.RawLine) + 200
+			if estimatedSize+entrySize > maxChunkBytes && len(entries) > 0 {
+				currentPos, _ := file.Seek(0, io.SeekCurrent)
+				if err := sendChunk(logs.LogChunk{
+					StreamID: opts.StreamID,
+					LogType:  opts.LogType,
+					Entries:  entries,
+					EOF:      false,
+					HasMore:  true,
+					Offset:   currentPos,
+				}); err != nil {
+					return err
+				}
+				entries = nil
+				estimatedSize = 0
+			}
 			entries = append(entries, *entry)
+			estimatedSize += entrySize
 		}
 	}
 
@@ -138,6 +159,8 @@ func (h *Handler) streamTail(ctx context.Context, file *os.File, opts logs.Strea
 
 	var entries []logs.LogEntry
 	const batchSize = 50
+	const maxChunkBytes = 8 * 1024 * 1024
+	estimatedSize := 0
 
 	for {
 		select {
@@ -172,11 +195,13 @@ func (h *Handler) streamTail(ctx context.Context, file *os.File, opts logs.Strea
 
 				entry := h.parseLogLine(line)
 				if entry != nil {
+					entrySize := len(entry.RawLine) + 200
 					entries = append(entries, *entry)
+					estimatedSize += entrySize
 				}
 
-				// Send batch if full
-				if len(entries) >= batchSize {
+				// Send batch if full (by count or size)
+				if len(entries) >= batchSize || estimatedSize >= maxChunkBytes {
 					currentPos, _ := file.Seek(0, io.SeekCurrent)
 					if err := sendChunk(logs.LogChunk{
 						StreamID: opts.StreamID,
@@ -189,6 +214,7 @@ func (h *Handler) streamTail(ctx context.Context, file *os.File, opts logs.Strea
 						return err
 					}
 					entries = nil
+					estimatedSize = 0
 				}
 			}
 
@@ -206,6 +232,7 @@ func (h *Handler) streamTail(ctx context.Context, file *os.File, opts logs.Strea
 					return err
 				}
 				entries = nil
+				estimatedSize = 0
 			}
 		}
 	}
