@@ -141,6 +141,7 @@ func (h *Handler) streamHistorical(ctx context.Context, file *os.File, opts logs
 }
 
 // streamTail reads from current position and follows new log entries.
+// Batches chunks with 250ms OR 50 lines (whichever comes first).
 func (h *Handler) streamTail(ctx context.Context, file *os.File, opts logs.StreamOptions, sendChunk func(chunk logs.LogChunk) error) error {
 	startPos := opts.StartFrom
 	if startPos < 0 {
@@ -154,29 +155,54 @@ func (h *Handler) streamTail(ctx context.Context, file *os.File, opts logs.Strea
 	}
 
 	reader := bufio.NewReader(file)
-	ticker := time.NewTicker(500 * time.Millisecond)
+	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
 	var entries []logs.LogEntry
 	const batchSize = 50
 	const maxChunkBytes = 8 * 1024 * 1024
+	const baseBuffer = 250 * time.Millisecond
+	const maxBuffer = 2 * time.Second
 	estimatedSize := 0
+
+	// Batching state
+	var batchTimer *time.Timer
+	var batchTimeout <-chan time.Time
+	currentBuffer := baseBuffer
+	backoffMultiplier := 1
+
+	flushBatch := func(isEOF bool) error {
+		if len(entries) == 0 {
+			return nil
+		}
+		currentPos, _ := file.Seek(0, io.SeekCurrent)
+		if err := sendChunk(logs.LogChunk{
+			StreamID: opts.StreamID,
+			LogType:  opts.LogType,
+			Entries:  entries,
+			EOF:      isEOF,
+			Offset:   currentPos,
+		}); err != nil {
+			return err
+		}
+		entries = nil
+		estimatedSize = 0
+		backoffMultiplier++
+		currentBuffer = baseBuffer * time.Duration(backoffMultiplier)
+		if currentBuffer > maxBuffer {
+			currentBuffer = maxBuffer
+		}
+		return nil
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			// Send final batch if any
-			if len(entries) > 0 {
-				currentPos, _ := file.Seek(0, io.SeekCurrent)
-				if err := sendChunk(logs.LogChunk{
-					StreamID: opts.StreamID,
-					LogType:  opts.LogType,
-					Entries:  entries,
-					EOF:      true,
-					Offset:   currentPos,
-				}); err != nil {
-					h.logger.Error("failed to send final chunk", "error", err)
-				}
+			if batchTimer != nil {
+				batchTimer.Stop()
+			}
+			if err := flushBatch(true); err != nil {
+				h.logger.Error("failed to send final chunk", "error", err)
 			}
 			h.logger.Debug("log stream stopped", "stream_id", opts.StreamID, "reason", "context_done")
 			return ctx.Err()
@@ -198,41 +224,38 @@ func (h *Handler) streamTail(ctx context.Context, file *os.File, opts logs.Strea
 					entrySize := len(entry.RawLine) + 200
 					entries = append(entries, *entry)
 					estimatedSize += entrySize
-				}
 
-				// Send batch if full (by count or size)
-				if len(entries) >= batchSize || estimatedSize >= maxChunkBytes {
-					currentPos, _ := file.Seek(0, io.SeekCurrent)
-					if err := sendChunk(logs.LogChunk{
-						StreamID: opts.StreamID,
-						LogType:  opts.LogType,
-						Entries:  entries,
-						EOF:      false,
-						Offset:   currentPos,
-					}); err != nil {
-						h.logger.Error("failed to send chunk", "error", err)
-						return err
+					// Start batch timer on first entry
+					if len(entries) == 1 {
+						batchTimer = time.NewTimer(currentBuffer)
+						batchTimeout = batchTimer.C
 					}
-					entries = nil
-					estimatedSize = 0
+
+					// Flush immediately if batch is full (50 lines or size limit)
+					if len(entries) >= batchSize || estimatedSize >= maxChunkBytes {
+						if batchTimer != nil {
+							batchTimer.Stop()
+							batchTimer = nil
+							batchTimeout = nil
+						}
+						if err := flushBatch(false); err != nil {
+							h.logger.Error("failed to send chunk", "error", err)
+							return err
+						}
+						// Reset backoff on activity
+						backoffMultiplier = 1
+						currentBuffer = baseBuffer
+					}
 				}
 			}
 
-			// Send partial batch
-			if len(entries) > 0 {
-				currentPos, _ := file.Seek(0, io.SeekCurrent)
-				if err := sendChunk(logs.LogChunk{
-					StreamID: opts.StreamID,
-					LogType:  opts.LogType,
-					Entries:  entries,
-					EOF:      false,
-					Offset:   currentPos,
-				}); err != nil {
-					h.logger.Error("failed to send partial chunk", "error", err)
-					return err
-				}
-				entries = nil
-				estimatedSize = 0
+		case <-batchTimeout:
+			// Time window expired, flush batch
+			batchTimer = nil
+			batchTimeout = nil
+			if err := flushBatch(false); err != nil {
+				h.logger.Error("failed to send batch on timeout", "error", err)
+				return err
 			}
 		}
 	}
