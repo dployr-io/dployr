@@ -23,7 +23,6 @@ import (
 	_auth "github.com/dployr-io/dployr/internal/auth"
 	"github.com/dployr-io/dployr/internal/db"
 	_deploy "github.com/dployr-io/dployr/internal/deploy"
-	_logs "github.com/dployr-io/dployr/internal/logs"
 	_proxy "github.com/dployr-io/dployr/internal/proxy"
 	_service "github.com/dployr-io/dployr/internal/service"
 	_store "github.com/dployr-io/dployr/internal/store"
@@ -81,8 +80,6 @@ func main() {
 	proxier := proxy.NewProxier(proxyState, ps)
 	ph := proxy.NewProxyHandler(proxier, logger)
 
-	lh := _logs.NewWSHandler(logger)
-
 	sysSvc := _system.NewDefaultService(cfg, is, trs)
 	sysH := system.NewServiceHandler(sysSvc)
 	metricsH := _system.NewMetrics(cfg, is, trs)
@@ -90,7 +87,6 @@ func main() {
 	wh := web.WebHandler{
 		DepsH:    dh,
 		SvcH:     sh,
-		LogsH:    lh,
 		ProxyH:   ph,
 		SystemH:  sysH,
 		AuthM:    am,
