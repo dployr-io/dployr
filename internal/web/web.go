@@ -16,7 +16,7 @@ import (
 type WebHandler struct {
 	DepsH    DeploymentHandler
 	SvcH     ServiceHandler
-	LogsH    LogStreamHandler
+	LogsH    LogsHandler
 	ProxyH   ProxyHandler
 	SystemH  SystemHandler
 	AuthM    *auth.Middleware
@@ -34,8 +34,8 @@ type ServiceHandler interface {
 	UpdateService(w http.ResponseWriter, r *http.Request)
 }
 
-type LogStreamHandler interface {
-	OpenLogStream(w http.ResponseWriter, r *http.Request)
+type LogsHandler interface {
+	HandleWebSocket(w http.ResponseWriter, r *http.Request)
 }
 
 type ProxyHandler interface {
@@ -139,9 +139,8 @@ func (w *WebHandler) BuildMux(cfg *shared.Config) *http.ServeMux {
 	})
 	mux.Handle("/services/", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(w.AuthM.Trace(svcH)))))
 
-	mux.Handle("/logs/stream", corsMiddleware(http.HandlerFunc(w.LogsH.OpenLogStream)))
-
-	mux.Handle("/proxy/status", corsMiddleware(w.AuthM.Auth(http.HandlerFunc(w.ProxyH.GetStatus))))
+	mux.Handle("/logs/stream", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.LogsH.HandleWebSocket)))))
+	mux.Handle("/proxy/status", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.GetStatus)))))
 	mux.Handle("/proxy/restart", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleRestart)))))
 	mux.Handle("/proxy/add", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleAdd)))))
 	mux.Handle("/proxy/remove", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleRemove)))))

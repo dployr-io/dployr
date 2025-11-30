@@ -315,68 +315,104 @@ paths:
     get:
       tags:
         - Logs
-      summary: Open log stream
+      summary: WebSocket log streaming
       description: |
-        Open a keep alive connection to stream logs via server sent events (SSE) (Developer+ required).
+        Open a WebSocket connection to stream logs in real-time (Admin+ required).
         
-        - `data:` events contain log lines
-        - `event: error` indicates streaming errors
-        - `event: done` indicates stream completion
-        - `: heartbeat` every 15 seconds to keep the connection alive
-      operationId: openLogStream
+        ## Protocol
+        
+        After connecting, the server sends a `ready` message:
+        ```json
+        {"kind": "ready", "message": "log stream ready"}
+        ```
+        
+        ### Client Messages
+        
+        **Start streaming:**
+        ```json
+        {
+          "kind": "start",
+          "streamId": "unique-stream-id",
+          "logType": "app",
+          "mode": "tail",
+          "startFrom": -1,
+          "limit": 100
+        }
+        ```
+        
+        **Stop streaming:**
+        ```json
+        {
+          "kind": "stop",
+          "streamId": "unique-stream-id"
+        }
+        ```
+        
+        **Ping:**
+        ```json
+        {"kind": "ping"}
+        ```
+        
+        ### Server Messages
+        
+        **Stream started:**
+        ```json
+        {"kind": "started", "streamId": "...", "mode": "tail"}
+        ```
+        
+        **Log chunk:**
+        ```json
+        {
+          "kind": "chunk",
+          "streamId": "...",
+          "logType": "app",
+          "entries": [...],
+          "eof": false,
+          "hasMore": true,
+          "offset": 12345
+        }
+        ```
+        
+        **Stream stopped:**
+        ```json
+        {"kind": "stopped", "streamId": "..."}
+        ```
+        
+        **Error:**
+        ```json
+        {"kind": "error", "message": "error description"}
+        ```
+        
+        **Pong:**
+        ```json
+        {"kind": "pong", "time": 1234567890}
+        ```
+        
+        ## Parameters
+        
+        - `logType`: `"app"` or `"install"`
+        - `mode`: `"tail"` (follow new logs) or `"historical"` (read from offset)
+        - `startFrom`: byte offset (-1 for end, 0 for beginning)
+        - `limit`: max entries for historical mode
+      operationId: streamLogsWebSocket
       security:
         - BearerAuth: []
-      parameters:
-        - name: token
-          in: query
-          required: true
-          description: Bearer token for authentication
-          schema:
-            type: string
-        - name: id
-          in: query
-          required: true
-          description: Service or deployment ID to stream logs for
-          schema:
-            type: string
       responses:
-        '200':
-          description: Logs stream is successfully established
-          content:
-            text/event-stream:
-              schema:
-                type: string
-                description: Server-Sent Events stream with log data
-                example: |
-                  data: cloning repository
-                  
-                  data: installing nodejs@18.1.0
-                  
-                  : heartbeat
-                  
-                  event: done
-                  data: stream completed
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        '101':
+          description: WebSocket connection established
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '405':
-          description: Method not allowed (only GET is supported)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+        '426':
+          description: Upgrade required (WebSocket)
 
   /proxy/status:
     get:
       tags:
         - Proxy
       summary: Get proxy status
-      description: Get the current status of the proxy service (Developer+ required)
+      description: Get the current status of the proxy service (Admin+ required)
       operationId: getProxyStatus
       security:
         - BearerAuth: []

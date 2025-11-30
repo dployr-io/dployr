@@ -10,14 +10,12 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
 	"github.com/dployr-io/dployr/pkg/auth"
 	"github.com/dployr-io/dployr/pkg/core/deploy"
 	"github.com/dployr-io/dployr/pkg/core/proxy"
 	"github.com/dployr-io/dployr/pkg/core/service"
-	"github.com/dployr-io/dployr/pkg/core/stream"
 	"github.com/dployr-io/dployr/pkg/core/system"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/version"
@@ -25,10 +23,10 @@ import (
 	_auth "github.com/dployr-io/dployr/internal/auth"
 	"github.com/dployr-io/dployr/internal/db"
 	_deploy "github.com/dployr-io/dployr/internal/deploy"
+	_logs "github.com/dployr-io/dployr/internal/logs"
 	_proxy "github.com/dployr-io/dployr/internal/proxy"
 	_service "github.com/dployr-io/dployr/internal/service"
 	_store "github.com/dployr-io/dployr/internal/store"
-	_stream "github.com/dployr-io/dployr/internal/stream"
 	_system "github.com/dployr-io/dployr/internal/system"
 	"github.com/dployr-io/dployr/internal/web"
 	"github.com/dployr-io/dployr/internal/worker"
@@ -83,11 +81,7 @@ func main() {
 	proxier := proxy.NewProxier(proxyState, ps)
 	ph := proxy.NewProxyHandler(proxier, logger)
 
-	logsService := _stream.Init()
-	homeDir, _ := os.UserHomeDir()
-	logsDir := filepath.Join(homeDir, ".dployr", "logs")
-	ls := stream.NewLogStreamer(logsDir, logsService)
-	lh := stream.NewLogStreamHandler(ls, logger)
+	lh := _logs.NewWSHandler(logger)
 
 	sysSvc := _system.NewDefaultService(cfg, is, trs)
 	sysH := system.NewServiceHandler(sysSvc)
