@@ -62,13 +62,29 @@ jobs:
           touch release-update.json
           cat <<EOF > release-update.json
           {
-            "content": "**New dployr release!**",
+            "content": "Dployr ${{ github.ref_name }} has been released.",
             "embeds": [
               {
-                "title": "Version ${{ github.ref_name }} is now live",
-                "description": "New release available",
+                "title": "Release ${{ github.ref_name }} is now available",
+                "description": "A new version of dployr is ready.\n\nView the full changelog and assets below.\n\n[Release details](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }})",
                 "url": "https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}",
-                "color": 3066993
+                "color": 3066993,
+                "fields": [
+                  {
+                    "name": "Repository",
+                    "value": "[${{ github.repository }}](https://github.com/${{ github.repository }})",
+                    "inline": true
+                  },
+                  {
+                    "name": "Tag",
+                    "value": "${{ github.ref_name }}",
+                    "inline": true
+                  }
+                ],
+                "footer": {
+                  "text": "Release workflow triggered by ${{ github.actor }}"
+                },
+                "timestamp": "${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}"
               }
             ]
           }
@@ -79,3 +95,4 @@ jobs:
         with:
           webhook-url: ${{ secrets.WEBHOOK_URL }}
           raw-data: release-update.json
+
