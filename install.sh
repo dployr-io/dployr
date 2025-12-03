@@ -273,6 +273,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Extract daemon API endpoint from BASE_URL
+# Supports: http://localhost:7879, http://192.168.1.1:7879, etc.
+DAEMON_API_URL="$BASE_URL"
+
 register_instance() {
     local token="$1"
 
@@ -302,7 +306,7 @@ register_instance() {
     response=$(curl -sS -X POST \
         -H "Content-Type: application/json" \
         -d "{\"token\":\"$token\"}" \
-        "http://localhost:7879/system/domain" 2>&1)
+        "${DAEMON_API_URL}/v1/domains" 2>&1)
     local status=$?
 
     if [[ $status -ne 0 ]]; then
@@ -312,29 +316,43 @@ register_instance() {
     fi
 
     log_json "info" "Registration response received"
-    local error_msg error_code error_details display_msg
-    error_msg=$(echo "$response" | parse_json '.error')
-    error_code=$(echo "$response" | parse_json '.code')
-    error_details=$(echo "$response" | parse_json '.details')
-    DPLOYR_DOMAIN=$(echo "$response" | parse_json '.domain')
-    display_msg=${error_details:-$error_msg}
 
-    if [[ -n "$DPLOYR_DOMAIN" ]]; then
-        info "Instance registered successfully. URL: https://$DPLOYR_DOMAIN"
-        log_json "info" "Instance registered with domain: $DPLOYR_DOMAIN"
-    elif [[ -n "$error_code" ]]; then
-        if [[ "$error_code" == "auth.bad_token" ]]; then
-            error "Invalid or expired token. Please generate a new token or see https://docs.dployr.dev/installation for help. Error: $display_msg (code: $error_code)"
-        else
-            error "Instance registration failed. Please see https://docs.dployr.dev/installation for help. Error: $display_msg (code: $error_code)"
+    local success instance_id audience
+    success=$(echo "$response" | parse_json '.success')
+    DPLOYR_DOMAIN=$(echo "$response" | parse_json '.data.domain')
+    instance_id=$(echo "$response" | parse_json '.data.instanceId')
+    audience=$(echo "$response" | parse_json '.data.audience')
+
+    local error_msg error_code help_link display_msg
+    error_msg=$(echo "$response" | parse_json '.message')
+    error_code=$(echo "$response" | parse_json '.code')
+    help_link=$(echo "$response" | parse_json '.helpLink')
+    display_msg="$error_msg"
+
+    if [[ "$success" == "true" && -n "$DPLOYR_DOMAIN" ]]; then
+        info "Instance registered successfully. URL: https://$DPLOYR_DOMAIN (instance: $instance_id, audience: $audience)"
+        log_json "info" "Instance registered with domain: $DPLOYR_DOMAIN, instanceId: $instance_id, audience: $audience"
+        return 0
+    fi
+
+    if [[ -n "$error_code" || -n "$error_msg" ]]; then
+        local help_suffix=""
+        if [[ -n "$help_link" ]]; then
+            help_suffix=" See $help_link for more information."
         fi
-        log_json "error" "Registration failed: $display_msg (code: $error_code)"
-        return 1
-    else
-        error "Instance registration failed with unexpected response: $response"
-        log_json "error" "Registration failed, unexpected response: $response"
+
+        if [[ "$error_code" == "auth.bad_token" ]]; then
+            error "Invalid or expired token. Error: $display_msg (code: $error_code).$help_suffix"
+        else
+            error "Instance registration failed. Error: $display_msg (code: $error_code).$help_suffix"
+        fi
+        log_json "error" "Registration failed: $display_msg (code: $error_code, helpLink: $help_link)"
         return 1
     fi
+
+    error "Instance registration failed with unexpected response: $response"
+    log_json "error" "Registration failed, unexpected response: $response"
+    return 1
 }
 
 if [[ $EUID -eq 0 ]]; then
