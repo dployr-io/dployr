@@ -42,6 +42,7 @@ VERSION="latest"
 TOKEN=""
 REPO="dployr-io/dployr"
 DPLOYR_DOMAIN=""
+BASE_URL="https://base.dployr.dev"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -232,15 +233,17 @@ echo "====================" >&3
 
 if [[ "$1" == "--help" || "$1" == "-h" ]]; then
     cat >&3 << EOF
-Usage: $0 [--version <VERSION>] [--token <TOKEN>]
+Usage: $0 [--version <VERSION>] [--token <TOKEN>] [--base <URL>]
 
 Arguments:
-  --version, -v  Optional dployr version tag (default: latest)
-  --token, -t    Optional install token obtained from dployr base
+  --version, -v     Optional dployr version tag (default: latest)
+  --token, -t       Optional install token obtained from dployr base
+  --base, -b    Optional dployr base URL (default: https://base.dployr.dev)
 
 Examples:
   $0 --version v0.3.1-beta.9
   $0 --version v0.3.1-beta.9 --token eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+  $0 --token eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9... --base https://my-base.example.com
 
 Available versions: https://github.com/dployr-io/dployr/releases
 EOF
@@ -257,6 +260,11 @@ while [[ $# -gt 0 ]]; do
         --token|-t)
             [[ -z "$2" ]] && error "Missing value for $1"
             TOKEN="$2"
+            shift 2
+            ;;
+        --base|-b)
+            [[ -z "$2" ]] && error "Missing value for $1"
+            BASE_URL="$2"
             shift 2
             ;;
         *)
@@ -483,7 +491,7 @@ address = "localhost"
 port = 7879
 max-workers = 5
 
-base_url = "https://base.dployr.dev"
+base_url = "$BASE_URL"
 instance_id = "my-instance-id"
 EOF
     chmod 644 "$CONFIG_FILE"
