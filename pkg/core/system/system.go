@@ -134,7 +134,11 @@ type RequestDomainRequest struct {
 }
 
 type RequestDomainResponse struct {
-	Domain string `json:"domain"`
+	Success    bool   `json:"success"`
+	InstanceID string `json:"instanceId,omitempty"`
+	Domain     string `json:"domain,omitempty"`
+	Issuer     string `json:"issuer,omitempty"`
+	Audience   string `json:"audience,omitempty"`
 }
 
 type InstallRequest struct {
@@ -225,7 +229,7 @@ type System interface {
 	// SystemStatus returns high-level health information.
 	SystemStatus(ctx context.Context) (SystemStatus, error)
 	// RequestDomain requests and assigns a new random domain from base to the system.
-	RequestDomain(ctx context.Context, req RequestDomainRequest) (string, error)
+	RequestDomain(ctx context.Context, req RequestDomainRequest) (RequestDomainResponse, error)
 	// RegisterInstance registers the system with the base and assigns an instance id
 	RegisterInstance(ctx context.Context, req RegisterInstanceRequest) error
 	// GetTasks returns a summary of tasks for the given status (e.g. "pending", "completed").

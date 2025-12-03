@@ -255,7 +255,7 @@ func (h *ServiceHandler) RequestDomain(w http.ResponseWriter, r *http.Request) {
 	var body RequestDomainRequest
 	_ = json.NewDecoder(r.Body).Decode(&body)
 
-	domain, err := h.Svc.RequestDomain(ctx, body)
+	result, err := h.Svc.RequestDomain(ctx, body)
 	if err != nil {
 		logger.Error("system.request_domain failed", "error", err)
 		shared.WriteError(
@@ -267,7 +267,7 @@ func (h *ServiceHandler) RequestDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shared.WriteJSON(w, http.StatusOK, RequestDomainResponse{Domain: domain})
+	shared.WriteJSON(w, http.StatusOK, result)
 }
 
 func (h *ServiceHandler) UpdateBootstrapToken(w http.ResponseWriter, r *http.Request) {

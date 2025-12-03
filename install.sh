@@ -319,9 +319,9 @@ register_instance() {
 
     local success instance_id audience
     success=$(echo "$response" | parse_json '.success')
-    DPLOYR_DOMAIN=$(echo "$response" | parse_json '.data.domain')
-    instance_id=$(echo "$response" | parse_json '.data.instanceId')
-    audience=$(echo "$response" | parse_json '.data.audience')
+    DPLOYR_DOMAIN=$(echo "$response" | parse_json '.domain')
+    instance_id=$(echo "$response" | parse_json '.instanceId')
+    audience=$(echo "$response" | parse_json '.audience')
 
     local error_msg error_code help_link display_msg
     error_msg=$(echo "$response" | parse_json '.message')

@@ -278,24 +278,24 @@ func (s *DefaultService) IsRegistered(ctx context.Context) (system.RegistrationS
 // used for routing traffic to this instance instead of directly hitting it.
 // This is to ensure HTTPS traffic is enforced on dployr instance.
 // Please refer to the documentation at https://docs.dployr.dev/installation for more details.
-func (s *DefaultService) RequestDomain(ctx context.Context, req system.RequestDomainRequest) (string, error) {
+func (s *DefaultService) RequestDomain(ctx context.Context, req system.RequestDomainRequest) (system.RequestDomainResponse, error) {
 	if s.cfg.BaseURL == "" {
-		return "", fmt.Errorf("base_url is not configured")
+		return system.RequestDomainResponse{}, fmt.Errorf("base_url is not configured")
 	}
 
 	if req.Token == "" {
-		return "", fmt.Errorf("token cannot be empty")
+		return system.RequestDomainResponse{}, fmt.Errorf("token cannot be empty")
 	}
 
 	if inst, err := s.store.GetInstance(ctx); err != nil {
-		return "", fmt.Errorf("failed to get instance: %w", err)
+		return system.RequestDomainResponse{}, fmt.Errorf("failed to get instance: %w", err)
 	} else if inst != nil && inst.InstanceID != "" {
 		fmt.Printf("instance already provisioned on %s\n", inst.RegisteredAt.Format(time.RFC3339))
-		return "", nil
+		return system.RequestDomainResponse{}, nil
 	}
 
 	if err := s.store.SetBootstrapToken(ctx, req.Token); err != nil {
-		return "", fmt.Errorf("failed to set token: %w", err)
+		return system.RequestDomainResponse{}, fmt.Errorf("failed to set token: %w", err)
 	}
 
 	resp, err := http.Post(
@@ -303,7 +303,7 @@ func (s *DefaultService) RequestDomain(ctx context.Context, req system.RequestDo
 		"application/json",
 		strings.NewReader(fmt.Sprintf(`{"token": "%s"}`, req.Token)))
 	if err != nil {
-		return "", fmt.Errorf("failed to assign domain: %w", err)
+		return system.RequestDomainResponse{}, fmt.Errorf("failed to assign domain: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -316,9 +316,9 @@ func (s *DefaultService) RequestDomain(ctx context.Context, req system.RequestDo
 			} `json:"error"`
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			return "", fmt.Errorf("failed to assign domain: %s", resp.Status)
+			return system.RequestDomainResponse{}, fmt.Errorf("failed to assign domain: %s", resp.Status)
 		}
-		return "", fmt.Errorf("%s (code: %s)", errResp.Error.Message, errResp.Error.Code)
+		return system.RequestDomainResponse{}, fmt.Errorf("%s (code: %s)", errResp.Error.Message, errResp.Error.Code)
 	}
 
 	var body struct {
@@ -332,15 +332,15 @@ func (s *DefaultService) RequestDomain(ctx context.Context, req system.RequestDo
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
+		return system.RequestDomainResponse{}, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	if !body.Success {
-		return "", fmt.Errorf("base returned unsuccessful response without error payload")
+		return system.RequestDomainResponse{}, fmt.Errorf("base returned unsuccessful response without error payload")
 	}
 
 	if strings.TrimSpace(body.Data.Domain) == "" {
-		return "", fmt.Errorf("base returned empty domain")
+		return system.RequestDomainResponse{}, fmt.Errorf("base returned empty domain")
 	}
 
 	inst := &store.Instance{
@@ -350,10 +350,16 @@ func (s *DefaultService) RequestDomain(ctx context.Context, req system.RequestDo
 	}
 
 	if err := s.store.RegisterInstance(ctx, inst); err != nil {
-		return "", fmt.Errorf("failed to register instance: %w", err)
+		return system.RequestDomainResponse{}, fmt.Errorf("failed to register instance: %w", err)
 	}
 
-	return body.Data.Domain, nil
+	return system.RequestDomainResponse{
+		Success:    true,
+		InstanceID: body.Data.InstanceID,
+		Domain:     body.Data.Domain,
+		Issuer:     body.Data.Issuer,
+		Audience:   body.Data.Audience,
+	}, nil
 }
 
 func (s *DefaultService) RegisterInstance(ctx context.Context, req system.RegisterInstanceRequest) error {
