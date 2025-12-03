@@ -268,6 +268,9 @@ func (s *DefaultService) IsRegistered(ctx context.Context) (system.RegistrationS
 	}
 
 	registered := strings.TrimSpace(inst.InstanceID) != "" && !inst.RegisteredAt.IsZero()
+	if !registered {
+		return system.RegistrationStatus{}, fmt.Errorf("instance registration incomplete; reinstall using a valid bootstrap token (see https://docs.dployr.dev/installation)")
+	}
 	return system.RegistrationStatus{Registered: registered}, nil
 }
 
