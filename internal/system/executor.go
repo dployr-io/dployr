@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -100,7 +101,7 @@ func (e *Executor) sendLogChunkToBase(ctx context.Context, chunk corelogs.LogChu
 }
 
 // handleLogStream handles the logs/stream:post task type.
-func (e *Executor) handleLogStream(task *tasks.Task) *tasks.Result {
+func (e *Executor) handleLogStream(ctx context.Context, task *tasks.Task) *tasks.Result {
 	var payload struct {
 		Token     string `json:"token"`
 		LogType   string `json:"logType"`
@@ -134,7 +135,7 @@ func (e *Executor) handleLogStream(task *tasks.Task) *tasks.Result {
 
 	// Start streaming in background
 	go func() {
-		streamCtx := context.Background()
+		streamCtx := ctx
 		logHandler := logs.NewHandler(e.logger)
 
 		opts := corelogs.StreamOptions{
@@ -149,7 +150,7 @@ func (e *Executor) handleLogStream(task *tasks.Task) *tasks.Result {
 			return e.sendLogChunkToBase(streamCtx, chunk)
 		})
 
-		if err != nil {
+		if err != nil && !errors.Is(err, context.Canceled) {
 			e.logger.Error("log streaming failed", "error", err, "stream_id", payload.StreamID)
 		}
 	}()
@@ -172,7 +173,7 @@ func (e *Executor) Execute(ctx context.Context, task *tasks.Task) *tasks.Result 
 
 	// Handle logs/stream:post specially
 	if task.Type == "logs/stream:post" {
-		return e.handleLogStream(task)
+		return e.handleLogStream(ctx, task)
 	}
 
 	parts := strings.SplitN(task.Type, ":", 2)
