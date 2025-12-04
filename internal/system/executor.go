@@ -90,7 +90,7 @@ func (e *Executor) sendLogChunkToBase(ctx context.Context, chunk corelogs.LogChu
 	msg := map[string]interface{}{
 		"kind":     "log_chunk",
 		"streamId": chunk.StreamID,
-		"logType":  chunk.LogType,
+		"path":     chunk.Path,
 		"entries":  chunk.Entries,
 		"eof":      chunk.EOF,
 		"hasMore":  chunk.HasMore,
@@ -104,7 +104,7 @@ func (e *Executor) sendLogChunkToBase(ctx context.Context, chunk corelogs.LogChu
 func (e *Executor) handleLogStream(ctx context.Context, task *tasks.Task) *tasks.Result {
 	var payload struct {
 		Token     string `json:"token"`
-		LogType   string `json:"logType"`
+		Path      string `json:"path"`
 		StreamID  string `json:"streamId"`
 		Mode      string `json:"mode,omitempty"`      // "tail" or "historical"
 		StartFrom int64  `json:"startFrom,omitempty"` // Byte offset
@@ -131,7 +131,7 @@ func (e *Executor) handleLogStream(ctx context.Context, task *tasks.Task) *tasks
 		startFrom = -1
 	}
 
-	e.logger.Info("starting log stream", "stream_id", payload.StreamID, "log_type", payload.LogType, "mode", mode, "start_from", startFrom)
+	e.logger.Info("starting log stream", "stream_id", payload.StreamID, "path", payload.Path, "mode", mode, "start_from", startFrom)
 
 	// Start streaming in background
 	go func() {
@@ -140,7 +140,7 @@ func (e *Executor) handleLogStream(ctx context.Context, task *tasks.Task) *tasks
 
 		opts := corelogs.StreamOptions{
 			StreamID:  payload.StreamID,
-			LogType:   payload.LogType,
+			Path:      payload.Path,
 			Mode:      mode,
 			StartFrom: startFrom,
 			Limit:     payload.Limit,

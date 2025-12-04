@@ -74,7 +74,7 @@ func (e LogEntry) MarshalJSON() ([]byte, error) {
 // LogChunk represents a batch of log entries to be sent via WebSocket.
 type LogChunk struct {
 	StreamID string     `json:"streamId"`
-	LogType  string     `json:"logType"`
+	Path     string     `json:"path"`
 	Entries  []LogEntry `json:"entries"`
 	EOF      bool       `json:"eof"`     // End of file
 	HasMore  bool       `json:"hasMore"` // More logs available in history
@@ -84,7 +84,7 @@ type LogChunk struct {
 // StreamOptions configures log streaming behavior.
 type StreamOptions struct {
 	StreamID  string
-	LogType   string
+	Path      string
 	Mode      StreamMode // "tail" or "historical"
 	StartFrom int64      // Byte offset to start from (0 = beginning, -1 = end)
 	Limit     int        // Max entries to return (for historical mode)

@@ -1395,10 +1395,9 @@ components:
           type: string
           description: Opaque stream identifier provided by the caller.
           example: "01KB5NWMWTFFA8CQDW63NCGWG5"
-        logType:
+        path:
           type: string
-          description: Logical log stream type.
-          enum: [app, install]
+          description: Relative log path under the daemon log root (for example, `app`, `install`, or `deployments/my-service`). The daemon will resolve this under `/var/log/dployrd` (or the platform-specific equivalent).
           example: "app"
         entries:
           type: array

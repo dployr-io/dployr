@@ -32,8 +32,8 @@ func NewHandler(logger *shared.Logger) *Handler {
 // StreamLogs streams logs based on the provided options.
 // Supports both tail mode (follow new logs) and historical mode (read from offset).
 func (h *Handler) StreamLogs(ctx context.Context, opts logs.StreamOptions, sendChunk func(chunk logs.LogChunk) error) error {
-	logPath := h.getLogPath(opts.LogType)
-	h.logger.Debug("starting log stream", "stream_id", opts.StreamID, "log_type", opts.LogType, "mode", opts.Mode, "path", logPath)
+	logPath := h.getLogPath(opts.Path)
+	h.logger.Debug("starting log stream", "stream_id", opts.StreamID, "path", opts.Path, "mode", opts.Mode, "resolved_path", logPath)
 
 	file, err := os.Open(logPath)
 	if err != nil {
@@ -104,7 +104,7 @@ func (h *Handler) streamHistorical(ctx context.Context, file *os.File, opts logs
 				currentPos, _ := file.Seek(0, io.SeekCurrent)
 				if err := sendChunk(logs.LogChunk{
 					StreamID: opts.StreamID,
-					LogType:  opts.LogType,
+					Path:     opts.Path,
 					Entries:  entries,
 					EOF:      false,
 					HasMore:  true,
@@ -127,7 +127,7 @@ func (h *Handler) streamHistorical(ctx context.Context, file *os.File, opts logs
 	if len(entries) > 0 || !hasMore {
 		if err := sendChunk(logs.LogChunk{
 			StreamID: opts.StreamID,
-			LogType:  opts.LogType,
+			Path:     opts.Path,
 			Entries:  entries,
 			EOF:      !hasMore,
 			HasMore:  hasMore,
@@ -178,7 +178,7 @@ func (h *Handler) streamTail(ctx context.Context, file *os.File, opts logs.Strea
 		currentPos, _ := file.Seek(0, io.SeekCurrent)
 		if err := sendChunk(logs.LogChunk{
 			StreamID: opts.StreamID,
-			LogType:  opts.LogType,
+			Path:     opts.Path,
 			Entries:  entries,
 			EOF:      isEOF,
 			Offset:   currentPos,
@@ -285,8 +285,8 @@ func (h *Handler) parseLogLine(line string) *logs.LogEntry {
 	return &entry
 }
 
-// getLogPath returns the file path for the specified log type.
-func (h *Handler) getLogPath(logType string) string {
+// getLogPath returns the file path for the specified relative path under the log root.
+func (h *Handler) getLogPath(path string) string {
 	var baseDir string
 	switch runtime.GOOS {
 	case "windows":
@@ -297,12 +297,22 @@ func (h *Handler) getLogPath(logType string) string {
 		baseDir = "/var/log/dployrd"
 	}
 
-	switch logType {
-	case "app":
-		return filepath.Join(baseDir, "app.log")
-	case "install":
-		return filepath.Join(baseDir, "install.log")
-	default:
+	// Normalize the requested path and ensure it is relative
+	clean := filepath.Clean(path)
+	if clean == "." || clean == "" {
+		clean = "app"
+	}
+
+	// Default extension: treat "app" -> "app.log", but allow explicit .log
+	if !strings.HasSuffix(clean, ".log") {
+		clean = clean + ".log"
+	}
+
+	full := filepath.Join(baseDir, clean)
+	// Prevent escaping the base directory
+	if !strings.HasPrefix(full, baseDir+string(os.PathSeparator)) && full != baseDir {
 		return filepath.Join(baseDir, "app.log")
 	}
+
+	return full
 }
