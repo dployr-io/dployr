@@ -36,6 +36,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/oklog/ulid/v2"
 
+	pkgAuth "github.com/dployr-io/dployr/pkg/auth"
 	"github.com/dployr-io/dployr/pkg/core/logs"
 	"github.com/dployr-io/dployr/pkg/core/system"
 	"github.com/dployr-io/dployr/pkg/core/utils"
@@ -132,7 +133,7 @@ func computeAuthHealth(ctx context.Context, instStore store.InstanceStore) (heal
 	return
 }
 
-func buildAgentUpdate(ctx context.Context, instanceID string, instStore store.InstanceStore) *system.UpdateV1 {
+func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string, instStore store.InstanceStore) *system.UpdateV1 {
 	seq := atomic.AddUint64(&updateSeq, 1)
 	uptime := time.Since(startTime).Seconds()
 	currentModeMu.RLock()
@@ -179,10 +180,11 @@ func buildAgentUpdate(ctx context.Context, instanceID string, instStore store.In
 		dbg.Tasks.LastTaskAtRFC3339 = le.At.Format(time.RFC3339)
 	}
 
-	// Populate system resource details (CPU, memory, disk) into debug struct.
+	// Populate system resource details (CPU, memory, disk, workers) into debug struct.
 	if sysInfo, err := utils.GetSystemInfo(); err == nil {
 		res := &system.SystemResourcesDebug{
 			CPUCount: sysInfo.HW.CPUCount,
+			Workers:  cfg.MaxWorkers,
 		}
 		if sysInfo.HW.MemTotal != nil {
 			if v := parseHumanBytes(*sysInfo.HW.MemTotal); v > 0 {
@@ -336,13 +338,13 @@ type agentTokenResponse struct {
 	} `json:"data"`
 }
 
-func NewSyncer(cfg *shared.Config, logger *shared.Logger, inst store.InstanceStore, results store.TaskResultStore, handler http.Handler) *Syncer {
+func NewSyncer(cfg *shared.Config, logger *shared.Logger, inst store.InstanceStore, results store.TaskResultStore, handler http.Handler, auth pkgAuth.Authenticator) *Syncer {
 	return &Syncer{
 		cfg:         cfg,
 		logger:      logger,
 		instStore:   inst,
 		resultStore: results,
-		executor:    NewExecutor(logger, handler, inst),
+		executor:    NewExecutor(logger, handler, inst, auth),
 		dedupe:      make(map[string]time.Time),
 	}
 }
@@ -633,7 +635,7 @@ ws_connected:
 			case <-connCtx.Done():
 				return
 			case <-time.After(jitter(updateInterval)):
-				upd := buildAgentUpdate(connCtx, inst.InstanceID, s.instStore)
+				upd := buildAgentUpdate(connCtx, s.cfg, inst.InstanceID, s.instStore)
 				msg := wsMessage{
 					ID:     ulid.Make().String(),
 					TS:     time.Now(),

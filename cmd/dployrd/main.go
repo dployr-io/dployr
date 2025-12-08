@@ -64,8 +64,8 @@ func main() {
 
 	w := worker.New(5, cfg, logger, ds, ss) // 5 concurrent deployments
 
-	authService := _auth.Init(cfg, is)
-	am := auth.NewMiddleware(authService)
+	as := _auth.Init(cfg, is)
+	am := auth.NewMiddleware(as)
 
 	api := _deploy.Init(cfg, logger, ds, w)
 	deployer := deploy.NewDeployer(cfg, logger, ds, api)
@@ -95,7 +95,7 @@ func main() {
 
 	mux := wh.BuildMux(cfg)
 
-	syncer := _system.NewSyncer(cfg, logger, is, trs, mux)
+	syncer := _system.NewSyncer(cfg, logger, is, trs, mux, as)
 
 	go func() {
 		if err := wh.NewServer(cfg); err != nil {

@@ -22,6 +22,7 @@ import (
 	"github.com/oklog/ulid/v2"
 
 	"github.com/dployr-io/dployr/internal/logs"
+	pkgAuth "github.com/dployr-io/dployr/pkg/auth"
 	corelogs "github.com/dployr-io/dployr/pkg/core/logs"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/tasks"
@@ -37,6 +38,7 @@ type Executor struct {
 	logger   *shared.Logger
 	handler  http.Handler
 	tokens   AccessTokenProvider
+	auth     pkgAuth.Authenticator
 	wsConn   *websocket.Conn
 	wsConnMu sync.RWMutex
 }
@@ -62,11 +64,12 @@ var taskExecCount uint64
 var taskExecMu sync.Mutex
 
 // NewExecutor creates a task executor that uses the web server's routes.
-func NewExecutor(logger *shared.Logger, handler http.Handler, tokens AccessTokenProvider) *Executor {
+func NewExecutor(logger *shared.Logger, handler http.Handler, tokens AccessTokenProvider, auth pkgAuth.Authenticator) *Executor {
 	return &Executor{
 		logger:  logger,
 		handler: handler,
 		tokens:  tokens,
+		auth:    auth,
 	}
 }
 
@@ -129,6 +132,25 @@ func (e *Executor) handleLogStream(ctx context.Context, task *tasks.Task) *tasks
 	startFrom := payload.StartFrom
 	if startFrom == 0 && mode == corelogs.StreamModeTail {
 		startFrom = -1
+	}
+
+	// Validate token before starting stream
+	if strings.TrimSpace(payload.Token) == "" {
+		return &tasks.Result{
+			ID:     task.ID,
+			Status: "failed",
+			Error:  "missing token",
+		}
+	}
+	if e.auth != nil {
+		if _, err := e.auth.ValidateToken(ctx, strings.TrimSpace(payload.Token)); err != nil {
+			e.logger.Error("log streaming token validation failed", "error", err)
+			return &tasks.Result{
+				ID:     task.ID,
+				Status: "failed",
+				Error:  "invalid token",
+			}
+		}
 	}
 
 	e.logger.Info("starting log stream", "stream_id", payload.StreamID, "path", payload.Path, "mode", mode, "start_from", startFrom)

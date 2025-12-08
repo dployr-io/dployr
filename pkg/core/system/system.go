@@ -86,6 +86,7 @@ type SystemResourcesDebug struct {
 	MemUsedBytes  int64            `json:"mem_used_bytes,omitempty"`
 	MemFreeBytes  int64            `json:"mem_free_bytes,omitempty"`
 	Disks         []DiskDebugEntry `json:"disks,omitempty"`
+	Workers       int              `json:"workers,omitempty"`
 }
 
 // DiskDebugEntry represents disk usage for a single filesystem/mountpoint.
