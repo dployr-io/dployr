@@ -54,18 +54,18 @@ func (s *DefaultService) RunDoctor(ctx context.Context) (string, error) {
 }
 
 func (s *DefaultService) Install(ctx context.Context, version string) (string, error) {
-	var env []string
-	if version != "" {
-		env = append(env, "DPLOYR_VERSION="+version)
+	if version == "" {
+		version = "latest"
 	}
 
-	out, err := runSystemDoctorScript(ctx, scripts.SystemDoctorScript, env, s.store)
+	out, err := runInstallScript(ctx, scripts.InstallScript, version, s.store)
 	if err != nil {
 		return out, err
 	}
 
+	// Run doctor after installation to verify system health
 	post, derr := s.RunDoctor(ctx)
-	return out + post, derr
+	return out + "\n" + post, derr
 }
 
 func (s *DefaultService) SystemStatus(ctx context.Context) (system.SystemStatus, error) {
@@ -468,6 +468,34 @@ func compareBase64(a, b string) bool {
 	return subtle.ConstantTimeCompare(aBytes, bBytes) == 1
 }
 
+func runInstallScript(ctx context.Context, script string, version string, store store.InstanceStore) (string, error) {
+	f, err := os.CreateTemp("", "install*.sh")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp script: %w", err)
+	}
+	defer os.Remove(f.Name())
+
+	if _, err := f.WriteString(script); err != nil {
+		f.Close()
+		return "", fmt.Errorf("failed to write script: %w", err)
+	}
+	f.Close()
+
+	if err := os.Chmod(f.Name(), 0o755); err != nil {
+		return "", fmt.Errorf("failed to make script executable: %w", err)
+	}
+
+	cmd := exec.CommandContext(ctx, "bash", f.Name(), version)
+	cmd.Env = os.Environ()
+
+	logger := shared.NewLogger().With("component", "installer", "script", "install", "version", version)
+	out, err := streamCommandOutput(cmd, logger)
+	if err == nil {
+		store.UpdateLastInstalledAt(ctx)
+	}
+	return out, err
+}
+
 func runSystemDoctorScript(ctx context.Context, script string, extraEnv []string, store store.InstanceStore) (string, error) {
 	f, err := os.CreateTemp("", "system_doctor*.sh")
 	if err != nil {
@@ -488,7 +516,6 @@ func runSystemDoctorScript(ctx context.Context, script string, extraEnv []string
 	cmd := exec.CommandContext(ctx, "bash", f.Name())
 	cmd.Env = append(os.Environ(), extraEnv...)
 
-	// Stream stdout and stderr as structured logs
 	logger := shared.NewLogger().With("component", "installer", "script", "system_doctor")
 	out, err := streamCommandOutput(cmd, logger)
 	store.UpdateLastInstalledAt(ctx)

@@ -13,3 +13,6 @@ var SystemdScript string
 
 //go:embed system_doctor.sh
 var SystemDoctorScript string
+
+//go:embed install.sh
+var InstallScript string
