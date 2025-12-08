@@ -658,6 +658,9 @@ for cmd in SYSTEMCTL TEE CADDY MKDIR RM; do
     [[ -z "${!cmd}" ]] && error "Command $cmd not found"
 done
 
+REBOOT=$(command -v reboot)
+[[ -z "$REBOOT" ]] && error "Command reboot not found"
+
 cat > /etc/sudoers.d/dployr << EOF
 dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL daemon-reload
 dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL start *
@@ -667,6 +670,8 @@ dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL reload *
 dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL enable *
 dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL disable *
 dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL is-active *
+dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL reboot
+dployrd ALL=(ALL) NOPASSWD: $REBOOT
 dployrd ALL=(ALL) NOPASSWD: $MKDIR -p /etc/systemd/system
 dployrd ALL=(ALL) NOPASSWD: $RM -f /etc/systemd/system/*.service
 dployrd ALL=(ALL) NOPASSWD: $TEE /etc/systemd/system/*.service

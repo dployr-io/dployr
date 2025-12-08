@@ -62,6 +62,7 @@ type SystemStatus struct {
 	Debug    *SystemDebug         `json:"debug,omitempty"`
 }
 
+// SystemHealth provides high-level health information about the daemon.
 type SystemHealth struct {
 	Overall string `json:"overall"` // ok|degraded|down
 	WS      string `json:"ws"`
@@ -69,6 +70,7 @@ type SystemHealth struct {
 	Auth    string `json:"auth"`
 }
 
+// SystemDebug provides debugging information about the daemon.
 type SystemDebug struct {
 	WS     WSDebug               `json:"ws"`
 	Tasks  TasksDebug            `json:"tasks"`
@@ -95,6 +97,7 @@ type DiskDebugEntry struct {
 	AvailableBytes int64  `json:"available_bytes,omitempty"`
 }
 
+// WSDebug provides debugging information about the WebSocket connection.
 type WSDebug struct {
 	Connected            bool    `json:"connected"`
 	LastConnectAtRFC3339 string  `json:"last_connect_at"`
@@ -102,6 +105,7 @@ type WSDebug struct {
 	LastError            *string `json:"last_error,omitempty"`
 }
 
+// TasksDebug provides debugging information about the task queue.
 type TasksDebug struct {
 	Inflight          int    `json:"inflight"`
 	DoneUnsent        int    `json:"done_unsent"`
@@ -111,17 +115,20 @@ type TasksDebug struct {
 	LastTaskAtRFC3339 string `json:"last_task_at,omitempty"`
 }
 
+// AuthDebug provides debugging information about the authentication system.
 type AuthDebug struct {
 	AgentTokenAgeS      int64  `json:"agent_token_age_s"`
 	AgentTokenExpiresIn int64  `json:"agent_token_expires_in_s"`
 	BootstrapToken      string `json:"bootstrap_token"`
 }
 
+// CertDebug provides debugging information about the instance's public certificate.
 type CertDebug struct {
 	NotAfterRFC3339 string `json:"not_after"`
 	DaysRemaining   int    `json:"days_remaining"`
 }
 
+// RegisterInstanceRequest is used to request a registration of an instance.
 type RegisterInstanceRequest struct {
 	Claim      string `json:"claim"`
 	InstanceID string `json:"instance_id"`
@@ -129,10 +136,12 @@ type RegisterInstanceRequest struct {
 	Audience   string `json:"audience"`
 }
 
+// RequestDomainRequest is used to request a domain for an instance.
 type RequestDomainRequest struct {
 	Token string `json:"token"`
 }
 
+// RequestDomainResponse is returned after requesting a domain for an instance.
 type RequestDomainResponse struct {
 	Success    bool   `json:"success"`
 	InstanceID string `json:"instanceId,omitempty"`
@@ -141,8 +150,20 @@ type RequestDomainResponse struct {
 	Audience   string `json:"audience,omitempty"`
 }
 
+// InstallRequest is used to request an installation of dployr.
 type InstallRequest struct {
 	Version string `json:"version"`
+}
+
+// RestartRequest is used to request a system restart.
+type RestartRequest struct {
+	Force bool `json:"force,omitempty"`
+}
+
+// RestartResponse is returned after initiating a system restart.
+type RestartResponse struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
 }
 
 // TaskSummary represents a simple count of tasks for a given status.
@@ -242,6 +263,8 @@ type System interface {
 	UpdateBootstrapToken(ctx context.Context, req UpdateBootstrapTokenRequest) error
 	// IsRegistered returns true if this daemon has been registered with base.
 	IsRegistered(ctx context.Context) (RegistrationStatus, error)
+	// Restart initiates a system restart after ensuring no tasks are running.
+	Restart(ctx context.Context, req RestartRequest) (RestartResponse, error)
 }
 
 type SystemManager struct{}

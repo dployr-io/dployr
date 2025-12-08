@@ -302,3 +302,27 @@ func (h *ServiceHandler) UpdateBootstrapToken(w http.ResponseWriter, r *http.Req
 
 	w.WriteHeader(http.StatusOK)
 }
+
+func (h *ServiceHandler) Restart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
+		return
+	}
+
+	ctx := r.Context()
+	logger := shared.LogWithContext(ctx)
+	logger.Info("system.restart request")
+
+	var body RestartRequest
+	_ = json.NewDecoder(r.Body).Decode(&body)
+
+	resp, err := h.Svc.Restart(ctx, body)
+	if err != nil {
+		logger.Error("system.restart failed", "error", err)
+		shared.WriteError(w, shared.Errors.Runtime.InternalServer.HTTPStatus, string(shared.Errors.Runtime.InternalServer.Code), err.Error(), nil)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
+}

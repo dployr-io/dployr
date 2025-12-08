@@ -517,6 +517,44 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /system/restart:
+    post:
+      tags:
+        - System
+      summary: Restart the system
+      description: |
+        Initiate a system restart (reboot) of the machine running dployrd.
+
+        By default, the request is rejected if there are pending tasks. Use `force: true`
+        to bypass this check.
+
+        The daemon sets its mode to `updating` before initiating the reboot to prevent
+        new tasks from being accepted.
+
+        Admin role is required.
+      operationId: restartSystem
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestartRequest'
+      responses:
+        '200':
+          description: Restart initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestartResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /system/register:
     post:
       tags:
@@ -1537,12 +1575,33 @@ components:
         token:
           type: string
           description: Installation token issued by base for this instance
+
     InstallRequest:
       type: object
       properties:
         version:
           type: string
           description: dployr version tag to install (e.g. v0.1.1-beta.17). If omitted, installs latest.
+
+    RestartRequest:
+      type: object
+      properties:
+        force:
+          type: boolean
+          description: If true, bypass the pending tasks check and force restart
+          default: false
+
+    RestartResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [accepted, rejected]
+          description: Whether the restart was accepted or rejected
+        message:
+          type: string
+          description: Human-readable message about the restart status
+
     RequestDomainResponse:
       type: object
       properties:

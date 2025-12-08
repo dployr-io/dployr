@@ -68,6 +68,44 @@ func (s *DefaultService) Install(ctx context.Context, version string) (string, e
 	return out + "\n" + post, derr
 }
 
+func (s *DefaultService) Restart(ctx context.Context, req system.RestartRequest) (system.RestartResponse, error) {
+	logger := shared.LogWithContext(ctx)
+
+	// Check for pending tasks unless force is set
+	if !req.Force {
+		pending := currentPendingTasks()
+		if pending > 0 {
+			return system.RestartResponse{
+				Status:  "rejected",
+				Message: fmt.Sprintf("cannot restart: %d tasks are still running", pending),
+			}, fmt.Errorf("cannot restart: %d tasks are still running", pending)
+		}
+	}
+
+	logger.Info("initiating system restart")
+
+	// Set mode to updating to prevent new tasks
+	currentModeMu.Lock()
+	currentMode = system.ModeUpdating
+	currentModeMu.Unlock()
+
+	// Best-effort restart using systemctl reboot
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+
+		cmd := exec.Command("sudo", "systemctl", "reboot")
+		if err := cmd.Run(); err != nil {
+			// Fallback
+			exec.Command("sudo", "reboot").Run()
+		}
+	}()
+
+	return system.RestartResponse{
+		Status:  "accepted",
+		Message: "system restart initiated, machine will reboot in 2 seconds",
+	}, nil
+}
+
 func (s *DefaultService) SystemStatus(ctx context.Context) (system.SystemStatus, error) {
 	uptime := time.Since(startTime).Truncate(time.Second)
 
