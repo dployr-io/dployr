@@ -27,21 +27,21 @@ func NewProxier(a map[string]App, p HandleProxy) *Proxier {
 	}
 }
 
+// App describes a proxy by its domain, upstream service, root directory, proxy status and template type.
 type App struct {
 	Domain   string       `json:"domain"`
 	Upstream string       `json:"upstream"`
 	Root     string       `json:"root,omitempty"`
+	Status   ProxyStatus  `json:"status"`
 	Template TemplateType `json:"template"` // static, reverse_proxy, or php_fastcgi
 }
 
-type ProxyStatusResponse struct {
+// ProxyStatus describes the current status of the proxy service.
+type ProxyStatus struct {
 	Status service.SvcState `json:"status"`
 }
 
-type ProxyStatus struct {
-	Status string `json:"status"`
-}
-
+// ProxyRoute describes a proxy by its domain and upstream service.
 type ProxyRoute struct {
 	Domain   string `json:"domain"`
 	Upstream string `json:"upstream"`
@@ -54,7 +54,10 @@ type HandleProxy interface {
 	Setup(apps map[string]App) error
 
 	// Status returns the current status of the proxy service
-	Status() ProxyStatusResponse
+	Status() ProxyStatus
+
+	// GetApps returns the current list of proxy apps
+	GetApps() []App
 
 	// Restart reloads Caddy with the current Caddyfile configuration.
 	Restart() error

@@ -37,7 +37,7 @@ func (h *ProxyHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	h.logger.Info("proxy.get_status request", "method", r.Method, "path", r.URL.Path)
 
 	status := h.proxier.api.Status()
-	resp := ProxyStatus{Status: string(status.Status)}
+	resp := ProxyStatus{Status: status.Status}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

@@ -653,7 +653,7 @@ For first-time owner registration (requires secret key):
 				return fmt.Errorf("failed to get proxy status with status %d: %s", resp.StatusCode, string(body))
 			}
 
-			var status proxy.ProxyStatusResponse
+			var status proxy.ProxyStatus
 			if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
 				return fmt.Errorf("failed to parse response: %v", err)
 			}

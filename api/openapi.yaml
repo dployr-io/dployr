@@ -1173,6 +1173,30 @@ components:
           type: string
           example: "http://localhost:3000"
 
+    ProxyApp:
+      type: object
+      description: Declarative proxy configuration served by the agent.
+      properties:
+        domain:
+          type: string
+          description: Public domain handled by the proxy.
+          example: "api.example.com"
+        upstream:
+          type: string
+          description: Local upstream (service URL or socket) receiving traffic.
+          example: "http://127.0.0.1:3001"
+        root:
+          type: string
+          nullable: true
+          description: Optional document root when serving static assets.
+          example: "/var/lib/dployr/apps/site"
+        status:
+          $ref: '#/components/schemas/ProxyStatus'
+        template:
+          type: string
+          description: Proxy template used for the app.
+          enum: [static, reverse_proxy, php_fastcgi]
+
     SystemStatus:
       type: object
       properties:
@@ -1189,18 +1213,21 @@ components:
           type: string
           description: System uptime duration
           example: "72h30m15s"
+        deployments:
+          type: array
+          description: Recent deployments.
+          items:
+            $ref: '#/components/schemas/Deployment'
         services:
-          type: object
-          properties:
-            total:
-              type: integer
-              example: 5
-            running:
-              type: integer
-              example: 4
-            stopped:
-              type: integer
-              example: 1
+          type: array
+          description: Services currently configured on the agent.
+          items:
+            $ref: '#/components/schemas/Service'
+        proxies:
+          type: array
+          description: Active proxy applications exposed by the agent.
+          items:
+            $ref: '#/components/schemas/ProxyApp'
         proxy:
           type: object
           properties:
@@ -1574,31 +1601,31 @@ components:
           example: ["agent.update.v1"]
 
     AgentUpdate:
-      type: object
       description: Periodic status update sent by the daemon over WebSocket.
-      properties:
-        schema:
-          type: string
-          example: "v1"
-        seq:
-          type: integer
-          format: int64
-          description: Monotonic sequence number for this connection.
-        epoch:
-          type: string
-          description: Logical epoch identifier for this instance.
-          example: "inst_01HXYZABCDEF123456-1732699234"
-        full:
-          type: boolean
-          description: Whether this is a full status update.
-        instance_id:
-          type: string
-        build_info:
-          $ref: '#/components/schemas/BuildInfo'
-        platform:
-          $ref: '#/components/schemas/PlatformInfo'
-        status:
-          $ref: '#/components/schemas/SystemStatus'
+      allOf:
+        - type: object
+          properties:
+            schema:
+              type: string
+              example: "v1"
+            seq:
+              type: integer
+              format: int64
+              description: Monotonic sequence number for this connection.
+            epoch:
+              type: string
+              description: Logical epoch identifier for this instance.
+              example: "inst_01HXYZABCDEF123456-1732699234"
+            full:
+              type: boolean
+              description: Whether this is a full status update.
+            instance_id:
+              type: string
+            build_info:
+              $ref: '#/components/schemas/BuildInfo'
+            platform:
+              $ref: '#/components/schemas/PlatformInfo'
+        - $ref: '#/components/schemas/SystemStatus'
 
     SystemDoctorResult:
       type: object

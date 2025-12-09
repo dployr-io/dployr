@@ -7,7 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/dployr-io/dployr/pkg/core/proxy"
 	"github.com/dployr-io/dployr/pkg/core/utils"
+	"github.com/dployr-io/dployr/pkg/store"
 	"github.com/dployr-io/dployr/version"
 )
 
@@ -38,13 +40,6 @@ type DoctorResult struct {
 	Error  string `json:"error,omitempty"`
 }
 
-// SystemServicesStatus describes aggregate service state.
-type SystemServicesStatus struct {
-	Total   int `json:"total"`
-	Running int `json:"running"`
-	Stopped int `json:"stopped"`
-}
-
 // SystemProxyStatus describes proxy health and routing information.
 type SystemProxyStatus struct {
 	Status string `json:"status"`
@@ -53,13 +48,15 @@ type SystemProxyStatus struct {
 
 // SystemStatus describes high-level health information about the daemon.
 type SystemStatus struct {
-	Status   string               `json:"status"`
-	Mode     Mode                 `json:"mode"`
-	Uptime   string               `json:"uptime"`
-	Services SystemServicesStatus `json:"services"`
-	Proxy    SystemProxyStatus    `json:"proxy"`
-	Health   SystemHealth         `json:"health"`
-	Debug    *SystemDebug         `json:"debug,omitempty"`
+	Status      string             `json:"status"`
+	Mode        Mode               `json:"mode"`
+	Uptime      string             `json:"uptime"`
+	Deployments []store.Deployment `json:"deployments"`
+	Services    []store.Service    `json:"services"`
+	Apps        []proxy.App        `json:"proxies"`
+	Proxy       SystemProxyStatus  `json:"proxy"`
+	Health      SystemHealth       `json:"health"`
+	Debug       *SystemDebug       `json:"debug,omitempty"`
 }
 
 // SystemHealth provides high-level health information about the daemon.
@@ -187,14 +184,22 @@ type TaskSummary struct {
 // UpdateV1 represents the status update payload sent from the agent to base.
 // This struct defines the core schema relied upon by clients interacting with the dployr API.
 type UpdateV1 struct {
-	Schema     string            `json:"schema"`
-	Seq        uint64            `json:"seq"`
-	Epoch      string            `json:"epoch"`
-	Full       bool              `json:"full"`
-	InstanceID string            `json:"instance_id"`
-	BuildInfo  version.BuildInfo `json:"build_info"`
-	Platform   PlatformInfo      `json:"platform"`
-	Status     *SystemStatus     `json:"status,omitempty"`
+	Schema      string             `json:"schema"`
+	Seq         uint64             `json:"seq"`
+	Epoch       string             `json:"epoch"`
+	Full        bool               `json:"full"`
+	InstanceID  string             `json:"instance_id"`
+	BuildInfo   version.BuildInfo  `json:"build_info"`
+	Platform    PlatformInfo       `json:"platform"`
+	Status      string             `json:"status"`
+	Mode        Mode               `json:"mode"`
+	Uptime      string             `json:"uptime"`
+	Deployments []store.Deployment `json:"deployments"`
+	Services    []store.Service    `json:"services"`
+	Apps        []proxy.App        `json:"proxies"`
+	Proxy       SystemProxyStatus  `json:"proxy"`
+	Health      SystemHealth       `json:"health"`
+	Debug       *SystemDebug       `json:"debug,omitempty"`
 }
 
 // PlatformInfo describes the runtime platform of the agent.

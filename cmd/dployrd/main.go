@@ -95,7 +95,7 @@ func main() {
 
 	mux := wh.BuildMux(cfg)
 
-	syncer := _system.NewSyncer(cfg, logger, is, trs, mux, as)
+	syncer := _system.NewSyncer(cfg, logger, is, trs, ds, ss, ps, mux, as)
 
 	go func() {
 		if err := wh.NewServer(cfg); err != nil {

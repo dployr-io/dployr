@@ -149,23 +149,32 @@ func (c *CaddyHandler) Stop() error {
 	return nil
 }
 
-func (c *CaddyHandler) Status() proxy.ProxyStatusResponse {
+func (c *CaddyHandler) Status() proxy.ProxyStatus {
 	resp, err := http.Get("http://localhost:2019/config/")
 	if err != nil {
-		return proxy.ProxyStatusResponse{
+		return proxy.ProxyStatus{
 			Status: service.SvcStopped,
 		}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 200 {
-		return proxy.ProxyStatusResponse{
+		return proxy.ProxyStatus{
 			Status: service.SvcRunning,
 		}
 	}
-	return proxy.ProxyStatusResponse{
+	return proxy.ProxyStatus{
 		Status: service.SvcUnknown,
 	}
+}
+
+func (c *CaddyHandler) GetApps() []proxy.App {
+	state := LoadState()
+	apps := make([]proxy.App, 0, len(state))
+	for _, app := range state {
+		apps = append(apps, app)
+	}
+	return apps
 }
 
 func (c *CaddyHandler) Restart() error {

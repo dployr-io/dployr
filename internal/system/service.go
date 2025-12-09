@@ -162,9 +162,6 @@ func (s *DefaultService) SystemStatus(ctx context.Context) (system.SystemStatus,
 	st.Status = system.SystemStatusHealthy
 	st.Mode = currentMode
 	st.Uptime = uptime.String()
-	st.Services.Total = 0
-	st.Services.Running = 0
-	st.Services.Stopped = 0
 	st.Proxy.Status = system.ProxyStatusRunning
 	st.Proxy.Routes = 0
 

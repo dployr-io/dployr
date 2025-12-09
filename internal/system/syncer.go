@@ -38,6 +38,7 @@ import (
 
 	pkgAuth "github.com/dployr-io/dployr/pkg/auth"
 	"github.com/dployr-io/dployr/pkg/core/logs"
+	"github.com/dployr-io/dployr/pkg/core/proxy"
 	"github.com/dployr-io/dployr/pkg/core/system"
 	"github.com/dployr-io/dployr/pkg/core/utils"
 	"github.com/dployr-io/dployr/pkg/shared"
@@ -133,7 +134,7 @@ func computeAuthHealth(ctx context.Context, instStore store.InstanceStore) (heal
 	return
 }
 
-func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string, instStore store.InstanceStore) *system.UpdateV1 {
+func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string, instStore store.InstanceStore, deployStore store.DeploymentStore, svcStore store.ServiceStore, proxyHandler proxy.HandleProxy) *system.UpdateV1 {
 	seq := atomic.AddUint64(&updateSeq, 1)
 	uptime := time.Since(startTime).Seconds()
 	currentModeMu.RLock()
@@ -220,41 +221,51 @@ func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string
 		dbg.System = res
 	}
 
-	// System status
-	sts := &system.SystemStatus{
-		Status: system.SystemStatusHealthy,
-		Mode:   mode,
-		Uptime: strconv.FormatInt(int64(uptime), 10),
-		Services: system.SystemServicesStatus{
-			Total:   0,
-			Running: 0,
-			Stopped: 0,
-		},
-		Proxy: system.SystemProxyStatus{
-			Status: system.ProxyStatusRunning,
-			Routes: 0,
-		},
-		Health: system.SystemHealth{
-			Overall: overallHealth,
-			WS:      wsHealth,
-			Tasks:   tasksHealth,
-			Auth:    authHealth,
-		},
-		Debug: dbg,
+	// Fetch deployments from store
+	deployments := make([]store.Deployment, 0)
+	if deployStore != nil {
+		if deps, err := deployStore.ListDeployments(ctx, 100, 0); err == nil {
+			for _, d := range deps {
+				deployments = append(deployments, *d)
+			}
+		}
+	}
+
+	// Fetch services from store
+	services := make([]store.Service, 0)
+	if svcStore != nil {
+		if svcs, err := svcStore.ListServices(ctx, 100, 0); err == nil {
+			for _, s := range svcs {
+				services = append(services, *s)
+			}
+		}
+	}
+
+	apps := make([]proxy.App, 0)
+	if proxyHandler != nil {
+		apps = proxyHandler.GetApps()
+		if apps == nil {
+			apps = make([]proxy.App, 0)
+		}
 	}
 
 	return &system.UpdateV1{
-		Schema:     "v1",
-		Seq:        seq,
-		Epoch:      fmt.Sprintf("%s-%d", strings.TrimSpace(instanceID), startTime.Unix()),
-		Full:       false,
-		InstanceID: instanceID,
-		BuildInfo:  version.GetBuildInfo(),
-		Platform: system.PlatformInfo{
-			OS:   runtime.GOOS,
-			Arch: runtime.GOARCH,
-		},
-		Status: sts,
+		Schema:      "v1",
+		Seq:         seq,
+		Epoch:       fmt.Sprintf("%s-%d", strings.TrimSpace(instanceID), startTime.Unix()),
+		Full:        false,
+		InstanceID:  instanceID,
+		BuildInfo:   version.GetBuildInfo(),
+		Platform:    system.PlatformInfo{OS: runtime.GOOS, Arch: runtime.GOARCH},
+		Status:      system.SystemStatusHealthy,
+		Mode:        mode,
+		Uptime:      strconv.FormatInt(int64(uptime), 10),
+		Deployments: deployments,
+		Services:    services,
+		Apps:        apps,
+		Proxy:       system.SystemProxyStatus{Status: system.ProxyStatusRunning, Routes: 0},
+		Health:      system.SystemHealth{Overall: overallHealth, WS: wsHealth, Tasks: tasksHealth, Auth: authHealth},
+		Debug:       dbg,
 	}
 }
 
@@ -298,6 +309,9 @@ type Syncer struct {
 	logger            *shared.Logger
 	instStore         store.InstanceStore
 	resultStore       store.TaskResultStore
+	deployStore       store.DeploymentStore
+	svcStore          store.ServiceStore
+	proxyHandler      proxy.HandleProxy
 	executor          *Executor
 	agentTokenBackoff time.Duration
 
@@ -338,14 +352,17 @@ type agentTokenResponse struct {
 	} `json:"data"`
 }
 
-func NewSyncer(cfg *shared.Config, logger *shared.Logger, inst store.InstanceStore, results store.TaskResultStore, handler http.Handler, auth pkgAuth.Authenticator) *Syncer {
+func NewSyncer(cfg *shared.Config, logger *shared.Logger, instStore store.InstanceStore, resStore store.TaskResultStore, deployStore store.DeploymentStore, svcStore store.ServiceStore, proxyHandler proxy.HandleProxy, handler http.Handler, auth pkgAuth.Authenticator) *Syncer {
 	return &Syncer{
-		cfg:         cfg,
-		logger:      logger,
-		instStore:   inst,
-		resultStore: results,
-		executor:    NewExecutor(logger, handler, inst, auth),
-		dedupe:      make(map[string]time.Time),
+		cfg:          cfg,
+		logger:       logger,
+		instStore:    instStore,
+		resultStore:  resStore,
+		deployStore:  deployStore,
+		svcStore:     svcStore,
+		proxyHandler: proxyHandler,
+		executor:     NewExecutor(logger, handler, instStore, auth),
+		dedupe:       make(map[string]time.Time),
 	}
 }
 
@@ -635,7 +652,7 @@ ws_connected:
 			case <-connCtx.Done():
 				return
 			case <-time.After(jitter(updateInterval)):
-				upd := buildAgentUpdate(connCtx, s.cfg, inst.InstanceID, s.instStore)
+				upd := buildAgentUpdate(connCtx, s.cfg, inst.InstanceID, s.instStore, s.deployStore, s.svcStore, s.proxyHandler)
 				msg := wsMessage{
 					ID:     ulid.Make().String(),
 					TS:     time.Now(),
