@@ -53,12 +53,15 @@ func (s *DefaultService) RunDoctor(ctx context.Context) (string, error) {
 	return runSystemDoctorScript(ctx, scripts.SystemDoctorScript, []string{"DPLOYR_VERSION=" + ver}, s.store)
 }
 
-func (s *DefaultService) Install(ctx context.Context, version string) (string, error) {
+func (s *DefaultService) Install(ctx context.Context, req system.InstallRequest) (string, error) {
+	version := req.Version
 	if version == "" {
 		version = "latest"
 	}
 
-	out, err := runInstallScript(ctx, scripts.InstallScript, version, s.store)
+	token := req.Token
+
+	out, err := runInstallScript(ctx, scripts.InstallScript, version, token, s.store)
 	if err != nil {
 		return out, err
 	}
@@ -82,15 +85,51 @@ func (s *DefaultService) Restart(ctx context.Context, req system.RestartRequest)
 		}
 	}
 
-	logger.Info("initiating system restart")
+	logger.Info("initiating dployrd restart")
 
 	// Set mode to updating to prevent new tasks
 	currentModeMu.Lock()
 	currentMode = system.ModeUpdating
 	currentModeMu.Unlock()
-
-	// Best-effort restart using systemctl reboot
+	// Stop dployr first, then restart
 	go func() {
+		cmd := exec.Command("sudo", "systemctl", "restart", "dployrd")
+		if err := cmd.Run(); err != nil {
+			logger.Error("failed to restart dployrd", "error", err)
+		}
+
+		currentModeMu.Lock()
+		currentMode = system.ModeReady
+		currentModeMu.Unlock()
+	}()
+
+	return system.RestartResponse{
+		Status:  "completed",
+		Message: "dployrd restarted",
+	}, nil
+}
+
+func (s *DefaultService) Reboot(ctx context.Context, req system.RebootRequest) (system.RebootResponse, error) {
+	logger := shared.LogWithContext(ctx)
+
+	if !req.Force {
+		pending := currentPendingTasks()
+		if pending > 0 {
+			return system.RebootResponse{
+				Status:  "rejected",
+				Message: fmt.Sprintf("cannot reboot: %d tasks are still running", pending),
+			}, fmt.Errorf("cannot reboot: %d tasks are still running", pending)
+		}
+	}
+
+	logger.Info("initiating system reboot")
+
+	currentModeMu.Lock()
+	currentMode = system.ModeUpdating
+	currentModeMu.Unlock()
+
+	go func() {
+		exec.Command("sudo", "systemctl", "stop", "dployrd").Run()
 		time.Sleep(200 * time.Millisecond)
 
 		cmd := exec.Command("sudo", "systemctl", "reboot")
@@ -98,11 +137,21 @@ func (s *DefaultService) Restart(ctx context.Context, req system.RestartRequest)
 			// Fallback
 			exec.Command("sudo", "reboot").Run()
 		}
+
+		cmd = exec.Command("sudo", "systemctl", "start", "dployrd")
+		if err := cmd.Run(); err != nil {
+			logger.Error("failed to start dployrd", "error", err)
+		}
+		time.Sleep(200 * time.Millisecond)
+
+		currentModeMu.Lock()
+		currentMode = system.ModeReady
+		currentModeMu.Unlock()
 	}()
 
-	return system.RestartResponse{
-		Status:  "accepted",
-		Message: "system restart initiated, machine will reboot in 2 seconds",
+	return system.RebootResponse{
+		Status:  "completed",
+		Message: "system rebooted",
 	}, nil
 }
 
@@ -183,7 +232,7 @@ func (s *DefaultService) computeAuthHealthFromToken(ctx context.Context) (string
 		return system.HealthDown, nil
 	}
 
-	tok, err := s.store.GetAccessToken(ctx)
+	tok, err := s.store.GetBootstrapToken(ctx)
 	if err != nil || strings.TrimSpace(tok) == "" {
 		return system.HealthDown, nil
 	}
@@ -243,9 +292,15 @@ func worst(vals ...string) string {
 	return w
 }
 
-func (s *DefaultService) GetTasks(ctx context.Context, status string) (system.TaskSummary, error) {
+func (s *DefaultService) GetTasks(ctx context.Context, status string, excludeSystem bool) (system.TaskSummary, error) {
 	if status == "" || status == "pending" {
-		return system.TaskSummary{Count: currentPendingTasks()}, nil
+		var count int
+		if excludeSystem {
+			count = currentPendingTasksExcludingSystem()
+		} else {
+			count = currentPendingTasks()
+		}
+		return system.TaskSummary{Count: count}, nil
 	}
 
 	switch status {
@@ -506,7 +561,7 @@ func compareBase64(a, b string) bool {
 	return subtle.ConstantTimeCompare(aBytes, bBytes) == 1
 }
 
-func runInstallScript(ctx context.Context, script string, version string, store store.InstanceStore) (string, error) {
+func runInstallScript(ctx context.Context, script string, version string, token string, store store.InstanceStore) (string, error) {
 	f, err := os.CreateTemp("", "install*.sh")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp script: %w", err)
@@ -523,7 +578,14 @@ func runInstallScript(ctx context.Context, script string, version string, store 
 		return "", fmt.Errorf("failed to make script executable: %w", err)
 	}
 
-	cmd := exec.CommandContext(ctx, "bash", f.Name(), version)
+	// The embedded install script accepts: install.sh <version> [token]
+	// Only pass the token argument if we actually have one.
+	var cmd *exec.Cmd
+	if strings.TrimSpace(token) != "" {
+		cmd = exec.CommandContext(ctx, "bash", f.Name(), version, token)
+	} else {
+		cmd = exec.CommandContext(ctx, "bash", f.Name(), version)
+	}
 	cmd.Env = os.Environ()
 
 	logger := shared.NewLogger().With("component", "installer", "script", "install", "version", version)

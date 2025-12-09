@@ -70,10 +70,11 @@ func (h *ServiceHandler) Tasks(w http.ResponseWriter, r *http.Request) {
 	if status == "" {
 		status = "pending"
 	}
+	excludeSystem := r.URL.Query().Get("exclude_system") == "true"
 
-	logger.Info("system.tasks request", "status", status)
+	logger.Info("system.tasks request", "status", status, "exclude_system", excludeSystem)
 
-	summary, err := h.Svc.GetTasks(ctx, status)
+	summary, err := h.Svc.GetTasks(ctx, status, excludeSystem)
 	if err != nil {
 		logger.Error("system.tasks failed", "error", err)
 		shared.WriteError(w, shared.Errors.Runtime.InternalServer.HTTPStatus, string(shared.Errors.Runtime.InternalServer.Code), shared.Errors.Runtime.InternalServer.Message, nil)
@@ -169,7 +170,7 @@ func (h *ServiceHandler) Install(w http.ResponseWriter, r *http.Request) {
 	var body InstallRequest
 	_ = json.NewDecoder(r.Body).Decode(&body)
 
-	out, err := h.Svc.Install(ctx, body.Version)
+	out, err := h.Svc.Install(ctx, body)
 	resp := DoctorResult{
 		Output: out,
 	}
@@ -319,6 +320,30 @@ func (h *ServiceHandler) Restart(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.Svc.Restart(ctx, body)
 	if err != nil {
 		logger.Error("system.restart failed", "error", err)
+		shared.WriteError(w, shared.Errors.Runtime.InternalServer.HTTPStatus, string(shared.Errors.Runtime.InternalServer.Code), err.Error(), nil)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func (h *ServiceHandler) Reboot(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
+		return
+	}
+
+	ctx := r.Context()
+	logger := shared.LogWithContext(ctx)
+	logger.Info("system.restart request")
+
+	var body RebootRequest
+	_ = json.NewDecoder(r.Body).Decode(&body)
+
+	resp, err := h.Svc.Reboot(ctx, body)
+	if err != nil {
+		logger.Error("system.reboot failed", "error", err)
 		shared.WriteError(w, shared.Errors.Runtime.InternalServer.HTTPStatus, string(shared.Errors.Runtime.InternalServer.Code), err.Error(), nil)
 		return
 	}

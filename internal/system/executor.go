@@ -44,6 +44,7 @@ type Executor struct {
 }
 
 var pendingTasks int64
+var pendingSystemTasks int64 // tracks system/* tasks separately
 
 type lastExecInfo struct {
 	ID     string
@@ -193,6 +194,13 @@ func (e *Executor) Execute(ctx context.Context, task *tasks.Task) *tasks.Result 
 	atomic.AddInt64(&pendingTasks, 1)
 	defer atomic.AddInt64(&pendingTasks, -1)
 
+	// Track system/* tasks separately so install script can exclude them
+	isSystemTask := strings.HasPrefix(task.Type, "system/")
+	if isSystemTask {
+		atomic.AddInt64(&pendingSystemTasks, 1)
+		defer atomic.AddInt64(&pendingSystemTasks, -1)
+	}
+
 	// Handle logs/stream:post specially
 	if task.Type == "logs/stream:post" {
 		return e.handleLogStream(ctx, task)
@@ -229,22 +237,30 @@ func (e *Executor) Execute(ctx context.Context, task *tasks.Task) *tasks.Result 
 		}
 	}
 
+	logger.Info("raw task payload", "payload", string(task.Payload))
+
 	req.Header.Set("Content-Type", "application/json")
 	// Authorization: extract token from payload;
 	var bearer string
 	if len(task.Payload) > 0 {
 		var p map[string]any
-		if json.Unmarshal(task.Payload, &p) == nil {
+		if err := json.Unmarshal(task.Payload, &p); err != nil {
+			logger.Error("failed to unmarshal payload for auth", "error", err)
+		} else {
+			logger.Info("parsed payload map", "payload_map", p)
 			if t, ok := p["token"].(string); ok && strings.TrimSpace(t) != "" {
 				bearer = strings.TrimSpace(t)
 			}
 		}
 	}
 	if bearer != "" {
+		logger.Info("setting Authorization header", "bearer", bearer)
 		req.Header.Set("Authorization", "Bearer "+bearer)
+	} else {
+		logger.Info("no bearer token found in payload")
 	}
 	rr := httptest.NewRecorder()
-	logger.Debug("routing task to handler", "method", method, "path", path)
+	logger.Debug("routing task", "task_id", task.ID, "method", method, "path", path)
 	e.handler.ServeHTTP(rr, req)
 	resp := rr.Result()
 	defer resp.Body.Close()
@@ -285,6 +301,18 @@ func (e *Executor) Execute(ctx context.Context, task *tasks.Task) *tasks.Result 
 
 func currentPendingTasks() int {
 	return int(atomic.LoadInt64(&pendingTasks))
+}
+
+// currentPendingTasksExcludingSystem returns pending task count excluding system/* tasks.
+// This is used by the install script to avoid waiting for itself.
+func currentPendingTasksExcludingSystem() int {
+	total := atomic.LoadInt64(&pendingTasks)
+	system := atomic.LoadInt64(&pendingSystemTasks)
+	count := total - system
+	if count < 0 {
+		return 0
+	}
+	return int(count)
 }
 
 func getLastExec() (info *lastExecInfo) {

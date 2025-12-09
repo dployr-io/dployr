@@ -72,19 +72,26 @@ wait_for_pending_tasks() {
     log "Checking for pending tasks before upgrade (port $port)..."
 
     # Best-effort: tell the daemon we are entering an updating window.
+    local auth_header=""
+    if [[ -n "$TOKEN" ]]; then
+        auth_header="Authorization: Bearer $TOKEN"
+    fi
+
     curl -sS -X POST \
         -H "Content-Type: application/json" \
+        ${auth_header:+-H "$auth_header"} \
         -d '{"mode":"updating"}' \
         "http://localhost:${port}/system/mode" >/dev/null 2>&1 || true
 
     local attempts=0
-    local max_attempts=24 # ~2 minutes total at 5s intervals
+    local max_attempts=12 # ~1 minute total at 5s intervals
 
     while (( attempts < max_attempts )); do
         attempts=$((attempts + 1))
 
         local resp
-        resp=$(curl -sS "http://localhost:${port}/system/tasks?status=pending" 2>/dev/null || true)
+        # exclude_system=true tells the daemon to not count system/* tasks (including this install)
+        resp=$(curl -sS ${auth_header:+-H "$auth_header"} "http://localhost:${port}/system/tasks?status=pending&exclude_system=true" 2>/dev/null || true)
         if [[ -z "$resp" ]]; then
             log "Could not query dployrd for pending tasks; continuing with install."
             return 0
@@ -100,10 +107,6 @@ wait_for_pending_tasks() {
 
         if [[ "$count" -eq 0 ]]; then
             log "No pending tasks detected. Proceeding with install."
-            curl -sS -X POST \
-                -H "Content-Type: application/json" \
-                -d '{"mode":"ready"}' \
-                "http://localhost:${port}/system/mode" >/dev/null 2>&1 || true
             return 0
         fi
 
@@ -112,10 +115,6 @@ wait_for_pending_tasks() {
     done
 
     log "Timed out waiting for pending tasks. Proceeding with install."
-    curl -sS -X POST \
-        -H "Content-Type: application/json" \
-        -d '{"mode":"ready"}' \
-        "http://localhost:${port}/system/mode" >/dev/null 2>&1 || true
 }
 
 # Detect OS and architecture
@@ -156,48 +155,28 @@ EXTRACT_DIR="$TEMP_DIR/dployr-$PLATFORM-$ARCH"
 # Wait for any pending tasks to complete before upgrading
 wait_for_pending_tasks
 
-# Check if dployrd is running and stop it
-if pgrep -x "dployrd" > /dev/null; then
-    log "Stopping running dployrd daemon..."
-    case $OS in
-        linux)
-            if systemctl is-active --quiet dployrd 2>/dev/null; then
-                systemctl stop dployrd
-            else
-                pkill -x dployrd
-            fi
-            ;;
-        darwin)
-            if launchctl list | grep -q io.dployr.dployrd; then
-                launchctl stop io.dployr.dployrd
-            else
-                pkill -x dployrd
-            fi
-            ;;
-    esac
-    sleep 2
-fi
-
-# Install binaries
+# Install binaries while daemon is still running
 log "Installing dployrd binary..."
-cp "$EXTRACT_DIR/dployrd" "$INSTALL_DIR/" || error "Failed to copy dployrd"
-chmod +x "$INSTALL_DIR/dployrd"
+sudo rm -f "$INSTALL_DIR/dployrd"
+sudo cp "$EXTRACT_DIR/dployrd" "$INSTALL_DIR/" || error "Failed to copy dployrd"
+sudo chmod +x "$INSTALL_DIR/dployrd"
 
 log "Installing dployr CLI binary..."
-cp "$EXTRACT_DIR/dployr" "$INSTALL_DIR/" || error "Failed to copy dployr"
-chmod +x "$INSTALL_DIR/dployr"
+sudo rm -f "$INSTALL_DIR/dployr"
+sudo cp "$EXTRACT_DIR/dployr" "$INSTALL_DIR/" || error "Failed to copy dployr"
+sudo chmod +x "$INSTALL_DIR/dployr"
 
 # Restart the daemon
-log "Starting dployrd daemon..."
+log "Restarting dployrd daemon..."
 case $OS in
     linux)
         if systemctl is-enabled --quiet dployrd 2>/dev/null; then
-            systemctl start dployrd
+            nohup bash -c 'sleep 1; sudo systemctl restart dployrd' >/dev/null 2>&1 &
         fi
         ;;
     darwin)
-        if launchctl list | grep -q io.dployr.dployrd 2>/dev/null; then
-            launchctl start io.dployr.dployrd
+        if launchctl list 2>/dev/null | grep -q io.dployr.dployrd; then
+            nohup bash -c 'sleep 1; sudo launchctl kickstart -k system/io.dployr.dployrd' >/dev/null 2>&1 &
         fi
         ;;
 esac

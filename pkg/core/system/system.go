@@ -154,6 +154,7 @@ type RequestDomainResponse struct {
 // InstallRequest is used to request an installation of dployr.
 type InstallRequest struct {
 	Version string `json:"version"`
+	Token   string `json:"token,omitempty"`
 }
 
 // RestartRequest is used to request a system restart.
@@ -163,6 +164,17 @@ type RestartRequest struct {
 
 // RestartResponse is returned after initiating a system restart.
 type RestartResponse struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+// RebootRequest is used to request a system reboot.
+type RebootRequest struct {
+	Force bool `json:"force,omitempty"`
+}
+
+// RebootResponse is returned after initiating a system reboot.
+type RebootResponse struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
 }
@@ -247,7 +259,7 @@ type System interface {
 	// RunDoctor runs the system doctor script and returns its combined output.
 	RunDoctor(ctx context.Context) (string, error)
 	// Install installs dployr; if version is empty, the latest version is installed.
-	Install(ctx context.Context, version string) (string, error)
+	Install(ctx context.Context, req InstallRequest) (string, error)
 	// SystemStatus returns high-level health information.
 	SystemStatus(ctx context.Context) (SystemStatus, error)
 	// RequestDomain requests and assigns a new random domain from base to the system.
@@ -255,7 +267,7 @@ type System interface {
 	// RegisterInstance registers the system with the base and assigns an instance id
 	RegisterInstance(ctx context.Context, req RegisterInstanceRequest) error
 	// GetTasks returns a summary of tasks for the given status (e.g. "pending", "completed").
-	GetTasks(ctx context.Context, status string) (TaskSummary, error)
+	GetTasks(ctx context.Context, status string, excludeSystem bool) (TaskSummary, error)
 	// GetMode returns the current daemon mode.
 	GetMode(ctx context.Context) (ModeStatus, error)
 	// SetMode updates the daemon mode.
@@ -266,6 +278,8 @@ type System interface {
 	IsRegistered(ctx context.Context) (RegistrationStatus, error)
 	// Restart initiates a system restart after ensuring no tasks are running.
 	Restart(ctx context.Context, req RestartRequest) (RestartResponse, error)
+	// Reboot initiates an OS reboot.
+	Reboot(ctx context.Context, req RebootRequest) (RebootResponse, error)
 }
 
 type SystemManager struct{}

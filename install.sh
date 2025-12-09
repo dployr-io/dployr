@@ -169,8 +169,14 @@ wait_for_pending_tasks() {
     info "Checking for pending tasks before upgrade (port $port)..."
 
     # Best-effort: tell the daemon we are entering an updating window.
+    local auth_header=""
+    if [[ -n "$TOKEN" ]]; then
+        auth_header="Authorization: Bearer $TOKEN"
+    fi
+
     curl -sS -X POST \
         -H "Content-Type: application/json" \
+        ${auth_header:+-H "$auth_header"} \
         -d '{"mode":"updating"}' \
         "http://localhost:${port}/system/mode" >/dev/null 2>&1 || true
 
@@ -181,7 +187,7 @@ wait_for_pending_tasks() {
         attempts=$((attempts + 1))
 
         local resp
-        resp=$(curl -sS "http://localhost:${port}/system/tasks?status=pending" || true)
+        resp=$(curl -sS ${auth_header:+-H "$auth_header"} "http://localhost:${port}/system/tasks?status=pending" || true)
         if [[ -z "$resp" ]]; then
             # If we can't talk to the daemon, do not block the install.
             warn "Could not query dployrd for pending deployments; continuing with install."
@@ -200,6 +206,7 @@ wait_for_pending_tasks() {
             # Best-effort: mark daemon as ready again.
             curl -sS -X POST \
                 -H "Content-Type: application/json" \
+                ${auth_header:+-H "$auth_header"} \
                 -d '{"mode":"ready"}' \
                 "http://localhost:${port}/system/mode" >/dev/null 2>&1 || true
             return 0
@@ -213,6 +220,7 @@ wait_for_pending_tasks() {
     # Even on timeout, attempt to return daemon to ready mode.
     curl -sS -X POST \
         -H "Content-Type: application/json" \
+        ${auth_header:+-H "$auth_header"} \
         -d '{"mode":"ready"}' \
         "http://localhost:${port}/system/mode" >/dev/null 2>&1 || true
 }
@@ -407,9 +415,9 @@ if pgrep -x "dployrd" > /dev/null; then
     case $OS in
         linux)
             if systemctl is-active --quiet dployrd 2>/dev/null; then
-                systemctl stop dployrd
+                sudo systemctl stop dployrd
             else
-                pkill -x dployrd
+                pkill -x dployrd || sudo pkill -x dployrd || true
             fi
             ;;
         darwin)
@@ -653,8 +661,10 @@ TEE=$(command -v tee)
 CADDY=$(command -v caddy)
 MKDIR=$(command -v mkdir)
 RM=$(command -v rm)
+CP=$(command -v cp)
+CHMOD=$(command -v chmod)
 
-for cmd in SYSTEMCTL TEE CADDY MKDIR RM; do
+for cmd in SYSTEMCTL TEE CADDY MKDIR RM CP CHMOD; do
     [[ -z "${!cmd}" ]] && error "Command $cmd not found"
 done
 
@@ -662,20 +672,13 @@ REBOOT=$(command -v reboot)
 [[ -z "$REBOOT" ]] && error "Command reboot not found"
 
 cat > /etc/sudoers.d/dployr << EOF
-dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL daemon-reload
-dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL start *
-dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL stop *
-dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL restart *
-dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL reload *
-dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL enable *
-dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL disable *
-dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL is-active *
-dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL reboot
+dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL *
 dployrd ALL=(ALL) NOPASSWD: $REBOOT
-dployrd ALL=(ALL) NOPASSWD: $MKDIR -p /etc/systemd/system
-dployrd ALL=(ALL) NOPASSWD: $RM -f /etc/systemd/system/*.service
-dployrd ALL=(ALL) NOPASSWD: $TEE /etc/systemd/system/*.service
-dployrd ALL=(ALL) NOPASSWD: $TEE /etc/caddy/Caddyfile
+dployrd ALL=(ALL) NOPASSWD: $MKDIR *
+dployrd ALL=(ALL) NOPASSWD: $RM *
+dployrd ALL=(ALL) NOPASSWD: $CP *
+dployrd ALL=(ALL) NOPASSWD: $CHMOD *
+dployrd ALL=(ALL) NOPASSWD: $TEE *
 dployrd ALL=(ALL) NOPASSWD: $CADDY validate --config /etc/caddy/Caddyfile --adapter caddyfile
 EOF
 chmod 440 /etc/sudoers.d/dployr

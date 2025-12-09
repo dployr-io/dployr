@@ -521,17 +521,12 @@ paths:
     post:
       tags:
         - System
-      summary: Restart the system
+      summary: Restart dployrd
       description: |
-        Initiate a system restart (reboot) of the machine running dployrd.
-
-        By default, the request is rejected if there are pending tasks. Use `force: true`
-        to bypass this check.
-
         The daemon sets its mode to `updating` before initiating the reboot to prevent
         new tasks from being accepted.
 
-        Admin role is required.
+        Developer role is required.
       operationId: restartSystem
       security:
         - BearerAuth: []
@@ -548,6 +543,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RestartResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  
+  /system/reboot:
+    post:
+      tags:
+        - System
+      summary: Reboot the OS
+      description: |
+        The daemon sets its mode to `updating` before initiating the reboot to prevent
+        new tasks from being accepted.
+
+        Admin role is required.
+      operationId: rebootSystem
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RebootRequest'
+      responses:
+        '200':
+          description: Reboot initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RebootResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1400,6 +1428,47 @@ components:
 
         This mirrors the JSON output produced by the daemon's slog-based logger
         and is used in log_chunk WebSocket messages and log streaming.
+
+        In addition to the core fields (`time`, `level`, `msg`), log entries may
+        include a number of **optional structured attributes**. These are
+        flattened into the top-level JSON object and exposed via
+        `additionalProperties` in this schema.
+
+        Common optional attributes include (non-exhaustive):
+
+        - `request_id`: Correlates a log line with a specific HTTP/API request.
+        - `trace_id`: End-to-end trace identifier used across components.
+        - `user_id`: Authenticated user identifier (when available).
+        - `instance_id`: Daemon/agent instance identifier.
+        - `deployment_id`: Identifier of the related deployment.
+        - `log_type`: High-level category for the log (for example, `deployment`).
+        - `component`: Subsystem emitting the log (for example, `installer`,
+          `syncer`, `proxy`, `deploy`, `system`).
+        - `script`: Name of the script associated with the log entry (for
+          example, `install`, `system_doctor`).
+        - `version`: Version string associated with the operation.
+        - `method`: HTTP method for API request logs.
+        - `path`: HTTP request path for API request logs, or logical log path
+          for some internal operations.
+        - `status`: High-level status code or text for the operation (for
+          example, websocket close status or HTTP-like status).
+        - `service_id`: Identifier of a related service.
+        - `domain`: Domain associated with proxy or routing operations.
+        - `upstream`: Upstream URL/target for proxy routes.
+        - `stream_id`: Identifier for a log streaming session.
+        - `mode`: Log streaming mode (for example, `tail`, `historical`).
+        - `resolved_path`: Fully resolved on-disk log file path.
+        - `backoff_ms`: Backoff duration in milliseconds for retry logic.
+        - `pinned_roots`: Boolean flag indicating whether TLS roots are pinned.
+        - `host`: Base URL or host associated with a connection.
+        - `count`: Number of items involved in the operation (for example,
+          tasks received or acknowledgments sent).
+        - `param`: Name of a request parameter involved in an error.
+        - `error`: Human-readable error description or structured error object.
+
+        Clients should treat unknown attributes as opaque metadata and must not
+        rely on the full set being stable over time. New attributes may be
+        added without a schema change.
       properties:
         time:
           type: string
@@ -1601,6 +1670,25 @@ components:
         message:
           type: string
           description: Human-readable message about the restart status
+
+    RebootRequest:
+      type: object
+      properties:
+        force:
+          type: boolean
+          description: If true, bypass the pending tasks check and force reboot
+          default: false
+
+    RebootResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [accepted, rejected]
+          description: Whether the reboot was accepted or rejected
+        message:
+          type: string
+          description: Human-readable message about the reboot status
 
     RequestDomainResponse:
       type: object
