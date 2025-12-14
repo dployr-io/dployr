@@ -88,11 +88,7 @@ func (h *DeploymentHandler) ListDeployments(w http.ResponseWriter, r *http.Reque
 	limit := 20
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if parsedLimit := parseLimit(limitStr); parsedLimit > 0 {
-			if parsedLimit > 100 {
-				limit = 100
-			} else {
-				limit = parsedLimit
-			}
+			limit = min(parsedLimit, 100)
 		}
 	}
 
