@@ -49,7 +49,6 @@ type DeployRequest struct {
 	Secrets     map[string]string `json:"secrets,omitempty" validate:"omitempty"`
 	Remote      store.RemoteObj   `json:"remote,omitempty" validate:"omitempty"`
 	Domain      string            `json:"domain,omitempty" validate:"omitempty"`
-	DNSProvider string            `json:"dns_provider,omitempty" validate:"omitempty"`
 }
 
 type DeployResponse struct {
