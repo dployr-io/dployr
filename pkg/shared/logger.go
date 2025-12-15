@@ -11,7 +11,16 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
+	"strings"
 	"sync"
+	"time"
+)
+
+const (
+	maxLogSize    = 300 * 1024 * 1024 // 300MB
+	maxLogAge     = 24 * time.Hour    // 24 hours
+	maxLogBackups = 5                 // 5 backups
 )
 
 var (
@@ -24,24 +33,144 @@ type Logger struct {
 	logger *slog.Logger
 }
 
+// rotatingWriter implements io.Writer with size and time-based rotation.
+type rotatingWriter struct {
+	mu        sync.Mutex
+	filePath  string
+	file      *os.File
+	size      int64
+	createdAt time.Time
+}
+
+// newRotatingWriter creates a new rotating file writer.
+func newRotatingWriter(filePath string) (*rotatingWriter, error) {
+	rw := &rotatingWriter{filePath: filePath}
+	if err := rw.openOrCreate(); err != nil {
+		return nil, err
+	}
+	return rw, nil
+}
+
+// openOrCreate opens an existing log file or creates a new one.
+func (rw *rotatingWriter) openOrCreate() error {
+	if err := os.MkdirAll(filepath.Dir(rw.filePath), 0o755); err != nil {
+		return err
+	}
+
+	info, err := os.Stat(rw.filePath)
+	if err == nil {
+		rw.size = info.Size()
+		rw.createdAt = info.ModTime()
+		// Check if existing file needs rotation on startup
+		if rw.size >= maxLogSize || time.Since(rw.createdAt) >= maxLogAge {
+			if err := rw.rotate(); err != nil {
+				return err
+			}
+		}
+	} else if os.IsNotExist(err) {
+		rw.size = 0
+		rw.createdAt = time.Now()
+	} else {
+		return err
+	}
+
+	f, err := os.OpenFile(rw.filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	rw.file = f
+	return nil
+}
+
+// Write implements io.Writer with rotation checks.
+func (rw *rotatingWriter) Write(p []byte) (n int, err error) {
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
+
+	// Check if rotation is needed
+	if rw.size+int64(len(p)) >= maxLogSize || time.Since(rw.createdAt) >= maxLogAge {
+		if err := rw.rotate(); err != nil {
+			return 0, err
+		}
+	}
+
+	n, err = rw.file.Write(p)
+	rw.size += int64(n)
+	return n, err
+}
+
+// rotate closes the current file, renames it with a timestamp, and opens a new one.
+func (rw *rotatingWriter) rotate() error {
+	if rw.file != nil {
+		rw.file.Close()
+	}
+
+	// Generate rotated filename with timestamp
+	timestamp := time.Now().Format("20060102-150405")
+	ext := filepath.Ext(rw.filePath)
+	base := strings.TrimSuffix(rw.filePath, ext)
+	rotatedPath := fmt.Sprintf("%s.%s%s", base, timestamp, ext)
+
+	if err := os.Rename(rw.filePath, rotatedPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	rw.cleanOldBackups()
+
+	f, err := os.OpenFile(rw.filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return err
+	}
+	rw.file = f
+	rw.size = 0
+	rw.createdAt = time.Now()
+	return nil
+}
+
+// cleanOldBackups removes old rotated log files beyond maxLogBackups.
+func (rw *rotatingWriter) cleanOldBackups() {
+	dir := filepath.Dir(rw.filePath)
+	ext := filepath.Ext(rw.filePath)
+	base := filepath.Base(strings.TrimSuffix(rw.filePath, ext))
+	pattern := base + ".*" + ext
+
+	matches, err := filepath.Glob(filepath.Join(dir, pattern))
+	if err != nil || len(matches) <= maxLogBackups {
+		return
+	}
+
+	sort.Sort(sort.Reverse(sort.StringSlice(matches)))
+	for _, match := range matches[maxLogBackups:] {
+		os.Remove(match)
+	}
+}
+
+// Close closes the underlying file.
+func (rw *rotatingWriter) Close() error {
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
+	if rw.file != nil {
+		return rw.file.Close()
+	}
+	return nil
+}
+
 // NewLogger creates a unified logger that writes structured JSON to both stdout and a file.
+// Log files are rotated every 24 hours or when they exceed 300MB, whichever comes first.
 func NewLogger() *Logger {
 	defaultLoggerOnce.Do(func() {
 		logFile := getLogFilePath()
-		if err := os.MkdirAll(filepath.Dir(logFile), 0o755); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to create log dir: %v\n", err)
-		}
 
-		f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+		rw, err := newRotatingWriter(logFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to open log file: %v\n", err)
-			f = nil
+			fmt.Fprintf(os.Stderr, "failed to create rotating log writer: %v\n", err)
+			rw = nil
 		}
 
 		var writers []io.Writer
 		writers = append(writers, os.Stdout)
-		if f != nil {
-			writers = append(writers, f)
+		if rw != nil {
+			writers = append(writers, rw)
 		}
 
 		multi := io.MultiWriter(writers...)
