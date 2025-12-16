@@ -61,7 +61,7 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 		Blueprint: store.Blueprint{
 			Name:       req.Name,
 			Desc:       req.Description,
-			Runtime:    req.Runtime,
+			Runtime:    req.GetRuntimeObj(),
 			RunCmd:     req.RunCmd,
 			BuildCmd:   req.BuildCmd,
 			Port:       req.Port,

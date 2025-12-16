@@ -5,7 +5,6 @@ package deploy
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/dployr-io/dployr/pkg/shared"
@@ -38,46 +37,25 @@ type DeployRequest struct {
 	Description string            `json:"description,omitempty"`
 	UserId      string            `json:"user_id" validate:"required"`
 	Source      string            `json:"source" validate:"required,oneof=remote image"`
-	Runtime     store.RuntimeObj  `json:"runtime" validate:"required"`
-	Version     string            `json:"version,omitempty" validate:"omitempty"`
-	RunCmd      string            `json:"run_cmd,omitempty" validate:"required_unless=Runtime static docker k3s,omitempty"`
-	BuildCmd    string            `json:"build_cmd,omitempty" validate:"omitempty"`
-	Port        int               `json:"port,omitempty" validate:"required_unless=Runtime static docker k3s,omitempty,number"`
-	WorkingDir  string            `json:"working_dir,omitempty" validate:"omitempty"`
-	StaticDir   string            `json:"static_dir,omitempty" validate:"omitempty"`
-	Image       string            `json:"image,omitempty" validate:"omitempty"`
-	EnvVars     map[string]string `json:"env_vars,omitempty" validate:"omitempty"`
-	Secrets     map[string]string `json:"secrets,omitempty" validate:"omitempty"`
-	Remote      store.RemoteObj   `json:"remote,omitempty" validate:"omitempty"`
-	Domain      string            `json:"domain,omitempty" validate:"omitempty"`
+	Runtime     string            `json:"runtime" validate:"required,oneof=static golang php python nodejs ruby dotnet java docker k3s custom"`
+	Version     string            `json:"version,omitempty"`
+	RunCmd      string            `json:"run_cmd,omitempty"`
+	BuildCmd    string            `json:"build_cmd,omitempty"`
+	Port        int               `json:"port,omitempty"`
+	WorkingDir  string            `json:"working_dir,omitempty"`
+	StaticDir   string            `json:"static_dir,omitempty"`
+	Image       string            `json:"image,omitempty"`
+	EnvVars     map[string]string `json:"env_vars,omitempty"`
+	Secrets     map[string]string `json:"secrets,omitempty"`
+	Remote      store.RemoteObj   `json:"remote,omitempty"`
+	Domain      string            `json:"domain,omitempty"`
 }
 
-func (dr *DeployRequest) UnmarshalJSON(data []byte) error {
-	type Alias DeployRequest
-	aux := &struct {
-		Runtime json.RawMessage `json:"runtime"`
-		Version string          `json:"version,omitempty"`
-		*Alias
-	}{
-		Alias: (*Alias)(dr),
+func (dr *DeployRequest) GetRuntimeObj() store.RuntimeObj {
+	return store.RuntimeObj{
+		Type:    store.Runtime(dr.Runtime),
+		Version: dr.Version,
 	}
-
-	if err := json.Unmarshal(data, aux); err != nil {
-		return err
-	}
-
-	if len(aux.Runtime) == 0 {
-		return nil
-	}
-
-	// Try parsing as RuntimeObj
-	var rtObj store.RuntimeObj
-	if err := json.Unmarshal(aux.Runtime, &rtObj); err == nil && rtObj.Type != "" {
-		dr.Runtime = rtObj
-		return nil
-	}
-
-	return nil
 }
 
 type DeployResponse struct {

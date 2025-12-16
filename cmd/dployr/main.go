@@ -205,18 +205,16 @@ For first-time owner registration (requires secret key):
 				Name:        name,
 				Description: description,
 				Source:      source,
-				Runtime: store.RuntimeObj{
-					Type:    store.Runtime(runtime),
-					Version: version,
-				},
-				RunCmd:     runCmd,
-				BuildCmd:   buildCmd,
-				Port:       port,
-				WorkingDir: workingDir,
-				StaticDir:  staticDir,
-				Image:      image,
-				Domain:     domain,
-				EnvVars:    envVars,
+				Runtime:     runtime,
+				Version:     version,
+				RunCmd:      runCmd,
+				BuildCmd:    buildCmd,
+				Port:        port,
+				WorkingDir:  workingDir,
+				StaticDir:   staticDir,
+				Image:       image,
+				Domain:      domain,
+				EnvVars:     envVars,
 			}
 
 			if source == "remote" {
