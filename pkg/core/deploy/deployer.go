@@ -56,6 +56,7 @@ func (dr *DeployRequest) UnmarshalJSON(data []byte) error {
 	type Alias DeployRequest
 	aux := &struct {
 		Runtime json.RawMessage `json:"runtime"`
+		Version string          `json:"version,omitempty"`
 		*Alias
 	}{
 		Alias: (*Alias)(dr),
@@ -69,8 +70,9 @@ func (dr *DeployRequest) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
+	// Try parsing as RuntimeObj
 	var rtObj store.RuntimeObj
-	if err := json.Unmarshal(aux.Runtime, &rtObj); err == nil {
+	if err := json.Unmarshal(aux.Runtime, &rtObj); err == nil && rtObj.Type != "" {
 		dr.Runtime = rtObj
 		return nil
 	}
