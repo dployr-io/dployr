@@ -285,34 +285,57 @@ func (h *Handler) parseLogLine(line string) *logs.LogEntry {
 	return &entry
 }
 
-// getLogPath returns the file path for the specified relative path under the log root.
+// getLogPath returns the file path for the specified relative path.
+// Supported path formats:
+//   - "app" or empty: system log file
+//   - "service:<name>": service runtime logs (stdout/stderr)
+//   - "<deployment-id>": deployment-specific log file
 func (h *Handler) getLogPath(path string) string {
-	var baseDir string
-	switch runtime.GOOS {
-	case "windows":
-		baseDir = filepath.Join(os.Getenv("PROGRAMDATA"), "dployr", "logs")
-	case "darwin":
-		baseDir = "/usr/local/var/log/dployrd"
-	default:
-		baseDir = "/var/log/dployrd"
-	}
-
-	// Normalize the requested path and ensure it is relative
 	clean := filepath.Clean(path)
 	if clean == "." || clean == "" {
 		clean = "app"
 	}
 
-	// Default extension: treat "app" -> "app.log", but allow explicit .log
+	// System log (app.log)
+	if clean == "app" {
+		var sysLogDir string
+		switch runtime.GOOS {
+		case "windows":
+			sysLogDir = filepath.Join(os.Getenv("PROGRAMDATA"), "dployr", "logs")
+		case "darwin":
+			sysLogDir = "/usr/local/var/log/dployrd"
+		default:
+			sysLogDir = "/var/log/dployrd"
+		}
+		return filepath.Join(sysLogDir, "app.log")
+	}
+
+	// Service runtime logs (service:<name>)
+	if after, ok := strings.CutPrefix(clean, "service:"); ok {
+		svcName := after
+		if !strings.HasSuffix(svcName, ".log") {
+			svcName = svcName + ".log"
+		}
+		switch runtime.GOOS {
+		case "windows":
+			return filepath.Join(os.Getenv("PROGRAMDATA"), "dployr", ".dployr", "logs", svcName)
+		default:
+			return filepath.Join("/home/dployrd/.dployr/logs", svcName)
+		}
+	}
+
+	// Deployment logs
+	var dataDir string
+	switch runtime.GOOS {
+	case "windows":
+		dataDir = filepath.Join(os.Getenv("PROGRAMDATA"), "dployr")
+	default:
+		dataDir = "/var/lib/dployrd"
+	}
+
 	if !strings.HasSuffix(clean, ".log") {
 		clean = clean + ".log"
 	}
 
-	full := filepath.Join(baseDir, clean)
-	// Prevent escaping the base directory
-	if !strings.HasPrefix(full, baseDir+string(os.PathSeparator)) && full != baseDir {
-		return filepath.Join(baseDir, "app.log")
-	}
-
-	return full
+	return filepath.Join(dataDir, ".dployr", "logs", clean)
 }

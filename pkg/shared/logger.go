@@ -260,19 +260,32 @@ func LogWithContext(ctx context.Context) *Logger {
 // These write to separate files per deployment/task
 
 func LogInfoF(name, dir, message string) error {
-	logger := NewLogger().With("deployment_id", name, "log_type", "deployment")
-	logger.Info(message)
-	return nil
+	return writeDeploymentLog(name, dir, "INFO", message)
 }
 
 func LogWarnF(name, dir, message string) error {
-	logger := NewLogger().With("deployment_id", name, "log_type", "deployment")
-	logger.Warn(message)
-	return nil
+	return writeDeploymentLog(name, dir, "WARN", message)
 }
 
 func LogErrF(name, dir string, err error) error {
-	logger := NewLogger().With("deployment_id", name, "log_type", "deployment")
-	logger.Error(err.Error(), "error", err)
-	return nil
+	return writeDeploymentLog(name, dir, "ERROR", err.Error())
+}
+
+func writeDeploymentLog(name, dir, level, message string) error {
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create log directory: %w", err)
+	}
+
+	logFile := filepath.Join(dir, strings.ToLower(name)+".log")
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open log file: %w", err)
+	}
+	defer f.Close()
+
+	entry := fmt.Sprintf(`{"time":"%s","level":"%s","msg":"%s","deployment_id":"%s","log_type":"deployment"}`+"\n",
+		time.Now().Format(time.RFC3339Nano), level, message, name)
+
+	_, err = f.WriteString(entry)
+	return err
 }
