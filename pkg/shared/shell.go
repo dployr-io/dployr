@@ -12,20 +12,30 @@ import (
 )
 
 func Exec(ctx context.Context, cmd string, workDir string) error {
-	var shell, shellFlag, setup string
+	return ExecWithOptions(ctx, cmd, workDir, false)
+}
+
+func ExecWithOptions(ctx context.Context, cmd string, workDir string, useVfox bool) error {
+	var shell, shellFlag, full string
 
 	switch runtime.GOOS {
 	case "windows":
 		shell = "pwsh"
 		shellFlag = "-Command"
-		setup = `Invoke-Expression "$(vfox activate pwsh)"`
+		if useVfox {
+			full = fmt.Sprintf(`Invoke-Expression "$(vfox activate pwsh)"; cd %s; %s`, workDir, cmd)
+		} else {
+			full = fmt.Sprintf(`cd %s; %s`, workDir, cmd)
+		}
 	default:
 		shell = "bash"
 		shellFlag = "-lc"
-		setup = `eval "$(vfox activate bash)"`
+		if useVfox {
+			full = fmt.Sprintf(`eval "$(vfox activate bash)" && cd %s && %s`, workDir, cmd)
+		} else {
+			full = fmt.Sprintf(`cd %s && %s`, workDir, cmd)
+		}
 	}
-
-	full := fmt.Sprintf("%s && cd %s && %s", setup, workDir, cmd)
 
 	c := exec.CommandContext(ctx, shell, shellFlag, full)
 	c.Stdout = os.Stdout

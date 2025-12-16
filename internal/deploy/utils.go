@@ -36,8 +36,7 @@ func SetupDir(name string) (string, error) {
 
 // CloneRepo clones a git repository to the specified directory
 func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.Config) error {
-	workDir = fmt.Sprint(destDir, "/", workDir)
-	authUrl, err := buildAuthUrl(remote.Url, config)
+	authUrl, err := buildAuthUrl(remote.Url)
 	if err != nil {
 		return err
 	}
@@ -45,17 +44,23 @@ func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.C
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	if _, err := os.Stat(workDir); err == nil {
+	// Check if destDir already has a .git directory
+	gitDir := filepath.Join(destDir, ".git")
+	if _, err := os.Stat(gitDir); err == nil {
 		pullCmd := fmt.Sprintf("git -C %s pull", destDir)
-		if err := shared.Exec(ctx, pullCmd, "."); err != nil {
+		if err := shared.Exec(ctx, pullCmd, destDir); err != nil {
 			if ctx.Err() == context.DeadlineExceeded {
 				return fmt.Errorf("git pull timed out after 5 minutes")
 			}
 			return err
 		}
 	} else {
-		cloneCmd := fmt.Sprintf("git clone --branch %s %s %s", remote.Branch, authUrl, destDir)
-		if err := shared.Exec(ctx, cloneCmd, "."); err != nil {
+		// Ensure destDir exists
+		if err := os.MkdirAll(destDir, 0755); err != nil {
+			return fmt.Errorf("failed to create destination directory: %s", err)
+		}
+		cloneCmd := fmt.Sprintf("git clone --branch %s %s .", remote.Branch, authUrl)
+		if err := shared.Exec(ctx, cloneCmd, destDir); err != nil {
 			if ctx.Err() == context.DeadlineExceeded {
 				return fmt.Errorf("git clone timed out after 5 minutes")
 			}
@@ -146,7 +151,7 @@ func runDeployScript(ctx context.Context, bp store.Blueprint) error {
 	return cmd.Run()
 }
 
-func buildAuthUrl(url string, config *shared.Config) (string, error) {
+func buildAuthUrl(url string) (string, error) {
 	if strings.Contains(url, "@") {
 		return url, nil
 	}
