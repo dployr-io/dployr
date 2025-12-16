@@ -186,7 +186,6 @@ For first-time owner registration (requires secret key):
 			staticDir, _ := cmd.Flags().GetString("static-dir")
 			image, _ := cmd.Flags().GetString("image")
 			domain, _ := cmd.Flags().GetString("domain")
-			dnsProvider, _ := cmd.Flags().GetString("dns-provider")
 			envVars, _ := cmd.Flags().GetStringToString("env")
 			remote, _ := cmd.Flags().GetString("remote")
 			branch, _ := cmd.Flags().GetString("branch")
@@ -210,15 +209,14 @@ For first-time owner registration (requires secret key):
 					Type:    store.Runtime(runtime),
 					Version: version,
 				},
-				RunCmd:      runCmd,
-				BuildCmd:    buildCmd,
-				Port:        port,
-				WorkingDir:  workingDir,
-				StaticDir:   staticDir,
-				Image:       image,
-				Domain:      domain,
-				DNSProvider: dnsProvider,
-				EnvVars:     envVars,
+				RunCmd:     runCmd,
+				BuildCmd:   buildCmd,
+				Port:       port,
+				WorkingDir: workingDir,
+				StaticDir:  staticDir,
+				Image:      image,
+				Domain:     domain,
+				EnvVars:    envVars,
 			}
 
 			if source == "remote" {
