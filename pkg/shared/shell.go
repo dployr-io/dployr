@@ -4,6 +4,7 @@
 package shared
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -38,10 +39,17 @@ func ExecWithOptions(ctx context.Context, cmd string, workDir string, useVfox bo
 	}
 
 	c := exec.CommandContext(ctx, shell, shellFlag, full)
+	var stderr bytes.Buffer
 	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
+	c.Stderr = &stderr
 	c.Stdin = os.Stdin
 	c.Env = os.Environ()
 
-	return c.Run()
+	if err := c.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return fmt.Errorf("%w: %s", err, stderr.String())
+		}
+		return err
+	}
+	return nil
 }
