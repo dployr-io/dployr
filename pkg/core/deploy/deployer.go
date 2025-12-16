@@ -5,6 +5,7 @@ package deploy
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/dployr-io/dployr/pkg/shared"
@@ -49,6 +50,32 @@ type DeployRequest struct {
 	Secrets     map[string]string `json:"secrets,omitempty" validate:"omitempty"`
 	Remote      store.RemoteObj   `json:"remote,omitempty" validate:"omitempty"`
 	Domain      string            `json:"domain,omitempty" validate:"omitempty"`
+}
+
+func (dr *DeployRequest) UnmarshalJSON(data []byte) error {
+	type Alias DeployRequest
+	aux := &struct {
+		Runtime json.RawMessage `json:"runtime"`
+		*Alias
+	}{
+		Alias: (*Alias)(dr),
+	}
+
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+
+	if len(aux.Runtime) == 0 {
+		return nil
+	}
+
+	var rtObj store.RuntimeObj
+	if err := json.Unmarshal(aux.Runtime, &rtObj); err == nil {
+		dr.Runtime = rtObj
+		return nil
+	}
+
+	return nil
 }
 
 type DeployResponse struct {
