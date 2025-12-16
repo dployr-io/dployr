@@ -33,6 +33,14 @@ func Open() (*sql.DB, error) {
 		return nil, err
 	}
 
+	// Enable WAL mode and set busy timeout to prevent SQLITE_BUSY errors
+	if _, err := db.Exec(`PRAGMA journal_mode=WAL`); err != nil {
+		return nil, fmt.Errorf("failed to enable WAL mode: %w", err)
+	}
+	if _, err := db.Exec(`PRAGMA busy_timeout=5000`); err != nil {
+		return nil, fmt.Errorf("failed to set busy timeout: %w", err)
+	}
+
 	if err := applyMigrations(db); err != nil {
 		return nil, fmt.Errorf("migration failed: %w", err)
 	}
