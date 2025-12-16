@@ -28,18 +28,15 @@ func Open() (*sql.DB, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite", dbPath)
+	// Connection string with WAL mode and busy timeout to prevent SQLITE_BUSY errors
+	dsn := fmt.Sprintf("%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)", dbPath)
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	// Enable WAL mode and set busy timeout to prevent SQLITE_BUSY errors
-	if _, err := db.Exec(`PRAGMA journal_mode=WAL`); err != nil {
-		return nil, fmt.Errorf("failed to enable WAL mode: %w", err)
-	}
-	if _, err := db.Exec(`PRAGMA busy_timeout=5000`); err != nil {
-		return nil, fmt.Errorf("failed to set busy timeout: %w", err)
-	}
+	// Limit to single connection to prevent SQLITE_BUSY with concurrent writes
+	db.SetMaxOpenConns(1)
 
 	if err := applyMigrations(db); err != nil {
 		return nil, fmt.Errorf("migration failed: %w", err)
