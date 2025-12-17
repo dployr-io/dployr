@@ -61,7 +61,11 @@ func (m *Middleware) Auth(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx = context.WithValue(ctx, shared.CtxUserIDKey, claims.Subject)
+		subject := claims.Subject
+		if subject == "" {
+			subject = claims.RegisteredClaims.Subject
+		}
+		ctx = context.WithValue(ctx, shared.CtxUserIDKey, subject)
 		ctx = context.WithValue(ctx, claimsCtxKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
