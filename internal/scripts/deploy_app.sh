@@ -136,19 +136,34 @@ create_env_file() {
     # Start with PORT
     echo "PORT=${port}" > "$env_file" || abort "Failed to write to $env_file"
     
+    # Track which keys we've already written to avoid duplicates
+    declare -A written_keys
+    written_keys["PORT"]=1
+    
+    # Load existing keys from file if it exists
+    if [ -f "$env_file" ]; then
+        while IFS='=' read -r key value; do
+            if [ -n "$key" ]; then
+                written_keys["$key"]=1
+            fi
+        done < "$env_file"
+    fi
+    
     # Add any additional env vars passed as KEY=VALUE pairs
     for env_var in "$@"; do
         if [ -n "$env_var" ]; then
-            log "Adding env var: $env_var"
-            echo "$env_var" >> "$env_file"
+            local key="${env_var%%=*}"
+            if [ -z "${written_keys[$key]:-}" ]; then
+                log "Adding env var: $env_var"
+                echo "$env_var" >> "$env_file"
+                written_keys[$key]=1
+            else
+                log "Skipping duplicate env var: $env_var (key: $key already set)"
+            fi
         fi
     done
     
     log "Environment variables written to .env file"
-    
-    # TODO [DEBUG] - remove this
-    log "Contents of .env file:"
-    cat "$env_file"
 }
 
 # --- create service exe script ---
