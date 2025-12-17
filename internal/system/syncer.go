@@ -134,7 +134,7 @@ func computeAuthHealth(ctx context.Context, instStore store.InstanceStore) (heal
 	return
 }
 
-func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string, instStore store.InstanceStore, deployStore store.DeploymentStore, svcStore store.ServiceStore, proxyHandler proxy.HandleProxy) *system.UpdateV1 {
+func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string, instStore store.InstanceStore, deployStore store.DeploymentStore, svcStore store.ServiceStore, proxyHandler proxy.HandleProxy, fsCache *FSCache) *system.UpdateV1 {
 	seq := atomic.AddUint64(&updateSeq, 1)
 	uptime := time.Since(startTime).Seconds()
 	currentModeMu.RLock()
@@ -249,6 +249,12 @@ func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string
 		}
 	}
 
+	// Get filesystem snapshot (cached, async refresh)
+	var fsSnapshot *system.FSSnapshot
+	if fsCache != nil {
+		fsSnapshot = fsCache.GetSnapshot()
+	}
+
 	return &system.UpdateV1{
 		Schema:      "v1",
 		Seq:         seq,
@@ -266,6 +272,7 @@ func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string
 		Proxy:       system.SystemProxyStatus{Status: system.ProxyStatusRunning, Routes: 0},
 		Health:      system.SystemHealth{Overall: overallHealth, WS: wsHealth, Tasks: tasksHealth, Auth: authHealth},
 		Debug:       dbg,
+		FS:          fsSnapshot,
 	}
 }
 
@@ -312,6 +319,7 @@ type Syncer struct {
 	deployStore       store.DeploymentStore
 	svcStore          store.ServiceStore
 	proxyHandler      proxy.HandleProxy
+	fsCache           *FSCache
 	executor          *Executor
 	agentTokenBackoff time.Duration
 
@@ -352,7 +360,7 @@ type agentTokenResponse struct {
 	} `json:"data"`
 }
 
-func NewSyncer(cfg *shared.Config, logger *shared.Logger, instStore store.InstanceStore, resStore store.TaskResultStore, deployStore store.DeploymentStore, svcStore store.ServiceStore, proxyHandler proxy.HandleProxy, handler http.Handler, auth pkgAuth.Authenticator) *Syncer {
+func NewSyncer(cfg *shared.Config, logger *shared.Logger, instStore store.InstanceStore, resStore store.TaskResultStore, deployStore store.DeploymentStore, svcStore store.ServiceStore, proxyHandler proxy.HandleProxy, handler http.Handler, auth pkgAuth.Authenticator, fsCache *FSCache) *Syncer {
 	return &Syncer{
 		cfg:          cfg,
 		logger:       logger,
@@ -361,6 +369,7 @@ func NewSyncer(cfg *shared.Config, logger *shared.Logger, instStore store.Instan
 		deployStore:  deployStore,
 		svcStore:     svcStore,
 		proxyHandler: proxyHandler,
+		fsCache:      fsCache,
 		executor:     NewExecutor(logger, handler, instStore, auth),
 		dedupe:       make(map[string]time.Time),
 	}
@@ -652,7 +661,7 @@ ws_connected:
 			case <-connCtx.Done():
 				return
 			case <-time.After(jitter(updateInterval)):
-				upd := buildAgentUpdate(connCtx, s.cfg, inst.InstanceID, s.instStore, s.deployStore, s.svcStore, s.proxyHandler)
+				upd := buildAgentUpdate(connCtx, s.cfg, inst.InstanceID, s.instStore, s.deployStore, s.svcStore, s.proxyHandler, s.fsCache)
 				msg := wsMessage{
 					ID:     ulid.Make().String(),
 					TS:     time.Now(),

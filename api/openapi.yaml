@@ -1724,6 +1724,154 @@ components:
           type: string
           description: Assigned domain for this instance
           example: "my-awesome-app.dployr.dev"
+
+    FSNode:
+      type: object
+      description: Filesystem node with permissions
+      properties:
+        path:
+          type: string
+          description: Full path to the file or directory
+        name:
+          type: string
+          description: Name of the file or directory
+        type:
+          type: string
+          enum: [file, dir, symlink]
+          description: Type of filesystem entry
+        size_bytes:
+          type: integer
+          format: int64
+          description: Size in bytes
+        mod_time:
+          type: string
+          format: date-time
+          description: Last modification time
+        mode:
+          type: string
+          description: Unix permission mode string (e.g. drwxr-xr-x)
+        owner:
+          type: string
+          description: Owner username
+        group:
+          type: string
+          description: Group name
+        uid:
+          type: integer
+          description: Owner user ID
+        gid:
+          type: integer
+          description: Owner group ID
+        readable:
+          type: boolean
+          description: Whether the agent can read this file
+        writable:
+          type: boolean
+          description: Whether the agent can write to this file
+        executable:
+          type: boolean
+          description: Whether this file is executable
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/FSNode'
+          description: Child nodes (for directories)
+        truncated:
+          type: boolean
+          description: Whether the children list was truncated
+        child_count:
+          type: integer
+          description: Total number of children if truncated
+
+    FSListResponse:
+      type: object
+      properties:
+        node:
+          $ref: '#/components/schemas/FSNode'
+        next_cursor:
+          type: string
+          description: Cursor for pagination
+        has_more:
+          type: boolean
+          description: Whether more children are available
+
+    FSReadResponse:
+      type: object
+      properties:
+        path:
+          type: string
+        content:
+          type: string
+          description: File content (base64 for binary, utf8 for text)
+        encoding:
+          type: string
+          enum: [base64, utf8]
+        size:
+          type: integer
+          format: int64
+          description: Total file size
+        truncated:
+          type: boolean
+          description: Whether content was truncated
+
+    FSWriteRequest:
+      type: object
+      required: [path, content]
+      properties:
+        path:
+          type: string
+          description: File path to write
+        content:
+          type: string
+          description: Content to write (base64 or utf8)
+        encoding:
+          type: string
+          enum: [base64, utf8]
+          default: utf8
+        mode:
+          type: string
+          description: File mode in octal (e.g. "0644")
+
+    FSCreateRequest:
+      type: object
+      required: [path, type]
+      properties:
+        path:
+          type: string
+          description: Path to create
+        type:
+          type: string
+          enum: [file, dir]
+          description: Type to create
+        content:
+          type: string
+          description: Initial content for files
+        mode:
+          type: string
+          description: File mode in octal
+
+    FSDeleteRequest:
+      type: object
+      required: [path]
+      properties:
+        path:
+          type: string
+          description: Path to delete
+        recursive:
+          type: boolean
+          default: false
+          description: Delete directories recursively
+
+    FSOpResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        path:
+          type: string
+        error:
+          type: string
+
     Error:
       type: object
       properties:
@@ -1835,4 +1983,5 @@ tags:
     description: Proxy configuration and management
   - name: System
     description: System status and information
-    
+  - name: Filesystem
+    description: Filesystem browsing and file operations

@@ -200,6 +200,7 @@ type UpdateV1 struct {
 	Proxy       SystemProxyStatus  `json:"proxy"`
 	Health      SystemHealth       `json:"health"`
 	Debug       *SystemDebug       `json:"debug,omitempty"`
+	FS          *FSSnapshot        `json:"fs,omitempty"`
 }
 
 // PlatformInfo describes the runtime platform of the agent.

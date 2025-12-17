@@ -84,18 +84,22 @@ func main() {
 	sysH := system.NewServiceHandler(sysSvc)
 	metricsH := _system.NewMetrics(cfg, is, trs)
 
+	fsCache := _system.NewFSCache()
+	fsH := system.NewFSHandler(fsCache, logger)
+
 	wh := web.WebHandler{
 		DepsH:    dh,
 		SvcH:     sh,
 		ProxyH:   ph,
 		SystemH:  sysH,
+		FSH:      fsH,
 		AuthM:    am,
 		MetricsH: metricsH,
 	}
 
 	mux := wh.BuildMux(cfg)
 
-	syncer := _system.NewSyncer(cfg, logger, is, trs, ds, ss, ps, mux, as)
+	syncer := _system.NewSyncer(cfg, logger, is, trs, ds, ss, ps, mux, as, fsCache)
 
 	go func() {
 		if err := wh.NewServer(cfg); err != nil {
