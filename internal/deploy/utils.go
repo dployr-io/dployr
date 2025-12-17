@@ -104,6 +104,11 @@ func runDeployScript(ctx context.Context, bp store.Blueprint) error {
 		desc = fmt.Sprintf("%s service", bp.Name)
 	}
 
+	// Write service config.toml with env vars and secrets
+	if err := writeServiceConfig(bp); err != nil {
+		return fmt.Errorf("failed to write service config: %v", err)
+	}
+
 	// Create temporary script file
 	tmpFile, err := os.CreateTemp("", "deploy_app*.sh")
 	if err != nil {
@@ -136,11 +141,6 @@ func runDeployScript(ctx context.Context, bp store.Blueprint) error {
 
 	args := []string{tmpFile.Name(), "deploy", bp.Name, string(bp.Runtime.Type), bp.Runtime.Version, bp.WorkingDir, bp.RunCmd, desc, buildCmd, port}
 
-	// Add environment variables as KEY=VALUE pairs
-	for key, value := range bp.EnvVars {
-		args = append(args, fmt.Sprintf("%s=%s", key, value))
-	}
-
 	cmd := exec.CommandContext(ctx, "bash", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -149,6 +149,52 @@ func runDeployScript(ctx context.Context, bp store.Blueprint) error {
 	)
 
 	return cmd.Run()
+}
+
+// ServiceConfig represents the TOML structure for service environment configuration
+type ServiceConfig struct {
+	Env     map[string]string `toml:"env"`
+	Secrets map[string]string `toml:"secrets"`
+}
+
+// writeServiceConfig writes the service config.toml file with env vars and secrets
+func writeServiceConfig(bp store.Blueprint) error {
+	configDir := filepath.Join(bp.WorkingDir)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %v", err)
+	}
+
+	configPath := filepath.Join(configDir, "config.toml")
+
+	config := ServiceConfig{
+		Env:     bp.EnvVars,
+		Secrets: bp.Secrets,
+	}
+
+	// Initialize empty maps if nil to ensure proper TOML output
+	if config.Env == nil {
+		config.Env = make(map[string]string)
+	}
+	if config.Secrets == nil {
+		config.Secrets = make(map[string]string)
+	}
+
+	// Build TOML content manually to maintain control over format
+	var content strings.Builder
+	content.WriteString("[env]\n")
+	for key, value := range config.Env {
+		content.WriteString(fmt.Sprintf("%s = %q\n", key, value))
+	}
+	content.WriteString("\n[secrets]\n")
+	for key, value := range config.Secrets {
+		content.WriteString(fmt.Sprintf("%s = %q\n", key, value))
+	}
+
+	if err := os.WriteFile(configPath, []byte(content.String()), 0600); err != nil {
+		return fmt.Errorf("failed to write config file: %v", err)
+	}
+
+	return nil
 }
 
 func buildAuthUrl(url string) (string, error) {

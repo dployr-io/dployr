@@ -23,7 +23,7 @@ func NewServiceStore(db *sql.DB, ds *DeploymentStore) *ServiceStore {
 	}
 }
 
-func (s ServiceStore) CreateService(ctx context.Context, svc *store.Service) (*store.Service, error) {
+func (s ServiceStore) createService(ctx context.Context, svc *store.Service) (*store.Service, error) {
 	stmt, err := s.db.PrepareContext(ctx, `
 		INSERT INTO services
 		(id, name, source, runtime, runtime_version, run_cmd, build_cmd, working_dir,
@@ -136,7 +136,7 @@ func (s ServiceStore) ListServices(ctx context.Context, limit, offset int) ([]*s
 	return services, nil
 }
 
-func (s ServiceStore) UpdateService(ctx context.Context, svc *store.Service) error {
+func (s ServiceStore) updateService(ctx context.Context, svc *store.Service) error {
 	stmt, err := s.db.PrepareContext(ctx, `
 		UPDATE services 
 		SET name = ?, source = ?, runtime = ?, runtime_version = ?, run_cmd = ?, build_cmd = ?, 
@@ -151,5 +151,32 @@ func (s ServiceStore) UpdateService(ctx context.Context, svc *store.Service) err
 	_, err = stmt.ExecContext(ctx, svc.Name, svc.Source, svc.Runtime, svc.RuntimeVersion, svc.RunCmd, svc.BuildCmd,
 		svc.WorkingDir, svc.StaticDir, svc.Image, svc.Remote, svc.Branch, svc.CommitHash, svc.DeploymentId,
 		svc.UpdatedAt, svc.ID)
+	return err
+}
+
+// SaveService creates a new service or updates an existing one.
+func (s ServiceStore) SaveService(ctx context.Context, svc *store.Service) (*store.Service, error) {
+	existing, err := s.GetService(ctx, svc.ID)
+	if err == nil && existing != nil {
+		svc.CreatedAt = existing.CreatedAt
+		svc.UpdatedAt = time.Now()
+		if err := s.updateService(ctx, svc); err != nil {
+			return nil, err
+		}
+		return svc, nil
+	}
+
+	return s.createService(ctx, svc)
+}
+
+// DeleteService removes a service by ID.
+func (s ServiceStore) DeleteService(ctx context.Context, id string) error {
+	stmt, err := s.db.PrepareContext(ctx, `DELETE FROM services WHERE id = ?`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.ExecContext(ctx, id)
 	return err
 }

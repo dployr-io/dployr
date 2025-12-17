@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/dployr-io/dployr/pkg/shared"
-	"github.com/dployr-io/dployr/pkg/store"
 )
 
 type ServiceHandler struct {
@@ -88,11 +87,7 @@ func (h *ServiceHandler) ListServices(w http.ResponseWriter, r *http.Request) {
 
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if parsedLimit := parseLimit(limitStr); parsedLimit > 0 {
-			if parsedLimit > 100 {
-				limit = 100
-			} else {
-				limit = parsedLimit
-			}
+			limit = min(parsedLimit, 100)
 		}
 	}
 
@@ -126,11 +121,11 @@ func (h *ServiceHandler) ListServices(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *ServiceHandler) UpdateService(w http.ResponseWriter, r *http.Request) {
+func (h *ServiceHandler) DeleteService(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	h.logger.Info("service.update_service request", "method", r.Method, "path", r.URL.Path)
+	h.logger.Info("service.delete_service request", "method", r.Method, "path", r.URL.Path)
 
-	if r.Method != http.MethodPut && r.Method != http.MethodPatch {
+	if r.Method != http.MethodDelete {
 		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
 		return
 	}
@@ -143,40 +138,14 @@ func (h *ServiceHandler) UpdateService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var service store.Service
-	if err := json.NewDecoder(r.Body).Decode(&service); err != nil {
-		h.logger.Error("failed to decode request body", "error", err)
-		e := shared.Errors.Request.BadRequest
-		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
-		return
-	}
-
-	updated, err := h.servicer.api.UpdateService(ctx, serviceID, service)
-	if err != nil {
-		h.logger.Error("failed to update service", "error", err, "service_id", serviceID)
-
-		switch err.Error() {
-		case string(shared.BadRequest):
-			e := shared.Errors.Request.BadRequest
-			shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
-		case string(shared.RuntimeError):
-			fallthrough
-		default:
-			e := shared.Errors.Runtime.InternalServer
-			shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
-		}
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(updated); err != nil {
-		h.logger.Error("failed to encode response", "error", err)
+	if err := h.servicer.api.DeleteService(ctx, serviceID); err != nil {
+		h.logger.Error("failed to delete service", "error", err, "service_id", serviceID)
 		e := shared.Errors.Runtime.InternalServer
 		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func parseLimit(s string) int {

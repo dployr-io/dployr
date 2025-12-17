@@ -69,6 +69,7 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 			StaticDir:  req.StaticDir,
 			Image:      req.Image,
 			EnvVars:    req.EnvVars,
+			Secrets:    req.Secrets,
 			Remote:     req.Remote,
 			Source:     req.Source,
 		},

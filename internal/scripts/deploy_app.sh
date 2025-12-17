@@ -5,7 +5,8 @@
 
 # deploy_app.sh — unified deployment script
 # Handles runtime setup, build, and service installation in one go
-# Usage: deploy_app.sh <action> <service_name> <runtime> <version> <workdir> <run_cmd> <description> <build_cmd> <port> [env_vars...]
+# Usage: deploy_app.sh <action> <service_name> <runtime> <version> <workdir> <run_cmd> <description> <build_cmd> <port>
+# Environment variables are read from config.toml in the workdir
 
 set -euo pipefail
 
@@ -19,10 +20,6 @@ RUN_CMD="${6:-}"
 DESCRIPTION="${7:-}"
 BUILD_CMD="${8:-}"
 PORT="${9:-3000}"
-shift 9 2>/dev/null || true
-# Store remaining args (env vars) in array
-declare -a ENV_VARS_ARRAY
-ENV_VARS_ARRAY=("$@")
 
 # --- logging ---
 log() { echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] $*"; }
@@ -120,48 +117,66 @@ run_build() {
     fi
 }
 
-# --- create .env file ---
+# --- create .env file from config.toml ---
 create_env_file() {
     local workdir="$1"
     local port="$2"
-    shift 2
     
     local env_file="${workdir}/.env"
+    local config_file="${workdir}/config.toml"
     
     log "Creating .env file at: $env_file"
     log "Working directory: $workdir"
     log "Port: $port"
-    log "Additional env vars count: $#"
-    
-    # Start with PORT
-    echo "PORT=${port}" > "$env_file" || abort "Failed to write to $env_file"
     
     # Track which keys we've already written to avoid duplicates
     declare -A written_keys
+    
+    # Start with PORT
+    echo "PORT=${port}" > "$env_file" || abort "Failed to write to $env_file"
     written_keys["PORT"]=1
     
-    # Load existing keys from file if it exists
-    if [ -f "$env_file" ]; then
-        while IFS='=' read -r key value; do
-            if [ -n "$key" ]; then
-                written_keys["$key"]=1
+    # Read from config.toml if it exists
+    if [ -f "$config_file" ]; then
+        log "Reading environment configuration from: $config_file"
+        
+        local current_section=""
+        while IFS= read -r line || [ -n "$line" ]; do
+            # Skip empty lines and comments
+            [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+            
+            # Detect section headers
+            if [[ "$line" =~ ^\[([a-zA-Z_]+)\]$ ]]; then
+                current_section="${BASH_REMATCH[1]}"
+                log "Processing section: [$current_section]"
+                continue
             fi
-        done < "$env_file"
-    fi
-    
-    # Add any additional env vars passed as KEY=VALUE pairs
-    for env_var in "$@"; do
-        if [ -n "$env_var" ]; then
-            local key="${env_var%%=*}"
-            if [ -z "${written_keys[$key]:-}" ]; then
-                log "Adding env var: $env_var"
-                echo "$env_var" >> "$env_file"
+            
+            # Parse key = "value" pairs (handles quoted values)
+            if [[ "$line" =~ ^[[:space:]]*([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]*=[[:space:]]*\"(.*)\"[[:space:]]*$ ]]; then
+                local key="${BASH_REMATCH[1]}"
+                local value="${BASH_REMATCH[2]}"
+                
+                # Skip if key already written
+                if [ -n "${written_keys[$key]:-}" ]; then
+                    log "Skipping duplicate key: $key (already set)"
+                    continue
+                fi
+                
+                # Write to .env file (both env and secrets go to .env)
+                echo "${key}=${value}" >> "$env_file"
                 written_keys[$key]=1
-            else
-                log "Skipping duplicate env var: $env_var (key: $key already set)"
+                
+                if [ "$current_section" = "secrets" ]; then
+                    log "Adding secret: $key=***"
+                else
+                    log "Adding env var: $key=$value"
+                fi
             fi
-        fi
-    done
+        done < "$config_file"
+    else
+        log "No config.toml found at $config_file, using PORT only"
+    fi
     
     log "Environment variables written to .env file"
 }
@@ -322,12 +337,8 @@ deploy() {
     # Verify runtime is available
     verify_runtime "$RUNTIME"
     
-    # Create .env file with PORT and environment variables
-    if [ ${#ENV_VARS_ARRAY[@]} -gt 0 ]; then
-        create_env_file "$WORKDIR" "$PORT" "${ENV_VARS_ARRAY[@]}"
-    else
-        create_env_file "$WORKDIR" "$PORT"
-    fi
+    # Create .env file from config.toml (env vars and secrets)
+    create_env_file "$WORKDIR" "$PORT"
     
     # Run build if specified
     run_build "$WORKDIR" "$BUILD_CMD"

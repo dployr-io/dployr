@@ -155,11 +155,11 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		StaticDir:  d.Blueprint.StaticDir,
 		Image:      d.Blueprint.Image,
 		EnvVars:    d.Blueprint.EnvVars,
+		Secrets:    d.Blueprint.Secrets,
 		Status:     d.Blueprint.Status,
 		ProjectID:  d.Blueprint.ProjectID,
 	}
 
-	// Deploy app: setup runtime, build, install and start service in one go
 	shared.LogInfoF(id, logPath, "deploying application (runtime setup, build, service installation)")
 	err = deploy.DeployApp(bp)
 	if err != nil {
@@ -182,14 +182,21 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		StaticDir:      d.Blueprint.StaticDir,
 		Image:          d.Blueprint.Image,
 		EnvVars:        d.Blueprint.EnvVars,
+		Secrets:        d.Blueprint.Secrets,
 		Remote:         d.Blueprint.Remote.Url,
-		Status:         d.Blueprint.Remote.Branch,
+		Branch:         d.Blueprint.Remote.Branch,
 		CommitHash:     d.Blueprint.Remote.CommitHash,
 		DeploymentId:   d.ID,
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
-	w.svcStore.CreateService(ctx, req)
+
+	_, err = w.svcStore.SaveService(ctx, req)
+	if err != nil {
+		err = fmt.Errorf("failed to save service: %s", err)
+		shared.LogErrF(id, logPath, err)
+		return err
+	}
 
 	shared.LogInfoF(id, logPath, fmt.Sprintf("successfully deployed %s", d.Blueprint.Name))
 	w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusCompleted))

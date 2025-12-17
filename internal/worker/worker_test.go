@@ -68,11 +68,6 @@ type mockServiceStore struct {
 	services map[string]*store.Service
 }
 
-func (m *mockServiceStore) CreateService(ctx context.Context, svc *store.Service) (*store.Service, error) {
-	m.services[svc.ID] = svc
-	return svc, nil
-}
-
 func (m *mockServiceStore) GetService(ctx context.Context, id string) (*store.Service, error) {
 	if s, ok := m.services[id]; ok {
 		return s, nil
@@ -88,10 +83,13 @@ func (m *mockServiceStore) ListServices(ctx context.Context, limit, offset int) 
 	return result, nil
 }
 
-func (m *mockServiceStore) UpdateService(ctx context.Context, svc *store.Service) error {
-	if _, ok := m.services[svc.ID]; ok {
-		m.services[svc.ID] = svc
-	}
+func (m *mockServiceStore) SaveService(ctx context.Context, svc *store.Service) (*store.Service, error) {
+	m.services[svc.ID] = svc
+	return svc, nil
+}
+
+func (m *mockServiceStore) DeleteService(ctx context.Context, id string) error {
+	delete(m.services, id)
 	return nil
 }
 

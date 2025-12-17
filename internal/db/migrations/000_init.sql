@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS services (
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
+CREATE INDEX idx_services_name ON services(name);
+
 -- INSTANCE TABLE
 CREATE TABLE IF NOT EXISTS instance (
     id TEXT PRIMARY KEY,

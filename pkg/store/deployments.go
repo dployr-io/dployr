@@ -41,6 +41,7 @@ type Blueprint struct {
 	StaticDir  string            `json:"static_dir,omitempty" db:"static_dir"`
 	Image      string            `json:"image,omitempty" db:"image"`
 	EnvVars    map[string]string `json:"env_vars,omitempty" db:"env_vars"`
+	Secrets    map[string]string `json:"secrets,omitempty" db:"secrets"`
 	Status     string            `json:"status" db:"status"`
 	ProjectID  *string           `json:"project_id,omitempty" db:"project_id"`
 }

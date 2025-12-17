@@ -38,6 +38,7 @@ type Service struct {
 	StaticDir      string            `json:"static_dir,omitempty" db:"static_dir"`
 	Image          string            `json:"image,omitempty" db:"image"`
 	EnvVars        map[string]string `json:"env_vars,omitempty"`
+	Secrets        map[string]string `json:"secrets,omitempty"`
 	Status         string            `json:"status"`
 	Remote         string            `json:"remote,omitempty" db:"remote_url"`
 	Branch         string            `json:"branch" db:"remote_branch"`
@@ -49,8 +50,8 @@ type Service struct {
 }
 
 type ServiceStore interface {
-	CreateService(ctx context.Context, svc *Service) (*Service, error)
 	GetService(ctx context.Context, id string) (*Service, error)
 	ListServices(ctx context.Context, limit, offset int) ([]*Service, error)
-	UpdateService(ctx context.Context, svc *Service) error
+	SaveService(ctx context.Context, svc *Service) (*Service, error)
+	DeleteService(ctx context.Context, id string) error
 }

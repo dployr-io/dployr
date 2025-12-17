@@ -31,10 +31,9 @@ type ListServicesResponse struct {
 }
 
 type HandleService interface {
-	CreateService(ctx context.Context, svc *store.Service) (store.Service, error)
 	GetService(ctx context.Context, id string) (*store.Service, error)
 	ListServices(ctx context.Context, id string, limit, offset int) ([]*store.Service, error)
-	UpdateService(ctx context.Context, id string, status store.Service) (*store.Service, error)
+	DeleteService(ctx context.Context, id string) error
 }
 
 func NewServicer(c *shared.Config, l *shared.Logger, s store.ServiceStore, a HandleService) *Servicer {

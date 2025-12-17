@@ -24,14 +24,6 @@ func Init(cfg *shared.Config, logger *shared.Logger, store store.ServiceStore) *
 	}
 }
 
-func (s *Servicer) CreateService(ctx context.Context, svc *store.Service) (store.Service, error) {
-	result, err := s.store.CreateService(ctx, svc)
-	if err != nil {
-		return store.Service{}, err
-	}
-	return *result, nil
-}
-
 func (s *Servicer) GetService(ctx context.Context, id string) (*store.Service, error) {
 	return s.store.GetService(ctx, id)
 }
@@ -40,15 +32,6 @@ func (s *Servicer) ListServices(ctx context.Context, userID string, limit, offse
 	return s.store.ListServices(ctx, limit, offset)
 }
 
-func (s *Servicer) UpdateService(ctx context.Context, id string, svc store.Service) (*store.Service, error) {
-	if err := s.store.UpdateService(ctx, &svc); err != nil {
-		return nil, err
-	}
-
-	updated, err := s.store.GetService(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	return updated, nil
+func (s *Servicer) DeleteService(ctx context.Context, id string) error {
+	return s.store.DeleteService(ctx, id)
 }
