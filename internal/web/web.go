@@ -19,6 +19,7 @@ type WebHandler struct {
 	ProxyH   ProxyHandler
 	SystemH  SystemHandler
 	FSH      FSHandler
+	TopH     TopHandler
 	AuthM    *auth.Middleware
 	MetricsH http.Handler
 }
@@ -63,6 +64,10 @@ type FSHandler interface {
 	HandleWrite(w http.ResponseWriter, r *http.Request)
 	HandleCreate(w http.ResponseWriter, r *http.Request)
 	HandleDelete(w http.ResponseWriter, r *http.Request)
+}
+
+type TopHandler interface {
+	HandleTop(w http.ResponseWriter, r *http.Request)
 }
 
 // BuildMux creates and returns the configured HTTP multiplexer.
@@ -166,6 +171,9 @@ func (w *WebHandler) BuildMux(cfg *shared.Config) *http.ServeMux {
 	mux.Handle("/system/fs/write", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.FSH.HandleWrite)))))
 	mux.Handle("/system/fs/create", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.FSH.HandleCreate)))))
 	mux.Handle("/system/fs/delete", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.FSH.HandleDelete)))))
+
+	// System top endpoint (process/resource monitoring)
+	mux.Handle("/system/top", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleViewer))(http.HandlerFunc(w.TopH.HandleTop)))))
 
 	mux.Handle("/system/mode", corsMiddleware(w.AuthM.Auth(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		switch req.Method {

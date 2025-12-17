@@ -255,6 +255,13 @@ func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string
 		fsSnapshot = fsCache.GetSnapshot()
 	}
 
+	// Get system top snapshot (process/resource usage)
+	var topSnapshot *system.SystemTop
+	topCollector := NewTopCollector()
+	if top, err := topCollector.CollectSummary(ctx); err == nil {
+		topSnapshot = top
+	}
+
 	return &system.UpdateV1{
 		Schema:      "v1",
 		Seq:         seq,
@@ -273,6 +280,7 @@ func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string
 		Health:      system.SystemHealth{Overall: overallHealth, WS: wsHealth, Tasks: tasksHealth, Auth: authHealth},
 		Debug:       dbg,
 		FS:          fsSnapshot,
+		Top:         topSnapshot,
 	}
 }
 

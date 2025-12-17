@@ -149,6 +149,96 @@ func (m *Metrics) agentTokenTTLSeconds(ctx context.Context) int64 {
 }
 
 func (m *Metrics) writeSystemMetrics(buf *bytes.Buffer) {
+	ctx := context.Background()
+
+	// Use TopCollector for accurate metrics via gopsutil
+	topCollector := NewTopCollector()
+	top, err := topCollector.CollectSummary(ctx)
+	if err == nil && top != nil {
+		// Load averages
+		buf.WriteString("# HELP dployr_system_load1 1-minute load average\n")
+		buf.WriteString("# TYPE dployr_system_load1 gauge\n")
+		fmt.Fprintf(buf, "dployr_system_load1 %f\n\n", top.LoadAvg.Load1)
+
+		buf.WriteString("# HELP dployr_system_load5 5-minute load average\n")
+		buf.WriteString("# TYPE dployr_system_load5 gauge\n")
+		fmt.Fprintf(buf, "dployr_system_load5 %f\n\n", top.LoadAvg.Load5)
+
+		buf.WriteString("# HELP dployr_system_load15 15-minute load average\n")
+		buf.WriteString("# TYPE dployr_system_load15 gauge\n")
+		fmt.Fprintf(buf, "dployr_system_load15 %f\n\n", top.LoadAvg.Load15)
+
+		// CPU usage percentages
+		buf.WriteString("# HELP dployr_system_cpu_user_percent CPU user time percentage\n")
+		buf.WriteString("# TYPE dployr_system_cpu_user_percent gauge\n")
+		fmt.Fprintf(buf, "dployr_system_cpu_user_percent %f\n\n", top.CPU.User)
+
+		buf.WriteString("# HELP dployr_system_cpu_system_percent CPU system time percentage\n")
+		buf.WriteString("# TYPE dployr_system_cpu_system_percent gauge\n")
+		fmt.Fprintf(buf, "dployr_system_cpu_system_percent %f\n\n", top.CPU.System)
+
+		buf.WriteString("# HELP dployr_system_cpu_idle_percent CPU idle time percentage\n")
+		buf.WriteString("# TYPE dployr_system_cpu_idle_percent gauge\n")
+		fmt.Fprintf(buf, "dployr_system_cpu_idle_percent %f\n\n", top.CPU.Idle)
+
+		buf.WriteString("# HELP dployr_system_cpu_iowait_percent CPU I/O wait percentage\n")
+		buf.WriteString("# TYPE dployr_system_cpu_iowait_percent gauge\n")
+		fmt.Fprintf(buf, "dployr_system_cpu_iowait_percent %f\n\n", top.CPU.IOWait)
+
+		// Memory metrics (exact bytes from gopsutil)
+		buf.WriteString("# HELP dployr_system_memory_total_bytes Total system memory in bytes\n")
+		buf.WriteString("# TYPE dployr_system_memory_total_bytes gauge\n")
+		fmt.Fprintf(buf, "dployr_system_memory_total_bytes %d\n\n", top.Memory.Total)
+
+		buf.WriteString("# HELP dployr_system_memory_used_bytes Used system memory in bytes\n")
+		buf.WriteString("# TYPE dployr_system_memory_used_bytes gauge\n")
+		fmt.Fprintf(buf, "dployr_system_memory_used_bytes %d\n\n", top.Memory.Used)
+
+		buf.WriteString("# HELP dployr_system_memory_free_bytes Free system memory in bytes\n")
+		buf.WriteString("# TYPE dployr_system_memory_free_bytes gauge\n")
+		fmt.Fprintf(buf, "dployr_system_memory_free_bytes %d\n\n", top.Memory.Free)
+
+		buf.WriteString("# HELP dployr_system_memory_available_bytes Available system memory in bytes\n")
+		buf.WriteString("# TYPE dployr_system_memory_available_bytes gauge\n")
+		fmt.Fprintf(buf, "dployr_system_memory_available_bytes %d\n\n", top.Memory.Available)
+
+		buf.WriteString("# HELP dployr_system_memory_used_percent Memory usage percentage\n")
+		buf.WriteString("# TYPE dployr_system_memory_used_percent gauge\n")
+		fmt.Fprintf(buf, "dployr_system_memory_used_percent %f\n\n", top.Memory.UsedPercent)
+
+		// Swap metrics
+		buf.WriteString("# HELP dployr_system_swap_total_bytes Total swap space in bytes\n")
+		buf.WriteString("# TYPE dployr_system_swap_total_bytes gauge\n")
+		fmt.Fprintf(buf, "dployr_system_swap_total_bytes %d\n\n", top.Memory.SwapTotal)
+
+		buf.WriteString("# HELP dployr_system_swap_used_bytes Used swap space in bytes\n")
+		buf.WriteString("# TYPE dployr_system_swap_used_bytes gauge\n")
+		fmt.Fprintf(buf, "dployr_system_swap_used_bytes %d\n\n", top.Memory.SwapUsed)
+
+		// Task/process counts
+		buf.WriteString("# HELP dployr_system_tasks_total Total number of processes\n")
+		buf.WriteString("# TYPE dployr_system_tasks_total gauge\n")
+		fmt.Fprintf(buf, "dployr_system_tasks_total %d\n\n", top.Tasks.Total)
+
+		buf.WriteString("# HELP dployr_system_tasks_running Number of running processes\n")
+		buf.WriteString("# TYPE dployr_system_tasks_running gauge\n")
+		fmt.Fprintf(buf, "dployr_system_tasks_running %d\n\n", top.Tasks.Running)
+
+		buf.WriteString("# HELP dployr_system_tasks_sleeping Number of sleeping processes\n")
+		buf.WriteString("# TYPE dployr_system_tasks_sleeping gauge\n")
+		fmt.Fprintf(buf, "dployr_system_tasks_sleeping %d\n\n", top.Tasks.Sleeping)
+
+		buf.WriteString("# HELP dployr_system_tasks_zombie Number of zombie processes\n")
+		buf.WriteString("# TYPE dployr_system_tasks_zombie gauge\n")
+		fmt.Fprintf(buf, "dployr_system_tasks_zombie %d\n\n", top.Tasks.Zombie)
+
+		// Uptime
+		buf.WriteString("# HELP dployr_system_uptime_seconds System uptime in seconds\n")
+		buf.WriteString("# TYPE dployr_system_uptime_seconds gauge\n")
+		fmt.Fprintf(buf, "dployr_system_uptime_seconds %d\n\n", top.Uptime)
+	}
+
+	// Disk usage metrics (keep using existing approach for partitions)
 	sysInfo, err := utils.GetSystemInfo()
 	if err != nil {
 		return
@@ -158,31 +248,6 @@ func (m *Metrics) writeSystemMetrics(buf *bytes.Buffer) {
 	buf.WriteString("# HELP dployr_system_cpu_count Number of CPU cores\n")
 	buf.WriteString("# TYPE dployr_system_cpu_count gauge\n")
 	fmt.Fprintf(buf, "dployr_system_cpu_count %d\n\n", sysInfo.HW.CPUCount)
-
-	// Memory metrics (parse human-readable values to bytes)
-	if sysInfo.HW.MemTotal != nil {
-		if bytes := parseHumanBytes(*sysInfo.HW.MemTotal); bytes > 0 {
-			buf.WriteString("# HELP dployr_system_memory_total_bytes Total system memory in bytes\n")
-			buf.WriteString("# TYPE dployr_system_memory_total_bytes gauge\n")
-			fmt.Fprintf(buf, "dployr_system_memory_total_bytes %d\n\n", bytes)
-		}
-	}
-
-	if sysInfo.HW.MemUsed != nil {
-		if bytes := parseHumanBytes(*sysInfo.HW.MemUsed); bytes > 0 {
-			buf.WriteString("# HELP dployr_system_memory_used_bytes Used system memory in bytes\n")
-			buf.WriteString("# TYPE dployr_system_memory_used_bytes gauge\n")
-			fmt.Fprintf(buf, "dployr_system_memory_used_bytes %d\n\n", bytes)
-		}
-	}
-
-	if sysInfo.HW.MemFree != nil {
-		if bytes := parseHumanBytes(*sysInfo.HW.MemFree); bytes > 0 {
-			buf.WriteString("# HELP dployr_system_memory_free_bytes Free system memory in bytes\n")
-			buf.WriteString("# TYPE dployr_system_memory_free_bytes gauge\n")
-			fmt.Fprintf(buf, "dployr_system_memory_free_bytes %d\n\n", bytes)
-		}
-	}
 
 	// Disk usage metrics for each partition
 	for _, part := range sysInfo.Storage.Partitions {

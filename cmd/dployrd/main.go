@@ -87,12 +87,16 @@ func main() {
 	fsCache := _system.NewFSCache()
 	fsH := system.NewFSHandler(fsCache, logger)
 
+	topCollector := _system.NewTopCollector()
+	topH := system.NewTopHandler(topCollector, logger)
+
 	wh := web.WebHandler{
 		DepsH:    dh,
 		SvcH:     sh,
 		ProxyH:   ph,
 		SystemH:  sysH,
 		FSH:      fsH,
+		TopH:     topH,
 		AuthM:    am,
 		MetricsH: metricsH,
 	}

@@ -201,6 +201,7 @@ type UpdateV1 struct {
 	Health      SystemHealth       `json:"health"`
 	Debug       *SystemDebug       `json:"debug,omitempty"`
 	FS          *FSSnapshot        `json:"fs,omitempty"`
+	Top         *SystemTop         `json:"top,omitempty"`
 }
 
 // PlatformInfo describes the runtime platform of the agent.

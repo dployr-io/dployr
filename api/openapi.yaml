@@ -450,6 +450,49 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /system/top:
+    get:
+      tags:
+        - System
+      summary: Get system resource snapshot
+      description: |
+        Returns a `top`-like snapshot of system resource usage, including load averages,
+        CPU/memory usage, task counts, and a process list.
+
+        Viewer+ role is required.
+      operationId: getSystemTop
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: sort
+          in: query
+          description: Sort processes by CPU or memory usage
+          schema:
+            type: string
+            enum: [cpu, mem]
+            default: cpu
+        - name: limit
+          in: query
+          description: Maximum number of processes to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+      responses:
+        '200':
+          description: System resource snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemTop'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /system/info:
     get:
       tags:
@@ -1340,6 +1383,134 @@ components:
                         type: integer
                         format: int64
                         nullable: true
+
+    ProcessInfo:
+      type: object
+      description: Process resource usage snapshot.
+      properties:
+        pid:
+          type: integer
+          format: int32
+        user:
+          type: string
+        command:
+          type: string
+        cpu_percent:
+          type: number
+          format: double
+        mem_percent:
+          type: number
+          format: float
+        rss_bytes:
+          type: integer
+          format: int64
+        vms_bytes:
+          type: integer
+          format: int64
+        state:
+          type: string
+          description: Process state (platform-dependent)
+
+    CPUStats:
+      type: object
+      description: CPU usage breakdown as percentages.
+      properties:
+        user:
+          type: number
+          format: double
+        system:
+          type: number
+          format: double
+        idle:
+          type: number
+          format: double
+        iowait:
+          type: number
+          format: double
+        steal:
+          type: number
+          format: double
+
+    MemoryStats:
+      type: object
+      description: Memory usage in bytes.
+      properties:
+        total_bytes:
+          type: integer
+          format: int64
+        used_bytes:
+          type: integer
+          format: int64
+        free_bytes:
+          type: integer
+          format: int64
+        available_bytes:
+          type: integer
+          format: int64
+        used_percent:
+          type: number
+          format: double
+        swap_total_bytes:
+          type: integer
+          format: int64
+        swap_used_bytes:
+          type: integer
+          format: int64
+        swap_free_bytes:
+          type: integer
+          format: int64
+
+    LoadAverage:
+      type: object
+      description: Load averages.
+      properties:
+        load1:
+          type: number
+          format: double
+        load5:
+          type: number
+          format: double
+        load15:
+          type: number
+          format: double
+
+    TaskStats:
+      type: object
+      description: Task/process counts by state.
+      properties:
+        total:
+          type: integer
+        running:
+          type: integer
+        sleeping:
+          type: integer
+        stopped:
+          type: integer
+        zombie:
+          type: integer
+
+    SystemTop:
+      type: object
+      description: Top-like system snapshot.
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        uptime_seconds:
+          type: integer
+          format: int64
+        load_avg:
+          $ref: '#/components/schemas/LoadAverage'
+        cpu:
+          $ref: '#/components/schemas/CPUStats'
+        memory:
+          $ref: '#/components/schemas/MemoryStats'
+        tasks:
+          $ref: '#/components/schemas/TaskStats'
+        processes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProcessInfo'
 
     SystemInfo:
       type: object
