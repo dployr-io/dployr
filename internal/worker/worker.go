@@ -25,7 +25,7 @@ type Worker struct {
 	depsStore     store.DeploymentStore
 	svcStore      store.ServiceStore
 	cfg           *shared.Config
-	semaphore     chan struct{}
+	semaphore     *shared.Semaphore
 	activeJobs    map[string]bool
 	jobsMux       sync.RWMutex
 	queue         chan string
@@ -39,7 +39,7 @@ func New(m int, c *shared.Config, l *shared.Logger, d store.DeploymentStore, s s
 		depsStore:     d,
 		svcStore:      s,
 		cfg:           c,
-		semaphore:     make(chan struct{}, m),
+		semaphore:     shared.NewSemaphore(m),
 		activeJobs:    make(map[string]bool),
 		queue:         make(chan string, 100),
 	}
@@ -54,7 +54,10 @@ func (w *Worker) Start(ctx context.Context) {
 				continue
 			}
 
-			w.semaphore <- struct{}{}
+			if err := w.semaphore.Acquire(ctx); err != nil {
+				w.logger.Warn("failed to acquire semaphore slot", "error", err)
+				continue
+			}
 			w.markActive(id)
 
 			go w.execute(ctx, id)
@@ -73,7 +76,7 @@ func (w *Worker) Submit(id string) {
 func (w *Worker) execute(ctx context.Context, id string) {
 	defer func() {
 		w.markInactive(id)
-		<-w.semaphore
+		w.semaphore.Release()
 	}()
 
 	w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusInProgress))

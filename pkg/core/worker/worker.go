@@ -13,7 +13,7 @@ type Worker struct {
 	logger        *shared.Logger
 	store         store.DeploymentStore
 	config        *shared.Config
-	semaphore     chan struct{}
+	semaphore     *shared.Semaphore
 	activeJobs    map[string]bool
 	queue         chan string
 }
@@ -24,7 +24,7 @@ func NewWorker(m int, c *shared.Config, l *shared.Logger, s store.DeploymentStor
 		logger:        l,
 		store:         s,
 		config:        c,
-		semaphore:     make(chan struct{}, m),
+		semaphore:     shared.NewSemaphore(m),
 		activeJobs:    make(map[string]bool),
 		queue:         make(chan string, 100),
 	}

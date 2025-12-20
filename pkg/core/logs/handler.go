@@ -85,19 +85,10 @@ type LogChunk struct {
 type StreamOptions struct {
 	StreamID  string
 	Path      string
-	Mode      StreamMode // "tail" or "historical"
-	StartFrom int64      // Byte offset to start from (0 = beginning, -1 = end)
-	Limit     int        // Max entries to return (for historical mode)
-	Follow    bool       // Continue tailing after reaching end (tail mode)
+	StartFrom int64  // Byte offset for pagination (0 if not resuming)
+	Limit     int    // Max entries to return per chunk
+	Duration  string // Controls behavior: "live" = tail from now, time duration = read history then tail
 }
-
-// StreamMode defines how logs should be streamed.
-type StreamMode string
-
-const (
-	StreamModeTail       StreamMode = "tail"       // Start from end, follow new logs
-	StreamModeHistorical StreamMode = "historical" // Read from offset, don't follow
-)
 
 // LogStreamer defines the interface for streaming logs.
 type LogStreamer interface {

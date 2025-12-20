@@ -13,28 +13,76 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dployr-io/dployr/pkg/core/logs"
 	"github.com/dployr-io/dployr/pkg/shared"
 )
 
+var (
+	streamSemaphore *shared.Semaphore
+	streamSemOnce   sync.Once
+)
+
 // Handler implements the LogStreamer interface.
 type Handler struct {
 	logger *shared.Logger
+	config *shared.Config
 }
 
 // NewHandler creates a new log stream handler.
 func NewHandler(logger *shared.Logger) *Handler {
-	return &Handler{logger: logger}
+	cfg, err := shared.LoadConfig()
+	if err != nil {
+		logger.Warn("failed to load config, using defaults", "error", err)
+		cfg = &shared.Config{
+			LogMaxChunkBytes:    8 * 1024 * 1024,
+			LogBatchSize:        50,
+			LogBatchTimeout:     250 * time.Millisecond,
+			LogMaxBatchTimeout:  2 * time.Second,
+			LogPollInterval:     100 * time.Millisecond,
+			LogMaxFileReadBytes: 100 * 1024 * 1024,
+			LogMaxStreams:       100,
+		}
+	}
+
+	streamSemOnce.Do(func() {
+		streamSemaphore = shared.NewSemaphore(cfg.LogMaxStreams)
+	})
+
+	return &Handler{
+		logger: logger,
+		config: cfg,
+	}
 }
 
 // StreamLogs streams logs based on the provided options.
-// Supports both tail mode (follow new logs) and historical mode (read from offset).
+// Duration controls behavior: "live" = tail from now, time duration = read history then tail.
 func (h *Handler) StreamLogs(ctx context.Context, opts logs.StreamOptions, sendChunk func(chunk logs.LogChunk) error) error {
-	logPath := h.getLogPath(opts.Path)
-	h.logger.Debug("starting log stream", "stream_id", opts.StreamID, "path", opts.Path, "mode", opts.Mode, "resolved_path", logPath)
+	// Rate limiting: acquire semaphore slot
+	if err := streamSemaphore.Acquire(ctx); err != nil {
+		return fmt.Errorf("stream rate limit: %w", err)
+	}
+	defer streamSemaphore.Release()
 
+	logPath := h.getLogPath(opts.Path)
+	h.logger.Debug("starting log stream", "stream_id", opts.StreamID, "path", opts.Path, "duration", opts.Duration, "resolved_path", logPath)
+
+	var cutoffTime time.Time
+	if opts.Duration != "" && opts.Duration != "live" {
+		if d, err := parseDuration(opts.Duration); err == nil {
+			cutoffTime = time.Now().Add(-d)
+			h.logger.Debug("time-based filter enabled", "duration", opts.Duration, "cutoff", cutoffTime)
+		}
+	}
+
+	return h.streamTail(ctx, logPath, opts, cutoffTime, sendChunk)
+}
+
+// streamTail reads from current position and follows new log entries with file rotation detection.
+// Handles both historical reads (with time-based cutoff) and live tailing.
+func (h *Handler) streamTail(ctx context.Context, logPath string, opts logs.StreamOptions, cutoffTime time.Time, sendChunk func(chunk logs.LogChunk) error) error {
 	file, err := os.Open(logPath)
 	if err != nil {
 		h.logger.Error("failed to open log file", "error", err, "path", logPath)
@@ -42,140 +90,71 @@ func (h *Handler) StreamLogs(ctx context.Context, opts logs.StreamOptions, sendC
 	}
 	defer file.Close()
 
-	if opts.Mode == logs.StreamModeHistorical {
-		return h.streamHistorical(ctx, file, opts, sendChunk)
+	// Track file identity for rotation detection
+	var lastInode uint64
+	if stat, err := file.Stat(); err == nil {
+		if sys := stat.Sys(); sys != nil {
+			if runtime.GOOS != "windows" {
+				lastInode = getInode(sys)
+			}
+		}
 	}
-	return h.streamTail(ctx, file, opts, sendChunk)
-}
-
-// streamHistorical reads a fixed number of log entries from a specific offset.
-func (h *Handler) streamHistorical(ctx context.Context, file *os.File, opts logs.StreamOptions, sendChunk func(chunk logs.LogChunk) error) error {
-	fileInfo, err := file.Stat()
-	if err != nil {
-		return fmt.Errorf("failed to stat file: %w", err)
-	}
-	fileSize := fileInfo.Size()
 
 	// Determine start position
 	startPos := opts.StartFrom
-	if startPos < 0 {
-		startPos = fileSize // Start from end
-	}
-	if startPos > fileSize {
-		startPos = fileSize
-	}
 
-	// Seek to start position
-	if _, err := file.Seek(startPos, io.SeekStart); err != nil {
-		return fmt.Errorf("failed to seek: %w", err)
-	}
-
-	reader := bufio.NewReader(file)
-	var entries []logs.LogEntry
-	limit := opts.Limit
-	if limit <= 0 {
-		limit = 100 // Default limit
-	}
-
-	// Max chunk size in bytes (reserve space for JSON overhead)
-	const maxChunkBytes = 8 * 1024 * 1024
-	estimatedSize := 0
-
-	for len(entries) < limit {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		line, err := reader.ReadString('\n')
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			h.logger.Error("failed to read log line", "error", err)
-			break
-		}
-
-		entry := h.parseLogLine(line)
-		if entry != nil {
-			entrySize := len(entry.RawLine) + 200
-			if estimatedSize+entrySize > maxChunkBytes && len(entries) > 0 {
-				currentPos, _ := file.Seek(0, io.SeekCurrent)
-				if err := sendChunk(logs.LogChunk{
-					StreamID: opts.StreamID,
-					Path:     opts.Path,
-					Entries:  entries,
-					EOF:      false,
-					HasMore:  true,
-					Offset:   currentPos,
-				}); err != nil {
-					return err
-				}
-				entries = nil
-				estimatedSize = 0
-			}
-			entries = append(entries, *entry)
-			estimatedSize += entrySize
-		}
-	}
-
-	// Get current position
-	currentPos, _ := file.Seek(0, io.SeekCurrent)
-	hasMore := currentPos < fileSize
-
-	if len(entries) > 0 || !hasMore {
-		if err := sendChunk(logs.LogChunk{
-			StreamID: opts.StreamID,
-			Path:     opts.Path,
-			Entries:  entries,
-			EOF:      !hasMore,
-			HasMore:  hasMore,
-			Offset:   currentPos,
-		}); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// streamTail reads from current position and follows new log entries.
-// Batches chunks with 250ms OR 50 lines (whichever comes first).
-func (h *Handler) streamTail(ctx context.Context, file *os.File, opts logs.StreamOptions, sendChunk func(chunk logs.LogChunk) error) error {
-	startPos := opts.StartFrom
-	if startPos < 0 {
-		if _, err := file.Seek(0, io.SeekEnd); err != nil {
-			return fmt.Errorf("failed to seek to end: %w", err)
-		}
-	} else {
+	// If resuming from a specific offset (pagination), use that
+	if startPos > 0 {
 		if _, err := file.Seek(startPos, io.SeekStart); err != nil {
 			return fmt.Errorf("failed to seek: %w", err)
 		}
+	} else if !cutoffTime.IsZero() {
+		fileInfo, err := file.Stat()
+		if err != nil {
+			return fmt.Errorf("failed to stat file: %w", err)
+		}
+		fileSize := fileInfo.Size()
+
+		h.logger.Debug("finding time-based cutoff position", "cutoff", cutoffTime)
+		foundPos, err := h.findTimeCutoffPosition(file, fileSize, cutoffTime)
+		if err != nil {
+			h.logger.Warn("failed to find cutoff position, starting from beginning", "error", err)
+			startPos = 0
+		} else {
+			startPos = foundPos
+			h.logger.Debug("found cutoff position", "offset", startPos)
+		}
+
+		if _, err := file.Seek(startPos, io.SeekStart); err != nil {
+			return fmt.Errorf("failed to seek: %w", err)
+		}
+	} else {
+		// Default: tail from end of file (live mode)
+		if _, err := file.Seek(0, io.SeekEnd); err != nil {
+			return fmt.Errorf("failed to seek to end: %w", err)
+		}
 	}
 
 	reader := bufio.NewReader(file)
-	ticker := time.NewTicker(100 * time.Millisecond)
+	ticker := time.NewTicker(h.config.LogPollInterval)
 	defer ticker.Stop()
 
 	var entries []logs.LogEntry
-	const batchSize = 50
-	const maxChunkBytes = 8 * 1024 * 1024
-	const baseBuffer = 250 * time.Millisecond
-	const maxBuffer = 2 * time.Second
-	estimatedSize := 0
+	estimatedSize := int64(0)
 
 	// Batching state
 	var batchTimer *time.Timer
 	var batchTimeout <-chan time.Time
-	currentBuffer := baseBuffer
-	backoffMultiplier := 1
 
 	flushBatch := func(isEOF bool) error {
 		if len(entries) == 0 {
 			return nil
 		}
-		currentPos, _ := file.Seek(0, io.SeekCurrent)
+		currentPos, err := file.Seek(0, io.SeekCurrent)
+		if err != nil {
+			h.logger.Error("failed to get file position", "error", err)
+			currentPos = 0
+		}
 		if err := sendChunk(logs.LogChunk{
 			StreamID: opts.StreamID,
 			Path:     opts.Path,
@@ -187,11 +166,6 @@ func (h *Handler) streamTail(ctx context.Context, file *os.File, opts logs.Strea
 		}
 		entries = nil
 		estimatedSize = 0
-		backoffMultiplier++
-		currentBuffer = baseBuffer * time.Duration(backoffMultiplier)
-		if currentBuffer > maxBuffer {
-			currentBuffer = maxBuffer
-		}
 		return nil
 	}
 
@@ -208,6 +182,23 @@ func (h *Handler) streamTail(ctx context.Context, file *os.File, opts logs.Strea
 			return ctx.Err()
 
 		case <-ticker.C:
+			// Check for file rotation
+			if runtime.GOOS != "windows" && lastInode > 0 {
+				if rotated, newInode := h.checkFileRotation(logPath, lastInode); rotated {
+					h.logger.Info("log file rotated, reopening", "path", logPath)
+					file.Close()
+
+					newFile, err := os.Open(logPath)
+					if err != nil {
+						h.logger.Error("failed to reopen rotated file", "error", err)
+						return fmt.Errorf("failed to reopen rotated file: %w", err)
+					}
+					file = newFile
+					reader = bufio.NewReader(file)
+					lastInode = newInode
+				}
+			}
+
 			// Read available lines
 			for {
 				line, err := reader.ReadString('\n')
@@ -221,18 +212,20 @@ func (h *Handler) streamTail(ctx context.Context, file *os.File, opts logs.Strea
 
 				entry := h.parseLogLine(line)
 				if entry != nil {
-					entrySize := len(entry.RawLine) + 200
+					if !cutoffTime.IsZero() && !h.isAfterCutoff(entry, cutoffTime) {
+						continue
+					}
+
+					entrySize := int64(len(entry.RawLine)) + h.config.LogEntryJSONOverhead
 					entries = append(entries, *entry)
 					estimatedSize += entrySize
 
-					// Start batch timer on first entry
 					if len(entries) == 1 {
-						batchTimer = time.NewTimer(currentBuffer)
+						batchTimer = time.NewTimer(h.config.LogBatchTimeout)
 						batchTimeout = batchTimer.C
 					}
 
-					// Flush immediately if batch is full (50 lines or size limit)
-					if len(entries) >= batchSize || estimatedSize >= maxChunkBytes {
+					if len(entries) >= h.config.LogBatchSize || estimatedSize >= h.config.LogMaxChunkBytes {
 						if batchTimer != nil {
 							batchTimer.Stop()
 							batchTimer = nil
@@ -242,15 +235,11 @@ func (h *Handler) streamTail(ctx context.Context, file *os.File, opts logs.Strea
 							h.logger.Error("failed to send chunk", "error", err)
 							return err
 						}
-						// Reset backoff on activity
-						backoffMultiplier = 1
-						currentBuffer = baseBuffer
 					}
 				}
 			}
 
 		case <-batchTimeout:
-			// Time window expired, flush batch
 			batchTimer = nil
 			batchTimeout = nil
 			if err := flushBatch(false); err != nil {
@@ -338,4 +327,117 @@ func (h *Handler) getLogPath(path string) string {
 	}
 
 	return filepath.Join(dataDir, ".dployr", "logs", clean)
+}
+
+// parseDuration converts duration strings like "5m", "1h", "24h" to time.Duration.
+func parseDuration(s string) (time.Duration, error) {
+	switch s {
+	case "5m":
+		return 5 * time.Minute, nil
+	case "15m":
+		return 15 * time.Minute, nil
+	case "30m":
+		return 30 * time.Minute, nil
+	case "1h":
+		return 1 * time.Hour, nil
+	case "3h":
+		return 3 * time.Hour, nil
+	case "6h":
+		return 6 * time.Hour, nil
+	case "12h":
+		return 12 * time.Hour, nil
+	case "24h":
+		return 24 * time.Hour, nil
+	default:
+		return time.ParseDuration(s)
+	}
+}
+
+// isAfterCutoff checks if a log entry's timestamp is after the cutoff time.
+func (h *Handler) isAfterCutoff(entry *logs.LogEntry, cutoff time.Time) bool {
+	if entry.Time == "" {
+		return false
+	}
+
+	entryTime, err := time.Parse(time.RFC3339, entry.Time)
+	if err != nil {
+		entryTime, err = time.Parse(time.RFC3339Nano, entry.Time)
+		if err != nil {
+			return false
+		}
+	}
+
+	return entryTime.After(cutoff) || entryTime.Equal(cutoff)
+}
+
+// findTimeCutoffPosition uses binary search to find the approximate file position
+// where logs start matching the cutoff time.
+func (h *Handler) findTimeCutoffPosition(file *os.File, fileSize int64, cutoff time.Time) (int64, error) {
+	if fileSize == 0 {
+		return 0, nil
+	}
+
+	// Sample from the end to estimate log density
+	sampleSize := min(int64(64*1024), fileSize)
+
+	if _, err := file.Seek(fileSize-sampleSize, io.SeekStart); err != nil {
+		return 0, err
+	}
+
+	scanner := bufio.NewScanner(file)
+	var sampleEntries []struct {
+		offset int64
+		time   time.Time
+	}
+
+	currentOffset := fileSize - sampleSize
+	for scanner.Scan() && len(sampleEntries) < 100 {
+		line := scanner.Text()
+		entry := h.parseLogLine(line)
+		if entry != nil && entry.Time != "" {
+			if t, err := time.Parse(time.RFC3339, entry.Time); err == nil {
+				sampleEntries = append(sampleEntries, struct {
+					offset int64
+					time   time.Time
+				}{currentOffset, t})
+			} else if t, err := time.Parse(time.RFC3339Nano, entry.Time); err == nil {
+				sampleEntries = append(sampleEntries, struct {
+					offset int64
+					time   time.Time
+				}{currentOffset, t})
+			}
+		}
+		currentOffset += int64(len(line) + 1)
+	}
+
+	if len(sampleEntries) < 2 {
+		return 0, fmt.Errorf("insufficient sample data")
+	}
+
+	// Find first entry after cutoff in sample
+	for _, entry := range sampleEntries {
+		if entry.time.After(cutoff) || entry.time.Equal(cutoff) {
+			safeOffset := max(entry.offset-(10*1024), 0) // 10KB safety margin
+			return safeOffset, nil
+		}
+	}
+
+	return 0, nil
+}
+
+// checkFileRotation detects if a log file has been rotated by comparing inodes.
+func (h *Handler) checkFileRotation(path string, lastInode uint64) (bool, uint64) {
+	stat, err := os.Stat(path)
+	if err != nil {
+		return false, lastInode
+	}
+
+	if sys := stat.Sys(); sys != nil {
+		currentInode := getInode(sys)
+		if currentInode != lastInode {
+			return true, currentInode
+		}
+	}
+
+	return false, lastInode
 }

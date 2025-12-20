@@ -816,6 +816,264 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /system/fs:
+    get:
+      tags:
+        - System
+      summary: List directory contents
+      description: List files and directories in a specified path (Admin+ required)
+      operationId: listDirectory
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: path
+          in: query
+          description: Directory path to list (defaults to /)
+          schema:
+            type: string
+            default: "/"
+        - name: depth
+          in: query
+          description: Directory traversal depth
+          schema:
+            type: integer
+            minimum: 0
+            default: 1
+        - name: limit
+          in: query
+          description: Maximum number of entries to return
+          schema:
+            type: integer
+            minimum: 1
+            default: 100
+        - name: cursor
+          in: query
+          description: Pagination cursor for next page
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Directory listing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FSListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /system/fs/read:
+    get:
+      tags:
+        - System
+      summary: Read file contents
+      description: Read contents of a file (Admin+ required)
+      operationId: readFile
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: File path to read
+          schema:
+            type: string
+        - name: offset
+          in: query
+          description: Byte offset to start reading from
+          schema:
+            type: integer
+            format: int64
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum bytes to read
+          schema:
+            type: integer
+            format: int64
+            default: 1048576
+      responses:
+        '200':
+          description: File contents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FSReadResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /system/fs/write:
+    put:
+      tags:
+        - System
+      summary: Write file contents
+      description: Write or overwrite file contents (Admin+ required)
+      operationId: writeFile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FSWriteRequest'
+      responses:
+        '200':
+          description: File written successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FSOpResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /system/fs/create:
+    post:
+      tags:
+        - System
+      summary: Create file or directory
+      description: Create a new file or directory (Admin+ required)
+      operationId: createFile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FSCreateRequest'
+      responses:
+        '201':
+          description: File or directory created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FSOpResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /system/fs/delete:
+    delete:
+      tags:
+        - System
+      summary: Delete file or directory
+      description: Delete a file or directory (Admin+ required)
+      operationId: deleteFile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FSDeleteRequest'
+      responses:
+        '204':
+          description: File or directory deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /system/registered:
+    get:
+      tags:
+        - System
+      summary: Check instance registration status
+      description: Check if this instance is registered with base
+      operationId: checkRegistrationStatus
+      security: []
+      responses:
+        '200':
+          description: Registration status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  registered:
+                    type: boolean
+                    description: Whether the instance is registered
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /logs/stream:
+    post:
+      tags:
+        - Logs
+      summary: Stream logs
+      description: |
+        Stream logs from a log file with time-based filtering and automatic tailing.
+
+        The `duration` parameter controls behavior:
+        - **`live`**: Start tailing from current end of file (real-time only)
+        - **Time duration** (e.g., `1h`, `24h`): Read historical logs from that duration ago, then continue tailing new entries
+
+        Time-based filtering uses binary search to efficiently find the cutoff point without scanning the entire file.
+        Supported durations: `5m`, `15m`, `30m`, `1h`, `3h`, `6h`, `12h`, `24h`, or any Go duration string (e.g., `2h30m`).
+
+        The `startFrom` parameter enables pagination for historical logs. Use the `offset` value from a previous
+        response to continue reading from where you left off.
+
+        Log file rotation is detected and handled automatically on Unix-like systems.
+
+        Developer+ role is required.
+      operationId: streamLogs
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogStreamRequest'
+      responses:
+        '200':
+          description: Log stream started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogChunk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          description: Too many concurrent log streams (rate limited)
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /v1/agent/instances/{instanceId}/cert:
     post:
       tags:
@@ -1689,6 +1947,54 @@ components:
           - type: string
           - type: number
           - type: boolean
+
+    LogStreamRequest:
+      type: object
+      required:
+        - streamId
+        - path
+      properties:
+        streamId:
+          type: string
+          description: Opaque identifier for this log stream session
+          example: "01KB5NWMWTFFA8CQDW63NCGWG5"
+        path:
+          type: string
+          description: |
+            Relative log path under the daemon log root.
+            - `app`: System log file
+            - `service:<name>`: Service runtime logs (stdout/stderr)
+            - `<deployment-id>`: Deployment-specific log file
+          example: "app"
+        duration:
+          type: string
+          description: |
+            Controls streaming behavior and time-based filtering:
+            
+            - `live`: Start tailing from current end of file (real-time streaming)
+            - Time duration (e.g., `1h`, `24h`, `2h30m`): Read historical logs from that duration ago, then tail new entries
+            
+            The daemon uses binary search to efficiently find the cutoff point without scanning the entire file.
+            
+            Supports Go duration string: e.g., `2h30m`, `90m`
+          example: "1h"
+          default: "live"
+        startFrom:
+          type: integer
+          format: int64
+          description: |
+            Byte offset for pagination/resumption. Used when requesting the next chunk of historical logs.
+            
+            The server returns an `offset` field in each LogChunk response. Clients can use this value
+            in subsequent requests to continue reading from where they left off.
+            
+            If omitted, the initial position is determined by the `duration` parameter.
+          example: 52480
+        limit:
+          type: integer
+          description: Maximum number of log entries to return per chunk
+          default: 100
+          example: 50
 
     LogChunk:
       type: object

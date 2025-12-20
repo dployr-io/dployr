@@ -28,6 +28,16 @@ type Config struct {
 	WSCertPath       string
 	WSMaxMessageSize int64
 	TaskDedupTTL     time.Duration
+
+	// Log streaming configuration
+	LogMaxChunkBytes     int64         // Max bytes per chunk (default: 8MB)
+	LogBatchSize         int           // Max entries per batch (default: 50)
+	LogBatchTimeout      time.Duration // Batch flush timeout (default: 250ms)
+	LogMaxBatchTimeout   time.Duration // Max batch timeout with backoff (default: 2s)
+	LogPollInterval      time.Duration // File poll interval for tailing (default: 100ms)
+	LogMaxFileReadBytes  int64         // Max bytes to read in one operation (default: 100MB)
+	LogMaxStreams        int           // Max concurrent streams (default: 100)
+	LogEntryJSONOverhead int64         // Estimated JSON overhead per entry (default: 200 bytes)
 }
 
 func LoadConfig() (*Config, error) {
@@ -47,6 +57,16 @@ func LoadConfig() (*Config, error) {
 		WSCertPath:       getEnv("WS_CERT_PATH", ""),
 		WSMaxMessageSize: getEnvAsInt64("WS_MAX_MESSAGE_SIZE", 10*1024*1024), // 10MB default
 		TaskDedupTTL:     getEnvAsPositiveDuration("TASK_DEDUP_TTL", 5*time.Minute),
+
+		// Log streaming defaults
+		LogMaxChunkBytes:     getEnvAsInt64("LOG_MAX_CHUNK_BYTES", 8*1024*1024), // 8MB
+		LogBatchSize:         getEnvAsInt("LOG_BATCH_SIZE", 50),
+		LogBatchTimeout:      getEnvAsPositiveDuration("LOG_BATCH_TIMEOUT", 250*time.Millisecond),
+		LogMaxBatchTimeout:   getEnvAsPositiveDuration("LOG_MAX_BATCH_TIMEOUT", 2*time.Second),
+		LogPollInterval:      getEnvAsPositiveDuration("LOG_POLL_INTERVAL", 100*time.Millisecond),
+		LogMaxFileReadBytes:  getEnvAsInt64("LOG_MAX_FILE_READ_BYTES", 100*1024*1024), // 100MB
+		LogMaxStreams:        getEnvAsInt("LOG_MAX_STREAMS", 100),
+		LogEntryJSONOverhead: getEnvAsInt64("LOG_ENTRY_JSON_OVERHEAD", 200),
 	}, nil
 }
 

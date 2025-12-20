@@ -109,12 +109,8 @@ func TestWorker_New(t *testing.T) {
 		t.Errorf("expected maxConcurrent 5, got %d", worker.maxConcurrent)
 	}
 
-	if len(worker.semaphore) != 0 {
-		t.Errorf("expected empty semaphore, got %d", len(worker.semaphore))
-	}
-
-	if cap(worker.semaphore) != 5 {
-		t.Errorf("expected semaphore capacity 5, got %d", cap(worker.semaphore))
+	if worker.semaphore == nil {
+		t.Error("expected non-nil semaphore")
 	}
 }
 
@@ -208,28 +204,30 @@ func TestWorker_Semaphore(t *testing.T) {
 
 	t.Run("semaphore limits concurrent jobs", func(t *testing.T) {
 		worker := New(2, cfg, logger, deployStore, svcStore)
+		ctx := context.Background()
 
 		// Try to acquire 2 slots (should succeed)
-		worker.semaphore <- struct{}{}
-		worker.semaphore <- struct{}{}
-
-		if len(worker.semaphore) != 2 {
-			t.Errorf("expected 2 slots taken, got %d", len(worker.semaphore))
+		if err := worker.semaphore.Acquire(ctx); err != nil {
+			t.Fatalf("expected first acquire to succeed, got error: %v", err)
+		}
+		if err := worker.semaphore.Acquire(ctx); err != nil {
+			t.Fatalf("expected second acquire to succeed, got error: %v", err)
 		}
 
 		// Try to acquire third slot (should block, test with select)
 		select {
-		case worker.semaphore <- struct{}{}:
-			t.Error("expected semaphore to be full")
+		case <-time.After(100 * time.Millisecond):
+			// This is expected - semaphore is full and blocks
 		default:
-			// This is expected - semaphore is full
+			t.Error("expected semaphore to block on third acquire")
 		}
 
 		// Release one slot
-		<-worker.semaphore
+		worker.semaphore.Release()
 
-		if len(worker.semaphore) != 1 {
-			t.Errorf("expected 1 slot taken after release, got %d", len(worker.semaphore))
+		// Now third acquire should succeed
+		if err := worker.semaphore.Acquire(ctx); err != nil {
+			t.Fatalf("expected acquire after release to succeed, got error: %v", err)
 		}
 	})
 }

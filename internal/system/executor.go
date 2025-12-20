@@ -110,9 +110,9 @@ func (e *Executor) handleLogStream(ctx context.Context, task *tasks.Task) *tasks
 		Token     string `json:"token"`
 		Path      string `json:"path"`
 		StreamID  string `json:"streamId"`
-		Mode      string `json:"mode,omitempty"`      // "tail" or "historical"
-		StartFrom int64  `json:"startFrom,omitempty"` // Byte offset
-		Limit     int    `json:"limit,omitempty"`     // Max entries for historical
+		StartFrom int64  `json:"startFrom,omitempty"` // Byte offset for pagination
+		Limit     int    `json:"limit,omitempty"`     // Max entries per chunk
+		Duration  string `json:"duration,omitempty"`  // "live" or time duration ("5m", "1h", "24h")
 	}
 
 	if err := json.Unmarshal(task.Payload, &payload); err != nil {
@@ -123,16 +123,10 @@ func (e *Executor) handleLogStream(ctx context.Context, task *tasks.Task) *tasks
 		}
 	}
 
-	// Default to tail mode
-	mode := corelogs.StreamModeTail
-	if payload.Mode == "historical" {
-		mode = corelogs.StreamModeHistorical
-	}
-
-	// Default startFrom to -1 for tailing from end of file
-	startFrom := payload.StartFrom
-	if startFrom == 0 && mode == corelogs.StreamModeTail {
-		startFrom = -1
+	// Default duration to "live" if not specified
+	duration := payload.Duration
+	if duration == "" {
+		duration = "live"
 	}
 
 	// Validate token before starting stream
@@ -154,7 +148,7 @@ func (e *Executor) handleLogStream(ctx context.Context, task *tasks.Task) *tasks
 		}
 	}
 
-	e.logger.Info("starting log stream", "stream_id", payload.StreamID, "path", payload.Path, "mode", mode, "start_from", startFrom)
+	e.logger.Info("starting log stream", "stream_id", payload.StreamID, "path", payload.Path, "duration", duration, "start_from", payload.StartFrom)
 
 	// Start streaming in background
 	go func() {
@@ -164,9 +158,9 @@ func (e *Executor) handleLogStream(ctx context.Context, task *tasks.Task) *tasks
 		opts := corelogs.StreamOptions{
 			StreamID:  payload.StreamID,
 			Path:      payload.Path,
-			Mode:      mode,
-			StartFrom: startFrom,
+			StartFrom: payload.StartFrom,
 			Limit:     payload.Limit,
+			Duration:  duration,
 		}
 
 		err := logHandler.StreamLogs(streamCtx, opts, func(chunk corelogs.LogChunk) error {
@@ -182,8 +176,8 @@ func (e *Executor) handleLogStream(ctx context.Context, task *tasks.Task) *tasks
 		ID:     task.ID,
 		Status: "done",
 		Result: map[string]interface{}{
-			"message": "log streaming started",
-			"mode":    string(mode),
+			"message":  "log streaming started",
+			"duration": duration,
 		},
 	}
 }
