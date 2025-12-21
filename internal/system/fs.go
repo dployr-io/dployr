@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/dployr-io/dployr/pkg/core/system"
+	"github.com/fsnotify/fsnotify"
 )
 
 const (
@@ -37,16 +38,38 @@ type FileSystem struct {
 	maxDepth    int
 	maxChildren int
 	roots       []string
+
+	// Filesystem watcher
+	watcher      *fsnotify.Watcher
+	watchedPaths map[string]bool
+	watchMu      sync.RWMutex
+	broadcaster  func(*system.FSUpdateEvent) // callback to broadcast events
+	stopWatcher  chan struct{}
 }
 
 // NewFS creates a new filesystem cache
 func NewFS() *FileSystem {
-	return &FileSystem{
-		ttl:         defaultTTL,
-		maxDepth:    defaultMaxDepth,
-		maxChildren: defaultMaxChildren,
-		roots:       []string{"/"},
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		// Fallback to non-watcher mode if fsnotify fails
+		watcher = nil
 	}
+
+	fs := &FileSystem{
+		ttl:          defaultTTL,
+		maxDepth:     defaultMaxDepth,
+		maxChildren:  defaultMaxChildren,
+		roots:        []string{"/"},
+		watcher:      watcher,
+		watchedPaths: make(map[string]bool),
+		stopWatcher:  make(chan struct{}),
+	}
+
+	if watcher != nil {
+		go fs.watchLoop()
+	}
+
+	return fs
 }
 
 // GetSnapshot returns the current snapshot, triggering refresh if stale
@@ -206,10 +229,7 @@ func (c *FileSystem) ListDir(path string, depth, limit int, cursor string) (*sys
 	}
 
 	totalCount := len(entries)
-	end := offset + limit
-	if end > totalCount {
-		end = totalCount
-	}
+	end := min(offset+limit, totalCount)
 
 	for i := offset; i < end; i++ {
 		childPath := filepath.Join(path, entries[i].Name())
@@ -531,4 +551,145 @@ func lookupGroup(gid int) string {
 		return strconv.Itoa(gid)
 	}
 	return g.Name
+}
+
+// SetBroadcaster sets the callback function for broadcasting filesystem events
+func (c *FileSystem) SetBroadcaster(broadcaster func(*system.FSUpdateEvent)) {
+	c.watchMu.Lock()
+	c.broadcaster = broadcaster
+	c.watchMu.Unlock()
+}
+
+// watchLoop processes filesystem events from fsnotify
+func (c *FileSystem) watchLoop() {
+	for {
+		select {
+		case <-c.stopWatcher:
+			return
+		case event, ok := <-c.watcher.Events:
+			if !ok {
+				return
+			}
+			c.handleWatchEvent(event)
+		case err, ok := <-c.watcher.Errors:
+			if !ok {
+				return
+			}
+			// Log error but continue watching
+			_ = err
+		}
+	}
+}
+
+// handleWatchEvent processes a single filesystem event
+func (c *FileSystem) handleWatchEvent(event fsnotify.Event) {
+	c.watchMu.RLock()
+	broadcaster := c.broadcaster
+	c.watchMu.RUnlock()
+
+	if broadcaster == nil {
+		return
+	}
+
+	updateEvent := &system.FSUpdateEvent{
+		Path:      event.Name,
+		Timestamp: time.Now(),
+	}
+
+	// Map fsnotify operations to our event types
+	switch {
+	case event.Op&fsnotify.Create == fsnotify.Create:
+		updateEvent.Type = "created"
+		if info, err := os.Lstat(event.Name); err == nil {
+			updateEvent.Node = c.buildNode(event.Name, info)
+		}
+	case event.Op&fsnotify.Write == fsnotify.Write:
+		updateEvent.Type = "modified"
+		if info, err := os.Lstat(event.Name); err == nil {
+			updateEvent.Node = c.buildNode(event.Name, info)
+		}
+	case event.Op&fsnotify.Remove == fsnotify.Remove:
+		updateEvent.Type = "deleted"
+	case event.Op&fsnotify.Rename == fsnotify.Rename:
+		updateEvent.Type = "deleted"
+		// Rename generates two events: Remove (old) + Create (new)
+		// We treat the remove as deleted, the create will be a separate event
+	default:
+		return
+	}
+
+	broadcaster(updateEvent)
+}
+
+// Watch starts watching a directory for changes
+func (c *FileSystem) Watch(path string, recursive bool) error {
+	if c.watcher == nil {
+		return fmt.Errorf("filesystem watcher not available")
+	}
+
+	c.watchMu.Lock()
+	defer c.watchMu.Unlock()
+
+	// Check if already watching
+	if c.watchedPaths[path] {
+		return nil
+	}
+
+	if err := c.watcher.Add(path); err != nil {
+		return fmt.Errorf("failed to watch %s: %w", path, err)
+	}
+
+	c.watchedPaths[path] = true
+
+	// If recursive, watch all subdirectories
+	if recursive {
+		if err := filepath.Walk(path, func(subpath string, info fs.FileInfo, err error) error {
+			if err != nil {
+				return nil // skip errors
+			}
+			if info.IsDir() && subpath != path {
+				if !c.watchedPaths[subpath] {
+					if err := c.watcher.Add(subpath); err == nil {
+						c.watchedPaths[subpath] = true
+					}
+				}
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("failed to recursively watch %s: %w", path, err)
+		}
+	}
+
+	return nil
+}
+
+// Unwatch stops watching a directory
+func (c *FileSystem) Unwatch(path string) error {
+	if c.watcher == nil {
+		return nil
+	}
+
+	c.watchMu.Lock()
+	defer c.watchMu.Unlock()
+
+	if !c.watchedPaths[path] {
+		return nil
+	}
+
+	if err := c.watcher.Remove(path); err != nil {
+		return fmt.Errorf("failed to unwatch %s: %w", path, err)
+	}
+
+	delete(c.watchedPaths, path)
+	return nil
+}
+
+// Close stops the watcher and cleans up resources
+func (c *FileSystem) Close() error {
+	if c.watcher == nil {
+		return nil
+	}
+
+	close(c.stopWatcher)
+	return c.watcher.Close()
 }

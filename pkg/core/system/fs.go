@@ -99,3 +99,23 @@ type FSOpResponse struct {
 	Path    string `json:"path"`
 	Error   string `json:"error,omitempty"`
 }
+
+// FSUpdateEvent represents a filesystem change event
+type FSUpdateEvent struct {
+	Type      string    `json:"type"` // "created" | "modified" | "deleted" | "renamed"
+	Path      string    `json:"path"`
+	Node      *FSNode   `json:"node,omitempty"`     // present for created/modified
+	OldPath   string    `json:"old_path,omitempty"` // present for renamed
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// FSWatchRequest - request to start watching a directory
+type FSWatchRequest struct {
+	Path      string `json:"path"`
+	Recursive bool   `json:"recursive"` // watch subdirectories
+}
+
+// FSUnwatchRequest - request to stop watching a directory
+type FSUnwatchRequest struct {
+	Path string `json:"path"`
+}

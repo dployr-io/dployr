@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/coder/websocket v1.8.14
+	github.com/fsnotify/fsnotify v1.7.0
 )
 
 require (
@@ -17,7 +18,6 @@ require (
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/shirou/gopsutil/v3 v3.24.5 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
@@ -33,6 +33,7 @@ require (
 require (
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/oklog/ulid/v2 v2.1.1
+	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/spf13/cobra v1.10.1
 	modernc.org/sqlite v1.39.1
 )

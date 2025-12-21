@@ -970,11 +970,6 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
   /system/fs/delete:
     delete:
       tags:
@@ -1001,6 +996,94 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /system/fs/watch:
+    post:
+      tags:
+        - System
+      summary: Start watching directory for changes
+      description: |
+        Start watching a directory for real-time filesystem changes.
+        
+        Changes are broadcast via WebSocket as FSUpdateEvent messages.
+        Only directories that are being watched will generate update events.
+        
+        Admin+ role is required.
+      operationId: watchDirectory
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FSWatchRequest'
+      responses:
+        '200':
+          description: Directory watch started successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  path:
+                    type: string
+                    example: "/home/user/project"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /system/fs/unwatch:
+    post:
+      tags:
+        - System
+      summary: Stop watching directory for changes
+      description: |
+        Stop watching a directory for filesystem changes.
+        
+        Unwatching frees resources and stops sending FSUpdateEvent messages
+        for that directory.
+        
+        Admin+ role is required.
+      operationId: unwatchDirectory
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FSUnwatchRequest'
+      responses:
+        '200':
+          description: Directory watch stopped successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  path:
+                    type: string
+                    example: "/home/user/project"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -2348,6 +2431,50 @@ components:
           type: string
         error:
           type: string
+
+    FSUpdateEvent:
+      type: object
+      description: Real-time filesystem change event broadcast via WebSocket
+      properties:
+        type:
+          type: string
+          enum: [created, modified, deleted, renamed]
+          description: Type of filesystem change
+        path:
+          type: string
+          description: Path to the affected file or directory
+        node:
+          $ref: '#/components/schemas/FSNode'
+          nullable: true
+          description: Updated node information (present for created/modified, null for deleted)
+        old_path:
+          type: string
+          nullable: true
+          description: Original path (only present for renamed events)
+        timestamp:
+          type: string
+          format: date-time
+          description: When the change was detected
+
+    FSWatchRequest:
+      type: object
+      required: [path]
+      properties:
+        path:
+          type: string
+          description: Directory path to watch
+        recursive:
+          type: boolean
+          default: false
+          description: Watch subdirectories recursively
+
+    FSUnwatchRequest:
+      type: object
+      required: [path]
+      properties:
+        path:
+          type: string
+          description: Directory path to stop watching
 
     Error:
       type: object
