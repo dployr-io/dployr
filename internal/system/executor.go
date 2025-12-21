@@ -19,7 +19,6 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	"github.com/oklog/ulid/v2"
 
 	"github.com/dployr-io/dployr/internal/logs"
 	pkgAuth "github.com/dployr-io/dployr/pkg/auth"
@@ -211,8 +210,6 @@ func (e *Executor) Execute(ctx context.Context, task *tasks.Task) *tasks.Result 
 
 	path := "/" + parts[0]
 	method := strings.ToUpper(parts[1])
-	ctx = shared.WithRequest(ctx, task.ID)
-	ctx = shared.WithTrace(ctx, ulid.Make().String())
 	logger := e.logger.WithContext(ctx)
 	logger.Info("executing task", "type", task.Type, "method", method, "path", path, "payload_bytes", len(task.Payload))
 
