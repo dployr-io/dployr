@@ -84,8 +84,8 @@ func main() {
 	sysH := system.NewServiceHandler(sysSvc)
 	metricsH := _system.NewMetrics(cfg, is, trs)
 
-	fsCache := _system.NewFSCache()
-	fsH := system.NewFSHandler(fsCache, logger)
+	fs := _system.NewFS()
+	fsH := system.NewFSHandler(fs, logger)
 
 	topCollector := _system.NewTopCollector()
 	topH := system.NewTopHandler(topCollector, logger)
@@ -103,7 +103,7 @@ func main() {
 
 	mux := wh.BuildMux(cfg)
 
-	syncer := _system.NewSyncer(cfg, logger, is, trs, ds, ss, ps, mux, as, fsCache)
+	syncer := _system.NewSyncer(cfg, logger, is, trs, ds, ss, ps, mux, as, fs)
 
 	go func() {
 		if err := wh.NewServer(cfg); err != nil {

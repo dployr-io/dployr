@@ -67,6 +67,50 @@ func setWSConnected(v bool) {
 	}
 }
 
+// TaskError represents an error in task response
+type TaskError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+// wsMessage represents WebSocket messages exchanged with base.
+type wsMessage struct {
+	ID        string             `json:"id,omitempty"`
+	RequestID string             `json:"request_id,omitempty"`
+	TS        time.Time          `json:"ts"`
+	Kind      string             `json:"kind"`
+	Items     []syncTask         `json:"items,omitempty"`
+	IDs       []string           `json:"ids,omitempty"`
+	Update    *system.UpdateV1   `json:"update,omitempty"`
+	Hello     *system.HelloV1    `json:"hello,omitempty"`
+	HelloAck  *system.HelloAckV1 `json:"hello_ack,omitempty"`
+	LogChunk  *logs.LogChunk     `json:"log_chunk,omitempty"`
+	// Task response fields for filesystem operations
+	TaskID    string      `json:"taskId,omitempty"`
+	Success   bool        `json:"success,omitempty"`
+	Data      interface{} `json:"data,omitempty"`
+	TaskError *TaskError  `json:"error,omitempty"`
+}
+
+// syncTask represents a single task returned by base.
+type syncTask struct {
+	ID      string          `json:"id"`
+	Type    string          `json:"type"`
+	Payload json.RawMessage `json:"payload"`
+	Status  string          `json:"status"`
+	Created int64           `json:"createdAt"`
+	Updated int64           `json:"updatedAt"`
+}
+
+// agentTokenResponse is the response envelope from base when exchanging an
+// instance credential for a short-lived agent access token.
+type agentTokenResponse struct {
+	Success bool `json:"success"`
+	Data    struct {
+		Token string `json:"token"`
+	} `json:"data"`
+}
+
 // computeAuthHealth checks the agent access token and returns health status and debug info
 func computeAuthHealth(ctx context.Context, instStore store.InstanceStore) (health string, debug *system.AuthDebug) {
 	health = system.HealthDown
@@ -134,7 +178,7 @@ func computeAuthHealth(ctx context.Context, instStore store.InstanceStore) (heal
 	return
 }
 
-func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string, instStore store.InstanceStore, deployStore store.DeploymentStore, svcStore store.ServiceStore, proxyHandler proxy.HandleProxy, fsCache *FSCache) *system.UpdateV1 {
+func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string, instStore store.InstanceStore, deployStore store.DeploymentStore, svcStore store.ServiceStore, proxyHandler proxy.HandleProxy, fs *FileSystem) *system.UpdateV1 {
 	seq := atomic.AddUint64(&updateSeq, 1)
 	uptime := time.Since(startTime).Seconds()
 	currentModeMu.RLock()
@@ -249,17 +293,9 @@ func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string
 		}
 	}
 
-	// Get filesystem snapshot (cached, async refresh)
 	var fsSnapshot *system.FSSnapshot
-	if fsCache != nil {
-		fsSnapshot = fsCache.GetSnapshot()
-	}
-
-	// Get system top snapshot (process/resource usage)
-	var topSnapshot *system.SystemTop
-	topCollector := NewTopCollector()
-	if top, err := topCollector.CollectSummary(ctx); err == nil {
-		topSnapshot = top
+	if fs != nil {
+		fsSnapshot = fs.GetSnapshot()
 	}
 
 	return &system.UpdateV1{
@@ -280,7 +316,6 @@ func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string
 		Health:      system.SystemHealth{Overall: overallHealth, WS: wsHealth, Tasks: tasksHealth, Auth: authHealth},
 		Debug:       dbg,
 		FS:          fsSnapshot,
-		Top:         topSnapshot,
 	}
 }
 
@@ -327,60 +362,12 @@ type Syncer struct {
 	deployStore       store.DeploymentStore
 	svcStore          store.ServiceStore
 	proxyHandler      proxy.HandleProxy
-	fsCache           *FSCache
+	fs                *FileSystem
 	executor          *Executor
 	agentTokenBackoff time.Duration
 
 	dedupeMu sync.Mutex
 	dedupe   map[string]time.Time
-}
-
-// wsMessage represents WebSocket messages exchanged with base.
-type wsMessage struct {
-	ID        string             `json:"id,omitempty"`
-	RequestID string             `json:"request_id,omitempty"`
-	TS        time.Time          `json:"ts"`
-	Kind      string             `json:"kind"`
-	Items     []syncTask         `json:"items,omitempty"`
-	IDs       []string           `json:"ids,omitempty"`
-	Update    *system.UpdateV1   `json:"update,omitempty"`
-	Hello     *system.HelloV1    `json:"hello,omitempty"`
-	HelloAck  *system.HelloAckV1 `json:"hello_ack,omitempty"`
-	LogChunk  *logs.LogChunk     `json:"log_chunk,omitempty"`
-}
-
-// syncTask represents a single task returned by base.
-type syncTask struct {
-	ID      string          `json:"id"`
-	Type    string          `json:"type"`
-	Payload json.RawMessage `json:"payload"`
-	Status  string          `json:"status"`
-	Created int64           `json:"createdAt"`
-	Updated int64           `json:"updatedAt"`
-}
-
-// agentTokenResponse is the response envelope from base when exchanging an
-// instance credential for a short-lived agent access token.
-type agentTokenResponse struct {
-	Success bool `json:"success"`
-	Data    struct {
-		Token string `json:"token"`
-	} `json:"data"`
-}
-
-func NewSyncer(cfg *shared.Config, logger *shared.Logger, instStore store.InstanceStore, resStore store.TaskResultStore, deployStore store.DeploymentStore, svcStore store.ServiceStore, proxyHandler proxy.HandleProxy, handler http.Handler, auth pkgAuth.Authenticator, fsCache *FSCache) *Syncer {
-	return &Syncer{
-		cfg:          cfg,
-		logger:       logger,
-		instStore:    instStore,
-		resultStore:  resStore,
-		deployStore:  deployStore,
-		svcStore:     svcStore,
-		proxyHandler: proxyHandler,
-		fsCache:      fsCache,
-		executor:     NewExecutor(logger, handler, instStore, auth),
-		dedupe:       make(map[string]time.Time),
-	}
 }
 
 // obtainAgentTokenWithBackoff repeatedly calls fetchAgentToken using the
@@ -461,6 +448,21 @@ func (s *Syncer) ensureAccessToken(ctx context.Context, bootstrapToken string) (
 	}
 	s.logger.Debug("syncer: access token persisted")
 	return accessToken, nil
+}
+
+func NewSyncer(cfg *shared.Config, logger *shared.Logger, instStore store.InstanceStore, resStore store.TaskResultStore, deployStore store.DeploymentStore, svcStore store.ServiceStore, proxyHandler proxy.HandleProxy, handler http.Handler, auth pkgAuth.Authenticator, fs *FileSystem) *Syncer {
+	return &Syncer{
+		cfg:          cfg,
+		logger:       logger,
+		instStore:    instStore,
+		resultStore:  resStore,
+		deployStore:  deployStore,
+		svcStore:     svcStore,
+		proxyHandler: proxyHandler,
+		fs:           fs,
+		executor:     NewExecutor(logger, handler, instStore, auth),
+		dedupe:       make(map[string]time.Time),
+	}
 }
 
 func (s *Syncer) Start(ctx context.Context) {
@@ -669,7 +671,7 @@ ws_connected:
 			case <-connCtx.Done():
 				return
 			case <-time.After(jitter(updateInterval)):
-				upd := buildAgentUpdate(connCtx, s.cfg, inst.InstanceID, s.instStore, s.deployStore, s.svcStore, s.proxyHandler, s.fsCache)
+				upd := buildAgentUpdate(connCtx, s.cfg, inst.InstanceID, s.instStore, s.deployStore, s.svcStore, s.proxyHandler, s.fs)
 				msg := wsMessage{
 					ID:     ulid.Make().String(),
 					TS:     time.Now(),
@@ -955,6 +957,15 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 		tlog.Debug("syncer: executing task", "task_id", t.ID, "type", t.Type)
 
 		result := s.executor.Execute(tctx, task)
+
+		// NEW: Send task_response immediately after execution
+		// This is critical for filesystem operations so clients don't timeout
+		if err := s.sendTaskResponse(ctx, conn, t.ID, result); err != nil {
+			tlog.Error("failed to send task_response", "error", err, "task_id", t.ID)
+		} else {
+			tlog.Debug("sent task_response", "task_id", t.ID, "success", result.Status == "done")
+		}
+
 		completedResults = append(completedResults, result)
 		completedIDs = append(completedIDs, t.ID)
 		s.markTaskSeen(t.ID)
@@ -969,6 +980,50 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 		if err := s.sendWSMessage(ctx, conn, wsMessage{ID: ulid.Make().String(), TS: time.Now(), Kind: "ack", IDs: completedIDs}); err != nil {
 			logger.Error("failed to send ack", "error", err)
 		}
+	}
+}
+
+// sendTaskResponse sends a task_response message back to the server for realtime requests
+func (s *Syncer) sendTaskResponse(ctx context.Context, conn *websocket.Conn, taskID string, result *tasks.Result) error {
+	success := result.Status == "done"
+
+	msg := wsMessage{
+		ID:        ulid.Make().String(),
+		TS:        time.Now(),
+		Kind:      "task_response",
+		TaskID:    taskID,
+		RequestID: taskID, // requestId equals taskId per strategy doc
+		Success:   success,
+	}
+
+	if success && result.Result != nil {
+		msg.Data = result.Result
+	}
+
+	if !success && result.Error != "" {
+		msg.TaskError = &TaskError{
+			Code:    mapErrorToCode(result.Error),
+			Message: result.Error,
+		}
+	}
+
+	return s.sendWSMessage(ctx, conn, msg)
+}
+
+// mapErrorToCode maps error messages to WSErrorCode values
+func mapErrorToCode(errMsg string) string {
+	errLower := strings.ToLower(errMsg)
+	switch {
+	case strings.Contains(errLower, "permission denied"):
+		return "PERMISSION_DENIED"
+	case strings.Contains(errLower, "not found"):
+		return "NOT_FOUND"
+	case strings.Contains(errLower, "invalid"):
+		return "INVALID_REQUEST"
+	case strings.Contains(errLower, "timeout"):
+		return "TIMEOUT"
+	default:
+		return "INTERNAL_ERROR"
 	}
 }
 

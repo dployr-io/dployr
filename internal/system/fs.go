@@ -28,8 +28,8 @@ const (
 	maxReadLimit       = 10 << 20 // 10MB
 )
 
-// FSCache provides cached filesystem snapshots with async refresh
-type FSCache struct {
+// FileSystem provides cached filesystem snapshots with async refresh
+type FileSystem struct {
 	mu          sync.RWMutex
 	snapshot    *system.FSSnapshot
 	refreshing  atomic.Bool
@@ -39,9 +39,9 @@ type FSCache struct {
 	roots       []string
 }
 
-// NewFSCache creates a new filesystem cache
-func NewFSCache() *FSCache {
-	return &FSCache{
+// NewFS creates a new filesystem cache
+func NewFS() *FileSystem {
+	return &FileSystem{
 		ttl:         defaultTTL,
 		maxDepth:    defaultMaxDepth,
 		maxChildren: defaultMaxChildren,
@@ -50,7 +50,7 @@ func NewFSCache() *FSCache {
 }
 
 // GetSnapshot returns the current snapshot, triggering refresh if stale
-func (c *FSCache) GetSnapshot() *system.FSSnapshot {
+func (c *FileSystem) GetSnapshot() *system.FSSnapshot {
 	c.mu.RLock()
 	snap := c.snapshot
 	c.mu.RUnlock()
@@ -67,7 +67,7 @@ func (c *FSCache) GetSnapshot() *system.FSSnapshot {
 	return snap
 }
 
-func (c *FSCache) triggerRefresh() {
+func (c *FileSystem) triggerRefresh() {
 	if c.refreshing.Swap(true) {
 		return // already refreshing
 	}
@@ -80,7 +80,7 @@ func (c *FSCache) triggerRefresh() {
 	}()
 }
 
-func (c *FSCache) buildSnapshot() *system.FSSnapshot {
+func (c *FileSystem) buildSnapshot() *system.FSSnapshot {
 	var roots []system.FSNode
 	for _, root := range c.roots {
 		node := c.walkDir(root, c.maxDepth)
@@ -95,7 +95,7 @@ func (c *FSCache) buildSnapshot() *system.FSSnapshot {
 	}
 }
 
-func (c *FSCache) walkDir(path string, depth int) *system.FSNode {
+func (c *FileSystem) walkDir(path string, depth int) *system.FSNode {
 	info, err := os.Lstat(path)
 	if err != nil {
 		return nil
@@ -137,7 +137,7 @@ func (c *FSCache) walkDir(path string, depth int) *system.FSNode {
 	return node
 }
 
-func (c *FSCache) buildNode(path string, info fs.FileInfo) *system.FSNode {
+func (c *FileSystem) buildNode(path string, info fs.FileInfo) *system.FSNode {
 	node := &system.FSNode{
 		Path:      path,
 		Name:      info.Name(),
@@ -166,7 +166,7 @@ func (c *FSCache) buildNode(path string, info fs.FileInfo) *system.FSNode {
 }
 
 // ListDir lists a directory with pagination
-func (c *FSCache) ListDir(path string, depth, limit int, cursor string) (*system.FSListResponse, error) {
+func (c *FileSystem) ListDir(path string, depth, limit int, cursor string) (*system.FSListResponse, error) {
 	if depth <= 0 {
 		depth = 1
 	}
@@ -238,7 +238,7 @@ func (c *FSCache) ListDir(path string, depth, limit int, cursor string) (*system
 }
 
 // ReadFile reads file contents
-func (c *FSCache) ReadFile(path string, offset, limit int64) (*system.FSReadResponse, error) {
+func (c *FileSystem) ReadFile(path string, offset, limit int64) (*system.FSReadResponse, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, fmt.Errorf("file not found: %w", err)
@@ -295,7 +295,7 @@ func (c *FSCache) ReadFile(path string, offset, limit int64) (*system.FSReadResp
 }
 
 // WriteFile writes content to a file
-func (c *FSCache) WriteFile(req *system.FSWriteRequest) (*system.FSOpResponse, error) {
+func (c *FileSystem) WriteFile(req *system.FSWriteRequest) (*system.FSOpResponse, error) {
 	// Check parent directory is writable
 	parentDir := filepath.Dir(req.Path)
 	if !canWriteDir(parentDir) {
@@ -346,7 +346,7 @@ func (c *FSCache) WriteFile(req *system.FSWriteRequest) (*system.FSOpResponse, e
 }
 
 // CreateFile creates a new file or directory
-func (c *FSCache) CreateFile(req *system.FSCreateRequest) (*system.FSOpResponse, error) {
+func (c *FileSystem) CreateFile(req *system.FSCreateRequest) (*system.FSOpResponse, error) {
 	// Check parent directory is writable
 	parentDir := filepath.Dir(req.Path)
 	if !canWriteDir(parentDir) {
@@ -408,7 +408,7 @@ func (c *FSCache) CreateFile(req *system.FSCreateRequest) (*system.FSOpResponse,
 }
 
 // DeleteFile deletes a file or directory
-func (c *FSCache) DeleteFile(req *system.FSDeleteRequest) (*system.FSOpResponse, error) {
+func (c *FileSystem) DeleteFile(req *system.FSDeleteRequest) (*system.FSOpResponse, error) {
 	// Check parent directory is writable
 	parentDir := filepath.Dir(req.Path)
 	if !canWriteDir(parentDir) {

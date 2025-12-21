@@ -2380,6 +2380,84 @@ components:
                 type: string
                 example: "Field is required"
 
+    TaskError:
+      type: object
+      description: Error details in task response messages
+      properties:
+        code:
+          type: string
+          description: Error code (e.g., PERMISSION_DENIED, NOT_FOUND, INVALID_REQUEST, TIMEOUT, INTERNAL_ERROR)
+          example: "PERMISSION_DENIED"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "permission denied"
+
+    WSTaskResponse:
+      type: object
+      description: |
+        Task response message sent over WebSocket after task execution completes.
+        This message provides immediate feedback for filesystem operations and other tasks
+        so clients don't timeout waiting for acknowledgment.
+      properties:
+        id:
+          type: string
+          description: Unique message identifier
+          example: "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        ts:
+          type: string
+          format: date-time
+          description: Message timestamp
+        kind:
+          type: string
+          enum: [task_response]
+          description: Message type identifier
+        taskId:
+          type: string
+          description: ID of the task that was executed
+          example: "task-123"
+        requestId:
+          type: string
+          description: Request ID (equals taskId per protocol)
+          example: "task-123"
+        success:
+          type: boolean
+          description: Whether the task execution succeeded
+          example: true
+        data:
+          type: object
+          nullable: true
+          description: Task result data (structure depends on task type)
+          example: { "path": "/tmp/file.txt", "size": 1024 }
+        error:
+          $ref: '#/components/schemas/TaskError'
+          nullable: true
+          description: Error details if task failed
+
+    WSMessage:
+      type: object
+      description: |
+        Base WebSocket message exchanged between agent and base.
+        The message type is determined by the `kind` field.
+      discriminator:
+        propertyName: kind
+      properties:
+        id:
+          type: string
+          description: Unique message identifier
+          example: "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+        request_id:
+          type: string
+          description: Request ID for correlation
+        ts:
+          type: string
+          format: date-time
+          description: Message timestamp
+        kind:
+          type: string
+          enum: [hello, hello_ack, task, task_response, ack, pull, update, log_chunk]
+          description: Message type
+
   responses:
     BadRequest:
       description: Bad request
