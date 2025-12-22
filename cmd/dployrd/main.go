@@ -71,14 +71,14 @@ func main() {
 	deployer := deploy.NewDeployer(cfg, logger, ds, api)
 	dh := deploy.NewDeploymentHandler(deployer, logger)
 
-	services := _service.Init(cfg, logger, ss)
-	servicer := service.NewServicer(cfg, logger, ss, services)
-	sh := service.NewServiceHandler(servicer, logger)
-
 	proxyState := _proxy.LoadState()
 	ps := _proxy.Init(proxyState)
 	proxier := proxy.NewProxier(proxyState, ps)
 	ph := proxy.NewProxyHandler(proxier, logger)
+
+	services := _service.Init(cfg, logger, ss, ps)
+	servicer := service.NewServicer(cfg, logger, ss, services)
+	sh := service.NewServiceHandler(servicer, logger)
 
 	sysSvc := _system.NewDefaultService(cfg, is, trs)
 	sysH := system.NewServiceHandler(sysSvc)
