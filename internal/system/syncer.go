@@ -265,22 +265,36 @@ func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string
 		dbg.System = res
 	}
 
-	// Fetch deployments from store
 	deployments := make([]store.Deployment, 0)
 	if deployStore != nil {
 		if deps, err := deployStore.ListDeployments(ctx, 100, 0); err == nil {
 			for _, d := range deps {
-				deployments = append(deployments, *d)
+				sanitized := *d
+				if len(sanitized.Blueprint.Secrets) > 0 {
+					keys := make(map[string]string, len(sanitized.Blueprint.Secrets))
+					for key := range d.Blueprint.Secrets {
+						keys[key] = ""
+					}
+					sanitized.Blueprint.Secrets = keys
+				}
+				deployments = append(deployments, sanitized)
 			}
 		}
 	}
 
-	// Fetch services from store
 	services := make([]store.Service, 0)
 	if svcStore != nil {
 		if svcs, err := svcStore.ListServices(ctx, 100, 0); err == nil {
 			for _, s := range svcs {
-				services = append(services, *s)
+				sanitized := *s
+				if len(sanitized.Secrets) > 0 {
+					keys := make(map[string]string, len(sanitized.Secrets))
+					for key := range s.Secrets {
+						keys[key] = ""
+					}
+					sanitized.Secrets = keys
+				}
+				services = append(services, sanitized)
 			}
 		}
 	}
