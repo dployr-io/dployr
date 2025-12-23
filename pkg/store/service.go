@@ -50,8 +50,8 @@ type Service struct {
 }
 
 type ServiceStore interface {
-	GetService(ctx context.Context, id string) (*Service, error)
+	GetService(ctx context.Context, name string) (*Service, error)
 	ListServices(ctx context.Context, limit, offset int) ([]*Service, error)
 	SaveService(ctx context.Context, svc *Service) (*Service, error)
-	DeleteService(ctx context.Context, id string) error
+	DeleteService(ctx context.Context, name string) error
 }

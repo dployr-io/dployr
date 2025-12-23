@@ -51,17 +51,17 @@ func (s ServiceStore) createService(ctx context.Context, svc *store.Service) (*s
 	return svc, nil
 }
 
-func (s ServiceStore) GetService(ctx context.Context, id string) (*store.Service, error) {
+func (s ServiceStore) GetService(ctx context.Context, name string) (*store.Service, error) {
 	stmt, err := s.db.PrepareContext(ctx, `
 		SELECT id, name, description, source, runtime, runtime_version, run_cmd, build_cmd, working_dir,
 		       static_dir, image, remote_url, remote_branch, remote_commit_hash, deployment_id, created_at, updated_at
-		FROM services WHERE id = ?`)
+		FROM services WHERE name = ?`)
 	if err != nil {
 		return nil, err
 	}
 	defer stmt.Close()
 
-	row := stmt.QueryRowContext(ctx, id)
+	row := stmt.QueryRowContext(ctx, name)
 
 	var svc store.Service
 	var createdAtUnix, updatedAtUnix int64
@@ -179,7 +179,7 @@ func (s ServiceStore) updateService(ctx context.Context, svc *store.Service) err
 
 // SaveService creates a new service or updates an existing one.
 func (s ServiceStore) SaveService(ctx context.Context, svc *store.Service) (*store.Service, error) {
-	existing, err := s.GetService(ctx, svc.ID)
+	existing, err := s.GetService(ctx, svc.Name)
 	if err == nil && existing != nil {
 		svc.CreatedAt = existing.CreatedAt
 		svc.UpdatedAt = time.Now()
@@ -192,14 +192,14 @@ func (s ServiceStore) SaveService(ctx context.Context, svc *store.Service) (*sto
 	return s.createService(ctx, svc)
 }
 
-// DeleteService removes a service by ID.
-func (s ServiceStore) DeleteService(ctx context.Context, id string) error {
-	stmt, err := s.db.PrepareContext(ctx, `DELETE FROM services WHERE id = ?`)
+// DeleteService removes a service by name.
+func (s ServiceStore) DeleteService(ctx context.Context, name string) error {
+	stmt, err := s.db.PrepareContext(ctx, `DELETE FROM services WHERE name = ?`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	_, err = stmt.ExecContext(ctx, id)
+	_, err = stmt.ExecContext(ctx, name)
 	return err
 }

@@ -170,20 +170,20 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /services/{serviceId}:
+  /services/{name}:
     get:
       tags:
         - Services
       summary: Get service
-      description: Retrieve a specific service by ID (Viewer+ required)
+      description: Retrieve a specific service by name (Viewer+ required)
       operationId: getService
       security:
         - BearerAuth: []
       parameters:
-        - name: serviceId
+        - name: name
           in: path
           required: true
-          description: Service ID
+          description: Service name
           schema:
             type: string
       responses:
@@ -211,10 +211,10 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - name: serviceId
+        - name: name
           in: path
           required: true
-          description: Service ID
+          description: Service name
           schema:
             type: string
       requestBody:
@@ -252,10 +252,10 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - name: serviceId
+        - name: name
           in: path
           required: true
-          description: Service ID
+          description: Service name
           schema:
             type: string
       requestBody:
@@ -293,10 +293,10 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - name: serviceId
+        - name: name
           in: path
           required: true
-          description: Service ID
+          description: Service name
           schema:
             type: string
       responses:

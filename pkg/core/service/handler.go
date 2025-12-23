@@ -32,17 +32,17 @@ func (h *ServiceHandler) GetService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serviceID := r.URL.Query().Get("id")
-	if serviceID == "" {
-		h.logger.Error("missing service ID in request")
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		h.logger.Error("missing service name in request")
 		e := shared.Errors.Request.MissingParams
-		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"param": "id"})
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"param": "name"})
 		return
 	}
 
-	service, err := h.servicer.api.GetService(ctx, serviceID)
+	service, err := h.servicer.api.GetService(ctx, name)
 	if err != nil {
-		h.logger.Error("failed to get service", "error", err, "service_id", serviceID)
+		h.logger.Error("failed to get service", "error", err, "service_name", name)
 		e := shared.Errors.Runtime.InternalServer
 		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
@@ -50,7 +50,7 @@ func (h *ServiceHandler) GetService(w http.ResponseWriter, r *http.Request) {
 
 	if service == nil {
 		e := shared.Errors.Resource.NotFound
-		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"resource": "service", "id": serviceID})
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"resource": "service", "name": name})
 		return
 	}
 
@@ -130,16 +130,16 @@ func (h *ServiceHandler) DeleteService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serviceID := r.URL.Query().Get("id")
-	if serviceID == "" {
-		h.logger.Error("missing service ID in request")
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		h.logger.Error("missing service name in request")
 		e := shared.Errors.Request.MissingParams
-		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"param": "id"})
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"param": "name"})
 		return
 	}
 
-	if err := h.servicer.api.DeleteService(ctx, serviceID); err != nil {
-		h.logger.Error("failed to delete service", "error", err, "service_id", serviceID)
+	if err := h.servicer.api.DeleteService(ctx, name); err != nil {
+		h.logger.Error("failed to delete service", "error", err, "service_name", name)
 		e := shared.Errors.Runtime.InternalServer
 		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return

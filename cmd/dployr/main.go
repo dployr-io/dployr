@@ -558,14 +558,14 @@ For first-time owner registration (requires secret key):
 
 	// get service
 	getServiceCmd := &cobra.Command{
-		Use:   "get [service-id]",
+		Use:   "get [service-name]",
 		Short: "get service details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			token, _ := shared.GetToken()
-			serviceID := args[0]
+			name := args[0]
 
-			r, err := http.NewRequest("GET", addr+"/services/"+serviceID, nil)
+			r, err := http.NewRequest("GET", addr+"/services/"+name, nil)
 			if err != nil {
 				return fmt.Errorf("failed to create request: %v", err)
 			}

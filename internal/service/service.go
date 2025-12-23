@@ -37,16 +37,16 @@ func Init(cfg *shared.Config, logger *shared.Logger, store store.ServiceStore, p
 	}
 }
 
-func (s *Servicer) GetService(ctx context.Context, id string) (*store.Service, error) {
-	return s.store.GetService(ctx, id)
+func (s *Servicer) GetService(ctx context.Context, name string) (*store.Service, error) {
+	return s.store.GetService(ctx, name)
 }
 
 func (s *Servicer) ListServices(ctx context.Context, userID string, limit, offset int) ([]*store.Service, error) {
 	return s.store.ListServices(ctx, limit, offset)
 }
 
-func (s *Servicer) DeleteService(ctx context.Context, id string) error {
-	svc, err := s.store.GetService(ctx, id)
+func (s *Servicer) DeleteService(ctx context.Context, name string) error {
+	svc, err := s.store.GetService(ctx, name)
 	if err != nil {
 		return fmt.Errorf("failed to get service: %w", err)
 	}
@@ -54,17 +54,17 @@ func (s *Servicer) DeleteService(ctx context.Context, id string) error {
 		return fmt.Errorf("service not found")
 	}
 
-	serviceName := utils.FormatName(svc.Name)
+	service_name := utils.FormatName(svc.Name)
 
 	if s.svcMgr != nil {
-		s.logger.Info("stopping systemd service", "service", serviceName)
-		if err := s.svcMgr.Stop(serviceName); err != nil {
-			s.logger.Warn("failed to stop service (may not exist)", "service", serviceName, "error", err)
+		s.logger.Info("stopping systemd service", "service", service_name)
+		if err := s.svcMgr.Stop(service_name); err != nil {
+			s.logger.Warn("failed to stop service (may not exist)", "service", service_name, "error", err)
 		}
 
-		s.logger.Info("removing systemd service", "service", serviceName)
-		if err := s.svcMgr.Remove(serviceName); err != nil {
-			s.logger.Warn("failed to remove service (may not exist)", "service", serviceName, "error", err)
+		s.logger.Info("removing systemd service", "service", service_name)
+		if err := s.svcMgr.Remove(service_name); err != nil {
+			s.logger.Warn("failed to remove service (may not exist)", "service", service_name, "error", err)
 		}
 	}
 
@@ -87,11 +87,11 @@ func (s *Servicer) DeleteService(ctx context.Context, id string) error {
 		}
 	}
 
-	s.logger.Info("deleting service from database", "service_id", id)
-	if err := s.store.DeleteService(ctx, id); err != nil {
+	s.logger.Info("deleting service from database", "service_name", name)
+	if err := s.store.DeleteService(ctx, name); err != nil {
 		return fmt.Errorf("failed to delete service from database: %w", err)
 	}
 
-	s.logger.Info("service deleted successfully", "service_id", id, "service_name", svc.Name)
+	s.logger.Info("service deleted successfully", "service_name", name)
 	return nil
 }

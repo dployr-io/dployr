@@ -126,15 +126,15 @@ func (w *WebHandler) BuildMux(cfg *shared.Config) *http.ServeMux {
 			return
 		}
 
-		serviceID := path[len("/services/"):]
-		if serviceID == "" {
+		name := path[len("/services/"):]
+		if name == "" {
 			e := shared.Errors.Resource.NotFound
-			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"resource": "service", "id": serviceID})
+			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"resource": "service", "name": name})
 			return
 		}
 
 		q := req.URL.Query()
-		q.Set("id", serviceID)
+		q.Set("name", name)
 		req.URL.RawQuery = q.Encode()
 
 		switch req.Method {
