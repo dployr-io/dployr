@@ -168,9 +168,10 @@ func NewLogger() *Logger {
 		}
 
 		var writers []io.Writer
-		writers = append(writers, os.Stdout)
 		if rw != nil {
 			writers = append(writers, rw)
+		} else {
+			writers = append(writers, os.Stderr)
 		}
 
 		multi := io.MultiWriter(writers...)
