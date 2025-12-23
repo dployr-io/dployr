@@ -204,7 +204,8 @@ func TestWorker_Semaphore(t *testing.T) {
 
 	t.Run("semaphore limits concurrent jobs", func(t *testing.T) {
 		worker := New(2, cfg, logger, deployStore, svcStore)
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
 		// Try to acquire 2 slots (should succeed)
 		if err := worker.semaphore.Acquire(ctx); err != nil {
@@ -214,20 +215,33 @@ func TestWorker_Semaphore(t *testing.T) {
 			t.Fatalf("expected second acquire to succeed, got error: %v", err)
 		}
 
-		// Try to acquire third slot (should block, test with select)
+		// Try to acquire third slot (should block)
+		blockCtx, blockCancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer blockCancel()
+
+		acquired := make(chan bool, 1)
+		go func() {
+			if err := worker.semaphore.Acquire(blockCtx); err == nil {
+				acquired <- true
+			}
+		}()
+
 		select {
+		case <-acquired:
+			t.Error("expected semaphore to block on third acquire")
 		case <-time.After(100 * time.Millisecond):
 			// This is expected - semaphore is full and blocks
-		default:
-			t.Error("expected semaphore to block on third acquire")
 		}
 
 		// Release one slot
 		worker.semaphore.Release()
 
-		// Now third acquire should succeed
-		if err := worker.semaphore.Acquire(ctx); err != nil {
-			t.Fatalf("expected acquire after release to succeed, got error: %v", err)
+		// Now third acquire should succeed (the blocked goroutine will get it)
+		select {
+		case <-acquired:
+			// Expected - the blocked goroutine acquired the slot
+		case <-time.After(200 * time.Millisecond):
+			t.Error("expected blocked acquire to succeed after release")
 		}
 	})
 }
