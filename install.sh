@@ -43,6 +43,7 @@ TOKEN=""
 REPO="dployr-io/dployr"
 DPLOYR_DOMAIN=""
 BASE_URL="https://base.dployr.dev"
+INSTANCE_ID=""
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -273,6 +274,11 @@ while [[ $# -gt 0 ]]; do
         --base|-b)
             [[ -z "$2" ]] && error "Missing value for $1"
             BASE_URL="$2"
+            shift 2
+            ;;
+        --instance|-i)
+            [[ -z "$2" ]] && error "Missing value for $1"
+            INSTANCE_ID="$2"
             shift 2
             ;;
         *)
@@ -512,17 +518,20 @@ info "Creating system configuration..."
 mkdir -p "$CONFIG_DIR"
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
+    # Use custom instance_id if provided, otherwise use default
+    local instance_value="${INSTANCE_ID:-my-instance-id}"
     cat > "$CONFIG_FILE" << EOF
 address = "localhost"
 port = 7879
 max-workers = 5
 
 base_url = "$BASE_URL"
-instance_id = "my-instance-id"
+instance_id = "$instance_value"
 EOF
     chmod 644 "$CONFIG_FILE"
     chmod 755 "$CONFIG_DIR"
     info "Created system config at $CONFIG_FILE"
+    [[ -n "$INSTANCE_ID" ]] && info "Using custom instance_id: $INSTANCE_ID"
 else
     info "Config file already exists at $CONFIG_FILE"
 fi

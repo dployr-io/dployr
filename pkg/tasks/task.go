@@ -17,8 +17,9 @@ type Task struct {
 
 // Result represents the outcome of executing a task.
 type Result struct {
-	ID     string `json:"id"`
-	Status string `json:"status"` // "done" or "failed"
-	Result any    `json:"result,omitempty"`
-	Error  string `json:"error,omitempty"`
+	ID       string         `json:"id"`
+	Status   string         `json:"status"` // "done" or "failed"
+	Result   any            `json:"result,omitempty"`
+	Error    string         `json:"error,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
 }

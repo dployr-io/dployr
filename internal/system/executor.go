@@ -268,10 +268,22 @@ func (e *Executor) Execute(ctx context.Context, task *tasks.Task) *tasks.Result 
 		}
 
 		res := &tasks.Result{
-			ID:     task.ID,
-			Status: "done",
-			Result: result,
+			ID:       task.ID,
+			Status:   "done",
+			Result:   result,
+			Metadata: make(map[string]any),
 		}
+
+		parts := strings.Split(task.Type, ":")
+		if len(parts) > 0 && parts[0] == "deployments" {
+			if deployment, ok := result.(map[string]any); ok {
+				if name, ok := deployment["name"]; ok {
+					res.Metadata["name"] = name
+					res.Metadata["type"] = task.Type
+				}
+			}
+		}
+
 		lastExec.Store(lastExecInfo{ID: task.ID, Status: "done", DurMs: duration.Milliseconds(), At: time.Now()})
 		atomic.AddUint64(&taskExecutedSuccessTotal, 1)
 		recordTaskExecHistogram(duration)

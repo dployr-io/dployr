@@ -24,6 +24,7 @@ type Config struct {
 	Port             int
 	MaxWorkers       int
 	BaseURL          string
+	InstanceID       string
 	SyncInterval     time.Duration
 	WSCertPath       string
 	WSMaxMessageSize int64
@@ -53,6 +54,7 @@ func LoadConfig() (*Config, error) {
 		Port:             getEnvAsInt("PORT", 7879),
 		MaxWorkers:       getEnvAsInt("MAX_WORKERS", 5),
 		BaseURL:          getEnv("BASE_URL", ""),
+		InstanceID:       getEnv("INSTANCE_ID", ""),
 		SyncInterval:     getEnvAsDuration("SYNC_INTERVAL", 30*time.Second),
 		WSCertPath:       getEnv("WS_CERT_PATH", ""),
 		WSMaxMessageSize: getEnvAsInt64("WS_MAX_MESSAGE_SIZE", 10*1024*1024), // 10MB default

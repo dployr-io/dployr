@@ -317,7 +317,7 @@ func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string
 		Seq:         seq,
 		Epoch:       fmt.Sprintf("%s-%d", strings.TrimSpace(instanceID), startTime.Unix()),
 		Full:        false,
-		InstanceID:  instanceID,
+		InstanceID:  cfg.InstanceID,
 		BuildInfo:   version.GetBuildInfo(),
 		Platform:    system.PlatformInfo{OS: runtime.GOOS, Arch: runtime.GOARCH},
 		Status:      system.SystemStatusHealthy,
@@ -326,7 +326,7 @@ func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string
 		Deployments: deployments,
 		Services:    services,
 		Apps:        apps,
-		Proxy:       system.SystemProxyStatus{Status: system.ProxyStatusRunning, Routes: 0},
+		Proxy:       system.SystemProxyStatus{Status: system.ProxyStatusRunning, Routes: len(apps)},
 		Health:      system.SystemHealth{Overall: overallHealth, WS: wsHealth, Tasks: tasksHealth, Auth: authHealth},
 		Debug:       dbg,
 		FS:          fsSnapshot,
@@ -972,8 +972,11 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 
 		result := s.executor.Execute(tctx, task)
 
+		result.Metadata = map[string]any{
+			"instance_id": s.cfg.InstanceID,
+		}
+
 		// NEW: Send task_response immediately after execution
-		// This is critical for filesystem operations so clients don't timeout
 		if err := s.sendTaskResponse(ctx, conn, t.ID, result); err != nil {
 			tlog.Error("failed to send task_response", "error", err, "task_id", t.ID)
 		} else {
@@ -1008,6 +1011,7 @@ func (s *Syncer) sendTaskResponse(ctx context.Context, conn *websocket.Conn, tas
 		TaskID:    taskID,
 		RequestID: taskID, // requestId equals taskId per strategy doc
 		Success:   success,
+		Data:      result.Metadata,
 	}
 
 	if success && result.Result != nil {

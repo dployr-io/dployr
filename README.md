@@ -133,6 +133,10 @@ These binaries are automatically downloaded and configured during installation w
 curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh \
   | bash -s -- --token "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
 
+# Install with custom instance ID
+curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh \
+  | bash -s -- --token "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." --instance "prod-server-01"
+
 # Install latest version 
 curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh \
   | bash 
@@ -177,6 +181,9 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/dployr-io/dployr/maste
 # Install specific version
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/dployr-io/dployr/master/install.ps1" -OutFile "install.ps1"
 .\install.ps1 -Version v0.1.1-beta.17 -Token $env:DPLOYR_INSTALL_TOKEN
+
+# Install with custom instance ID
+.\install.ps1 -Token $env:DPLOYR_INSTALL_TOKEN -Instance "prod-server-01"
 
 # Custom install directory
 .\install.ps1 -Version latest -InstallDir "C:\dployr" -Token $env:DPLOYR_INSTALL_TOKEN

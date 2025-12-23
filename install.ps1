@@ -9,6 +9,8 @@ param(
     [string]$Version = "latest",
     [Alias('t')]
     [string]$Token,
+    [Alias('i')]
+    [string]$Instance,
     [switch]$Help
 )
 
@@ -40,16 +42,18 @@ Write-Host "=========================" -ForegroundColor Green
 # Show usage if help requested
 if ($Help) {
     Write-Host "" 
-    Write-Host "Usage: .\install.ps1 [-Version <VERSION>] -Token <TOKEN> [-InstallDir <PATH>]" 
+    Write-Host "Usage: .\install.ps1 [-Version <VERSION>] -Token <TOKEN> [-Instance <ID>] [-InstallDir <PATH>]" 
     Write-Host "" 
     Write-Host "Arguments:" 
     Write-Host "  -Version    Optional dployr version tag (default: latest)" 
     Write-Host "  -Token      Required install token issued by dployr base" 
+    Write-Host "  -Instance   Optional custom instance ID (default: my-instance-id)" 
     Write-Host "  -InstallDir Optional install directory (default: $env:ProgramFiles\\dployr)" 
     Write-Host "" 
     Write-Host "Examples:" 
     Write-Host "  .\install.ps1 -Token $env:DPLOYR_INSTALL_TOKEN" 
     Write-Host "  .\install.ps1 -Version v0.1.1-beta.17 -Token $env:DPLOYR_INSTALL_TOKEN" 
+    Write-Host "  .\install.ps1 -Token $env:DPLOYR_INSTALL_TOKEN -Instance prod-server-01" 
     Write-Host "  .\install.ps1 -Version latest -Token $env:DPLOYR_INSTALL_TOKEN -InstallDir C:\dployr" 
     Write-Host "" 
     Write-Host "Available versions: https://github.com/dployr-io/dployr/releases" 
@@ -263,6 +267,8 @@ if (!(Test-Path $configDir)) {
 }
 
 if (!(Test-Path $configFile)) {
+    # Use custom instance_id if provided, otherwise use default
+    $instanceValue = if ($Instance) { $Instance } else { "my-instance-id" }
     $defaultConfig = @"
 # dployr configuration file
 address = "localhost"
@@ -271,10 +277,13 @@ max-workers = 5
 
 # Base configuration
 base_url = "https://base.dployr.dev"
-instance_id = "my-instance-id"
+instance_id = "$instanceValue"
 "@
     $defaultConfig | Out-File -FilePath $configFile -Encoding UTF8
     Write-Host "✓ Created system config at $configFile"
+    if ($Instance) {
+        Write-Host "✓ Using custom instance_id: $Instance"
+    }
 } else {
     Write-Host "✓ Config file already exists at $configFile"
 }
