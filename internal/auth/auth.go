@@ -125,7 +125,7 @@ func (a *Auth) ValidateToken(ctx context.Context, tokenStr string) (*pkgAuth.Cla
 		}
 	}
 
-	if inst.InstanceID != "" && claims.InstanceID != "" && claims.InstanceID != inst.InstanceID {
+	if inst.InstanceID != "" && a.cfg.InstanceID != "" && claims.InstanceID != a.cfg.InstanceID {
 		err := errors.New("token not intended for this instance")
 		shared.LogWithContext(ctx).Error("token validation failed", "error", err)
 		return nil, err
