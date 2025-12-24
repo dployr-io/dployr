@@ -561,7 +561,7 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 ws_dial:
 
 	wsURL := strings.Replace(s.cfg.BaseURL, "https://", "wss://", 1) +
-		fmt.Sprintf("/v1/agent/instances/%s/ws", inst.InstanceID)
+		fmt.Sprintf("/v1/agent/ws?instanceId=%s", inst.InstanceID)
 
 	logger.Info("syncer: dialing websocket", "host", s.cfg.BaseURL)
 	tlsConfig, err := s.buildPinnedTLSConfig(clientCert)
@@ -882,7 +882,7 @@ func (s *Syncer) publishClientCertificate(ctx context.Context, instanceID, agent
 		return fmt.Errorf("base_url is not configured")
 	}
 
-	url := fmt.Sprintf("%s/v1/agent/instances/%s/cert", base, instanceID)
+	url := fmt.Sprintf("%s/v1/agent/cert?instanceId=%s", base, instanceID)
 
 	if err := s.sendCertRequest(ctx, http.MethodPost, url, agentToken, body); err != nil {
 		var httpErr *httpError
