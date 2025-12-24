@@ -322,6 +322,8 @@ func (h *Handler) getLogPath(path string) string {
 		dataDir = "/var/lib/dployrd"
 	}
 
+	clean = strings.ToLower(clean)
+
 	if !strings.HasSuffix(clean, ".log") {
 		clean = clean + ".log"
 	}
