@@ -132,6 +132,13 @@ func (h *Handler) streamTail(ctx context.Context, logPath string, opts logs.Stre
 			if _, err := file.Seek(foundPos, io.SeekStart); err != nil {
 				return fmt.Errorf("failed to seek: %w", err)
 			}
+			// Align to next line boundary to avoid starting mid-line
+			if foundPos > 0 {
+				scanner := bufio.NewScanner(file)
+				if scanner.Scan() {
+					// Discard partial first line
+				}
+			}
 		}
 	} else if opts.StartFrom == 0 {
 		// Empty duration (deployment logs): start from beginning
