@@ -101,37 +101,42 @@ func (h *Handler) streamTail(ctx context.Context, logPath string, opts logs.Stre
 	}
 
 	// Determine start position
-	startPos := opts.StartFrom
-
-	// If resuming from a specific offset (pagination), use that
-	if startPos > 0 {
-		if _, err := file.Seek(startPos, io.SeekStart); err != nil {
+	if opts.StartFrom > 0 {
+		// Resume from specific offset (pagination)
+		if _, err := file.Seek(opts.StartFrom, io.SeekStart); err != nil {
 			return fmt.Errorf("failed to seek: %w", err)
 		}
-	} else if !cutoffTime.IsZero() {
+	} else if opts.Duration == "live" {
+		// Live mode: show last 5 minutes, fallback to end if not found
+		cutoffTime = time.Now().Add(-5 * time.Minute)
+	}
+
+	// Apply time-based cutoff or default positioning
+	if !cutoffTime.IsZero() {
 		fileInfo, err := file.Stat()
 		if err != nil {
 			return fmt.Errorf("failed to stat file: %w", err)
 		}
-		fileSize := fileInfo.Size()
 
 		h.logger.Debug("finding time-based cutoff position", "cutoff", cutoffTime)
-		foundPos, err := h.findTimeCutoffPosition(file, fileSize, cutoffTime)
+		foundPos, err := h.findTimeCutoffPosition(file, fileInfo.Size(), cutoffTime)
 		if err != nil {
-			h.logger.Warn("failed to find cutoff position, starting from beginning", "error", err)
-			startPos = 0
+			h.logger.Warn("failed to find cutoff position, using fallback", "error", err)
+			if opts.Duration == "live" {
+				file.Seek(0, io.SeekEnd) // Live mode fallback: end of file
+			} else {
+				file.Seek(0, io.SeekStart) // Time filter fallback: beginning
+			}
 		} else {
-			startPos = foundPos
-			h.logger.Debug("found cutoff position", "offset", startPos)
+			h.logger.Debug("found cutoff position", "offset", foundPos)
+			if _, err := file.Seek(foundPos, io.SeekStart); err != nil {
+				return fmt.Errorf("failed to seek: %w", err)
+			}
 		}
-
-		if _, err := file.Seek(startPos, io.SeekStart); err != nil {
-			return fmt.Errorf("failed to seek: %w", err)
-		}
-	} else {
-		// Default: tail from end of file (live mode)
-		if _, err := file.Seek(0, io.SeekEnd); err != nil {
-			return fmt.Errorf("failed to seek to end: %w", err)
+	} else if opts.StartFrom == 0 {
+		// Empty duration (deployment logs): start from beginning
+		if _, err := file.Seek(0, io.SeekStart); err != nil {
+			return fmt.Errorf("failed to seek to start: %w", err)
 		}
 	}
 
