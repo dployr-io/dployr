@@ -22,8 +22,8 @@ BUILD_CMD="${8:-}"
 PORT="${9:-3000}"
 
 # --- logging ---
-log() { echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] $*"; }
-abort() { log "ERROR: $*"; exit 1; }
+log() { echo "$*"; }
+abort() { echo "ERROR: $*"; exit 1; }
 
 # --- vfox setup ---
 setup_vfox_env() {
