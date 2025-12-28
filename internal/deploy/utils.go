@@ -4,6 +4,7 @@
 package deploy
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dployr-io/dployr/pkg/core/utils"
@@ -81,7 +83,7 @@ func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.C
 }
 
 // DeployApp handles runtime setup, build, and service installation
-func DeployApp(bp store.Blueprint) error {
+func DeployApp(bp store.Blueprint, deploymentID, logPath string) error {
 	version := string(bp.Runtime.Version)
 	if version == "" {
 		return fmt.Errorf("runtime version cannot be empty")
@@ -90,10 +92,10 @@ func DeployApp(bp store.Blueprint) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 
-	return runDeployScript(ctx, bp)
+	return runDeployScript(ctx, bp, deploymentID, logPath)
 }
 
-func runDeployScript(ctx context.Context, bp store.Blueprint) error {
+func runDeployScript(ctx context.Context, bp store.Blueprint, deploymentID, logPath string) error {
 	if runtime.GOOS == "windows" {
 		return fmt.Errorf("unified deployment script not yet supported on Windows")
 	}
@@ -142,13 +144,51 @@ func runDeployScript(ctx context.Context, bp store.Blueprint) error {
 	args := []string{tmpFile.Name(), "deploy", bp.Name, string(bp.Runtime.Type), bp.Runtime.Version, bp.WorkingDir, bp.RunCmd, desc, buildCmd, port}
 
 	cmd := exec.CommandContext(ctx, "bash", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("HOME=%s", os.Getenv("HOME")),
 	)
 
-	return cmd.Run()
+	// Capture stdout and stderr to deployment log
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
+
+	var wg sync.WaitGroup
+
+	// Stream stdout to log file
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		scanner := bufio.NewScanner(stdoutPipe)
+		for scanner.Scan() {
+			shared.LogInfoF(deploymentID, logPath, scanner.Text())
+		}
+	}()
+
+	// Stream stderr to log file
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		scanner := bufio.NewScanner(stderrPipe)
+		for scanner.Scan() {
+			shared.LogWarnF(deploymentID, logPath, scanner.Text())
+		}
+	}()
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start command: %w", err)
+	}
+
+	// Wait for streaming to complete
+	wg.Wait()
+
+	// Wait for command to finish
+	return cmd.Wait()
 }
 
 // ServiceConfig represents the TOML structure for service environment configuration

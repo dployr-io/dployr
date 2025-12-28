@@ -164,7 +164,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	shared.LogInfoF(id, logPath, "deploying application (runtime setup, build, service installation)")
-	err = deploy.DeployApp(bp)
+	err = deploy.DeployApp(bp, id, logPath)
 	if err != nil {
 		err = fmt.Errorf("deployment failed: %s", err)
 		shared.LogErrF(id, logPath, err)
