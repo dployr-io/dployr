@@ -561,7 +561,7 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 ws_dial:
 
 	wsURL := strings.Replace(s.cfg.BaseURL, "https://", "wss://", 1) +
-		fmt.Sprintf("/v1/agent/ws?instanceId=%s", inst.InstanceID)
+		fmt.Sprintf("/v1/agent/ws?instanceName=%s", inst.InstanceID)
 
 	logger.Info("syncer: dialing websocket", "host", s.cfg.BaseURL)
 	tlsConfig, err := s.buildPinnedTLSConfig(clientCert)
