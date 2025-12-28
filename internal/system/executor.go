@@ -122,9 +122,14 @@ func (e *Executor) handleLogStream(ctx context.Context, task *tasks.Task) *tasks
 		}
 	}
 
-	// Default duration to "live" if not specified
 	duration := payload.Duration
-	if duration == "" {
+	isDeploymentLog := payload.Path != "" && payload.Path != "app" && !strings.HasPrefix(payload.Path, "service:")
+
+	if isDeploymentLog {
+		// For deployment logs, always stream entire file
+		duration = ""
+	} else if duration == "" {
+		// For app/service logs, default to "live" mode
 		duration = "live"
 	}
 
