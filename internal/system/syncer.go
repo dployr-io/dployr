@@ -882,7 +882,7 @@ func (s *Syncer) publishClientCertificate(ctx context.Context, instanceID, agent
 		return fmt.Errorf("base_url is not configured")
 	}
 
-	url := fmt.Sprintf("%s/v1/agent/cert?instanceId=%s", base, instanceID)
+	url := fmt.Sprintf("%s/v1/agent/cert?instanceName=%s", base, instanceID)
 
 	if err := s.sendCertRequest(ctx, http.MethodPost, url, agentToken, body); err != nil {
 		var httpErr *httpError
@@ -1074,9 +1074,8 @@ func (s *Syncer) markTaskSeen(id string) {
 	s.dedupeMu.Unlock()
 }
 
-// fetchAgentToken exchanges a long-lived instance credential (bootstrap token)
-// for a short-lived agent access token that can be used to authenticate agent
-// calls (e.g. /v1/agent/instances/{id}/status).
+// fetchAgentToken exchanges bootstrap token for a short-lived agent
+// access token that can be used to authenticate daemon operations.
 func (s *Syncer) fetchAgentToken(ctx context.Context, bootstrapToken string) (string, error) {
 	base := strings.TrimRight(s.cfg.BaseURL, "/")
 	if base == "" {
