@@ -953,7 +953,10 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 	var completedResults []*tasks.Result
 
 	for _, t := range items {
-		if s.taskSeenRecently(t.ID) {
+		// Skip deduplication for log streaming tasks
+		isLogStream := t.Type == "logs/stream:post"
+
+		if !isLogStream && s.taskSeenRecently(t.ID) {
 			logger.Info("skipping previously completed task", "task_id", t.ID)
 			completedIDs = append(completedIDs, t.ID)
 			continue
@@ -985,7 +988,11 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 
 		completedResults = append(completedResults, result)
 		completedIDs = append(completedIDs, t.ID)
-		s.markTaskSeen(t.ID)
+
+		// Only mark non-log-stream tasks as seen for deduplication
+		if !isLogStream {
+			s.markTaskSeen(t.ID)
+		}
 	}
 
 	if err := s.resultStore.SaveResults(ctx, fromTaskResults(completedResults)); err != nil {
