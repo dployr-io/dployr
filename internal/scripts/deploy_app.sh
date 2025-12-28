@@ -263,9 +263,18 @@ EOF
 # --- start systemd service ---
 start_systemd_service() {
     local service_name="$1"
+    local log_file="${HOME}/.dployr/logs/${service_name}.log"
     
     log "Starting service: $service_name"
+    
+    # Record current log size to capture only new logs
+    local log_size_before=0
+    if [ -f "$log_file" ]; then
+        log_size_before=$(stat -c%s "$log_file" 2>/dev/null || echo 0)
+    fi
+    
     if ! sudo systemctl start "$service_name"; then
+        capture_service_logs "$service_name" "$log_file" "$log_size_before"
         abort "failed to start service: $service_name"
     fi
     
@@ -274,7 +283,37 @@ start_systemd_service() {
     if sudo systemctl is-active --quiet "$service_name"; then
         log "Service $service_name started successfully"
     else
+        capture_service_logs "$service_name" "$log_file" "$log_size_before"
         abort "service $service_name failed to start"
+    fi
+}
+
+# --- capture service logs on failure ---
+capture_service_logs() {
+    local service_name="$1"
+    local log_file="$2"
+    local log_size_before="$3"
+    
+    log "Service startup failed. Capturing runtime logs..."
+    
+    # Get systemd status
+    if sudo systemctl status "$service_name" --no-pager --lines=5 2>/dev/null | grep -q "Active: failed"; then
+        log "Service status: failed"
+    fi
+    
+    # Capture new logs written during startup attempt
+    if [ -f "$log_file" ]; then
+        local log_size_after=$(stat -c%s "$log_file" 2>/dev/null || echo 0)
+        
+        if [ "$log_size_after" -gt "$log_size_before" ]; then
+            log "--- Service Runtime Logs (last 50 lines) ---"
+            tail -n 50 "$log_file" 2>/dev/null || true
+            log "--- End of Runtime Logs ---"
+        else
+            log "No new runtime logs found in $log_file"
+        fi
+    else
+        log "Service log file not found: $log_file"
     fi
 }
 
