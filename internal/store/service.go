@@ -90,6 +90,9 @@ func (s ServiceStore) GetService(ctx context.Context, name string) (*store.Servi
 		deployment, err := s.ds.GetDeployment(ctx, svc.DeploymentId)
 		if err == nil {
 			svc.Blueprint = &deployment.Blueprint
+			svc.Port = deployment.Blueprint.Port
+			svc.EnvVars = deployment.Blueprint.EnvVars
+			svc.Secrets = deployment.Blueprint.Secrets
 		}
 	}
 
@@ -146,12 +149,14 @@ func (s ServiceStore) ListServices(ctx context.Context, limit, offset int) ([]*s
 		return nil, err
 	}
 
-	// Fetch blueprints after closing rows to avoid SQLite deadlock (MaxOpenConns=1)
 	for _, svc := range services {
 		if svc.DeploymentId != "" {
 			deployment, err := s.ds.GetDeployment(ctx, svc.DeploymentId)
 			if err == nil {
 				svc.Blueprint = &deployment.Blueprint
+				svc.Port = deployment.Blueprint.Port
+				svc.EnvVars = deployment.Blueprint.EnvVars
+				svc.Secrets = deployment.Blueprint.Secrets
 			}
 		}
 	}
@@ -173,7 +178,7 @@ func (s ServiceStore) updateService(ctx context.Context, svc *store.Service) err
 
 	_, err = stmt.ExecContext(ctx, svc.Name, svc.Description, svc.Source, svc.Runtime, svc.RuntimeVersion, svc.RunCmd, svc.BuildCmd,
 		svc.WorkingDir, svc.StaticDir, svc.Image, svc.Remote, svc.Branch, svc.CommitHash, svc.DeploymentId,
-		svc.UpdatedAt, svc.ID)
+		svc.UpdatedAt.Unix(), svc.ID)
 	return err
 }
 

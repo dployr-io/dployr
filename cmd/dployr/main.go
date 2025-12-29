@@ -546,7 +546,6 @@ For first-time owner registration (requires secret key):
 			for _, svc := range services {
 				fmt.Printf("  id:       %s\n", svc.ID)
 				fmt.Printf("  name:     %s\n", svc.Name)
-				fmt.Printf("  status:   %s\n", svc.Status)
 				fmt.Printf("  type:     %s\n", svc.Description)
 				if svc.Port > 0 {
 					fmt.Printf("  port:     %d\n", svc.Port)
@@ -602,7 +601,6 @@ For first-time owner registration (requires secret key):
 			fmt.Printf("\nservice details:\n\n")
 			fmt.Printf("  id:          %s\n", service.ID)
 			fmt.Printf("  name:        %s\n", service.Name)
-			fmt.Printf("  status:      %s\n", service.Status)
 			if service.Port > 0 {
 				fmt.Printf("  port:        %d\n", service.Port)
 			}

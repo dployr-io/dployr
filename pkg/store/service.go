@@ -39,7 +39,6 @@ type Service struct {
 	Image          string            `json:"image,omitempty" db:"image"`
 	EnvVars        map[string]string `json:"env_vars,omitempty"`
 	Secrets        map[string]string `json:"secrets,omitempty"`
-	Status         string            `json:"status"`
 	Remote         string            `json:"remote,omitempty" db:"remote_url"`
 	Branch         string            `json:"branch" db:"remote_branch"`
 	CommitHash     string            `json:"commit_hash" db:"remote_commit_hash"`
