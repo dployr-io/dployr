@@ -186,7 +186,7 @@ For first-time owner registration (requires secret key):
 			staticDir, _ := cmd.Flags().GetString("static-dir")
 			image, _ := cmd.Flags().GetString("image")
 			domain, _ := cmd.Flags().GetString("domain")
-			envVars, _ := cmd.Flags().GetStringToString("env")
+			envVarsStr, _ := cmd.Flags().GetStringToString("env")
 			remote, _ := cmd.Flags().GetString("remote")
 			branch, _ := cmd.Flags().GetString("branch")
 			commitHash, _ := cmd.Flags().GetString("commit-hash")
@@ -199,6 +199,12 @@ For first-time owner registration (requires secret key):
 			}
 			if runtime == "" {
 				return fmt.Errorf("runtime is required")
+			}
+
+			// Convert envVars from map[string]string to map[string]any
+			envVars := make(map[string]any, len(envVarsStr))
+			for k, v := range envVarsStr {
+				envVars[k] = v
 			}
 
 			req := deploy.DeployRequest{
