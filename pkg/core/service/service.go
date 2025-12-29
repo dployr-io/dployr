@@ -25,11 +25,6 @@ type Servicer struct {
 	api    HandleService
 }
 
-type ListServicesResponse struct {
-	Services []*store.Service `json:"services"`
-	Total    int              `json:"total"`
-}
-
 type HandleService interface {
 	GetService(ctx context.Context, name string) (*store.Service, error)
 	ListServices(ctx context.Context, userID string, limit, offset int) ([]*store.Service, error)

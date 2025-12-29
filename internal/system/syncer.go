@@ -1018,11 +1018,13 @@ func (s *Syncer) sendTaskResponse(ctx context.Context, conn *websocket.Conn, tas
 		TaskID:    taskID,
 		RequestID: taskID, // requestId equals taskId per strategy doc
 		Success:   success,
-		Data:      result.Metadata,
 	}
 
+	// Set data field: use actual result if available, otherwise use metadata
 	if success && result.Result != nil {
 		msg.Data = result.Result
+	} else if result.Metadata != nil {
+		msg.Data = result.Metadata
 	}
 
 	if !success && result.Error != "" {

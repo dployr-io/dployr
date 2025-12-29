@@ -107,15 +107,10 @@ func (h *DeploymentHandler) ListDeployments(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	resp := ListDeploymentsResponse{
-		Deployments: deployments,
-		Total:       len(deployments),
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
+	if err := json.NewEncoder(w).Encode(deployments); err != nil {
 		h.logger.Error("failed to encode response", "error", err)
 		e := shared.Errors.Runtime.InternalServer
 		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
