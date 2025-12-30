@@ -178,7 +178,7 @@ func computeAuthHealth(ctx context.Context, instStore store.InstanceStore) (heal
 	return
 }
 
-func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string, instStore store.InstanceStore, deployStore store.DeploymentStore, svcStore store.ServiceStore, proxyHandler proxy.HandleProxy, fs *FileSystem) *system.UpdateV1 {
+func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string, instStore store.InstanceStore, deployStore store.DeploymentStore, svcStore store.ServiceStore, proxyHandler proxy.HandleProxy, fs *FileSystem, topCollector *TopCollector) *system.UpdateV1 {
 	seq := atomic.AddUint64(&updateSeq, 1)
 	uptime := time.Since(startTime).Seconds()
 	currentModeMu.RLock()
@@ -312,6 +312,14 @@ func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string
 		fsSnapshot = fs.GetSnapshot()
 	}
 
+	// Collect top data
+	var topData *system.SystemTop
+	if topCollector != nil {
+		if top, err := topCollector.CollectSummary(ctx); err == nil {
+			topData = top
+		}
+	}
+
 	return &system.UpdateV1{
 		Schema:      "v1",
 		Seq:         seq,
@@ -330,6 +338,7 @@ func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string
 		Health:      system.SystemHealth{Overall: overallHealth, WS: wsHealth, Tasks: tasksHealth, Auth: authHealth},
 		Debug:       dbg,
 		FS:          fsSnapshot,
+		Top:         topData,
 	}
 }
 
@@ -377,6 +386,7 @@ type Syncer struct {
 	svcStore          store.ServiceStore
 	proxyHandler      proxy.HandleProxy
 	fs                *FileSystem
+	topCollector      *TopCollector
 	executor          *Executor
 	agentTokenBackoff time.Duration
 
@@ -474,6 +484,7 @@ func NewSyncer(cfg *shared.Config, logger *shared.Logger, instStore store.Instan
 		svcStore:     svcStore,
 		proxyHandler: proxyHandler,
 		fs:           fs,
+		topCollector: NewTopCollector(),
 		executor:     NewExecutor(logger, handler, instStore, auth),
 		dedupe:       make(map[string]time.Time),
 	}
@@ -685,7 +696,7 @@ ws_connected:
 			case <-connCtx.Done():
 				return
 			case <-time.After(jitter(updateInterval)):
-				upd := buildAgentUpdate(connCtx, s.cfg, inst.InstanceID, s.instStore, s.deployStore, s.svcStore, s.proxyHandler, s.fs)
+				upd := buildAgentUpdate(connCtx, s.cfg, inst.InstanceID, s.instStore, s.deployStore, s.svcStore, s.proxyHandler, s.fs, s.topCollector)
 				msg := wsMessage{
 					ID:     ulid.Make().String(),
 					TS:     time.Now(),

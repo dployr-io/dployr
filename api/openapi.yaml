@@ -1651,30 +1651,46 @@ components:
       properties:
         pid:
           type: integer
-          format: int32
         user:
           type: string
-        command:
-          type: string
-        cpu_percent:
-          type: number
-          format: double
-        mem_percent:
-          type: number
-          format: float
-        rss_bytes:
+        priority:
+          type: integer
+          description: Priority
+        nice:
+          type: integer
+          description: Nice value
+        virt_mem:
           type: integer
           format: int64
-        vms_bytes:
+          description: Virtual memory size
+        res_mem:
           type: integer
           format: int64
+          description: Resident memory size
+        shr_mem:
+          type: integer
+          format: int64
+          description: Shared memory size
         state:
           type: string
-          description: Process state (platform-dependent)
+          description: Process state
+        cpu_pct:
+          type: number
+          format: double
+          description: CPU percentage
+        mem_pct:
+          type: number
+          format: double
+          description: Memory percentage
+        time:
+          type: string
+          description: CPU time
+        command:
+          type: string
 
     CPUStats:
       type: object
-      description: CPU usage breakdown as percentages.
+      description: CPU usage breakdown as percentages
       properties:
         user:
           type: number
@@ -1682,58 +1698,83 @@ components:
         system:
           type: number
           format: double
+        nice:
+          type: number
+          format: double
         idle:
           type: number
           format: double
-        iowait:
+        wait:
           type: number
           format: double
-        steal:
+        hi:
+          type: number
+          format: double
+        si:
+          type: number
+          format: double
+        st:
           type: number
           format: double
 
     MemoryStats:
       type: object
-      description: Memory usage in bytes.
+      description: Memory usage in MiB 
       properties:
-        total_bytes:
-          type: integer
-          format: int64
-        used_bytes:
-          type: integer
-          format: int64
-        free_bytes:
-          type: integer
-          format: int64
-        available_bytes:
-          type: integer
-          format: int64
-        used_percent:
+        total:
           type: number
           format: double
-        swap_total_bytes:
-          type: integer
-          format: int64
-        swap_used_bytes:
-          type: integer
-          format: int64
-        swap_free_bytes:
-          type: integer
-          format: int64
+          description: Total memory in MiB
+        free:
+          type: number
+          format: double
+          description: Free memory in MiB
+        used:
+          type: number
+          format: double
+          description: Used memory in MiB
+        buffer_cache:
+          type: number
+          format: double
+          description: Buffer/cache memory in MiB
+
+    SwapStats:
+      type: object
+      description: Swap usage in MiB
+      properties:
+        total:
+          type: number
+          format: double
+          description: Total swap in MiB
+        free:
+          type: number
+          format: double
+          description: Free swap in MiB
+        used:
+          type: number
+          format: double
+          description: Used swap in MiB
+        available:
+          type: number
+          format: double
+          description: Available swap in MiB
 
     LoadAverage:
       type: object
       description: Load averages.
       properties:
-        load1:
+        one:
           type: number
           format: double
-        load5:
+          description: 1-minute load average
+        five:
           type: number
           format: double
-        load15:
+          description: 5-minute load average
+        fifteen:
           type: number
           format: double
+          description: 15-minute load average
 
     TaskStats:
       type: object
@@ -1752,26 +1793,38 @@ components:
 
     SystemTop:
       type: object
-      description: Top-like system snapshot.
+      description: Top-like system snapshot matching top output format.
       properties:
-        timestamp:
-          type: string
-          format: date-time
-        uptime_seconds:
-          type: integer
-          format: int64
-        load_avg:
-          $ref: '#/components/schemas/LoadAverage'
+        header:
+          $ref: '#/components/schemas/TopHeader'
+        tasks:
+          $ref: '#/components/schemas/TaskStats'
         cpu:
           $ref: '#/components/schemas/CPUStats'
         memory:
           $ref: '#/components/schemas/MemoryStats'
-        tasks:
-          $ref: '#/components/schemas/TaskStats'
+        swap:
+          $ref: '#/components/schemas/SwapStats'
         processes:
           type: array
           items:
             $ref: '#/components/schemas/ProcessInfo'
+
+    TopHeader:
+      type: object
+      description: Top header information.
+      properties:
+        time:
+          type: string
+          example: "13:37:03"
+        uptime:
+          type: string
+          example: "16 days, 12:30"
+        users:
+          type: integer
+          example: 2
+        load_avg:
+          $ref: '#/components/schemas/LoadAverage'
 
     SystemInfo:
       type: object

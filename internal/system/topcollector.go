@@ -36,22 +36,30 @@ func (c *TopCollector) Collect(ctx context.Context, sortBy string, limit int) (*
 		sortBy = "cpu"
 	}
 
-	top := &system.SystemTop{
-		Timestamp: time.Now(),
-	}
+	top := &system.SystemTop{}
 
-	// Uptime
+	// Header - Time
+	now := time.Now()
+	top.Header.Time = now.Format("15:04:05")
+
+	// Header - Uptime
 	if uptime, err := host.UptimeWithContext(ctx); err == nil {
-		top.Uptime = uptime
+		top.Header.Uptime = time.Duration(uptime * 1000000000).String()
 	}
 
-	// Load average (not available on Windows)
+	// Header - Users
+	top.Header.Users = 0
+	if users, err := host.Users(); err == nil {
+		top.Header.Users = len(users)
+	}
+
+	// Header - Load average (not available on Windows)
 	if runtime.GOOS != "windows" {
 		if avg, err := load.AvgWithContext(ctx); err == nil {
-			top.LoadAvg = system.LoadAverage{
-				Load1:  avg.Load1,
-				Load5:  avg.Load5,
-				Load15: avg.Load15,
+			top.Header.LoadAvg = system.LoadAverage{
+				One:     avg.Load1,
+				Five:    avg.Load5,
+				Fifteen: avg.Load15,
 			}
 		}
 	}
@@ -64,29 +72,34 @@ func (c *TopCollector) Collect(ctx context.Context, sortBy string, limit int) (*
 			top.CPU = system.CPUStats{
 				User:   (t.User / total) * 100,
 				System: (t.System / total) * 100,
+				Nice:   (t.Nice / total) * 100,
 				Idle:   (t.Idle / total) * 100,
-				IOWait: (t.Iowait / total) * 100,
-				Steal:  (t.Steal / total) * 100,
+				Wait:   (t.Iowait / total) * 100,
+				HI:     (t.Irq / total) * 100,
+				SI:     (t.Softirq / total) * 100,
+				ST:     (t.Steal / total) * 100,
 			}
 		}
 	}
 
-	// Memory stats
+	// Memory stats (convert to MiB)
 	if vmem, err := mem.VirtualMemoryWithContext(ctx); err == nil {
 		top.Memory = system.MemoryStats{
-			Total:       vmem.Total,
-			Used:        vmem.Used,
-			Free:        vmem.Free,
-			Available:   vmem.Available,
-			UsedPercent: vmem.UsedPercent,
+			Total:       float64(vmem.Total) / 1024 / 1024,
+			Free:        float64(vmem.Free) / 1024 / 1024,
+			Used:        float64(vmem.Used) / 1024 / 1024,
+			BufferCache: float64(vmem.Buffers+vmem.Cached) / 1024 / 1024,
 		}
 	}
 
-	// Swap stats
+	// Swap stats (convert to MiB)
 	if swap, err := mem.SwapMemoryWithContext(ctx); err == nil {
-		top.Memory.SwapTotal = swap.Total
-		top.Memory.SwapUsed = swap.Used
-		top.Memory.SwapFree = swap.Free
+		top.Swap = system.SwapStats{
+			Total:     float64(swap.Total) / 1024 / 1024,
+			Free:      float64(swap.Free) / 1024 / 1024,
+			Used:      float64(swap.Used) / 1024 / 1024,
+			Available: float64(swap.Free) / 1024 / 1024,
+		}
 	}
 
 	// Process list
@@ -116,7 +129,7 @@ func (c *TopCollector) Collect(ctx context.Context, sortBy string, limit int) (*
 
 		// Collect process info
 		info := system.ProcessInfo{
-			PID: p.Pid,
+			PID: int(p.Pid),
 		}
 
 		if name, err := p.NameWithContext(ctx); err == nil {
@@ -127,21 +140,34 @@ func (c *TopCollector) Collect(ctx context.Context, sortBy string, limit int) (*
 			info.User = user
 		}
 
+		// Get nice value and priority
+		if nice, err := p.NiceWithContext(ctx); err == nil {
+			info.Nice = int(nice)
+		}
+		info.Priority = 20 // Default priority
+
 		if cpuPct, err := p.CPUPercentWithContext(ctx); err == nil {
-			info.CPUPercent = cpuPct
+			info.CPUPct = cpuPct
 		}
 
 		if memPct, err := p.MemoryPercentWithContext(ctx); err == nil {
-			info.MemPercent = memPct
+			info.MEMPct = float64(memPct)
 		}
 
 		if memInfo, err := p.MemoryInfoWithContext(ctx); err == nil && memInfo != nil {
-			info.RSS = int64(memInfo.RSS)
-			info.VMS = int64(memInfo.VMS)
+			info.ResMem = int64(memInfo.RSS)
+			info.VirtMem = int64(memInfo.VMS)
+			info.ShrMem = 0 // Shared memory not available in gopsutil
 		}
 
 		if len(status) > 0 {
 			info.State = string(status[0])
+		}
+
+		// Get CPU time
+		if times, err := p.TimesWithContext(ctx); err == nil {
+			totalSecs := int(times.User + times.System)
+			info.Time = time.Duration(totalSecs * 1000000000).String()
 		}
 
 		procInfos = append(procInfos, info)
@@ -153,11 +179,11 @@ func (c *TopCollector) Collect(ctx context.Context, sortBy string, limit int) (*
 	switch sortBy {
 	case "mem":
 		sort.Slice(procInfos, func(i, j int) bool {
-			return procInfos[i].MemPercent > procInfos[j].MemPercent
+			return procInfos[i].MEMPct > procInfos[j].MEMPct
 		})
 	default: // "cpu"
 		sort.Slice(procInfos, func(i, j int) bool {
-			return procInfos[i].CPUPercent > procInfos[j].CPUPercent
+			return procInfos[i].CPUPct > procInfos[j].CPUPct
 		})
 	}
 

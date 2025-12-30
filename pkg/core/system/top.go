@@ -3,46 +3,55 @@
 
 package system
 
-import "time"
-
-// ProcessInfo represents a single process's resource usage.
+// ProcessInfo represents a single process's resource usage matching top output format.
 type ProcessInfo struct {
-	PID        int32   `json:"pid"`
-	User       string  `json:"user"`
-	Command    string  `json:"command"`
-	CPUPercent float64 `json:"cpu_percent"`
-	MemPercent float32 `json:"mem_percent"`
-	RSS        int64   `json:"rss_bytes"`
-	VMS        int64   `json:"vms_bytes"`
-	State      string  `json:"state"`
+	PID      int     `json:"pid"`
+	User     string  `json:"user"`
+	Priority int     `json:"priority"`
+	Nice     int     `json:"nice"`
+	VirtMem  int64   `json:"virt_mem"`
+	ResMem   int64   `json:"res_mem"`
+	ShrMem   int64   `json:"shr_mem"`
+	State    string  `json:"state"`
+	CPUPct   float64 `json:"cpu_pct"`
+	MEMPct   float64 `json:"mem_pct"`
+	Time     string  `json:"time"`
+	Command  string  `json:"command"`
 }
 
-// CPUStats represents CPU usage breakdown.
+// CPUStats represents CPU usage breakdown
 type CPUStats struct {
 	User   float64 `json:"user"`
 	System float64 `json:"system"`
+	Nice   float64 `json:"nice"`
 	Idle   float64 `json:"idle"`
-	IOWait float64 `json:"iowait"`
-	Steal  float64 `json:"steal"`
+	Wait   float64 `json:"wait"`
+	HI     float64 `json:"hi"`
+	SI     float64 `json:"si"`
+	ST     float64 `json:"st"`
 }
 
-// MemoryStats represents memory usage in bytes.
+// MemoryStats represents memory usage (in MiB).
 type MemoryStats struct {
-	Total       uint64  `json:"total_bytes"`
-	Used        uint64  `json:"used_bytes"`
-	Free        uint64  `json:"free_bytes"`
-	Available   uint64  `json:"available_bytes"`
-	UsedPercent float64 `json:"used_percent"`
-	SwapTotal   uint64  `json:"swap_total_bytes"`
-	SwapUsed    uint64  `json:"swap_used_bytes"`
-	SwapFree    uint64  `json:"swap_free_bytes"`
+	Total       float64 `json:"total"`
+	Free        float64 `json:"free"`
+	Used        float64 `json:"used"`
+	BufferCache float64 `json:"buffer_cache"`
+}
+
+// SwapStats represents swap usage (in MiB).
+type SwapStats struct {
+	Total     float64 `json:"total"`
+	Free      float64 `json:"free"`
+	Used      float64 `json:"used"`
+	Available float64 `json:"available"`
 }
 
 // LoadAverage represents system load averages.
 type LoadAverage struct {
-	Load1  float64 `json:"load1"`
-	Load5  float64 `json:"load5"`
-	Load15 float64 `json:"load15"`
+	One     float64 `json:"one"`
+	Five    float64 `json:"five"`
+	Fifteen float64 `json:"fifteen"`
 }
 
 // TaskStats represents task/process counts by state.
@@ -54,14 +63,21 @@ type TaskStats struct {
 	Zombie   int `json:"zombie"`
 }
 
+// TopHeader represents the header information from top.
+type TopHeader struct {
+	Time    string      `json:"time"`
+	Uptime  string      `json:"uptime"`
+	Users   int         `json:"users"`
+	LoadAvg LoadAverage `json:"load_avg"`
+}
+
 // SystemTop represents a snapshot of system resource usage (like `top` output).
 type SystemTop struct {
-	Timestamp time.Time     `json:"timestamp"`
-	Uptime    uint64        `json:"uptime_seconds"`
-	LoadAvg   LoadAverage   `json:"load_avg"`
+	Header    TopHeader     `json:"header"`
+	Tasks     TaskStats     `json:"tasks"`
 	CPU       CPUStats      `json:"cpu"`
 	Memory    MemoryStats   `json:"memory"`
-	Tasks     TaskStats     `json:"tasks"`
+	Swap      SwapStats     `json:"swap"`
 	Processes []ProcessInfo `json:"processes"`
 }
 

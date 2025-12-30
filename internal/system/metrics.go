@@ -158,15 +158,15 @@ func (m *Metrics) writeSystemMetrics(buf *bytes.Buffer) {
 		// Load averages
 		buf.WriteString("# HELP dployr_system_load1 1-minute load average\n")
 		buf.WriteString("# TYPE dployr_system_load1 gauge\n")
-		fmt.Fprintf(buf, "dployr_system_load1 %f\n\n", top.LoadAvg.Load1)
+		fmt.Fprintf(buf, "dployr_system_load1 %f\n\n", top.Header.LoadAvg.One)
 
 		buf.WriteString("# HELP dployr_system_load5 5-minute load average\n")
 		buf.WriteString("# TYPE dployr_system_load5 gauge\n")
-		fmt.Fprintf(buf, "dployr_system_load5 %f\n\n", top.LoadAvg.Load5)
+		fmt.Fprintf(buf, "dployr_system_load5 %f\n\n", top.Header.LoadAvg.Five)
 
 		buf.WriteString("# HELP dployr_system_load15 15-minute load average\n")
 		buf.WriteString("# TYPE dployr_system_load15 gauge\n")
-		fmt.Fprintf(buf, "dployr_system_load15 %f\n\n", top.LoadAvg.Load15)
+		fmt.Fprintf(buf, "dployr_system_load15 %f\n\n", top.Header.LoadAvg.Fifteen)
 
 		// CPU usage percentages
 		buf.WriteString("# HELP dployr_system_cpu_user_percent CPU user time percentage\n")
@@ -183,37 +183,33 @@ func (m *Metrics) writeSystemMetrics(buf *bytes.Buffer) {
 
 		buf.WriteString("# HELP dployr_system_cpu_iowait_percent CPU I/O wait percentage\n")
 		buf.WriteString("# TYPE dployr_system_cpu_iowait_percent gauge\n")
-		fmt.Fprintf(buf, "dployr_system_cpu_iowait_percent %f\n\n", top.CPU.IOWait)
+		fmt.Fprintf(buf, "dployr_system_cpu_iowait_percent %f\n\n", top.CPU.Wait)
 
-		// Memory metrics (exact bytes from gopsutil)
+		// Memory metrics (in MiB, convert to bytes for Prometheus)
 		buf.WriteString("# HELP dployr_system_memory_total_bytes Total system memory in bytes\n")
 		buf.WriteString("# TYPE dployr_system_memory_total_bytes gauge\n")
-		fmt.Fprintf(buf, "dployr_system_memory_total_bytes %d\n\n", top.Memory.Total)
+		fmt.Fprintf(buf, "dployr_system_memory_total_bytes %d\n\n", int64(top.Memory.Total*1024*1024))
 
 		buf.WriteString("# HELP dployr_system_memory_used_bytes Used system memory in bytes\n")
 		buf.WriteString("# TYPE dployr_system_memory_used_bytes gauge\n")
-		fmt.Fprintf(buf, "dployr_system_memory_used_bytes %d\n\n", top.Memory.Used)
+		fmt.Fprintf(buf, "dployr_system_memory_used_bytes %d\n\n", int64(top.Memory.Used*1024*1024))
 
 		buf.WriteString("# HELP dployr_system_memory_free_bytes Free system memory in bytes\n")
 		buf.WriteString("# TYPE dployr_system_memory_free_bytes gauge\n")
-		fmt.Fprintf(buf, "dployr_system_memory_free_bytes %d\n\n", top.Memory.Free)
+		fmt.Fprintf(buf, "dployr_system_memory_free_bytes %d\n\n", int64(top.Memory.Free*1024*1024))
 
-		buf.WriteString("# HELP dployr_system_memory_available_bytes Available system memory in bytes\n")
-		buf.WriteString("# TYPE dployr_system_memory_available_bytes gauge\n")
-		fmt.Fprintf(buf, "dployr_system_memory_available_bytes %d\n\n", top.Memory.Available)
+		buf.WriteString("# HELP dployr_system_memory_buffer_cache_bytes Buffer/cache memory in bytes\n")
+		buf.WriteString("# TYPE dployr_system_memory_buffer_cache_bytes gauge\n")
+		fmt.Fprintf(buf, "dployr_system_memory_buffer_cache_bytes %d\n\n", int64(top.Memory.BufferCache*1024*1024))
 
-		buf.WriteString("# HELP dployr_system_memory_used_percent Memory usage percentage\n")
-		buf.WriteString("# TYPE dployr_system_memory_used_percent gauge\n")
-		fmt.Fprintf(buf, "dployr_system_memory_used_percent %f\n\n", top.Memory.UsedPercent)
-
-		// Swap metrics
+		// Swap metrics (in MiB, convert to bytes for Prometheus)
 		buf.WriteString("# HELP dployr_system_swap_total_bytes Total swap space in bytes\n")
 		buf.WriteString("# TYPE dployr_system_swap_total_bytes gauge\n")
-		fmt.Fprintf(buf, "dployr_system_swap_total_bytes %d\n\n", top.Memory.SwapTotal)
+		fmt.Fprintf(buf, "dployr_system_swap_total_bytes %d\n\n", int64(top.Swap.Total*1024*1024))
 
 		buf.WriteString("# HELP dployr_system_swap_used_bytes Used swap space in bytes\n")
 		buf.WriteString("# TYPE dployr_system_swap_used_bytes gauge\n")
-		fmt.Fprintf(buf, "dployr_system_swap_used_bytes %d\n\n", top.Memory.SwapUsed)
+		fmt.Fprintf(buf, "dployr_system_swap_used_bytes %d\n\n", int64(top.Swap.Used*1024*1024))
 
 		// Task/process counts
 		buf.WriteString("# HELP dployr_system_tasks_total Total number of processes\n")
@@ -232,10 +228,18 @@ func (m *Metrics) writeSystemMetrics(buf *bytes.Buffer) {
 		buf.WriteString("# TYPE dployr_system_tasks_zombie gauge\n")
 		fmt.Fprintf(buf, "dployr_system_tasks_zombie %d\n\n", top.Tasks.Zombie)
 
-		// Uptime
-		buf.WriteString("# HELP dployr_system_uptime_seconds System uptime in seconds\n")
-		buf.WriteString("# TYPE dployr_system_uptime_seconds gauge\n")
-		fmt.Fprintf(buf, "dployr_system_uptime_seconds %d\n\n", top.Uptime)
+		// Load average
+		buf.WriteString("# HELP dployr_system_load_average_1m 1-minute load average\n")
+		buf.WriteString("# TYPE dployr_system_load_average_1m gauge\n")
+		fmt.Fprintf(buf, "dployr_system_load_average_1m %f\n\n", top.Header.LoadAvg.One)
+
+		buf.WriteString("# HELP dployr_system_load_average_5m 5-minute load average\n")
+		buf.WriteString("# TYPE dployr_system_load_average_5m gauge\n")
+		fmt.Fprintf(buf, "dployr_system_load_average_5m %f\n\n", top.Header.LoadAvg.Five)
+
+		buf.WriteString("# HELP dployr_system_load_average_15m 15-minute load average\n")
+		buf.WriteString("# TYPE dployr_system_load_average_15m gauge\n")
+		fmt.Fprintf(buf, "dployr_system_load_average_15m %f\n\n", top.Header.LoadAvg.Fifteen)
 	}
 
 	// Disk usage metrics (keep using existing approach for partitions)
