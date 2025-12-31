@@ -519,7 +519,7 @@ mkdir -p "$CONFIG_DIR"
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
     # Use custom instance_id if provided, otherwise use default
-    local instance_value="${INSTANCE_ID:-my-instance-id}"
+    instance_value="${INSTANCE_ID:-my-instance-id}"
     cat > "$CONFIG_FILE" << EOF
 address = "localhost"
 port = 7879
