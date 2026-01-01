@@ -1,3 +1,8 @@
+## [0.4.13-beta.22] - 2026-01-01
+
+### 🚀 Features
+
+- *(install)* Add automatic git installation to installer
 ## [0.4.13-beta.21] - 2026-01-01
 
 ### 📚 Documentation
