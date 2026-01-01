@@ -276,7 +276,7 @@ port = 7879
 max-workers = 5
 
 # Base configuration
-base_url = "https://base.dployr.dev"
+base_url = "https://base.dployr.io"
 instance_id = "$instanceValue"
 "@
     $defaultConfig | Out-File -FilePath $configFile -Encoding UTF8

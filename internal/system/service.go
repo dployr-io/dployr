@@ -359,7 +359,7 @@ func (s *DefaultService) IsRegistered(ctx context.Context) (system.RegistrationS
 
 	registered := strings.TrimSpace(inst.InstanceID) != "" && !inst.RegisteredAt.IsZero()
 	if !registered {
-		return system.RegistrationStatus{}, fmt.Errorf("instance registration incomplete; reinstall using a valid bootstrap token (see https://docs.dployr.dev/installation)")
+		return system.RegistrationStatus{}, fmt.Errorf("instance registration incomplete; reinstall using a valid bootstrap token (see https://docs.dployr.io/installation)")
 	}
 	return system.RegistrationStatus{Registered: registered}, nil
 }
@@ -367,7 +367,7 @@ func (s *DefaultService) IsRegistered(ctx context.Context) (system.RegistrationS
 // During the installation process, this method is used to register the instance with the base,
 // used for routing traffic to this instance instead of directly hitting it.
 // This is to ensure HTTPS traffic is enforced on dployr instance.
-// Please refer to the documentation at https://docs.dployr.dev/installation for more details.
+// Please refer to the documentation at https://docs.dployr.io/installation for more details.
 func (s *DefaultService) RequestDomain(ctx context.Context, req system.RequestDomainRequest) (system.RequestDomainResponse, error) {
 	if s.cfg.BaseURL == "" {
 		return system.RequestDomainResponse{}, fmt.Errorf("base_url is not configured")

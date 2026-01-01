@@ -15,7 +15,7 @@ info:
     - **Refresh Token**: Long-lived (24+ hours) for obtaining new access tokens from base
 
     ### Authentication Flow
-    See https://docs.dployr.dev/auth for more details.
+    See https://docs.dployr.io/auth for more details.
     
     ## Authorization
     Role-based access control with four levels:
@@ -24,11 +24,11 @@ info:
     - **Developer**: Deploy apps, view logs and events
     - **Viewer**: Read-only access to services
 
-    See https://docs.dployr.dev/auth for more details.
+    See https://docs.dployr.io/auth for more details.
   version: 1.2.0
   contact:
     name: Emmanuel Madehin
-    email: hello@dployr.dev
+    email: hello@dployr.io
   license:
     name: Apache License, Version 2.0
     url: https://raw.githubusercontent.com/dployr-io/dployr/refs/heads/master/LICENSE
@@ -2190,7 +2190,7 @@ components:
         issuer:
           type: string
           description: Expected token issuer (for validation)
-          example: "https://base.dployr.dev"
+          example: "https://base.dployr.io"
         audience:
           type: string
           description: Expected token audience (for validation)
@@ -2256,7 +2256,7 @@ components:
         domain:
           type: string
           description: Assigned domain for this instance
-          example: "my-awesome-app.dployr.dev"
+          example: "my-awesome-app.dployr.io"
 
     FSNode:
       type: object

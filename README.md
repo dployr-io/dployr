@@ -145,7 +145,7 @@ curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh \
 curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh \
   | bash -s -- --version v0.1.1-beta.17 
 ```
-> **Note:** You’ll need administrator privileges (`sudo`) to install, but the dployr daemon itself runs as `dployr` user, not as `root`. For details about permissions and setup, visit https://docs.dployr.dev/permissions.
+> **Note:** You’ll need administrator privileges (`sudo`) to install, but the dployr daemon itself runs as `dployr` user, not as `root`. For details about permissions and setup, visit https://dployr.io/docs/installation.html.
 
 > **Config locations:**
 > - **Linux**: `/etc/dployr/config.toml`
@@ -256,7 +256,7 @@ dployr deploy \
   --working-dir "php" \
   --port 3000
 ```
-For detailed deployment examples—including interactive guides—visit: https://docs.dployr.dev/runtimes/quick-deploy
+For detailed deployment examples—including interactive guides—visit: https://dployr.io/docs/quickstart.html
 
 ### List Deployments
 
@@ -286,7 +286,7 @@ dployr proxy status
 The daemon exposes a REST API on port `7879` (configurable).
 
 * Full spec: [api/openapi.yaml](api/openapi.yaml)
-* Interactive docs: [docs.dployr.dev](https://docs.dployr.dev)
+* Interactive docs: [Quickstart](https://dployr.io/docs/quickstart.html)
 
 ### Authentication
 
@@ -338,7 +338,7 @@ Apache License, Version 2.0 — see [LICENSE](LICENSE) for details.
 ## Documentation
 
 Complete documentation available at
- [https://docs.dployr.dev](https://docs.dployr.dev)
+ [https://dployr.io/docs/quickstart.html](https://dployr.io/docs/quickstart.html)
 
 ---
 

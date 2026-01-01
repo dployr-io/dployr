@@ -42,7 +42,7 @@ VERSION="latest"
 TOKEN=""
 REPO="dployr-io/dployr"
 DPLOYR_DOMAIN=""
-BASE_URL="https://base.dployr.dev"
+BASE_URL="https://base.dployr.io"
 INSTANCE_ID=""
 
 RED='\033[0;31m'
@@ -247,7 +247,7 @@ Usage: $0 [--version <VERSION>] [--token <TOKEN>] [--base <URL>]
 Arguments:
   --version, -v     Optional dployr version tag (default: latest)
   --token, -t       Optional install token obtained from dployr base
-  --base, -b    Optional dployr base URL (default: https://base.dployr.dev)
+  --base, -b    Optional dployr base URL (default: https://base.dployr.io)
 
 Examples:
   $0 --version v0.3.1-beta.9
@@ -324,7 +324,7 @@ register_instance() {
     local status=$?
 
     if [[ $status -ne 0 ]]; then
-        warn "Failed to register instance (curl exit $status). Visit https://docs.dployr.dev/installation"
+        warn "Failed to register instance (curl exit $status). Visit https://dployr.io/docs/quickstart.html"
         log_json "error" "$response"
         return 1
     fi

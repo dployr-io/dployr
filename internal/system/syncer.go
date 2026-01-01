@@ -515,8 +515,7 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 		return fmt.Errorf("failed to get instance: %w", err)
 	}
 	if inst == nil || strings.TrimSpace(inst.InstanceID) == "" {
-		s.logger.Debug("syncer: instance not registered; skipping WS connect")
-		return nil
+		return fmt.Errorf("instance not registered; reinstall using a valid bootstrap token (see https://dployr.io/docs/quickstart.html)")
 	}
 
 	// Enrich context and attach instance_id explicitly for logging
