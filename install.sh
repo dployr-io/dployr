@@ -74,6 +74,47 @@ error() {
     exit 1
 }
 
+install_git() {
+    if command -v git &>/dev/null; then
+        return 0
+    fi
+
+    info "Installing git..."
+    
+    case $OS in
+        linux)
+            if command -v apt &>/dev/null; then
+                while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+                    sleep 1
+                done
+
+                apt update -qq || warn "apt update failed while installing git"
+
+                while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+                    sleep 1
+                done
+
+                apt install -y -qq git || error "Failed to install git via apt"
+            elif command -v yum &>/dev/null; then
+                yum install -y -q git || error "Failed to install git via yum"
+            else
+                error "Unable to install git: no supported package manager found (apt or yum required)"
+            fi
+            ;;
+        darwin)
+            if command -v brew &>/dev/null; then
+                brew install -q git || error "Failed to install git via Homebrew"
+            else
+                error "Homebrew not found. Please install Homebrew first: https://brew.sh"
+            fi
+            ;;
+    esac
+
+    if ! command -v git &>/dev/null; then
+        error "Failed to install git"
+    fi
+}
+
 install_jq() {
     if command -v jq &>/dev/null; then
         return 0
@@ -394,6 +435,7 @@ esac
 
 info "Detected platform: $PLATFORM-$ARCH"
 
+install_git
 install_jq
 
 if [[ "$VERSION" == "latest" ]]; then

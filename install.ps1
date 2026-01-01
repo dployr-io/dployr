@@ -64,6 +64,21 @@ if (-not $Token) {
     Invoke-Fatal "Missing required -Token parameter. Run with -Help for usage."
 }
 
+function Install-Git {
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        Write-Host "✓ git already installed"
+        return
+    }
+
+    Write-Host "Installing git..."
+    try {
+        & winget install Git.Git --silent --accept-source-agreements
+        Write-Host "✓ git installed successfully"
+    } catch {
+        Invoke-Fatal "Failed to install git: $_"
+    }
+}
+
 function Register-Instance {
     param(
         [string]$Token
@@ -93,6 +108,9 @@ if (!(Test-Path $InstallDir)) {
 # Detect architecture
 $arch = if ([Environment]::Is64BitOperatingSystem) { "x86_64" } else { "i386" }
 Write-Host "Detected architecture: $arch"
+
+# Install git
+Install-Git
 
 # Get latest version if not specified
 if ($Version -eq "latest") {
