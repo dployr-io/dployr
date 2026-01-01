@@ -1,3 +1,8 @@
+## [0.4.13-beta.21] - 2026-01-01
+
+### 📚 Documentation
+
+- *(readme)* Update documentation URLs from docs.dployr.dev to dployr.io/docs
 ## [0.4.13-beta.20] - 2025-12-31
 
 ### 🚀 Features
