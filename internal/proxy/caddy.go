@@ -7,7 +7,6 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -76,12 +75,12 @@ func (c *CaddyHandler) Setup(apps map[string]proxy.App) error {
 
 	// create log directory
 	logDir := filepath.Join(dataDir, ".dployr", "logs", "caddy")
-	log.Printf("Creating log directory: %s", logDir)
+	c.logger.Debug("creating log directory", "path", logDir)
 	err = os.MkdirAll(logDir, 0755)
 	if err != nil {
 		return fmt.Errorf("unable to create log directory: %w", err)
 	}
-	log.Printf("log directory created successfully")
+	c.logger.Debug("log directory created")
 
 	out, err := os.Create(filepath.Join(cfgDir, "Caddyfile"))
 	if err != nil {
@@ -102,11 +101,10 @@ func (c *CaddyHandler) Setup(apps map[string]proxy.App) error {
 		}
 
 		templateName := fmt.Sprintf("%s.tpl", app.Template)
-		log.Printf("processing app %s with template %s", domain, templateName)
+		c.logger.Debug("processing app", "domain", domain, "template", templateName)
 
 		if err := tmpl.ExecuteTemplate(&contentBuilder, templateName, appData); err != nil {
-			log.Printf("template execution failed: template=%s, domain=%s, error=%v", templateName, domain, err)
-			log.Printf("available templates: %v", tmpl.DefinedTemplates())
+			c.logger.Error("template execution failed", "template", templateName, "domain", domain, "error", err)
 			return fmt.Errorf("unable to execute template %s for app %s: %w", templateName, domain, err)
 		}
 		contentBuilder.WriteString("\n")
@@ -119,16 +117,13 @@ func (c *CaddyHandler) Setup(apps map[string]proxy.App) error {
 		Content: contentBuilder.String(),
 	}
 
-	// [DEBUG]
-	log.Printf("template data: Apps=%d, LogDir=%s, Content length=%d", len(tmplData.Apps), tmplData.LogDir, len(tmplData.Content))
-	log.Printf("generated content:\n%s", tmplData.Content)
+	c.logger.Debug("executing caddyfile template", "app_count", len(tmplData.Apps), "content_length", len(tmplData.Content))
 
 	if err := tmpl.ExecuteTemplate(out, "caddyfile.tpl", tmplData); err != nil {
 		return fmt.Errorf("unable to execute template: %w", err)
 	}
 
-	// [DEBUG]
-	log.Printf("caddyfile written to: %s", filepath.Join(cfgDir, "Caddyfile"))
+	c.logger.Debug("caddyfile written", "path", filepath.Join(cfgDir, "Caddyfile"))
 
 	// Save state
 	return saveState(apps)
@@ -137,10 +132,10 @@ func (c *CaddyHandler) Setup(apps map[string]proxy.App) error {
 func (c *CaddyHandler) Stop() error {
 	stop := exec.Command("caddy", "stop")
 	if output, err := stop.CombinedOutput(); err != nil {
-		log.Printf("attempt to stop caddy failed: %s", string(output))
+		c.logger.Warn("failed to stop caddy", "output", string(output))
 
 		if c.process != nil {
-			log.Printf("terminating caddy process PID: %d", c.process.Pid)
+			c.logger.Info("terminating caddy process", "pid", c.process.Pid)
 			if err := c.process.Kill(); err != nil {
 				return fmt.Errorf("failed to kill caddy process: %w", err)
 			}
@@ -184,28 +179,28 @@ func (c *CaddyHandler) Restart() error {
 	cfgPath := filepath.Join(dataDir, ".dployr", "caddy", "Caddyfile")
 
 	// stop first to avoid port conflicts
-	log.Printf("stopping any existing caddy instance")
+	c.logger.Info("stopping existing caddy instance")
 	if err := c.Stop(); err != nil {
-		log.Printf("error stopping caddy: %v", err)
+		c.logger.Error("error stopping caddy", "error", err)
 	}
 
 	// wait a moment for port to be released
 	time.Sleep(100 * time.Millisecond)
 
-	log.Printf("validating caddy config: %s", cfgPath)
+	c.logger.Debug("validating caddy config", "path", cfgPath)
 	validate := exec.Command("caddy", "validate", "--config", cfgPath)
 	res, err := validate.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("caddy config validation failed: %w -> %s", err, string(res))
 	}
-	log.Printf("caddy config validation successful")
+	c.logger.Debug("caddy config validation successful")
 
 	cmd := exec.Command("caddy", "run", "--config", cfgPath)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("caddy run failed to start: %w", err)
 	}
 	c.process = cmd.Process
-	log.Printf("caddy process started with PID: %d", c.process.Pid)
+	c.logger.Info("caddy process started", "pid", c.process.Pid)
 
 	// verify it's actually running by checking admin API
 	maxRetries := 3
@@ -213,7 +208,7 @@ func (c *CaddyHandler) Restart() error {
 		time.Sleep(100 * time.Millisecond)
 		status := c.Status()
 		if status.Status == service.SvcRunning {
-			log.Printf("caddy is running and responding")
+			c.logger.Info("caddy is running and responding")
 			return nil
 		}
 	}
