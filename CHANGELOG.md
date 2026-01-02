@@ -1,3 +1,8 @@
+## [0.4.13-beta.26] - 2026-01-02
+
+### 🚜 Refactor
+
+- *(proxy)* Enhance proxy status response with detailed Caddy configuration
 ## [0.4.13-beta.25] - 2026-01-02
 
 ### 🚜 Refactor
