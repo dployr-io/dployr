@@ -1,3 +1,8 @@
+## [0.4.13-beta.24] - 2026-01-02
+
+### 🚜 Refactor
+
+- *(proxy)* Updated remaining unstructured logs to structured logs in Caddy handler
 ## [0.4.13-beta.23] - 2026-01-02
 
 ### 🚜 Refactor
