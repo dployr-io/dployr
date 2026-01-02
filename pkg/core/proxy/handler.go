@@ -80,21 +80,17 @@ func (h *ProxyHandler) HandleAdd(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Info("proxy.add_route request", "method", r.Method, "path", r.URL.Path)
 
-	var route ProxyRoute
-	if err := json.NewDecoder(r.Body).Decode(&route); err != nil {
+	var app App
+	if err := json.NewDecoder(r.Body).Decode(&app); err != nil {
 		h.logger.Error("failed to decode request body", "error", err)
 		e := shared.Errors.Request.BadRequest
 		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
 		return
 	}
 
-	app := App{
-		Domain:   route.Domain,
-		Upstream: route.Upstream,
-	}
-	apps := map[string]App{route.Domain: app}
+	apps := map[string]App{app.Domain: app}
 
-	h.logger.Info("HandleAdd received request", "domain", route.Domain, "upstream", route.Upstream)
+	h.logger.Info("HandleAdd received request", "domain", app.Domain, "upstream", app.Upstream, "root", app.Root, "template", app.Template)
 	err := h.proxier.api.Add(apps)
 
 	if err != nil {
