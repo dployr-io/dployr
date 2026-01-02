@@ -1,3 +1,9 @@
+## [0.4.13-beta.23] - 2026-01-02
+
+### 🚜 Refactor
+
+- *(proxy)* Update proxy creation to detailed payload
+- *(proxy)* Updated to structured logs in Caddy handler
 ## [0.4.13-beta.22] - 2026-01-01
 
 ### 🚀 Features
