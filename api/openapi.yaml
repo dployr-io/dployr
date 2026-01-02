@@ -375,7 +375,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProxyRoute'
+              $ref: '#/components/schemas/ProxyApp'
       responses:
         '201':
           description: Route added successfully
