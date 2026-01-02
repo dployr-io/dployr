@@ -38,7 +38,10 @@ type App struct {
 
 // ProxyStatus describes the current status of the proxy service.
 type ProxyStatus struct {
-	Status service.SvcState `json:"status"`
+	Status  service.SvcState `json:"status"`
+	Apps    map[string]any   `json:"apps,omitempty"`
+	Uptime  int64            `json:"uptime,omitempty"`
+	Version string           `json:"version,omitempty"`
 }
 
 // ProxyRoute describes a proxy by its domain and upstream service.

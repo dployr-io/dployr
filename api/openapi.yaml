@@ -1462,7 +1462,31 @@ components:
       properties:
         status:
           type: string
+          description: Current status of the proxy service
+          enum: [running, stopped, unknown]
           example: "running"
+        apps:
+          type: object
+          description: Caddy configuration apps (from admin API)
+          additionalProperties: true
+          example:
+            http:
+              servers:
+                srv0:
+                  listen:
+                    - ":80"
+                  routes:
+                    - handle:
+                        - handler: "file_server"
+        uptime:
+          type: integer
+          format: int64
+          description: Proxy service uptime in seconds
+          example: 3600
+        version:
+          type: string
+          description: Caddy version
+          example: "v2.7.4"
 
     ProxyRoute:
       type: object

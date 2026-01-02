@@ -156,9 +156,23 @@ func (c *CaddyHandler) Status() proxy.ProxyStatus {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 200 {
-		return proxy.ProxyStatus{
+		var config map[string]any
+		if err := json.NewDecoder(resp.Body).Decode(&config); err != nil {
+			c.logger.Warn("failed to decode caddy config", "error", err)
+			return proxy.ProxyStatus{
+				Status: service.SvcRunning,
+			}
+		}
+
+		status := proxy.ProxyStatus{
 			Status: service.SvcRunning,
 		}
+
+		if apps, ok := config["apps"]; ok {
+			status.Apps = apps.(map[string]any)
+		}
+
+		return status
 	}
 	return proxy.ProxyStatus{
 		Status: service.SvcUnknown,
