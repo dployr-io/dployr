@@ -72,7 +72,7 @@ func main() {
 	dh := deploy.NewDeploymentHandler(deployer, logger)
 
 	proxyState := _proxy.LoadState()
-	ps := _proxy.Init(proxyState)
+	ps := _proxy.Init(proxyState, logger)
 	proxier := proxy.NewProxier(proxyState, ps)
 	ph := proxy.NewProxyHandler(proxier, logger)
 

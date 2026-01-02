@@ -19,6 +19,7 @@ import (
 	"github.com/dployr-io/dployr/pkg/core/proxy"
 	"github.com/dployr-io/dployr/pkg/core/service"
 	"github.com/dployr-io/dployr/pkg/core/utils"
+	"github.com/dployr-io/dployr/pkg/shared"
 )
 
 //go:embed templates/*.tpl
@@ -27,11 +28,13 @@ var templateFS embed.FS
 type CaddyHandler struct {
 	Apps    map[string]proxy.App
 	process *os.Process
+	logger  *shared.Logger
 }
 
-func Init(a map[string]proxy.App) *CaddyHandler {
+func Init(a map[string]proxy.App, logger *shared.Logger) *CaddyHandler {
 	return &CaddyHandler{
-		Apps: a,
+		Apps:   a,
+		logger: logger,
 	}
 }
 
@@ -53,10 +56,9 @@ type AppTemplateData struct {
 }
 
 func (c *CaddyHandler) Setup(apps map[string]proxy.App) error {
-	// [DEBUG]
-	log.Printf("setup called with %d apps", len(apps))
+	c.logger.Debug("setup called", "app_count", len(apps))
 	for domain, app := range apps {
-		log.Printf("app: %s -> %+v", domain, app)
+		c.logger.Debug("app loaded", "domain", domain, "upstream", app.Upstream, "root", app.Root, "template", app.Template)
 	}
 
 	// Parse embedded templates
@@ -221,16 +223,14 @@ func (c *CaddyHandler) Restart() error {
 
 func (c *CaddyHandler) Add(apps map[string]proxy.App) error {
 	existing := LoadState()
-	// [DEBUG]
-	log.Printf("previous count: %d", len(existing))
+	c.logger.Debug("adding apps", "previous_count", len(existing))
 
 	for domain, app := range apps {
 		existing[domain] = app
-		log.Printf("merged app %s into existing", domain)
+		c.logger.Debug("merged app", "domain", domain)
 	}
 
-	// [DEBUG]
-	log.Printf("new count: %d", len(existing))
+	c.logger.Debug("apps merged", "new_count", len(existing))
 	if err := c.Setup(existing); err != nil {
 		return err
 	}
@@ -257,27 +257,21 @@ func (c *CaddyHandler) Remove(domains []string) error {
 func LoadState() map[string]proxy.App {
 	dataDir := utils.GetDataDir()
 	statePath := filepath.Join(dataDir, stateFile)
-	log.Printf("checking state file at %s", statePath)
 
 	if _, err := os.Stat(statePath); os.IsNotExist(err) {
-		log.Printf("no state file was found, returning empty map")
 		return make(map[string]proxy.App)
 	}
 
 	data, err := os.ReadFile(statePath)
 	if err != nil {
-		log.Printf("error reading state file: %v", err)
 		return nil
 	}
 
 	var apps map[string]proxy.App
 	if err := json.Unmarshal(data, &apps); err != nil {
-		log.Printf("error unmarshaling: %v", err)
 		return nil
 	}
 
-	// [DEBUG]
-	log.Printf("loaded %d apps from state file", len(apps))
 	return apps
 }
 
