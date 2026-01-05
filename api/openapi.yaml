@@ -405,17 +405,15 @@ paths:
       operationId: removeProxyRoute
       security:
         - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProxyRemoveRequest'
       responses:
-        '200':
+        '204':
           description: Route removed successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Route removed successfully"
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -1524,6 +1522,19 @@ components:
           type: string
           description: Proxy template used for the app.
           enum: [static, reverse_proxy, php_fastcgi]
+
+    ProxyRemoveRequest:
+      type: object
+      description: Request to remove proxy routes
+      required:
+        - domains
+      properties:
+        domains:
+          type: array
+          description: List of domain names to remove from proxy configuration
+          items:
+            type: string
+          example: ["api.example.com", "app.example.com"]
 
     SystemStatus:
       type: object

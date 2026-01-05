@@ -113,7 +113,9 @@ func (h *ProxyHandler) HandleRemove(w http.ResponseWriter, r *http.Request) {
 
 	h.logger.Info("proxy.remove_route request", "method", r.Method, "path", r.URL.Path)
 
-	var req []string
+	var req struct {
+		Domains []string `json:"domains"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Error("failed to decode request body", "error", err)
 		e := shared.Errors.Request.BadRequest
@@ -121,7 +123,7 @@ func (h *ProxyHandler) HandleRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.proxier.api.Remove(req)
+	err := h.proxier.api.Remove(req.Domains)
 
 	if err != nil {
 		h.logger.Error("failed to remove", "error", err)
@@ -131,5 +133,4 @@ func (h *ProxyHandler) HandleRemove(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNoContent)
-
 }
