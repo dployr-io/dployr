@@ -730,7 +730,7 @@ dployrd ALL=(ALL) NOPASSWD: $RM *
 dployrd ALL=(ALL) NOPASSWD: $CP *
 dployrd ALL=(ALL) NOPASSWD: $CHMOD *
 dployrd ALL=(ALL) NOPASSWD: $TEE *
-dployrd ALL=(ALL) NOPASSWD: $CADDY validate --config /etc/caddy/Caddyfile --adapter caddyfile
+dployrd ALL=(ALL) NOPASSWD: $CADDY validate --config /var/lib/dployrd/.dployr/caddy/Caddyfile --adapter caddyfile
 EOF
 chmod 440 /etc/sudoers.d/dployr
 
