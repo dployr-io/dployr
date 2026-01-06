@@ -1,3 +1,8 @@
+## [0.5.1] - 2026-01-06
+
+### 🚜 Refactor
+
+- *(install)* Fix path to Caddyfile in sudoers permissions
 ## [0.5.0] - 2026-01-06
 
 ### 🚜 Refactor
