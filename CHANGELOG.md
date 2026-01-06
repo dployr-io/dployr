@@ -1,3 +1,9 @@
+## [0.5.0] - 2026-01-06
+
+### 🚜 Refactor
+
+- *(proxy)* Updated unstructured remove-route request
+- *(api)* Implement v1.1 update schema
 ## [0.4.13-beta.26] - 2026-01-02
 
 ### 🚜 Refactor
