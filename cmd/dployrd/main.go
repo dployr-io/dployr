@@ -62,7 +62,8 @@ func main() {
 
 	ctx := context.Background()
 
-	w := worker.New(5, cfg, logger, ds, ss) // 5 concurrent deployments
+	workerMaxConcurrent := 5
+	w := worker.New(workerMaxConcurrent, cfg, logger, ds, ss)
 
 	as := _auth.Init(cfg, is)
 	am := auth.NewMiddleware(as)
@@ -103,7 +104,7 @@ func main() {
 
 	mux := wh.BuildMux(cfg)
 
-	syncer := _system.NewSyncer(cfg, logger, is, trs, ds, ss, ps, mux, as, fs)
+	syncer := _system.NewSyncer(cfg, logger, is, trs, ds, ss, ps, mux, as, fs, workerMaxConcurrent, w.ActiveJobs)
 
 	go func() {
 		if err := wh.NewServer(cfg); err != nil {

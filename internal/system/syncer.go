@@ -58,6 +58,7 @@ var agentTokenRefreshSuccessTotal uint64
 var agentTokenRefreshFailedTotal uint64
 
 var updateSeq uint64
+var activeStreams int64
 
 func setWSConnected(v bool) {
 	if v {
@@ -81,7 +82,7 @@ type wsMessage struct {
 	Kind      string             `json:"kind"`
 	Items     []syncTask         `json:"items,omitempty"`
 	IDs       []string           `json:"ids,omitempty"`
-	Update    *system.UpdateV1   `json:"update,omitempty"`
+	Update    *system.UpdateV1_1 `json:"update,omitempty"`
 	Hello     *system.HelloV1    `json:"hello,omitempty"`
 	HelloAck  *system.HelloAckV1 `json:"hello_ack,omitempty"`
 	LogChunk  *logs.LogChunk     `json:"log_chunk,omitempty"`
@@ -378,17 +379,20 @@ const ctxKeyInstanceID syncerCtxKey = "instance_id"
 const baseWSCACertPEM = ""
 
 type Syncer struct {
-	cfg               *shared.Config
-	logger            *shared.Logger
-	instStore         store.InstanceStore
-	resultStore       store.TaskResultStore
-	deployStore       store.DeploymentStore
-	svcStore          store.ServiceStore
-	proxyHandler      proxy.HandleProxy
-	fs                *FileSystem
-	topCollector      *TopCollector
-	executor          *Executor
-	agentTokenBackoff time.Duration
+	cfg                 *shared.Config
+	logger              *shared.Logger
+	instStore           store.InstanceStore
+	resultStore         store.TaskResultStore
+	deployStore         store.DeploymentStore
+	svcStore            store.ServiceStore
+	proxyHandler        proxy.HandleProxy
+	fs                  *FileSystem
+	topCollector        *TopCollector
+	executor            *Executor
+	agentTokenBackoff   time.Duration
+	workerMaxConcurrent int
+	workerActiveJobs    func() int
+	epoch               string
 
 	dedupeMu sync.Mutex
 	dedupe   map[string]time.Time
@@ -474,19 +478,21 @@ func (s *Syncer) ensureAccessToken(ctx context.Context, bootstrapToken string) (
 	return accessToken, nil
 }
 
-func NewSyncer(cfg *shared.Config, logger *shared.Logger, instStore store.InstanceStore, resStore store.TaskResultStore, deployStore store.DeploymentStore, svcStore store.ServiceStore, proxyHandler proxy.HandleProxy, handler http.Handler, auth pkgAuth.Authenticator, fs *FileSystem) *Syncer {
+func NewSyncer(cfg *shared.Config, logger *shared.Logger, instStore store.InstanceStore, resStore store.TaskResultStore, deployStore store.DeploymentStore, svcStore store.ServiceStore, proxyHandler proxy.HandleProxy, handler http.Handler, auth pkgAuth.Authenticator, fs *FileSystem, workerMaxConcurrent int, workerActiveJobs func() int) *Syncer {
 	return &Syncer{
-		cfg:          cfg,
-		logger:       logger,
-		instStore:    instStore,
-		resultStore:  resStore,
-		deployStore:  deployStore,
-		svcStore:     svcStore,
-		proxyHandler: proxyHandler,
-		fs:           fs,
-		topCollector: NewTopCollector(),
-		executor:     NewExecutor(logger, handler, instStore, auth),
-		dedupe:       make(map[string]time.Time),
+		cfg:                 cfg,
+		logger:              logger,
+		instStore:           instStore,
+		resultStore:         resStore,
+		deployStore:         deployStore,
+		svcStore:            svcStore,
+		proxyHandler:        proxyHandler,
+		fs:                  fs,
+		topCollector:        NewTopCollector(),
+		executor:            NewExecutor(logger, handler, instStore, auth),
+		workerMaxConcurrent: workerMaxConcurrent,
+		workerActiveJobs:    workerActiveJobs,
+		dedupe:              make(map[string]time.Time),
 	}
 }
 
@@ -516,6 +522,10 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 	}
 	if inst == nil || strings.TrimSpace(inst.InstanceID) == "" {
 		return fmt.Errorf("instance not registered; reinstall using a valid bootstrap token (see https://dployr.io/docs/quickstart.html)")
+	}
+
+	if s.epoch == "" {
+		s.epoch = fmt.Sprintf("%s-%d", strings.TrimSpace(inst.InstanceID), startTime.Unix())
 	}
 
 	// Enrich context and attach instance_id explicitly for logging
@@ -672,6 +682,38 @@ ws_connected:
 		return fmt.Errorf("failed to send initial pull: %w", err)
 	}
 
+	// Send immediate full sync on connection/reconnection
+	logger.Debug("syncer: sending immediate full sync on connect")
+	seq := atomic.AddUint64(&updateSeq, 1)
+	activeJobs := 0
+	if s.workerActiveJobs != nil {
+		activeJobs = s.workerActiveJobs()
+	}
+	update := BuildUpdateV1_1(
+		connCtx,
+		s.cfg,
+		inst.InstanceID,
+		seq,
+		s.epoch,
+		true,
+		s.instStore,
+		s.deployStore,
+		s.svcStore,
+		s.proxyHandler,
+		s.fs,
+		s.topCollector,
+		s.workerMaxConcurrent,
+		activeJobs,
+	)
+	if err := s.sendWSMessage(connCtx, conn, wsMessage{
+		ID:     ulid.Make().String(),
+		TS:     time.Now(),
+		Kind:   "update",
+		Update: update,
+	}); err != nil {
+		logger.Error("syncer: failed to send immediate full sync", "error", err)
+	}
+
 	interval := shared.SanitizeSyncInterval(s.cfg.SyncInterval)
 	go func() {
 		for {
@@ -689,13 +731,38 @@ ws_connected:
 	}()
 
 	updateInterval := shared.SanitizeSyncInterval(s.cfg.SyncInterval)
+	updateCounter := uint64(1)
 	go func() {
 		for {
 			select {
 			case <-connCtx.Done():
 				return
 			case <-time.After(jitter(updateInterval)):
-				upd := buildAgentUpdate(connCtx, s.cfg, inst.InstanceID, s.instStore, s.deployStore, s.svcStore, s.proxyHandler, s.fs, s.topCollector)
+				updateCounter++
+				seq := atomic.AddUint64(&updateSeq, 1)
+
+				activeJobs := 0
+				if s.workerActiveJobs != nil {
+					activeJobs = s.workerActiveJobs()
+				}
+
+				upd := BuildUpdateV1_1(
+					connCtx,
+					s.cfg,
+					inst.InstanceID,
+					seq,
+					s.epoch,
+					true,
+					s.instStore,
+					s.deployStore,
+					s.svcStore,
+					s.proxyHandler,
+					s.fs,
+					s.topCollector,
+					s.workerMaxConcurrent,
+					activeJobs,
+				)
+
 				msg := wsMessage{
 					ID:     ulid.Make().String(),
 					TS:     time.Now(),

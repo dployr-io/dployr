@@ -2593,13 +2593,612 @@ components:
           enum: [hello, hello_ack, task, task_response, ack, pull, update, log_chunk]
           description: Message type
 
-  responses:
-    BadRequest:
-      description: Bad request
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
+    UpdateV1_1:
+      type: object
+      required: [schema, sequence, epoch, instance_id, timestamp, is_full_sync, status, health, resources, proxy, processes, diagnostics]
+      properties:
+        schema:
+          type: string
+          enum: ["v1.1"]
+        sequence:
+          type: integer
+          format: uint64
+        epoch:
+          type: string
+        instance_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        is_full_sync:
+          type: boolean
+        agent:
+          $ref: '#/components/schemas/AgentInfo'
+        status:
+          $ref: '#/components/schemas/StatusInfo'
+        health:
+          $ref: '#/components/schemas/HealthInfo'
+        resources:
+          $ref: '#/components/schemas/ResourcesInfo'
+        workloads:
+          $ref: '#/components/schemas/WorkloadsInfo'
+        proxy:
+          $ref: '#/components/schemas/ProxyInfo'
+        processes:
+          $ref: '#/components/schemas/ProcessesInfo'
+        filesystem:
+          $ref: '#/components/schemas/FilesystemInfo'
+        diagnostics:
+          $ref: '#/components/schemas/DiagnosticsInfo'
+
+    AgentInfo:
+      type: object
+      required: [version, commit, build_date, go_version, os, arch]
+      properties:
+        version:
+          type: string
+        commit:
+          type: string
+        build_date:
+          type: string
+        go_version:
+          type: string
+        os:
+          type: string
+          enum: [linux, darwin, windows]
+        arch:
+          type: string
+          enum: [amd64, arm64, arm]
+
+    StatusInfo:
+      type: object
+      required: [state, mode, uptime_seconds]
+      properties:
+        state:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        mode:
+          type: string
+          enum: [ready, updating, maintenance]
+        uptime_seconds:
+          type: integer
+          format: int64
+
+    HealthInfo:
+      type: object
+      required: [overall, websocket, tasks, proxy, auth]
+      properties:
+        overall:
+          type: string
+          enum: [ok, degraded, down]
+        websocket:
+          type: string
+          enum: [ok, degraded, down]
+        tasks:
+          type: string
+          enum: [ok, degraded, down]
+        proxy:
+          type: string
+          enum: [ok, degraded, down]
+        auth:
+          type: string
+          enum: [ok, degraded, down]
+
+    ResourcesInfo:
+      type: object
+      required: [cpu, memory, swap]
+      properties:
+        cpu:
+          $ref: '#/components/schemas/CPUInfo'
+        memory:
+          $ref: '#/components/schemas/MemoryInfo'
+        swap:
+          $ref: '#/components/schemas/SwapInfo'
+        disks:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiskInfo'
+
+    CPUInfo:
+      type: object
+      required: [count, user_percent, system_percent, idle_percent, iowait_percent]
+      properties:
+        count:
+          type: integer
+        user_percent:
+          type: number
+          format: double
+        system_percent:
+          type: number
+          format: double
+        idle_percent:
+          type: number
+          format: double
+        iowait_percent:
+          type: number
+          format: double
+        load_average:
+          $ref: '#/components/schemas/LoadAvgInfo'
+          nullable: true
+
+    LoadAvgInfo:
+      type: object
+      required: [one_minute, five_minute, fifteen_minute]
+      properties:
+        one_minute:
+          type: number
+          format: double
+        five_minute:
+          type: number
+          format: double
+        fifteen_minute:
+          type: number
+          format: double
+
+    MemoryInfo:
+      type: object
+      required: [total_bytes, used_bytes, free_bytes, available_bytes, buffer_cache_bytes]
+      properties:
+        total_bytes:
+          type: integer
+          format: int64
+        used_bytes:
+          type: integer
+          format: int64
+        free_bytes:
+          type: integer
+          format: int64
+        available_bytes:
+          type: integer
+          format: int64
+        buffer_cache_bytes:
+          type: integer
+          format: int64
+
+    SwapInfo:
+      type: object
+      required: [total_bytes, used_bytes, free_bytes, available_bytes]
+      properties:
+        total_bytes:
+          type: integer
+          format: int64
+        used_bytes:
+          type: integer
+          format: int64
+        free_bytes:
+          type: integer
+          format: int64
+        available_bytes:
+          type: integer
+          format: int64
+
+    DiskInfo:
+      type: object
+      required: [filesystem, mount_point, total_bytes, used_bytes, available_bytes]
+      properties:
+        filesystem:
+          type: string
+        mount_point:
+          type: string
+        total_bytes:
+          type: integer
+          format: int64
+        used_bytes:
+          type: integer
+          format: int64
+        available_bytes:
+          type: integer
+          format: int64
+
+    WorkloadsInfo:
+      type: object
+      required: [deployments, services]
+      properties:
+        deployments:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeploymentV1_1'
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceV1_1'
+
+    DeploymentV1_1:
+      type: object
+      required: [id, name, description, status, source, runtime, port, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+          nullable: true
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [pending, in_progress, completed, failed]
+        source:
+          type: string
+          enum: [remote, image, local]
+        runtime:
+          $ref: '#/components/schemas/RuntimeInfo'
+        remote:
+          $ref: '#/components/schemas/RemoteInfo'
+          nullable: true
+        port:
+          type: integer
+        working_dir:
+          type: string
+          nullable: true
+        static_dir:
+          type: string
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        run_command:
+          type: string
+          nullable: true
+        build_command:
+          type: string
+          nullable: true
+        env_vars:
+          type: object
+          additionalProperties:
+            type: string
+        secrets:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecretRef'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RuntimeInfo:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [static, golang, php, python, nodejs, ruby, dotnet, java, docker, k3s, custom]
+        version:
+          type: string
+          nullable: true
+
+    RemoteInfo:
+      type: object
+      required: [url, branch, commit_hash]
+      properties:
+        url:
+          type: string
+        branch:
+          type: string
+        commit_hash:
+          type: string
+
+    SecretRef:
+      type: object
+      required: [key, source]
+      properties:
+        key:
+          type: string
+        source:
+          type: string
+          enum: [local]
+
+    ServiceV1_1:
+      type: object
+      required: [id, name, description, runtime, port, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        runtime:
+          type: string
+          enum: [static, golang, php, python, nodejs, ruby, dotnet, java, docker, k3s, custom]
+        runtime_version:
+          type: string
+          nullable: true
+        port:
+          type: integer
+        working_dir:
+          type: string
+          nullable: true
+        static_dir:
+          type: string
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        run_command:
+          type: string
+          nullable: true
+        build_command:
+          type: string
+          nullable: true
+        env_vars:
+          type: object
+          additionalProperties:
+            type: string
+        secrets:
+          type: array
+          items:
+            $ref: '#/components/schemas/SecretRef'
+        remote_url:
+          type: string
+          nullable: true
+        branch:
+          type: string
+          nullable: true
+        commit_hash:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ProxyInfo:
+      type: object
+      required: [type, status, route_count]
+      properties:
+        type:
+          type: string
+          enum: [caddy, nginx, apache, traefik, custom]
+        status:
+          type: string
+          enum: [running, stopped, unknown]
+        version:
+          type: string
+          nullable: true
+        route_count:
+          type: integer
+        routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProxyRouteInfo'
+
+    ProxyRouteInfo:
+      type: object
+      required: [domain, upstream, template, status]
+      properties:
+        domain:
+          type: string
+        upstream:
+          type: string
+        template:
+          type: string
+          enum: [static, reverse_proxy, php_fastcgi]
+        root:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, inactive, error]
+
+    ProcessesInfo:
+      type: object
+      required: [summary]
+      properties:
+        summary:
+          $ref: '#/components/schemas/ProcessSummary'
+        list:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProcessInfoV1_1'
+
+    ProcessSummary:
+      type: object
+      required: [total, running, sleeping, stopped, zombie]
+      properties:
+        total:
+          type: integer
+        running:
+          type: integer
+        sleeping:
+          type: integer
+        stopped:
+          type: integer
+        zombie:
+          type: integer
+
+    ProcessInfoV1_1:
+      type: object
+      required: [pid, user, priority, nice, virtual_memory_bytes, resident_memory_bytes, shared_memory_bytes, state, cpu_percent, memory_percent, cpu_time, command]
+      properties:
+        pid:
+          type: integer
+        user:
+          type: string
+        priority:
+          type: integer
+        nice:
+          type: integer
+        virtual_memory_bytes:
+          type: integer
+          format: int64
+        resident_memory_bytes:
+          type: integer
+          format: int64
+        shared_memory_bytes:
+          type: integer
+          format: int64
+        state:
+          type: string
+          enum: [running, sleeping, stopped, zombie, idle]
+        cpu_percent:
+          type: number
+          format: double
+        memory_percent:
+          type: number
+          format: double
+        cpu_time:
+          type: string
+        command:
+          type: string
+
+    FilesystemInfo:
+      type: object
+      required: [generated_at, is_stale, roots]
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        is_stale:
+          type: boolean
+        roots:
+          type: array
+          items:
+            $ref: '#/components/schemas/FSNodeV1_1'
+
+    FSNodeV1_1:
+      type: object
+      required: [path, name, type, size_bytes, modified_at, permissions]
+      properties:
+        path:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [file, directory, symlink]
+        size_bytes:
+          type: integer
+          format: int64
+        modified_at:
+          type: string
+          format: date-time
+        permissions:
+          $ref: '#/components/schemas/FSPermissions'
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/FSNodeV1_1'
+          nullable: true
+        is_truncated:
+          type: boolean
+        total_children:
+          type: integer
+          nullable: true
+
+    FSPermissions:
+      type: object
+      required: [mode, owner, group, uid, gid, readable, writable, executable]
+      properties:
+        mode:
+          type: string
+        owner:
+          type: string
+        group:
+          type: string
+        uid:
+          type: integer
+        gid:
+          type: integer
+        readable:
+          type: boolean
+        writable:
+          type: boolean
+        executable:
+          type: boolean
+
+    DiagnosticsInfo:
+      type: object
+      required: [websocket, tasks, auth]
+      properties:
+        websocket:
+          $ref: '#/components/schemas/WebsocketDiag'
+        tasks:
+          $ref: '#/components/schemas/TasksDiag'
+        auth:
+          $ref: '#/components/schemas/AuthDiag'
+        worker:
+          $ref: '#/components/schemas/WorkerDiag'
+        cert:
+          $ref: '#/components/schemas/CertDiag'
+
+    WebsocketDiag:
+      type: object
+      required: [is_connected, reconnect_count]
+      properties:
+        is_connected:
+          type: boolean
+        last_connected_at:
+          type: string
+          format: date-time
+          nullable: true
+        reconnect_count:
+          type: integer
+          format: uint64
+        last_error:
+          type: string
+          nullable: true
+
+    TasksDiag:
+      type: object
+      required: [inflight_count, unsent_count]
+      properties:
+        inflight_count:
+          type: integer
+        unsent_count:
+          type: integer
+        last_task_id:
+          type: string
+          nullable: true
+        last_task_status:
+          type: string
+          enum: [done, failed]
+          nullable: true
+        last_task_duration_ms:
+          type: integer
+          format: int64
+          nullable: true
+        last_task_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    AuthDiag:
+      type: object
+      required: [token_age_seconds, token_expires_in_seconds, bootstrap_token_preview]
+      properties:
+        token_age_seconds:
+          type: integer
+          format: int64
+        token_expires_in_seconds:
+          type: integer
+          format: int64
+        bootstrap_token_preview:
+          type: string
+
+    WorkerDiag:
+      type: object
+      required: [max_concurrent, active_jobs]
+      properties:
+        max_concurrent:
+          type: integer
+        active_jobs:
+          type: integer
+
+    CertDiag:
+      type: object
+      required: [not_after, days_remaining]
+      properties:
+        not_after:
+          type: string
+          format: date-time
+        days_remaining:
+          type: integer
 
     Unauthorized:
       description: Unauthorized

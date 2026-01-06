@@ -224,3 +224,10 @@ func (w *Worker) markInactive(id string) {
 	defer w.jobsMux.Unlock()
 	delete(w.activeJobs, id)
 }
+
+// ActiveJobs returns the current count of active jobs
+func (w *Worker) ActiveJobs() int {
+	w.jobsMux.RLock()
+	defer w.jobsMux.RUnlock()
+	return len(w.activeJobs)
+}
