@@ -400,135 +400,18 @@ func buildWorkloads(ctx context.Context, deployStore store.DeploymentStore, svcS
 	// Deployments
 	if deployStore != nil {
 		if deps, err := deployStore.ListDeployments(ctx, 100, 0); err == nil {
-			for _, d := range deps {
-				workloads.Deployments = append(workloads.Deployments, mapDeployment(d))
-			}
+			workloads.Deployments = system.FromStoreDeployments(deps)
 		}
 	}
 
 	// Services
 	if svcStore != nil {
 		if svcs, err := svcStore.ListServices(ctx, 100, 0); err == nil {
-			for _, s := range svcs {
-				workloads.Services = append(workloads.Services, mapService(s))
-			}
+			workloads.Services = system.FromStoreServices(svcs)
 		}
 	}
 
 	return workloads
-}
-
-func mapDeployment(d *store.Deployment) system.DeploymentV1_1 {
-	dep := system.DeploymentV1_1{
-		ID:          d.ID,
-		UserID:      d.UserId,
-		Name:        d.Blueprint.Name,
-		Description: d.Blueprint.Desc,
-		Status:      string(d.Status),
-		Source:      d.Blueprint.Source,
-		Runtime: system.RuntimeInfo{
-			Type: string(d.Blueprint.Runtime.Type),
-		},
-		Port:      d.Blueprint.Port,
-		CreatedAt: d.CreatedAt.Format(time.RFC3339),
-		UpdatedAt: d.UpdatedAt.Format(time.RFC3339),
-	}
-
-	if d.Blueprint.Runtime.Version != "" {
-		dep.Runtime.Version = &d.Blueprint.Runtime.Version
-	}
-
-	if d.Blueprint.Remote.Url != "" {
-		dep.Remote = &system.RemoteInfo{
-			URL:        d.Blueprint.Remote.Url,
-			Branch:     d.Blueprint.Remote.Branch,
-			CommitHash: d.Blueprint.Remote.CommitHash,
-		}
-	}
-
-	if d.Blueprint.WorkingDir != "" {
-		dep.WorkingDir = &d.Blueprint.WorkingDir
-	}
-	if d.Blueprint.StaticDir != "" {
-		dep.StaticDir = &d.Blueprint.StaticDir
-	}
-	if d.Blueprint.Image != "" {
-		dep.Image = &d.Blueprint.Image
-	}
-	if d.Blueprint.RunCmd != "" {
-		dep.RunCommand = &d.Blueprint.RunCmd
-	}
-	if d.Blueprint.BuildCmd != "" {
-		dep.BuildCommand = &d.Blueprint.BuildCmd
-	}
-
-	if len(d.Blueprint.EnvVars) > 0 {
-		dep.EnvVars = d.Blueprint.EnvVars
-	}
-
-	// Secrets - keys only with source
-	for key := range d.Blueprint.Secrets {
-		dep.Secrets = append(dep.Secrets, system.SecretRef{
-			Key:    key,
-			Source: "local",
-		})
-	}
-
-	return dep
-}
-
-func mapService(s *store.Service) system.ServiceV1_1 {
-	svc := system.ServiceV1_1{
-		ID:          s.ID,
-		Name:        s.Name,
-		Description: s.Description,
-		Runtime:     string(s.Runtime),
-		Port:        s.Port,
-		CreatedAt:   s.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:   s.UpdatedAt.Format(time.RFC3339),
-	}
-
-	if s.RuntimeVersion != "" {
-		svc.RuntimeVersion = &s.RuntimeVersion
-	}
-	if s.WorkingDir != "" {
-		svc.WorkingDir = &s.WorkingDir
-	}
-	if s.StaticDir != "" {
-		svc.StaticDir = &s.StaticDir
-	}
-	if s.Image != "" {
-		svc.Image = &s.Image
-	}
-	if s.RunCmd != "" {
-		svc.RunCommand = &s.RunCmd
-	}
-	if s.BuildCmd != "" {
-		svc.BuildCommand = &s.BuildCmd
-	}
-	if s.Remote != "" {
-		svc.RemoteURL = &s.Remote
-	}
-	if s.Branch != "" {
-		svc.Branch = &s.Branch
-	}
-	if s.CommitHash != "" {
-		svc.CommitHash = &s.CommitHash
-	}
-
-	if len(s.EnvVars) > 0 {
-		svc.EnvVars = s.EnvVars
-	}
-
-	// Secrets - keys only
-	for key := range s.Secrets {
-		svc.Secrets = append(svc.Secrets, system.SecretRef{
-			Key:    key,
-			Source: "local",
-		})
-	}
-
-	return svc
 }
 
 func buildFilesystem(fs *FileSystem) *system.FilesystemInfo {

@@ -1,11 +1,12 @@
 // Copyright 2025 Emmanuel Madehin
 // SPDX-License-Identifier: Apache-2.0
 
+// Package system provides v1.1 schema for the agent status update
 package system
 
 // UpdateV1_1 is the v1.1 status update schema
 type UpdateV1_1 struct {
-	Schema      string          `json:"schema"` // Always "v1.1"
+	Schema      string          `json:"schema"` // "v1.1"
 	Sequence    uint64          `json:"sequence"`
 	Epoch       string          `json:"epoch"`
 	InstanceID  string          `json:"instance_id"`
