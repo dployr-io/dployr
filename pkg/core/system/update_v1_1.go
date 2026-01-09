@@ -149,8 +149,8 @@ type ServiceV1_1 struct {
 	Image          *string           `json:"image,omitempty"`
 	RunCommand     *string           `json:"run_command,omitempty"`
 	BuildCommand   *string           `json:"build_command,omitempty"`
-	EnvVars        map[string]string `json:"env_vars,omitempty"`
-	Secrets        []SecretRef       `json:"secrets,omitempty"`
+	EnvVars        map[string]string `json:"env_vars"`
+	Secrets        []SecretRef       `json:"secrets"`
 	RemoteURL      *string           `json:"remote_url,omitempty"`
 	Branch         *string           `json:"branch,omitempty"`
 	CommitHash     *string           `json:"commit_hash,omitempty"`
