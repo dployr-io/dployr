@@ -1,3 +1,11 @@
+## [0.5.2] - 2026-01-10
+
+### 🚜 Refactor
+
+- *(api)* Make services a mandatory field in services struct
+- *(system)* Stable schema contract for update v1.1
+- *(release)* Update CDN for installation script
+- *(system)* Cleanups and improvement
 ## [0.5.1] - 2026-01-06
 
 ### 🚜 Refactor
