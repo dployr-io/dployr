@@ -25,7 +25,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -40,7 +39,6 @@ import (
 	"github.com/dployr-io/dployr/pkg/core/logs"
 	"github.com/dployr-io/dployr/pkg/core/proxy"
 	"github.com/dployr-io/dployr/pkg/core/system"
-	"github.com/dployr-io/dployr/pkg/core/utils"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
 	"github.com/dployr-io/dployr/pkg/tasks"
@@ -177,170 +175,6 @@ func computeAuthHealth(ctx context.Context, instStore store.InstanceStore) (heal
 	}
 
 	return
-}
-
-func buildAgentUpdate(ctx context.Context, cfg *shared.Config, instanceID string, instStore store.InstanceStore, deployStore store.DeploymentStore, svcStore store.ServiceStore, proxyHandler proxy.HandleProxy, fs *FileSystem, topCollector *TopCollector) *system.UpdateV1 {
-	seq := atomic.AddUint64(&updateSeq, 1)
-	uptime := time.Since(startTime).Seconds()
-	currentModeMu.RLock()
-	mode := currentMode
-	currentModeMu.RUnlock()
-
-	// Compute health status
-	wsOK := WSConnected()
-	wsHealth := system.HealthDown
-	if wsOK {
-		wsHealth = system.HealthOK
-	}
-
-	inflight := currentPendingTasks()
-	tasksHealth := system.HealthOK
-	if inflight > 0 && !wsOK {
-		tasksHealth = system.HealthDegraded
-	}
-
-	// Auth health: check agent access token expiration
-	authHealth, authDbg := computeAuthHealth(ctx, instStore)
-
-	// Overall health: worst of WS, Tasks, Auth
-	overallHealth := worstHealth(wsHealth, tasksHealth, authHealth)
-
-	// Build debug info
-	dbg := &system.SystemDebug{
-		WS: system.WSDebug{
-			Connected:            wsOK,
-			LastConnectAtRFC3339: WSLastConnect().Format(time.RFC3339),
-			ReconnectsSinceStart: WSReconnectsSinceStart(),
-			LastError:            WSLastError(),
-		},
-		Tasks: system.TasksDebug{
-			Inflight:   inflight,
-			DoneUnsent: 0, // Not available in this context
-		},
-		Auth: authDbg,
-	}
-	if le := getLastExec(); le != nil {
-		dbg.Tasks.LastTaskID = le.ID
-		dbg.Tasks.LastTaskStatus = le.Status
-		dbg.Tasks.LastTaskDurMs = le.DurMs
-		dbg.Tasks.LastTaskAtRFC3339 = le.At.Format(time.RFC3339)
-	}
-
-	// Populate system resource details (CPU, memory, disk, workers) into debug struct.
-	if sysInfo, err := utils.GetSystemInfo(); err == nil {
-		res := &system.SystemResourcesDebug{
-			CPUCount: sysInfo.HW.CPUCount,
-			Workers:  cfg.MaxWorkers,
-		}
-		if sysInfo.HW.MemTotal != nil {
-			if v := parseHumanBytes(*sysInfo.HW.MemTotal); v > 0 {
-				res.MemTotalBytes = v
-			}
-		}
-		if sysInfo.HW.MemUsed != nil {
-			if v := parseHumanBytes(*sysInfo.HW.MemUsed); v > 0 {
-				res.MemUsedBytes = v
-			}
-		}
-		if sysInfo.HW.MemFree != nil {
-			if v := parseHumanBytes(*sysInfo.HW.MemFree); v > 0 {
-				res.MemFreeBytes = v
-			}
-		}
-		for _, p := range sysInfo.Storage.Partitions {
-			entry := system.DiskDebugEntry{
-				Filesystem: p.Filesystem,
-				Mountpoint: p.Mountpoint,
-			}
-			if v := parseHumanBytes(p.Size); v > 0 {
-				entry.SizeBytes = v
-			}
-			if v := parseHumanBytes(p.Used); v > 0 {
-				entry.UsedBytes = v
-			}
-			if v := parseHumanBytes(p.Available); v > 0 {
-				entry.AvailableBytes = v
-			}
-			res.Disks = append(res.Disks, entry)
-		}
-		dbg.System = res
-	}
-
-	deployments := make([]store.Deployment, 0)
-	if deployStore != nil {
-		if deps, err := deployStore.ListDeployments(ctx, 100, 0); err == nil {
-			for _, d := range deps {
-				sanitized := *d
-				if len(sanitized.Blueprint.Secrets) > 0 {
-					keys := make(map[string]string, len(sanitized.Blueprint.Secrets))
-					for key := range d.Blueprint.Secrets {
-						keys[key] = ""
-					}
-					sanitized.Blueprint.Secrets = keys
-				}
-				deployments = append(deployments, sanitized)
-			}
-		}
-	}
-
-	services := make([]store.Service, 0)
-	if svcStore != nil {
-		if svcs, err := svcStore.ListServices(ctx, 100, 0); err == nil {
-			for _, s := range svcs {
-				sanitized := *s
-				if len(sanitized.Secrets) > 0 {
-					keys := make(map[string]string, len(sanitized.Secrets))
-					for key := range s.Secrets {
-						keys[key] = ""
-					}
-					sanitized.Secrets = keys
-				}
-				services = append(services, sanitized)
-			}
-		}
-	}
-
-	apps := make([]proxy.App, 0)
-	if proxyHandler != nil {
-		apps = proxyHandler.GetApps()
-		if apps == nil {
-			apps = make([]proxy.App, 0)
-		}
-	}
-
-	var fsSnapshot *system.FSSnapshot
-	if fs != nil {
-		fsSnapshot = fs.GetSnapshot()
-	}
-
-	// Collect top data
-	var topData *system.SystemTop
-	if topCollector != nil {
-		if top, err := topCollector.CollectSummary(ctx); err == nil {
-			topData = top
-		}
-	}
-
-	return &system.UpdateV1{
-		Schema:      "v1",
-		Seq:         seq,
-		Epoch:       fmt.Sprintf("%s-%d", strings.TrimSpace(instanceID), startTime.Unix()),
-		Full:        false,
-		InstanceID:  cfg.InstanceID,
-		BuildInfo:   version.GetBuildInfo(),
-		Platform:    system.PlatformInfo{OS: runtime.GOOS, Arch: runtime.GOARCH},
-		Status:      system.SystemStatusHealthy,
-		Mode:        mode,
-		Uptime:      strconv.FormatInt(int64(uptime), 10),
-		Deployments: deployments,
-		Services:    services,
-		Apps:        apps,
-		Proxy:       system.SystemProxyStatus{Status: system.ProxyStatusRunning, Routes: len(apps)},
-		Health:      system.SystemHealth{Overall: overallHealth, WS: wsHealth, Tasks: tasksHealth, Auth: authHealth},
-		Debug:       dbg,
-		FS:          fsSnapshot,
-		Top:         topData,
-	}
 }
 
 func WSConnected() bool { return atomic.LoadInt32(&wsConnected) == 1 }
@@ -692,7 +526,6 @@ ws_connected:
 	update := BuildUpdateV1_1(
 		connCtx,
 		s.cfg,
-		inst.InstanceID,
 		seq,
 		s.epoch,
 		true,
@@ -749,7 +582,6 @@ ws_connected:
 				upd := BuildUpdateV1_1(
 					connCtx,
 					s.cfg,
-					inst.InstanceID,
 					seq,
 					s.epoch,
 					true,

@@ -23,7 +23,6 @@ import (
 func BuildUpdateV1_1(
 	ctx context.Context,
 	cfg *shared.Config,
-	instanceID string,
 	seq uint64,
 	epoch string,
 	isFullSync bool,
@@ -42,7 +41,7 @@ func BuildUpdateV1_1(
 		Schema:     "v1.1",
 		Sequence:   seq,
 		Epoch:      epoch,
-		InstanceID: instanceID,
+		InstanceID: cfg.InstanceID,
 		Timestamp:  now.Format(time.RFC3339Nano),
 		IsFullSync: isFullSync,
 	}
