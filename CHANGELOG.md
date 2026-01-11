@@ -1,3 +1,9 @@
+## [0.5.3] - 2026-01-11
+
+### 🚜 Refactor
+
+- *(release)* Update installation script URLs to use correct path
+- *(system)* Add error handling to syncer
 ## [0.5.2] - 2026-01-10
 
 ### 🚜 Refactor
