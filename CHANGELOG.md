@@ -1,3 +1,8 @@
+## [0.5.4] - 2026-01-11
+
+### 🚜 Refactor
+
+- *(system)* Fix workload conversions in update builder
 ## [0.5.3] - 2026-01-11
 
 ### 🚜 Refactor
