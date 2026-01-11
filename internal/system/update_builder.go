@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"os"
 	"runtime"
 	"time"
@@ -34,7 +35,7 @@ func BuildUpdateV1_1(
 	topCollector *TopCollector,
 	workerMaxConcurrent int,
 	workerActiveJobs int,
-) *system.UpdateV1_1 {
+) (*system.UpdateV1_1, error) {
 	now := time.Now()
 
 	update := &system.UpdateV1_1{
@@ -55,11 +56,15 @@ func BuildUpdateV1_1(
 
 	if isFullSync {
 		update.Agent = buildAgent()
-		update.Workloads = buildWorkloads(ctx, deployStore, svcStore)
+		workloads, err := buildWorkloads(ctx, deployStore, svcStore)
+		if err != nil {
+			return nil, err
+		}
+		update.Workloads = workloads
 		update.Filesystem = buildFilesystem(fs)
 	}
 
-	return update
+	return update, nil
 }
 
 func buildStatus() system.StatusInfo {
@@ -393,24 +398,31 @@ func buildAgent() *system.AgentInfo {
 	}
 }
 
-func buildWorkloads(ctx context.Context, deployStore store.DeploymentStore, svcStore store.ServiceStore) *system.WorkloadsInfo {
-	workloads := &system.WorkloadsInfo{}
+func buildWorkloads(ctx context.Context, deployStore store.DeploymentStore, svcStore store.ServiceStore) (*system.WorkloadsInfo, error) {
+	workloads := &system.WorkloadsInfo{
+		Deployments: []system.DeploymentV1_1{},
+		Services:    []system.ServiceV1_1{},
+	}
 
 	// Deployments
 	if deployStore != nil {
-		if deps, err := deployStore.ListDeployments(ctx, 100, 0); err == nil {
-			workloads.Deployments = system.FromStoreDeployments(deps)
+		deps, err := deployStore.ListDeployments(ctx, 100, 0)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list deployments: %w", err)
 		}
+		workloads.Deployments = system.FromStoreDeployments(deps)
 	}
 
 	// Services
 	if svcStore != nil {
-		if svcs, err := svcStore.ListServices(ctx, 100, 0); err == nil {
-			workloads.Services = system.FromStoreServices(svcs)
+		svcs, err := svcStore.ListServices(ctx, 100, 0)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list services: %w", err)
 		}
+		workloads.Services = system.FromStoreServices(svcs)
 	}
 
-	return workloads
+	return workloads, nil
 }
 
 func buildFilesystem(fs *FileSystem) *system.FilesystemInfo {

@@ -523,7 +523,7 @@ ws_connected:
 	if s.workerActiveJobs != nil {
 		activeJobs = s.workerActiveJobs()
 	}
-	update := BuildUpdateV1_1(
+	update, err := BuildUpdateV1_1(
 		connCtx,
 		s.cfg,
 		seq,
@@ -538,6 +538,10 @@ ws_connected:
 		s.workerMaxConcurrent,
 		activeJobs,
 	)
+	if err != nil {
+		logger.Error("syncer: failed to build update", "error", err)
+		return err
+	}
 	if err := s.sendWSMessage(connCtx, conn, wsMessage{
 		ID:     ulid.Make().String(),
 		TS:     time.Now(),
@@ -579,7 +583,7 @@ ws_connected:
 					activeJobs = s.workerActiveJobs()
 				}
 
-				upd := BuildUpdateV1_1(
+				upd, err := BuildUpdateV1_1(
 					connCtx,
 					s.cfg,
 					seq,
@@ -594,6 +598,10 @@ ws_connected:
 					s.workerMaxConcurrent,
 					activeJobs,
 				)
+				if err != nil {
+					logger.Error("syncer: failed to build update", "error", err)
+					continue
+				}
 
 				msg := wsMessage{
 					ID:     ulid.Make().String(),
