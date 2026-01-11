@@ -410,7 +410,9 @@ func buildWorkloads(ctx context.Context, deployStore store.DeploymentStore, svcS
 		if err != nil {
 			return nil, fmt.Errorf("failed to list deployments: %w", err)
 		}
-		workloads.Deployments = system.FromStoreDeployments(deps)
+		if converted := system.FromStoreDeployments(deps); converted != nil {
+			workloads.Deployments = converted
+		}
 	}
 
 	// Services
@@ -419,7 +421,9 @@ func buildWorkloads(ctx context.Context, deployStore store.DeploymentStore, svcS
 		if err != nil {
 			return nil, fmt.Errorf("failed to list services: %w", err)
 		}
-		workloads.Services = system.FromStoreServices(svcs)
+		if converted := system.FromStoreServices(svcs); converted != nil {
+			workloads.Services = converted
+		}
 	}
 
 	return workloads, nil
