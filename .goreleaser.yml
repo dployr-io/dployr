@@ -167,7 +167,7 @@ release:
     scoop install dployr
     
     # Manual
-    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/dployr-io/dployr/releases/download/{{ .Tag }}/install.ps1" -OutFile "install.ps1"
+    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/dployr-io/dployr/master/{{ .Tag }}/install.ps1" -OutFile "install.ps1"
     .\install.ps1
     ```
     
@@ -177,12 +177,12 @@ release:
     brew install dployr-io/dployr/dployr
     
     # Manual
-    curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/releases/download/{{ .Tag }}/install.sh | bash
+    curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/{{ .Tag }}/install.sh | bash
     ```
     
     **Linux:**
     ```bash
-    curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/releases/download/{{ .Tag }}/install.sh | bash
+    curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/{{ .Tag }}/install.sh | bash
     ```
     
     ### What's Changed
