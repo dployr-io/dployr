@@ -98,6 +98,11 @@ func (s *DefaultService) Restart(ctx context.Context, req system.RestartRequest)
 			logger.Error("failed to restart dployrd", "error", err)
 		}
 
+		cmd = exec.Command("sudo", "systemctl", "restart", "caddy")
+		if err := cmd.Run(); err != nil {
+			logger.Error("failed to restart caddy", "error", err)
+		}
+
 		currentModeMu.Lock()
 		currentMode = system.ModeReady
 		currentModeMu.Unlock()
@@ -136,6 +141,11 @@ func (s *DefaultService) Reboot(ctx context.Context, req system.RebootRequest) (
 		if err := cmd.Run(); err != nil {
 			// Fallback
 			exec.Command("sudo", "reboot").Run()
+		}
+
+		cmd = exec.Command("sudo", "systemctl", "restart", "caddy")
+		if err := cmd.Run(); err != nil {
+			logger.Error("failed to restart caddy", "error", err)
 		}
 
 		cmd = exec.Command("sudo", "systemctl", "start", "dployrd")
