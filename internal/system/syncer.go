@@ -896,6 +896,42 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 			"instance_id": s.cfg.InstanceID,
 		}
 
+		// Send sync message when deploy task is completed
+		if t.Type == "deploy" && result.Status == "done" {
+			seq := atomic.AddUint64(&updateSeq, 1)
+			activeJobs := 0
+			if s.workerActiveJobs != nil {
+				activeJobs = s.workerActiveJobs()
+			}
+			update, err := BuildUpdateV1_1(
+				tctx,
+				s.cfg,
+				seq,
+				s.epoch,
+				true,
+				s.instStore,
+				s.deployStore,
+				s.svcStore,
+				s.proxyHandler,
+				s.fs,
+				s.topCollector,
+				s.workerMaxConcurrent,
+				activeJobs,
+			)
+			if err != nil {
+				tlog.Error("syncer: failed to build update for deploy", "error", err)
+			} else {
+				if err := s.sendWSMessage(tctx, conn, wsMessage{
+					ID:     ulid.Make().String(),
+					TS:     time.Now(),
+					Kind:   "update",
+					Update: update,
+				}); err != nil {
+					tlog.Error("syncer: failed to send sync message for deploy", "error", err)
+				}
+			}
+		}
+
 		// NEW: Send task_response immediately after execution
 		if err := s.sendTaskResponse(ctx, conn, t.ID, result); err != nil {
 			tlog.Error("failed to send task_response", "error", err, "task_id", t.ID)
