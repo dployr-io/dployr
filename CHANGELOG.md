@@ -1,3 +1,10 @@
+## [0.5.5] - 2026-01-14
+
+### 🚜 Refactor
+
+- *(system)* Send sync message after deploy task completion
+- *(system)* Expand sync trigger to include deployment and proxy tasks
+- *(system)* Add Caddy restart to system restart and reboot operations
 ## [0.5.4] - 2026-01-11
 
 ### 🚜 Refactor
