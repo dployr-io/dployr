@@ -897,7 +897,7 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 		}
 
 		// Send sync message when deploy task is completed
-		if t.Type == "deploy" && result.Status == "done" {
+		if strings.Contains(t.Type, "deployments") || strings.Contains(t.Type, "proxy") {
 			seq := atomic.AddUint64(&updateSeq, 1)
 			activeJobs := 0
 			if s.workerActiveJobs != nil {
