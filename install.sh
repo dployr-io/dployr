@@ -514,6 +514,26 @@ else
 
                 apt update -qq
                 apt install -y -qq caddy
+                
+                info "Configuring Caddy systemd service..."
+                systemctl stop caddy 2>/dev/null || true
+                systemctl disable caddy 2>/dev/null || true
+                
+                info "Granting Caddy capability to bind to privileged ports..."
+                setcap cap_net_bind_service=+ep /usr/bin/caddy
+                
+                mkdir -p /etc/systemd/system/caddy.service.d
+                cat > /etc/systemd/system/caddy.service.d/override.conf << 'EOF'
+[Service]
+User=dployrd
+Group=dployrd
+ExecStart=
+ExecStart=/usr/bin/caddy run --config /var/lib/dployrd/.dployr/caddy/Caddyfile
+WorkingDirectory=/var/lib/dployrd
+ReadWritePaths=/var/lib/dployrd/.dployr
+EOF
+                
+                systemctl daemon-reload
             else
                 CADDY_URL="https://github.com/caddyserver/caddy/releases/latest/download/caddy_${OS}_${ARCH}.tar.gz"
                 curl -sL "$CADDY_URL" -o "$TEMP_DIR/caddy.tar.gz"
