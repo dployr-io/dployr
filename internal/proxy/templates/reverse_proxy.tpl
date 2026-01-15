@@ -1,4 +1,4 @@
-http://{{.Domain}}, https://{{.Domain}} {
+http://{{.Domain}} {
 	reverse_proxy {{.App.Upstream}} {
 		header_up Host {upstream_hostport}
 		header_up X-Real-IP {remote_host}
