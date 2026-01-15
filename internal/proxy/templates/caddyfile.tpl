@@ -3,6 +3,7 @@
 	admin localhost:2019
 	http_port 80
 	https_port 443
+	auto_https off
 }
 
 {{.Content}}
