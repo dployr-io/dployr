@@ -1,3 +1,9 @@
+## [0.5.7] - 2026-01-15
+
+### 🚜 Refactor
+
+- *(install)* Configure Caddy to run as dployrd user with privileged port binding
+- *(proxy)* Migrate Caddy management from process to systemd service
 ## [0.5.6] - 2026-01-15
 
 ### 🚜 Refactor
