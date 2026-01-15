@@ -1,3 +1,9 @@
+## [0.5.8] - 2026-01-15
+
+### 🚜 Refactor
+
+- *(install)* Start Caddy service after systemd configuration reload
+- *(proxy)* Disable automatic HTTPS in Caddy and explicitly configure HTTP/HTTPS listeners
 ## [0.5.7] - 2026-01-15
 
 ### 🚜 Refactor
