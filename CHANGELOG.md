@@ -1,3 +1,8 @@
+## [0.5.6] - 2026-01-15
+
+### 🚜 Refactor
+
+- *(proxy)* Change Caddy default ports from 8080/8443 to 80/443
 ## [0.5.5] - 2026-01-14
 
 ### 🚜 Refactor
