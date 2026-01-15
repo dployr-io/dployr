@@ -25,9 +25,8 @@ import (
 var templateFS embed.FS
 
 type CaddyHandler struct {
-	Apps    map[string]proxy.App
-	process *os.Process
-	logger  *shared.Logger
+	Apps   map[string]proxy.App
+	logger *shared.Logger
 }
 
 func Init(a map[string]proxy.App, logger *shared.Logger) *CaddyHandler {
@@ -130,19 +129,13 @@ func (c *CaddyHandler) Setup(apps map[string]proxy.App) error {
 }
 
 func (c *CaddyHandler) Stop() error {
-	stop := exec.Command("caddy", "stop")
+	c.logger.Info("stopping caddy service")
+	stop := exec.Command("sudo", "systemctl", "stop", "caddy")
 	if output, err := stop.CombinedOutput(); err != nil {
-		c.logger.Warn("failed to stop caddy", "output", string(output))
-
-		if c.process != nil {
-			c.logger.Info("terminating caddy process", "pid", c.process.Pid)
-			if err := c.process.Kill(); err != nil {
-				return fmt.Errorf("failed to kill caddy process: %w", err)
-			}
-			c.process = nil
-		}
+		c.logger.Warn("failed to stop caddy service", "output", string(output), "error", err)
+		return fmt.Errorf("failed to stop caddy service: %w", err)
 	}
-
+	c.logger.Info("caddy service stopped")
 	return nil
 }
 
@@ -192,42 +185,34 @@ func (c *CaddyHandler) Restart() error {
 	dataDir := utils.GetDataDir()
 	cfgPath := filepath.Join(dataDir, ".dployr", "caddy", "Caddyfile")
 
-	// stop first to avoid port conflicts
-	c.logger.Info("stopping existing caddy instance")
-	if err := c.Stop(); err != nil {
-		c.logger.Error("error stopping caddy", "error", err)
-	}
-
-	// wait a moment for port to be released
-	time.Sleep(100 * time.Millisecond)
-
 	c.logger.Debug("validating caddy config", "path", cfgPath)
-	validate := exec.Command("caddy", "validate", "--config", cfgPath)
+	validate := exec.Command("sudo", "caddy", "validate", "--config", cfgPath, "--adapter", "caddyfile")
 	res, err := validate.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("caddy config validation failed: %w -> %s", err, string(res))
 	}
 	c.logger.Debug("caddy config validation successful")
 
-	cmd := exec.Command("caddy", "run", "--config", cfgPath)
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("caddy run failed to start: %w", err)
+	c.logger.Info("restarting caddy service")
+	restart := exec.Command("sudo", "systemctl", "restart", "caddy")
+	if output, err := restart.CombinedOutput(); err != nil {
+		c.logger.Error("failed to restart caddy service", "output", string(output), "error", err)
+		return fmt.Errorf("failed to restart caddy service: %w", err)
 	}
-	c.process = cmd.Process
-	c.logger.Info("caddy process started", "pid", c.process.Pid)
 
 	// verify it's actually running by checking admin API
-	maxRetries := 3
-	for range maxRetries {
-		time.Sleep(100 * time.Millisecond)
+	maxRetries := 10
+	for i := range maxRetries {
+		time.Sleep(200 * time.Millisecond)
 		status := c.Status()
 		if status.Status == service.SvcRunning {
-			c.logger.Info("caddy is running and responding")
+			c.logger.Info("caddy service is running and responding")
 			return nil
 		}
+		c.logger.Debug("waiting for caddy to respond", "attempt", i+1, "max", maxRetries)
 	}
 
-	return fmt.Errorf("caddy started but is not responding on admin port after %d retries", maxRetries)
+	return fmt.Errorf("caddy service started but is not responding on admin port after %d retries", maxRetries)
 }
 
 func (c *CaddyHandler) Add(apps map[string]proxy.App) error {
