@@ -534,6 +534,7 @@ ReadWritePaths=/var/lib/dployrd/.dployr
 EOF
                 
                 systemctl daemon-reload
+                systemctl start caddy 2>/dev/null || true
             else
                 CADDY_URL="https://github.com/caddyserver/caddy/releases/latest/download/caddy_${OS}_${ARCH}.tar.gz"
                 curl -sL "$CADDY_URL" -o "$TEMP_DIR/caddy.tar.gz"
