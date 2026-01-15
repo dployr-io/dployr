@@ -1,3 +1,8 @@
+## [0.5.9-beta.1] - 2026-01-15
+
+### 🚜 Refactor
+
+- *(proxy)* Remove HTTPS listener from reverse proxy template to use HTTP only
 ## [0.5.8] - 2026-01-15
 
 ### 🚜 Refactor
