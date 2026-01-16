@@ -4,26 +4,14 @@
 package system
 
 import (
-	"bytes"
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	crand "crypto/rand"
-	"crypto/sha256"
-	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/base64"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"math/rand"
 	"net/http"
-	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -31,14 +19,12 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/coder/websocket/wsjson"
-	"github.com/golang-jwt/jwt/v4"
 	"github.com/oklog/ulid/v2"
 
 	pkgAuth "github.com/dployr-io/dployr/pkg/auth"
-	"github.com/dployr-io/dployr/pkg/core/logs"
 	"github.com/dployr-io/dployr/pkg/core/proxy"
 	"github.com/dployr-io/dployr/pkg/core/system"
+	"github.com/dployr-io/dployr/pkg/core/ws"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
 	"github.com/dployr-io/dployr/pkg/tasks"
@@ -56,7 +42,6 @@ var agentTokenRefreshSuccessTotal uint64
 var agentTokenRefreshFailedTotal uint64
 
 var updateSeq uint64
-var activeStreams int64
 
 func setWSConnected(v bool) {
 	if v {
@@ -66,115 +51,8 @@ func setWSConnected(v bool) {
 	}
 }
 
-// TaskError represents an error in task response
-type TaskError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-}
-
-// wsMessage represents WebSocket messages exchanged with base.
-type wsMessage struct {
-	ID        string             `json:"id,omitempty"`
-	RequestID string             `json:"request_id,omitempty"`
-	TS        time.Time          `json:"ts"`
-	Kind      string             `json:"kind"`
-	Items     []syncTask         `json:"items,omitempty"`
-	IDs       []string           `json:"ids,omitempty"`
-	Update    *system.UpdateV1_1 `json:"update,omitempty"`
-	Hello     *system.HelloV1    `json:"hello,omitempty"`
-	HelloAck  *system.HelloAckV1 `json:"hello_ack,omitempty"`
-	LogChunk  *logs.LogChunk     `json:"log_chunk,omitempty"`
-	// Task response fields for filesystem operations
-	TaskID    string      `json:"taskId,omitempty"`
-	Success   bool        `json:"success,omitempty"`
-	Data      interface{} `json:"data,omitempty"`
-	TaskError *TaskError  `json:"error,omitempty"`
-}
-
-// syncTask represents a single task returned by base.
-type syncTask struct {
-	ID      string          `json:"id"`
-	Type    string          `json:"type"`
-	Payload json.RawMessage `json:"payload"`
-	Status  string          `json:"status"`
-	Created int64           `json:"createdAt"`
-	Updated int64           `json:"updatedAt"`
-}
-
-// agentTokenResponse is the response envelope from base when exchanging an
-// instance credential for a short-lived agent access token.
-type agentTokenResponse struct {
-	Success bool `json:"success"`
-	Data    struct {
-		Token string `json:"token"`
-	} `json:"data"`
-}
-
-// computeAuthHealth checks the agent access token and returns health status and debug info
 func computeAuthHealth(ctx context.Context, instStore store.InstanceStore) (health string, debug *system.AuthDebug) {
-	health = system.HealthDown
-	if instStore == nil {
-		return
-	}
-
-	tok, err := instStore.GetAccessToken(ctx)
-	if err != nil || strings.TrimSpace(tok) == "" {
-		return
-	}
-
-	bTok, err := instStore.GetBootstrapToken(ctx)
-	if err != nil || strings.TrimSpace(bTok) == "" {
-		return
-	}
-
-	const prevLen = 70
-	if len(bTok) > prevLen {
-		bTok = bTok[:prevLen]
-	}
-
-	claims := &jwt.RegisteredClaims{}
-	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
-	if _, _, err := parser.ParseUnverified(strings.TrimSpace(tok), claims); err != nil {
-		return
-	}
-
-	now := time.Now()
-	var expTime, iatTime time.Time
-	if claims.ExpiresAt != nil {
-		expTime = claims.ExpiresAt.Time
-	}
-	if claims.IssuedAt != nil {
-		iatTime = claims.IssuedAt.Time
-	}
-
-	age := int64(0)
-	if !iatTime.IsZero() {
-		age = int64(now.Sub(iatTime).Seconds())
-	}
-	ttl := int64(0)
-	if !expTime.IsZero() {
-		ttl = int64(expTime.Sub(now).Seconds())
-	}
-	if age < 0 {
-		age = 0
-	}
-	if ttl < 0 {
-		ttl = 0
-	}
-
-	debug = &system.AuthDebug{
-		AgentTokenAgeS:      age,
-		AgentTokenExpiresIn: ttl,
-		BootstrapToken:      bTok,
-	}
-
-	if ttl == 0 {
-		health = system.HealthDown
-	} else {
-		health = system.HealthOK
-	}
-
-	return
+	return pkgAuth.ComputeAuthHealth(ctx, instStore)
 }
 
 func WSConnected() bool { return atomic.LoadInt32(&wsConnected) == 1 }
@@ -232,60 +110,8 @@ type Syncer struct {
 	dedupe   map[string]time.Time
 }
 
-// obtainAgentTokenWithBackoff repeatedly calls fetchAgentToken using the
-// bootstrap token. It performs a few quick retries and then backs off
-// exponentially between attempts, using a single Syncer-level backoff value
-// that is reset on successful acquisition.
 func (s *Syncer) obtainAgentTokenWithBackoff(ctx context.Context, bootstrapToken string) (string, error) {
-	const (
-		maxBackoff   = 12 * time.Hour
-		startBackoff = time.Minute
-	)
-
-	for attempt := 0; ; attempt++ {
-		if ctx.Err() != nil {
-			return "", ctx.Err()
-		}
-
-		if attempt > 0 {
-			s.logger.Debug("syncer: retrying agent token fetch", "attempt", attempt)
-		}
-
-		token, err := s.fetchAgentToken(ctx, bootstrapToken)
-		if err == nil && strings.TrimSpace(token) != "" {
-			s.agentTokenBackoff = 0
-			s.logger.Debug("syncer: agent token obtained", "attempt", attempt)
-			return token, nil
-		}
-
-		s.logger.Debug("syncer: agent token fetch failed", "attempt", attempt, "error", err)
-
-		if attempt < 3 {
-			select {
-			case <-ctx.Done():
-				return "", ctx.Err()
-			case <-time.After(2 * time.Second):
-			}
-			continue
-		}
-
-		if s.agentTokenBackoff <= 0 {
-			s.agentTokenBackoff = startBackoff
-		} else {
-			s.agentTokenBackoff *= 2
-			if s.agentTokenBackoff > maxBackoff {
-				s.agentTokenBackoff = maxBackoff
-			}
-		}
-
-		sleep := jitter(s.agentTokenBackoff)
-		s.logger.Debug("syncer: applying exponential backoff", "backoff_ms", sleep.Milliseconds(), "attempt", attempt)
-		select {
-		case <-ctx.Done():
-			return "", ctx.Err()
-		case <-time.After(sleep):
-		}
-	}
+	return pkgAuth.ObtainAgentTokenWithBackoff(ctx, s.cfg.BaseURL, bootstrapToken, &s.agentTokenBackoff)
 }
 
 func (s *Syncer) ensureAccessToken(ctx context.Context, bootstrapToken string) (string, error) {
@@ -362,7 +188,6 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 		s.epoch = fmt.Sprintf("%s-%d", strings.TrimSpace(inst.InstanceID), startTime.Unix())
 	}
 
-	// Enrich context and attach instance_id explicitly for logging
 	ctx = context.WithValue(ctx, ctxKeyInstanceID, inst.InstanceID)
 	ctx = shared.EnrichContext(ctx)
 	logger := s.logger.WithContext(ctx).With("instance_id", inst.InstanceID)
@@ -383,7 +208,7 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 	}
 
 	logger.Debug("syncer: ensuring client certificate", "instance_id", inst.InstanceID)
-	clientCert, err := s.ensureClientCertificate(inst.InstanceID)
+	clientCert, err := pkgAuth.EnsureClientCertificate(inst.InstanceID)
 	if err != nil {
 		return fmt.Errorf("failed to ensure client certificate: %w", err)
 	}
@@ -395,14 +220,14 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 	}
 
 	logger.Info("syncer: publishing client certificate")
-	if err := s.publishClientCertificate(ctx, inst.InstanceID, accessToken, clientCert); err != nil {
-		var httpErr *httpError
+	if err := pkgAuth.PublishClientCertificate(ctx, s.cfg.BaseURL, inst.InstanceID, accessToken, clientCert); err != nil {
+		var httpErr *pkgAuth.HTTPError
 		if errors.As(err, &httpErr) && (httpErr.StatusCode == http.StatusUnauthorized || httpErr.StatusCode == http.StatusForbidden) {
 			logger.Warn("syncer: access token rejected; refreshing and retrying", "status", httpErr.StatusCode)
 			if err := s.instStore.SetAccessToken(ctx, ""); err != nil {
 				logger.Error("syncer: failed to clear invalid access token", "error", err)
 			} else if accessToken, err = s.ensureAccessToken(ctx, bootstrapToken); err == nil {
-				if err := s.publishClientCertificate(ctx, inst.InstanceID, accessToken, clientCert); err == nil {
+				if err := pkgAuth.PublishClientCertificate(ctx, s.cfg.BaseURL, inst.InstanceID, accessToken, clientCert); err == nil {
 					logger.Debug("syncer: cert publish succeeded after token refresh")
 					goto ws_dial
 				}
@@ -418,7 +243,7 @@ ws_dial:
 		fmt.Sprintf("/v1/agent/ws?instanceName=%s", inst.InstanceID)
 
 	logger.Info("syncer: dialing websocket", "host", s.cfg.BaseURL)
-	tlsConfig, err := s.buildPinnedTLSConfig(clientCert)
+	tlsConfig, err := pkgAuth.BuildPinnedTLSConfig(clientCert, s.cfg.WSCertPath, baseWSCACertPEM)
 	if err != nil {
 		return fmt.Errorf("failed to build TLS config: %w", err)
 	}
@@ -461,9 +286,8 @@ ws_dial:
 
 ws_connected:
 
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer conn.Close(websocket.StatusNormalClosure, "websocket connection closed")
 
-	// Set message size limit
 	maxSize := s.cfg.WSMaxMessageSize
 	if maxSize <= 0 {
 		maxSize = 10 * 1024 * 1024 // 10MB default
@@ -484,7 +308,6 @@ ws_connected:
 	connCtx, cancelConn := context.WithCancel(ctx)
 	defer cancelConn()
 
-	// send hello; non-blocking handshake
 	{
 		bi := version.GetBuildInfo()
 		platform := system.PlatformInfo{OS: runtime.GOOS, Arch: runtime.GOARCH}
@@ -496,7 +319,7 @@ ws_connected:
 			Capabilities:     []string{"tasks.v1", "updates.v1"},
 			SchemasSupported: []string{"v1"},
 		}
-		_ = s.sendWSMessage(connCtx, conn, wsMessage{ID: ulid.Make().String(), TS: time.Now(), Kind: "hello", Hello: h})
+		_ = ws.Send(connCtx, conn, ws.Message{ID: ulid.Make().String(), TS: time.Now(), Kind: "hello", Hello: h})
 	}
 
 	pending, err := s.resultStore.ListUnsent(ctx)
@@ -506,17 +329,16 @@ ws_connected:
 			ids = append(ids, r.ID)
 		}
 		logger.Debug("syncer: sending pending acks", "count", len(ids))
-		if err := s.sendWSMessage(ctx, conn, wsMessage{ID: ulid.Make().String(), TS: time.Now(), Kind: "ack", IDs: ids}); err == nil {
+		if err := ws.Send(ctx, conn, ws.Message{ID: ulid.Make().String(), TS: time.Now(), Kind: "ack", IDs: ids}); err == nil {
 			s.resultStore.MarkSynced(ctx, ids)
 		}
 	}
 
 	logger.Debug("syncer: sending initial pull")
-	if err := s.sendWSMessage(connCtx, conn, wsMessage{ID: ulid.Make().String(), TS: time.Now(), Kind: "pull"}); err != nil {
+	if err := ws.Send(connCtx, conn, ws.Message{ID: ulid.Make().String(), TS: time.Now(), Kind: "pull"}); err != nil {
 		return fmt.Errorf("failed to send initial pull: %w", err)
 	}
 
-	// Send immediate full sync on connection/reconnection
 	logger.Debug("syncer: sending immediate full sync on connect")
 	seq := atomic.AddUint64(&updateSeq, 1)
 	activeJobs := 0
@@ -542,7 +364,7 @@ ws_connected:
 		logger.Error("syncer: failed to build update", "error", err)
 		return err
 	}
-	if err := s.sendWSMessage(connCtx, conn, wsMessage{
+	if err := ws.Send(connCtx, conn, ws.Message{
 		ID:     ulid.Make().String(),
 		TS:     time.Now(),
 		Kind:   "update",
@@ -559,7 +381,7 @@ ws_connected:
 				return
 			case <-time.After(jitter(interval)):
 				logger.Debug("syncer: sending periodic pull")
-				if err := s.sendWSMessage(connCtx, conn, wsMessage{ID: ulid.Make().String(), TS: time.Now(), Kind: "pull"}); err != nil {
+				if err := ws.Send(connCtx, conn, ws.Message{ID: ulid.Make().String(), TS: time.Now(), Kind: "pull"}); err != nil {
 					logger.Error("syncer: failed to send periodic pull", "error", err)
 					return
 				}
@@ -603,13 +425,13 @@ ws_connected:
 					continue
 				}
 
-				msg := wsMessage{
+				msg := ws.Message{
 					ID:     ulid.Make().String(),
 					TS:     time.Now(),
 					Kind:   "update",
 					Update: upd,
 				}
-				if err := s.sendWSMessage(connCtx, conn, msg); err != nil {
+				if err := ws.Send(connCtx, conn, msg); err != nil {
 					logger.Error("syncer: failed to send update", "error", err)
 					return
 				}
@@ -618,8 +440,8 @@ ws_connected:
 	}()
 
 	for {
-		var msg wsMessage
-		if err := wsjson.Read(connCtx, conn, &msg); err != nil {
+		msg, err := ws.Read(connCtx, conn)
+		if err != nil {
 			if websocket.CloseStatus(err) == websocket.StatusNormalClosure || websocket.CloseStatus(err) == websocket.StatusGoingAway {
 				logger.Info("syncer: websocket closed", "status", websocket.CloseStatus(err))
 				atomic.AddUint64(&wsDisconnectsTotal, 1)
@@ -665,193 +487,7 @@ ws_connected:
 	}
 }
 
-func (s *Syncer) buildPinnedTLSConfig(clientCert tls.Certificate) (*tls.Config, error) {
-	var pool *x509.CertPool // nil => use system roots
-
-	if s.cfg.WSCertPath != "" {
-		b, err := os.ReadFile(s.cfg.WSCertPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read pinned cert from %s: %w", s.cfg.WSCertPath, err)
-		}
-		p := x509.NewCertPool()
-		if !p.AppendCertsFromPEM(b) {
-			return nil, fmt.Errorf("failed to parse pinned cert from %s", s.cfg.WSCertPath)
-		}
-		pool = p
-	} else if baseWSCACertPEM != "" {
-		p := x509.NewCertPool()
-		if !p.AppendCertsFromPEM([]byte(baseWSCACertPEM)) {
-			return nil, fmt.Errorf("failed to parse embedded WebSocket CA cert")
-		}
-		pool = p
-	}
-
-	return &tls.Config{
-		RootCAs:      pool, // nil => system roots
-		Certificates: []tls.Certificate{clientCert},
-		MinVersion:   tls.VersionTLS12,
-	}, nil
-}
-
-func (s *Syncer) ensureClientCertificate(instanceID string) (tls.Certificate, error) {
-	certPath, keyPath := defaultClientCertPaths()
-
-	if fileExists(certPath) && fileExists(keyPath) {
-		return tls.LoadX509KeyPair(certPath, keyPath)
-	}
-
-	priv, err := ecdsa.GenerateKey(elliptic.P256(), crand.Reader)
-	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("generate ecdsa key: %w", err)
-	}
-
-	serial, err := crand.Int(crand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
-	if err != nil {
-		serial = big.NewInt(time.Now().UnixNano())
-	}
-
-	tmpl := &x509.Certificate{
-		SerialNumber:          serial,
-		Subject:               pkix.Name{CommonName: fmt.Sprintf("dployr-instance:%s", strings.TrimSpace(instanceID))},
-		NotBefore:             time.Now().Add(-5 * time.Minute),
-		NotAfter:              time.Now().Add(365 * 24 * time.Hour), // 1 year
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-		BasicConstraintsValid: true,
-	}
-
-	der, err := x509.CreateCertificate(crand.Reader, tmpl, tmpl, &priv.PublicKey, priv)
-	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("create certificate: %w", err)
-	}
-
-	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
-	keyBytes, err := x509.MarshalPKCS8PrivateKey(priv)
-	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("marshal private key: %w", err)
-	}
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyBytes})
-
-	dir := filepath.Dir(certPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return tls.Certificate{}, fmt.Errorf("mkdir %s: %w", dir, err)
-	}
-
-	if err := os.WriteFile(certPath, certPEM, 0o644); err != nil {
-		return tls.Certificate{}, fmt.Errorf("write cert: %w", err)
-	}
-	if err := os.WriteFile(keyPath, keyPEM, 0o600); err != nil {
-		return tls.Certificate{}, fmt.Errorf("write key: %w", err)
-	}
-
-	return tls.X509KeyPair(certPEM, keyPEM)
-}
-
-func defaultClientCertPaths() (certPath, keyPath string) {
-	var dir string
-	switch runtime.GOOS {
-	case "windows":
-		dir = filepath.Join(os.Getenv("PROGRAMDATA"), "dployr")
-	case "darwin":
-		dir = "/usr/local/etc/dployr"
-	default:
-		dir = "/var/lib/dployrd"
-	}
-	return filepath.Join(dir, "client.crt"), filepath.Join(dir, "client.key")
-}
-
-func fileExists(path string) bool {
-	if path == "" {
-		return false
-	}
-	if _, err := os.Stat(path); err == nil {
-		return true
-	}
-	return false
-}
-
-// publishClientCertificate registers or rotates the client certificate with base
-// using the agent access token. It first tries POST and falls back to PUT on
-// conflict.
-func (s *Syncer) publishClientCertificate(ctx context.Context, instanceID, agentToken string, cert tls.Certificate) error {
-	if len(cert.Certificate) == 0 {
-		return fmt.Errorf("client certificate is empty")
-	}
-
-	parsed, err := x509.ParseCertificate(cert.Certificate[0])
-	if err != nil {
-		return fmt.Errorf("failed to parse client certificate: %w", err)
-	}
-
-	// Compute SPKI SHA-256 fingerprint in base64
-	hash := sha256.Sum256(parsed.RawSubjectPublicKeyInfo)
-	spki := base64.StdEncoding.EncodeToString(hash[:])
-
-	body := map[string]any{
-		"pem":         string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: parsed.Raw})),
-		"spki_sha256": spki,
-		"subject":     parsed.Subject.String(),
-		"not_after":   parsed.NotAfter.Format(time.RFC3339Nano),
-	}
-
-	base := strings.TrimRight(s.cfg.BaseURL, "/")
-	if base == "" {
-		return fmt.Errorf("base_url is not configured")
-	}
-
-	url := fmt.Sprintf("%s/v1/agent/cert?instanceName=%s", base, instanceID)
-
-	if err := s.sendCertRequest(ctx, http.MethodPost, url, agentToken, body); err != nil {
-		var httpErr *httpError
-		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusConflict {
-			// Cert already exists; attempt rotation via PUT request
-			return s.sendCertRequest(ctx, http.MethodPut, url, agentToken, body)
-		}
-		return err
-	}
-
-	return nil
-}
-
-type httpError struct {
-	StatusCode int
-	Msg        string
-}
-
-func (e *httpError) Error() string { return e.Msg }
-
-func (s *Syncer) sendCertRequest(ctx context.Context, method, url, agentToken string, body map[string]any) error {
-	data, err := json.Marshal(body)
-	if err != nil {
-		return fmt.Errorf("failed to marshal cert payload: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(data))
-	if err != nil {
-		return fmt.Errorf("failed to build cert request: %w", err)
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(agentToken))
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("cert request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return nil
-	}
-
-	return &httpError{StatusCode: resp.StatusCode, Msg: fmt.Sprintf("cert request returned status %d", resp.StatusCode)}
-}
-
-func (s *Syncer) sendWSMessage(ctx context.Context, conn *websocket.Conn, msg wsMessage) error {
-	return wsjson.Write(ctx, conn, msg)
-}
-
-func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []syncTask, logger *shared.Logger) {
+func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []ws.Task, logger *shared.Logger) {
 	currentModeMu.RLock()
 	mode := currentMode
 	currentModeMu.RUnlock()
@@ -881,7 +517,7 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 		task := &tasks.Task{
 			ID:      t.ID,
 			Type:    t.Type,
-			Payload: t.Payload,
+			Payload: json.RawMessage(t.Payload),
 			Status:  t.Status,
 		}
 
@@ -921,7 +557,7 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 			if err != nil {
 				tlog.Error("syncer: failed to build update for deploy", "error", err)
 			} else {
-				if err := s.sendWSMessage(tctx, conn, wsMessage{
+				if err := ws.Send(tctx, conn, ws.Message{
 					ID:     ulid.Make().String(),
 					TS:     time.Now(),
 					Kind:   "update",
@@ -932,7 +568,6 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 			}
 		}
 
-		// NEW: Send task_response immediately after execution
 		if err := s.sendTaskResponse(ctx, conn, t.ID, result); err != nil {
 			tlog.Error("failed to send task_response", "error", err, "task_id", t.ID)
 		} else {
@@ -942,7 +577,6 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 		completedResults = append(completedResults, result)
 		completedIDs = append(completedIDs, t.ID)
 
-		// Only mark non-log-stream tasks as seen for deduplication
 		if !isLogStream {
 			s.markTaskSeen(t.ID)
 		}
@@ -954,7 +588,7 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 	}
 
 	if len(completedIDs) > 0 {
-		if err := s.sendWSMessage(ctx, conn, wsMessage{ID: ulid.Make().String(), TS: time.Now(), Kind: "ack", IDs: completedIDs}); err != nil {
+		if err := ws.Send(ctx, conn, ws.Message{ID: ulid.Make().String(), TS: time.Now(), Kind: "ack", IDs: completedIDs}); err != nil {
 			logger.Error("failed to send ack", "error", err)
 		}
 	}
@@ -964,16 +598,15 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 func (s *Syncer) sendTaskResponse(ctx context.Context, conn *websocket.Conn, taskID string, result *tasks.Result) error {
 	success := result.Status == "done"
 
-	msg := wsMessage{
+	msg := ws.Message{
 		ID:        ulid.Make().String(),
 		TS:        time.Now(),
 		Kind:      "task_response",
 		TaskID:    taskID,
-		RequestID: taskID, // requestId equals taskId per strategy doc
+		RequestID: taskID,
 		Success:   success,
 	}
 
-	// Set data field: use actual result if available, otherwise use metadata
 	if success && result.Result != nil {
 		msg.Data = result.Result
 	} else if result.Metadata != nil {
@@ -981,13 +614,13 @@ func (s *Syncer) sendTaskResponse(ctx context.Context, conn *websocket.Conn, tas
 	}
 
 	if !success && result.Error != "" {
-		msg.TaskError = &TaskError{
+		msg.TaskError = &ws.TaskError{
 			Code:    mapErrorToCode(result.Error),
 			Message: result.Error,
 		}
 	}
 
-	return s.sendWSMessage(ctx, conn, msg)
+	return ws.Send(ctx, conn, msg)
 }
 
 // mapErrorToCode maps error messages to WSErrorCode values
@@ -1034,43 +667,6 @@ func (s *Syncer) markTaskSeen(id string) {
 	s.dedupeMu.Lock()
 	s.dedupe[id] = time.Now().Add(ttl)
 	s.dedupeMu.Unlock()
-}
-
-// fetchAgentToken exchanges bootstrap token for a short-lived agent
-// access token that can be used to authenticate daemon operations.
-func (s *Syncer) fetchAgentToken(ctx context.Context, bootstrapToken string) (string, error) {
-	base := strings.TrimRight(s.cfg.BaseURL, "/")
-	if base == "" {
-		return "", fmt.Errorf("base_url is not configured")
-	}
-
-	url := fmt.Sprintf("%s/v1/agent/token", base)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, http.NoBody)
-	if err != nil {
-		return "", fmt.Errorf("failed to build agent token request: %w", err)
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(bootstrapToken))
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("agent token request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("agent token request returned status %d", resp.StatusCode)
-	}
-
-	var body agentTokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return "", fmt.Errorf("failed to decode agent token response: %w", err)
-	}
-	if !body.Success || strings.TrimSpace(body.Data.Token) == "" {
-		return "", fmt.Errorf("agent token response was unsuccessful or empty")
-	}
-
-	return body.Data.Token, nil
 }
 
 // fromTaskResults converts wire-level tasks.Result into stored TaskResult

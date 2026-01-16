@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"time"
 
+	pkgAuth "github.com/dployr-io/dployr/pkg/auth"
 	"github.com/dployr-io/dployr/pkg/core/proxy"
 	"github.com/dployr-io/dployr/pkg/core/system"
 	"github.com/dployr-io/dployr/pkg/core/utils"
@@ -360,7 +361,7 @@ func buildAuthDiag(ctx context.Context, instStore store.InstanceStore) system.Au
 }
 
 func buildCertDiag() *system.CertDiag {
-	certPath, _ := defaultClientCertPaths()
+	certPath, _ := pkgAuth.DefaultClientCertPaths()
 
 	certPEM, err := os.ReadFile(certPath)
 	if err != nil {
