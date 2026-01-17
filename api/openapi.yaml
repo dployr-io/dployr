@@ -1085,6 +1085,87 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /terminal/open:
+    post:
+      tags:
+        - Terminal
+      summary: Open terminal session
+      description: |
+        Initiate an interactive terminal session via task execution.
+        
+        **Task Payload**:
+        ```json
+        {
+          "token": "jwt_token",
+          "sessionId": "unique_session_id",
+          "cols": 80,
+          "rows": 24
+        }
+        ```
+        
+        **Environment**:
+        - Shell: `/bin/bash` → `/bin/sh` (Unix), `cmd.exe` (Windows)
+        - `TERM=xterm-256color`
+        - Working directory: User's home directory
+        
+        **Limits**:
+        - Max concurrent sessions: 10 per instance
+        - Session timeout: 30 minutes of inactivity
+      operationId: openTerminalSession
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - sessionId
+                - cols
+                - rows
+              properties:
+                token:
+                  type: string
+                  description: JWT token for authentication
+                sessionId:
+                  type: string
+                  description: Unique session identifier
+                cols:
+                  type: integer
+                  minimum: 1
+                  maximum: 500
+                  example: 80
+                rows:
+                  type: integer
+                  minimum: 1
+                  maximum: 200
+                  example: 24
+      responses:
+        '200':
+          description: Terminal session initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "terminal session initiated"
+                  session_id:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          description: Session limit reached
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /system/registered:
     get:
       tags:

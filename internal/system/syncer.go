@@ -110,6 +110,10 @@ type Syncer struct {
 	dedupe   map[string]time.Time
 }
 
+func (s *Syncer) Executor() *Executor {
+	return s.executor
+}
+
 func (s *Syncer) obtainAgentTokenWithBackoff(ctx context.Context, bootstrapToken string) (string, error) {
 	return pkgAuth.ObtainAgentTokenWithBackoff(ctx, s.cfg.BaseURL, bootstrapToken, &s.agentTokenBackoff)
 }
@@ -149,7 +153,7 @@ func NewSyncer(cfg *shared.Config, logger *shared.Logger, instStore store.Instan
 		proxyHandler:        proxyHandler,
 		fs:                  fs,
 		topCollector:        NewTopCollector(),
-		executor:            NewExecutor(logger, handler, instStore, auth),
+		executor:            NewExecutor(logger, cfg, handler, instStore, auth),
 		workerMaxConcurrent: workerMaxConcurrent,
 		workerActiveJobs:    workerActiveJobs,
 		dedupe:              make(map[string]time.Time),

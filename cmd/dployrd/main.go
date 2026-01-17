@@ -27,6 +27,7 @@ import (
 	_service "github.com/dployr-io/dployr/internal/service"
 	_store "github.com/dployr-io/dployr/internal/store"
 	_system "github.com/dployr-io/dployr/internal/system"
+	_terminal "github.com/dployr-io/dployr/internal/terminal"
 	"github.com/dployr-io/dployr/internal/web"
 	"github.com/dployr-io/dployr/internal/worker"
 )
@@ -91,6 +92,8 @@ func main() {
 	topCollector := _system.NewTopCollector()
 	topH := system.NewTopHandler(topCollector, logger)
 
+	terminalH := _terminal.NewHandler(logger)
+
 	wh := web.WebHandler{
 		DepsH:    dh,
 		SvcH:     sh,
@@ -105,6 +108,7 @@ func main() {
 	mux := wh.BuildMux(cfg)
 
 	syncer := _system.NewSyncer(cfg, logger, is, trs, ds, ss, ps, mux, as, fs, workerMaxConcurrent, w.ActiveJobs)
+	syncer.Executor().SetTerminalHandler(terminalH)
 
 	go func() {
 		if err := wh.NewServer(cfg); err != nil {

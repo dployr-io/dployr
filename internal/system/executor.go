@@ -27,19 +27,24 @@ import (
 	"github.com/dployr-io/dployr/pkg/tasks"
 )
 
-// AccessTokenProvider provides the current agent access token.
 type AccessTokenProvider interface {
 	GetAccessToken(ctx context.Context) (string, error)
 }
 
-// Executor runs tasks by routing them through existing HTTP handlers.
+type TerminalHandler interface {
+	HandleRelaySession(ctx context.Context, conn *websocket.Conn, sessionID string, cols, rows uint16) error
+}
+
 type Executor struct {
-	logger   *shared.Logger
-	handler  http.Handler
-	tokens   AccessTokenProvider
-	auth     pkgAuth.Authenticator
-	wsConn   *websocket.Conn
-	wsConnMu sync.RWMutex
+	logger          *shared.Logger
+	cfg             *shared.Config
+	handler         http.Handler
+	tokens          AccessTokenProvider
+	auth            pkgAuth.Authenticator
+	wsConn          *websocket.Conn
+	wsConnMu        sync.RWMutex
+	terminalHandler TerminalHandler
+	terminalMu      sync.RWMutex
 }
 
 var pendingTasks int64
@@ -63,21 +68,32 @@ var taskExecSum float64
 var taskExecCount uint64
 var taskExecMu sync.Mutex
 
-// NewExecutor creates a task executor that uses the web server's routes.
-func NewExecutor(logger *shared.Logger, handler http.Handler, tokens AccessTokenProvider, auth pkgAuth.Authenticator) *Executor {
+func NewExecutor(logger *shared.Logger, cfg *shared.Config, handler http.Handler, tokens AccessTokenProvider, auth pkgAuth.Authenticator) *Executor {
 	return &Executor{
 		logger:  logger,
+		cfg:     cfg,
 		handler: handler,
 		tokens:  tokens,
 		auth:    auth,
 	}
 }
 
-// SetWSConn sets the WebSocket connection for log streaming.
 func (e *Executor) SetWSConn(conn *websocket.Conn) {
 	e.wsConnMu.Lock()
 	defer e.wsConnMu.Unlock()
 	e.wsConn = conn
+}
+
+func (e *Executor) SetTerminalHandler(h TerminalHandler) {
+	e.terminalMu.Lock()
+	defer e.terminalMu.Unlock()
+	e.terminalHandler = h
+}
+
+func (e *Executor) getTerminalHandler() TerminalHandler {
+	e.terminalMu.RLock()
+	defer e.terminalMu.RUnlock()
+	return e.terminalHandler
 }
 
 // sendLogChunkToBase sends a log chunk to the base via WebSocket.
@@ -186,6 +202,80 @@ func (e *Executor) handleLogStream(ctx context.Context, task *tasks.Task) *tasks
 	}
 }
 
+func (e *Executor) handleTerminalOpen(ctx context.Context, task *tasks.Task) *tasks.Result {
+	var payload struct {
+		Token     string `json:"token"`
+		SessionID string `json:"sessionId"`
+		Cols      uint16 `json:"cols"`
+		Rows      uint16 `json:"rows"`
+	}
+
+	if err := json.Unmarshal(task.Payload, &payload); err != nil {
+		return &tasks.Result{
+			ID:     task.ID,
+			Status: "failed",
+			Error:  fmt.Sprintf("invalid payload: %v", err),
+		}
+	}
+
+	if strings.TrimSpace(payload.Token) == "" {
+		return &tasks.Result{
+			ID:     task.ID,
+			Status: "failed",
+			Error:  "missing token",
+		}
+	}
+
+	if e.auth != nil {
+		if _, err := e.auth.ValidateToken(ctx, strings.TrimSpace(payload.Token)); err != nil {
+			e.logger.Error("terminal token validation failed", "error", err)
+			return &tasks.Result{
+				ID:     task.ID,
+				Status: "failed",
+				Error:  "invalid token",
+			}
+		}
+	}
+
+	e.logger.Info("starting terminal session", "session_id", payload.SessionID, "cols", payload.Cols, "rows", payload.Rows)
+
+	go func() {
+		wsURL := strings.Replace(e.cfg.BaseURL, "https://", "wss://", 1)
+		wsURL = strings.Replace(wsURL, "http://", "ws://", 1)
+		wsURL = wsURL + "/v1/terminal/ws?sessionId=" + payload.SessionID
+
+		conn, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{
+			HTTPHeader: http.Header{
+				"Authorization": []string{"Bearer " + payload.Token},
+			},
+		})
+		if err != nil {
+			e.logger.Error("failed to connect to base for terminal relay", "error", err, "session_id", payload.SessionID)
+			return
+		}
+		defer conn.Close(websocket.StatusNormalClosure, "terminal session closed")
+
+		terminalHandler := e.getTerminalHandler()
+		if terminalHandler == nil {
+			e.logger.Error("terminal handler not available")
+			return
+		}
+
+		if err := terminalHandler.HandleRelaySession(ctx, conn, payload.SessionID, payload.Cols, payload.Rows); err != nil {
+			e.logger.Error("terminal relay session failed", "error", err, "session_id", payload.SessionID)
+		}
+	}()
+
+	return &tasks.Result{
+		ID:     task.ID,
+		Status: "done",
+		Result: map[string]interface{}{
+			"message":    "terminal session initiated",
+			"session_id": payload.SessionID,
+		},
+	}
+}
+
 // Execute runs a task by converting it to an HTTP request and routing it internally.
 func (e *Executor) Execute(ctx context.Context, task *tasks.Task) *tasks.Result {
 	start := time.Now()
@@ -199,9 +289,12 @@ func (e *Executor) Execute(ctx context.Context, task *tasks.Task) *tasks.Result 
 		defer atomic.AddInt64(&pendingSystemTasks, -1)
 	}
 
-	// Handle logs/stream:post specially
 	if task.Type == "logs/stream:post" {
 		return e.handleLogStream(ctx, task)
+	}
+
+	if task.Type == "terminal/open:post" {
+		return e.handleTerminalOpen(ctx, task)
 	}
 
 	parts := strings.SplitN(task.Type, ":", 2)

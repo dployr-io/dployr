@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/dployr-io/dployr/pkg/core/logs"
@@ -31,10 +32,10 @@ type Message struct {
 }
 
 type Task struct {
-	ID      string `json:"id"`
-	Type    string `json:"type"`
-	Payload []byte `json:"payload"`
-	Status  string `json:"status"`
-	Created int64  `json:"createdAt"`
-	Updated int64  `json:"updatedAt"`
+	ID      string          `json:"id"`
+	Type    string          `json:"type"`
+	Payload json.RawMessage `json:"payload"`
+	Status  string          `json:"status"`
+	Created int64           `json:"createdAt"`
+	Updated int64           `json:"updatedAt"`
 }
