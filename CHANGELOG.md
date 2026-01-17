@@ -1,3 +1,13 @@
+## [0.5.9] - 2026-01-17
+
+### 🚀 Features
+
+- *(terminal)* Add interactive terminal support via bi-directional websocket relay from base to client
+
+### 🚜 Refactor
+
+- *(docs)* Remove old store docs
+- *(syncer)* Move auth and WebSocket utilities to shared packages
 ## [0.5.9-beta.1] - 2026-01-15
 
 ### 🚜 Refactor
