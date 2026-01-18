@@ -617,6 +617,9 @@ case $OS in
         mkdir -p /var/log/dployrd /var/lib/dployrd
         chown dployrd:dployrd /var/log/dployrd /var/lib/dployrd
         
+        mkdir -p /var/lib/dployrd/.dployr/logs/caddy
+        chown -R dployrd:dployrd /var/lib/dployrd/.dployr
+        
         mkdir -p /home/dployrd/.version-fox/temp
         chown -R dployrd:dployrd /home/dployrd/.version-fox
         chmod -R 755 /home/dployrd/.version-fox
