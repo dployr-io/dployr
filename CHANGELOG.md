@@ -1,4 +1,4 @@
-## [0.5.9] - 2026-01-17
+## [0.5.10] - 2026-01-18
 
 ### 🚀 Features
 
@@ -8,6 +8,7 @@
 
 - *(docs)* Remove old store docs
 - *(syncer)* Move auth and WebSocket utilities to shared packages
+- *(syncer)* Trigger send sync update before executing deploy/proxy tasks instead of after completion
 ## [0.5.9-beta.1] - 2026-01-15
 
 ### 🚜 Refactor
