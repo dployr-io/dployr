@@ -530,13 +530,7 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 		tlog := logger.WithContext(tctx)
 		tlog.Debug("syncer: executing task", "task_id", t.ID, "type", t.Type)
 
-		result := s.executor.Execute(tctx, task)
-
-		result.Metadata = map[string]any{
-			"instance_id": s.cfg.InstanceID,
-		}
-
-		// Send sync message when deploy task is completed
+		// Send sync update immediately when deploy/proxy task is received
 		if strings.Contains(t.Type, "deployments") || strings.Contains(t.Type, "proxy") {
 			seq := atomic.AddUint64(&updateSeq, 1)
 			activeJobs := 0
@@ -544,7 +538,7 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 				activeJobs = s.workerActiveJobs()
 			}
 			update, err := BuildUpdateV1_1(
-				tctx,
+				ctx,
 				s.cfg,
 				seq,
 				s.epoch,
@@ -561,7 +555,7 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 			if err != nil {
 				tlog.Error("syncer: failed to build update for deploy", "error", err)
 			} else {
-				if err := ws.Send(tctx, conn, ws.Message{
+				if err := ws.Send(ctx, conn, ws.Message{
 					ID:     ulid.Make().String(),
 					TS:     time.Now(),
 					Kind:   "update",
@@ -570,6 +564,12 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 					tlog.Error("syncer: failed to send sync message for deploy", "error", err)
 				}
 			}
+		}
+
+		result := s.executor.Execute(tctx, task)
+
+		result.Metadata = map[string]any{
+			"instance_id": s.cfg.InstanceID,
 		}
 
 		if err := s.sendTaskResponse(ctx, conn, t.ID, result); err != nil {
