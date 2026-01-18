@@ -1,3 +1,9 @@
+## [0.5.11] - 2026-01-18
+
+### 🚜 Refactor
+
+- *(goreleaser)* Fix GitHub raw content URLs
+- *(install)* Create Caddy logs directory during installation
 ## [0.5.10] - 2026-01-18
 
 ### 🚀 Features
