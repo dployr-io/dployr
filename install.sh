@@ -399,15 +399,13 @@ register_instance() {
         if [[ "$error_code" == "auth.bad_token" ]]; then
             error "Invalid or expired token. Error: $display_msg (code: $error_code).$help_suffix"
         else
+            log_json "error" "Registration failed: $display_msg (code: $error_code, helpLink: $help_link)"
             error "Instance registration failed. Error: $display_msg (code: $error_code).$help_suffix"
         fi
-        log_json "error" "Registration failed: $display_msg (code: $error_code, helpLink: $help_link)"
-        return 1
     fi
 
-    error "Instance registration failed with unexpected response: $response"
     log_json "error" "Registration failed, unexpected response: $response"
-    return 1
+    error "Instance registration failed with unexpected response: $response"
 }
 
 if [[ $EUID -eq 0 ]]; then
@@ -724,6 +722,7 @@ EOF
 esac
 
 if [[ -n "$SHELL" && -f "$HOME/.bashrc" ]]; then
+    # shellcheck disable=SC1091
     source "$HOME/.bashrc" 2>&1 || true
     eval "$(vfox activate bash)" 2>&1 || true
 else
