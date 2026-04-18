@@ -165,16 +165,13 @@ func (w *WebHandler) BuildMux(cfg *shared.Config) *http.ServeMux {
 	mux.Handle("/system/token/rotate", corsMiddleware(http.HandlerFunc(w.SystemH.UpdateBootstrapToken)))
 	mux.Handle("/system/registered", corsMiddleware(http.HandlerFunc(w.SystemH.Registered)))
 
-	// Filesystem endpoints (Admin only - file operations are sensitive)
 	mux.Handle("/system/fs", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.FSH.HandleList)))))
 	mux.Handle("/system/fs/read", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.FSH.HandleRead)))))
 	mux.Handle("/system/fs/write", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.FSH.HandleWrite)))))
 	mux.Handle("/system/fs/create", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.FSH.HandleCreate)))))
 	mux.Handle("/system/fs/delete", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.FSH.HandleDelete)))))
 
-	// System top endpoint (process/resource monitoring)
 	mux.Handle("/system/top", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleViewer))(http.HandlerFunc(w.TopH.HandleTop)))))
-
 	mux.Handle("/system/mode", corsMiddleware(w.AuthM.Auth(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		switch req.Method {
 		case http.MethodGet:
