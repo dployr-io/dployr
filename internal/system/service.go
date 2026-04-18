@@ -374,7 +374,7 @@ func (s *DefaultService) IsRegistered(ctx context.Context) (system.RegistrationS
 	return system.RegistrationStatus{Registered: registered}, nil
 }
 
-// During the installation process, this method is used to register the instance with the base,
+// During the installation process, this method is used to register the instance with Dployr Base,
 // used for routing traffic to this instance instead of directly hitting it.
 // This is to ensure HTTPS traffic is enforced on dployr instance.
 // Please refer to the documentation at https://docs.dployr.io/installation for more details.
