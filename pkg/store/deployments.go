@@ -18,7 +18,7 @@ const (
 )
 
 type RuntimeObj struct {
-	Type    Runtime `json:"type" db:"type" validate:"required,oneof=static golang php python nodejs ruby dotnet java docker k3s custom"`
+	Type    Runtime `json:"type" db:"type" validate:"required,oneof=static golang php python nodejs ruby dotnet java"`
 	Version string  `json:"version,omitempty" db:"version"`
 }
 

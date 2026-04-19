@@ -32,7 +32,7 @@ type DeployRequest struct {
 	Description string          `json:"description,omitempty"`
 	UserId      string          `json:"user_id" validate:"required"`
 	Source      string          `json:"source" validate:"required,oneof=remote image"`
-	Runtime     string          `json:"runtime" validate:"required,oneof=static golang php python nodejs ruby dotnet java docker k3s custom"`
+	Runtime     string          `json:"runtime" validate:"required,oneof=static golang php python nodejs ruby dotnet java"`
 	Version     string          `json:"version,omitempty"`
 	RunCmd      string          `json:"run_cmd,omitempty"`
 	BuildCmd    string          `json:"build_cmd,omitempty"`

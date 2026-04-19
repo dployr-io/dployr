@@ -1255,9 +1255,6 @@ components:
         - ruby
         - dotnet
         - java
-        - docker
-        - k3s
-        - custom
 
     RuntimeObj:
       type: object
@@ -2946,7 +2943,7 @@ components:
       properties:
         type:
           type: string
-          enum: [static, golang, php, python, nodejs, ruby, dotnet, java, docker, k3s, custom]
+          enum: [static, golang, php, python, nodejs, ruby, dotnet, java]
         version:
           type: string
           nullable: true
@@ -2984,7 +2981,7 @@ components:
           type: string
         runtime:
           type: string
-          enum: [static, golang, php, python, nodejs, ruby, dotnet, java, docker, k3s, custom]
+          enum: [static, golang, php, python, nodejs, ruby, dotnet, java]
         runtime_version:
           type: string
           nullable: true

@@ -439,7 +439,7 @@ func getSearchPaths(runtimeName string) []string {
 		return []string{"", "bin"}
 	case "python":
 		return []string{"", "Scripts", "bin"}
-	case "php", "k3s":
+	case "php":
 		return []string{"", "bin"}
 	default:
 		return []string{"bin", ""}
