@@ -1247,7 +1247,6 @@ components:
     Runtime:
       type: string
       enum:
-        - static
         - golang
         - php
         - python
@@ -1375,6 +1374,7 @@ components:
       required:
         - name
         - user_id
+        - type
         - source
         - runtime
       properties:
@@ -1462,6 +1462,10 @@ components:
           example: "My service description"
         source:
           type: string
+          enum: [remote, image]
+        type:
+          type: string
+          enum: [static, worker, web, job]
         runtime:
           $ref: '#/components/schemas/Runtime'
         runtime_version:
@@ -1516,6 +1520,12 @@ components:
           type: string
         description:
           type: string
+        source:
+          type: string
+          enum: [remote, image]
+        type:
+          type: string
+          enum: [static, worker, web, job]
         runtime_version:
           type: string
         run_cmd:
