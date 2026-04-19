@@ -20,7 +20,7 @@ import (
 	"github.com/dployr-io/dployr/pkg/store"
 )
 
-type agentTokenResponse struct {
+type nodeTokenResponse struct {
 	Success bool `json:"success"`
 	Data    struct {
 		Token string `json:"token"`
@@ -34,42 +34,42 @@ type HTTPError struct {
 
 func (e *HTTPError) Error() string { return e.Msg }
 
-func FetchAgentToken(ctx context.Context, baseURL, bootstrapToken string) (string, error) {
+func FetchNodeToken(ctx context.Context, baseURL, bootstrapToken string) (string, error) {
 	base := strings.TrimRight(baseURL, "/")
 	if base == "" {
 		return "", fmt.Errorf("base_url is not configured")
 	}
 
-	url := fmt.Sprintf("%s/v1/agent/token", base)
+	url := fmt.Sprintf("%s/v1/node/token", base)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, http.NoBody)
 	if err != nil {
-		return "", fmt.Errorf("failed to build agent token request: %w", err)
+		return "", fmt.Errorf("failed to build node token request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(bootstrapToken))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("agent token request failed: %w", err)
+		return "", fmt.Errorf("node token request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("agent token request returned status %d", resp.StatusCode)
+		return "", fmt.Errorf("node token request returned status %d", resp.StatusCode)
 	}
 
-	var body agentTokenResponse
+	var body nodeTokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return "", fmt.Errorf("failed to decode agent token response: %w", err)
+		return "", fmt.Errorf("failed to decode node token response: %w", err)
 	}
 	if !body.Success || strings.TrimSpace(body.Data.Token) == "" {
-		return "", fmt.Errorf("agent token response was unsuccessful or empty")
+		return "", fmt.Errorf("node token response was unsuccessful or empty")
 	}
 
 	return body.Data.Token, nil
 }
 
-func ObtainAgentTokenWithBackoff(ctx context.Context, baseURL, bootstrapToken string, backoffDuration *time.Duration) (string, error) {
+func ObtainNodeTokenWithBackoff(ctx context.Context, baseURL, bootstrapToken string, backoffDuration *time.Duration) (string, error) {
 	const (
 		maxBackoff   = 12 * time.Hour
 		startBackoff = time.Minute
@@ -80,7 +80,7 @@ func ObtainAgentTokenWithBackoff(ctx context.Context, baseURL, bootstrapToken st
 			return "", ctx.Err()
 		}
 
-		token, err := FetchAgentToken(ctx, baseURL, bootstrapToken)
+		token, err := FetchNodeToken(ctx, baseURL, bootstrapToken)
 		if err == nil && strings.TrimSpace(token) != "" {
 			*backoffDuration = 0
 			return token, nil
@@ -113,7 +113,7 @@ func ObtainAgentTokenWithBackoff(ctx context.Context, baseURL, bootstrapToken st
 	}
 }
 
-func PublishClientCertificate(ctx context.Context, baseURL, instanceID, agentToken string, cert tls.Certificate) error {
+func PublishClientCertificate(ctx context.Context, baseURL, instanceID, nodeToken string, cert tls.Certificate) error {
 	if len(cert.Certificate) == 0 {
 		return fmt.Errorf("client certificate is empty")
 	}
@@ -140,12 +140,12 @@ func PublishClientCertificate(ctx context.Context, baseURL, instanceID, agentTok
 		return fmt.Errorf("base_url is not configured")
 	}
 
-	url := fmt.Sprintf("%s/v1/agent/cert?instanceName=%s", base, instanceID)
+	url := fmt.Sprintf("%s/v1/node/cert?instanceName=%s", base, instanceID)
 
-	if err := sendCertRequest(ctx, http.MethodPost, url, agentToken, body); err != nil {
+	if err := sendCertRequest(ctx, http.MethodPost, url, nodeToken, body); err != nil {
 		var httpErr *HTTPError
 		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusConflict {
-			return sendCertRequest(ctx, http.MethodPut, url, agentToken, body)
+			return sendCertRequest(ctx, http.MethodPut, url, nodeToken, body)
 		}
 		return err
 	}
@@ -153,7 +153,7 @@ func PublishClientCertificate(ctx context.Context, baseURL, instanceID, agentTok
 	return nil
 }
 
-func sendCertRequest(ctx context.Context, method, url, agentToken string, body map[string]any) error {
+func sendCertRequest(ctx context.Context, method, url, nodeToken string, body map[string]any) error {
 	data, err := json.Marshal(body)
 	if err != nil {
 		return fmt.Errorf("failed to marshal cert payload: %w", err)
@@ -165,7 +165,7 @@ func sendCertRequest(ctx context.Context, method, url, agentToken string, body m
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(agentToken))
+	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(nodeToken))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -232,8 +232,8 @@ func ComputeAuthHealth(ctx context.Context, instStore store.InstanceStore) (heal
 	}
 
 	debug = &system.AuthDebug{
-		AgentTokenAgeS:      age,
-		AgentTokenExpiresIn: ttl,
+		NodeTokenAgeS:      age,
+		NodeTokenExpiresIn: ttl,
 		BootstrapToken:      bTok,
 	}
 

@@ -115,8 +115,8 @@ type TasksDebug struct {
 
 // AuthDebug provides debugging information about the authentication system.
 type AuthDebug struct {
-	AgentTokenAgeS      int64  `json:"agent_token_age_s"`
-	AgentTokenExpiresIn int64  `json:"agent_token_expires_in_s"`
+	NodeTokenAgeS      int64  `json:"node_token_age_s"`
+	NodeTokenExpiresIn int64  `json:"node_token_expires_in_s"`
 	BootstrapToken      string `json:"bootstrap_token"`
 }
 
@@ -181,7 +181,7 @@ type TaskSummary struct {
 	Count int `json:"count"`
 }
 
-// UpdateV1 represents the status update payload sent from the agent to base.
+// UpdateV1 represents the status update payload sent from the node to base.
 // This struct defines the core schema relied upon by clients interacting with the dployr API.
 type UpdateV1 struct {
 	Schema      string             `json:"schema"`
@@ -204,13 +204,13 @@ type UpdateV1 struct {
 	Top         *SystemTop         `json:"top,omitempty"`
 }
 
-// PlatformInfo describes the runtime platform of the agent.
+// PlatformInfo describes the runtime platform of the node.
 type PlatformInfo struct {
 	OS   string `json:"os"`
 	Arch string `json:"arch"`
 }
 
-// HelloV1 is sent by the agent when establishing a WebSocket connection.
+// HelloV1 is sent by the node when establishing a WebSocket connection.
 type HelloV1 struct {
 	Schema           string            `json:"schema"`
 	InstanceID       string            `json:"instance_id"`
@@ -220,7 +220,7 @@ type HelloV1 struct {
 	SchemasSupported []string          `json:"schemas_supported,omitempty"`
 }
 
-// HelloAckV1 is sent by base to acknowledge the agent hello.
+// HelloAckV1 is sent by base to acknowledge the node hello.
 type HelloAckV1 struct {
 	Schema          string    `json:"schema"`
 	Accept          bool      `json:"accept"`
@@ -244,7 +244,7 @@ type ModeStatus struct {
 	Mode Mode `json:"mode"`
 }
 
-// SetModeRequest is used by the agent to change the daemon mode.
+// SetModeRequest is used by the node to change the daemon mode.
 type SetModeRequest struct {
 	Mode Mode `json:"mode"`
 }

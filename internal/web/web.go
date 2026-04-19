@@ -177,7 +177,7 @@ func (w *WebHandler) BuildMux(cfg *shared.Config) *http.ServeMux {
 		case http.MethodGet:
 			w.AuthM.RequireRole(string(store.RoleViewer))(http.HandlerFunc(w.SystemH.GetMode)).ServeHTTP(rw, req)
 		case http.MethodPost:
-			w.AuthM.RequireRole(string(auth.RoleAgent))(http.HandlerFunc(w.SystemH.SetMode)).ServeHTTP(rw, req)
+			w.AuthM.RequireRole(string(auth.RoleNode))(http.HandlerFunc(w.SystemH.SetMode)).ServeHTTP(rw, req)
 		default:
 			e := shared.Errors.Request.MethodNotAllowed
 			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, nil)

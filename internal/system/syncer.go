@@ -38,8 +38,8 @@ var lastWSError atomic.Value   // string
 
 var wsConnectsTotal uint64
 var wsDisconnectsTotal uint64
-var agentTokenRefreshSuccessTotal uint64
-var agentTokenRefreshFailedTotal uint64
+var nodeTokenRefreshSuccessTotal uint64
+var nodeTokenRefreshFailedTotal uint64
 
 var updateSeq uint64
 
@@ -80,8 +80,8 @@ func wsConnectTotal() uint64 { return atomic.LoadUint64(&wsConnectsTotal) }
 
 func wsDisconnectTotal() uint64 { return atomic.LoadUint64(&wsDisconnectsTotal) }
 
-func agentTokenRefreshTotals() (success, failed uint64) {
-	return atomic.LoadUint64(&agentTokenRefreshSuccessTotal), atomic.LoadUint64(&agentTokenRefreshFailedTotal)
+func nodeTokenRefreshTotals() (success, failed uint64) {
+	return atomic.LoadUint64(&nodeTokenRefreshSuccessTotal), atomic.LoadUint64(&nodeTokenRefreshFailedTotal)
 }
 
 type syncerCtxKey string
@@ -101,7 +101,7 @@ type Syncer struct {
 	fs                  *FileSystem
 	topCollector        *TopCollector
 	executor            *Executor
-	agentTokenBackoff   time.Duration
+	nodeTokenBackoff   time.Duration
 	workerMaxConcurrent int
 	workerActiveJobs    func() int
 	epoch               string
@@ -114,8 +114,8 @@ func (s *Syncer) Executor() *Executor {
 	return s.executor
 }
 
-func (s *Syncer) obtainAgentTokenWithBackoff(ctx context.Context, bootstrapToken string) (string, error) {
-	return pkgAuth.ObtainAgentTokenWithBackoff(ctx, s.cfg.BaseURL, bootstrapToken, &s.agentTokenBackoff)
+func (s *Syncer) obtainNodeTokenWithBackoff(ctx context.Context, bootstrapToken string) (string, error) {
+	return pkgAuth.ObtainNodeTokenWithBackoff(ctx, s.cfg.BaseURL, bootstrapToken, &s.nodeTokenBackoff)
 }
 
 func (s *Syncer) ensureAccessToken(ctx context.Context, bootstrapToken string) (string, error) {
@@ -128,13 +128,13 @@ func (s *Syncer) ensureAccessToken(ctx context.Context, bootstrapToken string) (
 		return accessToken, nil
 	}
 
-	s.logger.Info("syncer: obtaining agent access token")
-	accessToken, err = s.obtainAgentTokenWithBackoff(ctx, bootstrapToken)
+	s.logger.Info("syncer: obtaining node access token")
+	accessToken, err = s.obtainNodeTokenWithBackoff(ctx, bootstrapToken)
 	if err != nil {
-		atomic.AddUint64(&agentTokenRefreshFailedTotal, 1)
-		return "", fmt.Errorf("failed to obtain agent token: %w", err)
+		atomic.AddUint64(&nodeTokenRefreshFailedTotal, 1)
+		return "", fmt.Errorf("failed to obtain node token: %w", err)
 	}
-	atomic.AddUint64(&agentTokenRefreshSuccessTotal, 1)
+	atomic.AddUint64(&nodeTokenRefreshSuccessTotal, 1)
 	if err := s.instStore.SetAccessToken(ctx, accessToken); err != nil {
 		s.logger.Error("syncer: failed to persist access token", "error", err)
 	}
@@ -244,7 +244,7 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 ws_dial:
 
 	wsURL := strings.Replace(s.cfg.BaseURL, "https://", "wss://", 1) +
-		fmt.Sprintf("/v1/agent/ws?instanceName=%s", inst.InstanceID)
+		fmt.Sprintf("/v1/node/ws?instanceName=%s", inst.InstanceID)
 
 	logger.Info("syncer: dialing websocket", "host", s.cfg.BaseURL)
 	tlsConfig, err := pkgAuth.BuildPinnedTLSConfig(clientCert, s.cfg.WSCertPath, baseWSCACertPEM)

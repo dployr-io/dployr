@@ -21,7 +21,7 @@ const (
 	RoleDeveloper Role = "developer"
 	RoleAdmin     Role = "admin"
 	RoleOwner     Role = "owner"
-	RoleAgent     Role = "agent" // M2M role for daemon-to-base communication
+	RoleNode     Role = "node" // M2M role for daemon-to-base communication
 )
 
 type Middleware struct {
@@ -90,8 +90,8 @@ func parseRole(s string) (Role, bool) {
 		return RoleAdmin, true
 	case string(RoleOwner):
 		return RoleOwner, true
-	case string(RoleAgent):
-		return RoleAgent, true
+	case string(RoleNode):
+		return RoleNode, true
 	default:
 		return "", false
 	}
@@ -110,8 +110,8 @@ func roleAllows(actual, required Role) bool {
 		return required == RoleDeveloper || required == RoleViewer
 	case RoleDeveloper:
 		return required == RoleViewer
-	case RoleAgent:
-		// Agent can act as viewer for read-only tasks
+	case RoleNode:
+		// Node can act as viewer for read-only tasks
 		return required == RoleViewer
 	default:
 		return false

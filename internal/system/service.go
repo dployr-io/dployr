@@ -194,7 +194,7 @@ func (s *DefaultService) SystemStatus(ctx context.Context) (system.SystemStatus,
 		st.Health.Tasks = system.HealthOK
 	}
 
-	// Auth health/debug derived from stored agent access token (JWT exp/iat).
+	// Auth health/debug derived from stored node access token (JWT exp/iat).
 	var authDbg *system.AuthDebug
 	st.Health.Auth, authDbg = s.computeAuthHealthFromToken(ctx)
 	st.Health.Overall = worst(st.Health.WS, st.Health.Tasks, st.Health.Auth)
@@ -233,7 +233,7 @@ func tern[T any](cond bool, a, b T) T {
 	return b
 }
 
-// computeAuthHealthFromToken checks the agent access token and returns health status and debug info.
+// computeAuthHealthFromToken checks the node access token and returns health status and debug info.
 func (s *DefaultService) computeAuthHealthFromToken(ctx context.Context) (string, *system.AuthDebug) {
 	if s.store == nil {
 		return system.HealthDown, nil
@@ -275,8 +275,8 @@ func (s *DefaultService) computeAuthHealthFromToken(ctx context.Context) (string
 	}
 
 	authDbg := &system.AuthDebug{
-		AgentTokenAgeS:      age,
-		AgentTokenExpiresIn: ttl,
+		NodeTokenAgeS:      age,
+		NodeTokenExpiresIn: ttl,
 	}
 
 	if ttl == 0 {

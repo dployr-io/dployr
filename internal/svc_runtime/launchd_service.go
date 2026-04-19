@@ -36,15 +36,15 @@ func (l *LaunchdManager) Install(name, desc, runCmd, workDir string, envVars map
 	name = utils.FormatName(name)
 	label := fmt.Sprintf("user.%s", name)
 
-	// Create LaunchAgents directory
+	// Create LaunchDaemon directory
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get user home directory: %w", err)
 	}
 
-	launchDir := filepath.Join(home, "Library", "LaunchAgents")
+	launchDir := filepath.Join(home, "Library", "LaunchDaemon")
 	if err := os.MkdirAll(launchDir, 0755); err != nil {
-		return fmt.Errorf("failed to create LaunchAgents directory: %w", err)
+		return fmt.Errorf("failed to create LaunchDaemon directory: %w", err)
 	}
 
 	// Create log directory
@@ -153,7 +153,7 @@ func (l *LaunchdManager) Remove(name string) error {
 		return fmt.Errorf("failed to get user home directory: %w", err)
 	}
 
-	plistFile := filepath.Join(home, "Library", "LaunchAgents", label+".plist")
+	plistFile := filepath.Join(home, "Library", "LaunchDaemon", label+".plist")
 	if err := os.Remove(plistFile); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove plist file: %w", err)
 	}

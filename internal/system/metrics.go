@@ -64,9 +64,9 @@ func (m *Metrics) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	buf.WriteString("# TYPE dployr_ws_disconnect_total counter\n")
 	fmt.Fprintf(&buf, "dployr_ws_disconnect_total %d\n\n", wsDisconnectTotal())
 
-	buf.WriteString("# HELP dployr_agent_token_expires_in_seconds Seconds until agent token expiry\n")
-	buf.WriteString("# TYPE dployr_agent_token_expires_in_seconds gauge\n")
-	fmt.Fprintf(&buf, "dployr_agent_token_expires_in_seconds %d\n\n", m.agentTokenTTLSeconds(ctx))
+	buf.WriteString("# HELP dployr_node_token_expires_in_seconds Seconds until node token expiry\n")
+	buf.WriteString("# TYPE dployr_node_token_expires_in_seconds gauge\n")
+	fmt.Fprintf(&buf, "dployr_node_token_expires_in_seconds %d\n\n", m.nodeTokenTTLSeconds(ctx))
 
 	buf.WriteString("# HELP dployr_tasks_inflight Tasks currently executing\n")
 	buf.WriteString("# TYPE dployr_tasks_inflight gauge\n")
@@ -82,11 +82,11 @@ func (m *Metrics) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(&buf, "dployr_task_executed_total{result=\"success\"} %d\n", ok)
 	fmt.Fprintf(&buf, "dployr_task_executed_total{result=\"failed\"} %d\n\n", failed)
 
-	buf.WriteString("# HELP dployr_agent_token_refresh_total Total agent token refresh attempts partitioned by result\n")
-	buf.WriteString("# TYPE dployr_agent_token_refresh_total counter\n")
-	refOK, refFailed := agentTokenRefreshTotals()
-	fmt.Fprintf(&buf, "dployr_agent_token_refresh_total{result=\"success\"} %d\n", refOK)
-	fmt.Fprintf(&buf, "dployr_agent_token_refresh_total{result=\"failed\"} %d\n\n", refFailed)
+	buf.WriteString("# HELP dployr_node_token_refresh_total Total node token refresh attempts partitioned by result\n")
+	buf.WriteString("# TYPE dployr_node_token_refresh_total counter\n")
+	refOK, refFailed := nodeTokenRefreshTotals()
+	fmt.Fprintf(&buf, "dployr_node_token_refresh_total{result=\"success\"} %d\n", refOK)
+	fmt.Fprintf(&buf, "dployr_node_token_refresh_total{result=\"failed\"} %d\n\n", refFailed)
 
 	h := taskExecHistogramSnapshot()
 	buf.WriteString("# HELP dployr_task_exec_seconds Task execution duration\n")
@@ -120,7 +120,7 @@ func (m *Metrics) doneUnsent(ctx context.Context) int {
 	return len(rs)
 }
 
-func (m *Metrics) agentTokenTTLSeconds(ctx context.Context) int64 {
+func (m *Metrics) nodeTokenTTLSeconds(ctx context.Context) int64 {
 	if m.inst == nil {
 		return 0
 	}

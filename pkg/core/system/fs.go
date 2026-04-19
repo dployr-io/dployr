@@ -22,7 +22,7 @@ type FSNode struct {
 	UID   int    `json:"uid"`
 	GID   int    `json:"gid"`
 
-	// Computed permission flags for the agent's effective user
+	// Computed permission flags for the node's effective user
 	Readable   bool `json:"readable"`
 	Writable   bool `json:"writable"`
 	Executable bool `json:"executable"`

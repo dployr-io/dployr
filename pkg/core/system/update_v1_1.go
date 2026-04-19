@@ -1,7 +1,7 @@
 // Copyright 2025 Emmanuel Madehin
 // SPDX-License-Identifier: Apache-2.0
 
-// Package system provides v1.1 schema for the agent status update
+// Package system provides v1.1 schema for the node status update
 package system
 
 // UpdateV1_1 is the v1.1 status update schema
@@ -12,7 +12,7 @@ type UpdateV1_1 struct {
 	InstanceID  string          `json:"instance_id"`
 	Timestamp   string          `json:"timestamp"` // RFC3339
 	IsFullSync  bool            `json:"is_full_sync"`
-	Agent       *AgentInfo      `json:"agent,omitempty"`
+	Node       *NodeInfo      `json:"node,omitempty"`
 	Status      StatusInfo      `json:"status"`
 	Health      HealthInfo      `json:"health"`
 	Resources   ResourcesInfo   `json:"resources"`
@@ -23,8 +23,8 @@ type UpdateV1_1 struct {
 	Diagnostics DiagnosticsInfo `json:"diagnostics"`
 }
 
-// AgentInfo - static agent metadata
-type AgentInfo struct {
+// NodeInfo - static node metadata
+type NodeInfo struct {
 	Version   string `json:"version"`
 	Commit    string `json:"commit"`
 	BuildDate string `json:"build_date"`

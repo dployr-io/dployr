@@ -56,7 +56,7 @@ func BuildUpdateV1_1(
 	update.Diagnostics = buildDiagnostics(ctx, instStore, isFullSync, workerMaxConcurrent, workerActiveJobs)
 
 	if isFullSync {
-		update.Agent = buildAgent()
+		update.Node = buildNode()
 		workloads, err := buildWorkloads(ctx, deployStore, svcStore)
 		if err != nil {
 			return nil, err
@@ -353,8 +353,8 @@ func buildAuthDiag(ctx context.Context, instStore store.InstanceStore) system.Au
 
 	diag := system.AuthDiag{}
 	if debug != nil {
-		diag.TokenAgeSeconds = debug.AgentTokenAgeS
-		diag.TokenExpiresInSeconds = debug.AgentTokenExpiresIn
+		diag.TokenAgeSeconds = debug.NodeTokenAgeS
+		diag.TokenExpiresInSeconds = debug.NodeTokenExpiresIn
 		diag.BootstrapTokenPreview = debug.BootstrapToken
 	}
 	return diag
@@ -387,9 +387,9 @@ func buildCertDiag() *system.CertDiag {
 	}
 }
 
-func buildAgent() *system.AgentInfo {
+func buildNode() *system.NodeInfo {
 	info := version.GetBuildInfo()
-	return &system.AgentInfo{
+	return &system.NodeInfo{
 		Version:   info.Version,
 		Commit:    info.Commit,
 		BuildDate: info.Date,
