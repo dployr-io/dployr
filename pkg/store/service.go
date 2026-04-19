@@ -19,9 +19,6 @@ const (
 	RuntimeRuby   Runtime = "ruby"
 	RuntimeDotnet Runtime = "dotnet"
 	RuntimeJava   Runtime = "java"
-	RuntimeDocker Runtime = "docker"
-	RuntimeK3S    Runtime = "k3s"
-	RuntimeCustom Runtime = "custom"
 )
 
 type Service struct {

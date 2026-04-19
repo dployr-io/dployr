@@ -123,7 +123,7 @@ type DeploymentV1_1 struct {
 }
 
 type RuntimeInfo struct {
-	Type    string  `json:"type"` // "static"|"golang"|"php"|"python"|"nodejs"|"ruby"|"dotnet"|"java"|"docker"|"k3s"|"custom"
+	Type    string  `json:"type"` // "static"|"golang"|"php"|"python"|"nodejs"|"ruby"|"dotnet"|"java"
 	Version *string `json:"version,omitempty"`
 }
 

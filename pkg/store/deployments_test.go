@@ -37,9 +37,6 @@ func TestRuntimeConstants(t *testing.T) {
 		RuntimeRuby:   "ruby",
 		RuntimeDotnet: "dotnet",
 		RuntimeJava:   "java",
-		RuntimeDocker: "docker",
-		RuntimeK3S:    "k3s",
-		RuntimeCustom: "custom",
 	}
 
 	for runtime, expected := range runtimes {
