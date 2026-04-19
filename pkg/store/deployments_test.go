@@ -29,7 +29,6 @@ func TestStatusConstants(t *testing.T) {
 
 func TestRuntimeConstants(t *testing.T) {
 	runtimes := map[Runtime]string{
-		RuntimeStatic: "static",
 		RuntimeGo:     "golang",
 		RuntimePHP:    "php",
 		RuntimePython: "python",

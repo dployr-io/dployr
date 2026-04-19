@@ -11,6 +11,9 @@ var DeployScript string
 //go:embed systemd.sh
 var SystemdScript string
 
+//go:embed docker.sh
+var DockerScript string
+
 //go:embed system_doctor.sh
 var SystemDoctorScript string
 

@@ -1297,6 +1297,9 @@ components:
         source:
           type: string
           enum: [remote, image]
+        type:
+          type: string
+          enum: [static, worker, web, job] 
         runtime:
           $ref: '#/components/schemas/RuntimeObj'
         remote:
@@ -1386,6 +1389,9 @@ components:
         source:
           type: string
           enum: [remote, image]
+        type:
+          type: string
+          enum: [static, worker, web, job]
         runtime:
           $ref: '#/components/schemas/RuntimeObj'
         version:
@@ -2943,7 +2949,7 @@ components:
       properties:
         type:
           type: string
-          enum: [static, golang, php, python, nodejs, ruby, dotnet, java]
+          enum: [golang, php, python, nodejs, ruby, dotnet, java]
         version:
           type: string
           nullable: true
@@ -2981,7 +2987,7 @@ components:
           type: string
         runtime:
           type: string
-          enum: [static, golang, php, python, nodejs, ruby, dotnet, java]
+          enum: [golang, php, python, nodejs, ruby, dotnet, java]
         runtime_version:
           type: string
           nullable: true

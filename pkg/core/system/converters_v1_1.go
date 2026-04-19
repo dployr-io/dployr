@@ -21,7 +21,8 @@ func FromStoreDeployment(d *store.Deployment) DeploymentV1_1 {
 		Name:        d.Blueprint.Name,
 		Description: d.Blueprint.Desc,
 		Status:      string(d.Status),
-		Source:      d.Blueprint.Source,
+		Type:        string(d.Blueprint.Type),
+		Source:      string(d.Blueprint.Source),
 		Runtime: RuntimeInfo{
 			Type: string(d.Blueprint.Runtime.Type),
 		},
@@ -86,6 +87,7 @@ func FromStoreService(s *store.Service) ServiceV1_1 {
 		ID:          s.ID,
 		Name:        s.Name,
 		Description: s.Description,
+		Type:        string(s.Type),
 		Runtime:     string(s.Runtime),
 		Port:        s.Port,
 		EnvVars:     make(map[string]string),

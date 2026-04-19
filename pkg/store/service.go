@@ -11,7 +11,6 @@ import (
 type Runtime string
 
 const (
-	RuntimeStatic Runtime = "static"
 	RuntimeGo     Runtime = "golang"
 	RuntimePHP    Runtime = "php"
 	RuntimePython Runtime = "python"
@@ -21,11 +20,21 @@ const (
 	RuntimeJava   Runtime = "java"
 )
 
+type ServiceType string
+
+const (
+	TypeStatic ServiceType = "static"
+	TypeWorker ServiceType = "worker"
+	TypeWeb    ServiceType = "web"
+	TypeJob    ServiceType = "job"
+)
+
 type Service struct {
 	ID             string            `json:"id" db:"id"`
 	Name           string            `json:"name" db:"name"`
 	Description    string            `json:"description" db:"description"`
 	Source         string            `json:"source" db:"source"`
+	Type           ServiceType       `json:"type" db:"type"`
 	Runtime        Runtime           `json:"runtime" db:"runtime"`
 	RuntimeVersion string            `json:"runtime_version,omitempty" db:"runtime_version"`
 	RunCmd         string            `json:"run_cmd,omitempty" db:"run_cmd"`
@@ -34,6 +43,7 @@ type Service struct {
 	WorkingDir     string            `json:"working_dir,omitempty" db:"working_dir"`
 	StaticDir      string            `json:"static_dir,omitempty" db:"static_dir"`
 	Image          string            `json:"image,omitempty" db:"image"`
+	ServiceManager string            `json:"service_manager,omitempty" db:"service_manager"`
 	EnvVars        map[string]string `json:"env_vars,omitempty"`
 	Secrets        map[string]string `json:"secrets,omitempty"`
 	Remote         string            `json:"remote,omitempty" db:"remote_url"`

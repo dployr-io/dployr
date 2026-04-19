@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -82,6 +83,25 @@ func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.C
 	return nil
 }
 
+// PullImage pulls a docker image from a registry
+func PullImage(imageRef string, workDir string, config *shared.Config) error {
+	if !isValidDockerImageRef(imageRef) {
+		return fmt.Errorf("invalid docker image reference: %s", imageRef)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	pullCmd := fmt.Sprintf("docker pull %s", imageRef)
+	if err := shared.Exec(ctx, pullCmd, workDir); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("docker pull timed out after 5 minutes")
+		}
+		return fmt.Errorf("docker pull failed: %s", err)
+	}
+	return nil
+}
+
 // DeployApp handles runtime setup, build, and service installation
 func DeployApp(bp store.Blueprint, deploymentID, logPath string) error {
 	version := string(bp.Runtime.Version)
@@ -141,7 +161,22 @@ func runDeployScript(ctx context.Context, bp store.Blueprint, deploymentID, logP
 		port = "3000"
 	}
 
-	args := []string{tmpFile.Name(), "deploy", bp.Name, string(bp.Runtime.Type), bp.Runtime.Version, bp.WorkingDir, bp.RunCmd, desc, buildCmd, port}
+	args := []string{
+		tmpFile.Name(),
+		"deploy",
+		bp.Name,
+		string(bp.Source),
+		string(bp.Type),
+		string(bp.Runtime.Type),
+		bp.Runtime.Version,
+		bp.WorkingDir,
+		bp.RunCmd,
+		desc,
+		buildCmd,
+		port,
+		bp.Image,
+		bp.StaticDir,
+	}
 
 	cmd := exec.CommandContext(ctx, "bash", args...)
 	cmd.Env = append(os.Environ(),
@@ -258,4 +293,10 @@ func buildAuthUrl(url string) (string, error) {
 		return strings.Replace(cleanUrl, "https://", fmt.Sprintf("https://%s:%s@", username, token), 1), nil
 	}
 	return url, nil
+}
+
+var dockerImageRegex = regexp.MustCompile(`^([a-zA-Z0-9][-a-zA-Z0-9.]*(?::[0-9]+)?/)?([a-zA-Z0-9._/-]+/)?([a-zA-Z0-9._/-]+)(:[a-zA-Z0-9._-]+|@sha256:[a-fA-F0-9]{64})?$`)
+
+func isValidDockerImageRef(ref string) bool {
+	return dockerImageRegex.MatchString(ref)
 }

@@ -12,7 +12,7 @@ type UpdateV1_1 struct {
 	InstanceID  string          `json:"instance_id"`
 	Timestamp   string          `json:"timestamp"` // RFC3339
 	IsFullSync  bool            `json:"is_full_sync"`
-	Node       *NodeInfo      `json:"node,omitempty"`
+	Node        *NodeInfo       `json:"node,omitempty"`
 	Status      StatusInfo      `json:"status"`
 	Health      HealthInfo      `json:"health"`
 	Resources   ResourcesInfo   `json:"resources"`
@@ -107,6 +107,7 @@ type DeploymentV1_1 struct {
 	Name         string            `json:"name"`
 	Description  string            `json:"description"`
 	Status       string            `json:"status"` // "pending" | "in_progress" | "completed" | "failed"
+	Type         string            `json:"type"`
 	Source       string            `json:"source"` // "remote" | "image" | "local"
 	Runtime      RuntimeInfo       `json:"runtime"`
 	Remote       *RemoteInfo       `json:"remote,omitempty"`
@@ -123,7 +124,7 @@ type DeploymentV1_1 struct {
 }
 
 type RuntimeInfo struct {
-	Type    string  `json:"type"` // "static"|"golang"|"php"|"python"|"nodejs"|"ruby"|"dotnet"|"java"
+	Type    string  `json:"type"` // "golang"|"php"|"python"|"nodejs"|"ruby"|"dotnet"|"java"
 	Version *string `json:"version,omitempty"`
 }
 
@@ -142,6 +143,7 @@ type ServiceV1_1 struct {
 	ID             string            `json:"id"`
 	Name           string            `json:"name"`
 	Description    string            `json:"description"`
+	Type           string            `json:"type"`
 	Runtime        string            `json:"runtime"`
 	RuntimeVersion *string           `json:"runtime_version,omitempty"`
 	Port           int               `json:"port"`

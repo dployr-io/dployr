@@ -109,12 +109,22 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		return err
 	}
 
-	shared.LogInfoF(id, logPath, "cloning repository")
-	err = deploy.CloneRepo(d.Blueprint.Remote, workingDir, d.Blueprint.WorkingDir, w.cfg)
-	if err != nil {
-		err = fmt.Errorf("failed to clone repository: %s", err)
-		shared.LogErrF(id, logPath, err)
-		return err
+	if d.Blueprint.Source == "remote" {
+		shared.LogInfoF(id, logPath, "cloning repository")
+		err = deploy.CloneRepo(d.Blueprint.Remote, workingDir, d.Blueprint.WorkingDir, w.cfg)
+		if err != nil {
+			err = fmt.Errorf("failed to clone repository: %s", err)
+			shared.LogErrF(id, logPath, err)
+			return err
+		}
+	} else {
+		shared.LogInfoF(id, logPath, "pulling image")
+		err = deploy.PullImage(d.Blueprint.Image, d.Blueprint.WorkingDir, w.cfg)
+		if err != nil {
+			err = fmt.Errorf("failed to pull image: %s", err)
+			shared.LogErrF(id, logPath, err)
+			return err
+		}
 	}
 
 	// Set the working directory for the service
@@ -146,21 +156,22 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	bp := store.Blueprint{
-		Name:       svcName,
-		Desc:       d.Blueprint.Desc,
-		Source:     d.Blueprint.Source,
-		Runtime:    d.Blueprint.Runtime,
-		Remote:     d.Blueprint.Remote,
-		RunCmd:     d.Blueprint.RunCmd,
-		BuildCmd:   d.Blueprint.BuildCmd,
-		Port:       d.Blueprint.Port,
-		WorkingDir: dir,
-		StaticDir:  d.Blueprint.StaticDir,
-		Image:      d.Blueprint.Image,
-		EnvVars:    d.Blueprint.EnvVars,
-		Secrets:    d.Blueprint.Secrets,
-		Status:     d.Blueprint.Status,
-		ProjectID:  d.Blueprint.ProjectID,
+		Name:           svcName,
+		Desc:           d.Blueprint.Desc,
+		Source:         d.Blueprint.Source,
+		Type:           d.Blueprint.Type,
+		Runtime:        d.Blueprint.Runtime,
+		Remote:         d.Blueprint.Remote,
+		RunCmd:         d.Blueprint.RunCmd,
+		BuildCmd:       d.Blueprint.BuildCmd,
+		Port:           d.Blueprint.Port,
+		WorkingDir:     dir,
+		StaticDir:      d.Blueprint.StaticDir,
+		Image:          d.Blueprint.Image,
+		EnvVars:        d.Blueprint.EnvVars,
+		Secrets:        d.Blueprint.Secrets,
+		Status:         d.Blueprint.Status,
+		ProjectID:      d.Blueprint.ProjectID,
 	}
 
 	shared.LogInfoF(id, logPath, "deploying application (runtime setup, build, service installation)")
@@ -175,7 +186,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		ID:             svcName,
 		Name:           d.Blueprint.Name,
 		Description:    d.Blueprint.Desc,
-		Source:         d.Blueprint.Source,
+		Source:         string(d.Blueprint.Type),
 		Runtime:        d.Blueprint.Runtime.Type,
 		RuntimeVersion: d.Blueprint.Runtime.Version,
 		RunCmd:         d.Blueprint.RunCmd,
