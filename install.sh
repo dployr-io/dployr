@@ -328,10 +328,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Extract daemon API endpoint from BASE_URL
-# Supports: http://localhost:7879, http://192.168.1.1:7879, etc.
-DAEMON_API_URL="$BASE_URL"
-
 register_instance() {
     local token="$1"
 
@@ -737,6 +733,7 @@ MKDIR=$(command -v mkdir)
 RM=$(command -v rm)
 CP=$(command -v cp)
 CHMOD=$(command -v chmod)
+DOCKER=$(command -v docker)
 
 for cmd in SYSTEMCTL TEE CADDY MKDIR RM CP CHMOD; do
     [[ -z "${!cmd}" ]] && error "Command $cmd not found"
@@ -754,6 +751,7 @@ dployrd ALL=(ALL) NOPASSWD: $CP *
 dployrd ALL=(ALL) NOPASSWD: $CHMOD *
 dployrd ALL=(ALL) NOPASSWD: $TEE *
 dployrd ALL=(ALL) NOPASSWD: $CADDY validate --config /var/lib/dployrd/.dployr/caddy/Caddyfile --adapter caddyfile
+dployrd ALL=(ALL) NOPASSWD: $DOCKER *
 EOF
 chmod 440 /etc/sudoers.d/dployr
 
