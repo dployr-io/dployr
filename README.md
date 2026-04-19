@@ -1,4 +1,4 @@
-# dployr
+# Dployr
 
 *Your app, your server, your rules!*
 
@@ -11,7 +11,7 @@
 
 ## Overview
 
-dployr is a self‑hosted platform with a globally distributed control‑plane (“base”) and lightweight agents that run on your infrastructure.
+Dployr is a self‑hosted platform with a globally distributed control‑plane (“base”) and lightweight daemon that run on your infrastructure.
 
 You interact with base through:
 - The web dashboard (dployr‑app), or

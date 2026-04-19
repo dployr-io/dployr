@@ -783,7 +783,7 @@ paths:
       description: |
         Update the high-level mode of the daemon.
 
-        This endpoint is intended for **agent role** automation only.
+        This endpoint is intended for **node role** automation only.
 
         - `ready`: resume normal operation.
         - `updating`: enter an update window; the syncer will stop
@@ -1582,7 +1582,7 @@ components:
 
     ProxyApp:
       type: object
-      description: Declarative proxy configuration served by the agent.
+      description: Declarative proxy configuration served by the node.
       properties:
         domain:
           type: string
@@ -1640,12 +1640,12 @@ components:
             $ref: '#/components/schemas/Deployment'
         services:
           type: array
-          description: Services currently configured on the agent.
+          description: Services currently configured on the node.
           items:
             $ref: '#/components/schemas/Service'
         proxies:
           type: array
-          description: Active proxy applications exposed by the agent.
+          description: Active proxy applications exposed by the node.
           items:
             $ref: '#/components/schemas/ProxyApp'
         proxy:
@@ -1717,9 +1717,9 @@ components:
               type: object
               nullable: true
               properties:
-                agent_token_age_s:
+                node_token_age_s:
                   type: integer
-                agent_token_expires_in_s:
+                node_token_expires_in_s:
                   type: integer
             system:
               type: object
@@ -2067,7 +2067,7 @@ components:
         - `request_id`: Correlates a log line with a specific HTTP/API request.
         - `trace_id`: End-to-end trace identifier used across components.
         - `user_id`: Authenticated user identifier (when available).
-        - `instance_id`: Daemon/agent instance identifier.
+        - `instance_id`: Instance identifier for node this daemon is running.
         - `deployment_id`: Identifier of the related deployment.
         - `log_type`: High-level category for the log (for example, `deployment`).
         - `component`: Subsystem emitting the log (for example, `installer`,
@@ -2172,7 +2172,7 @@ components:
       type: object
       description: |
         Batch of structured log entries sent as a log_chunk message over the
-        agent WebSocket connection or used by higher-level log streaming APIs.
+        node WebSocket connection or used by higher-level log streaming APIs.
       properties:
         streamId:
           type: string
@@ -2224,13 +2224,13 @@ components:
           type: string
           example: "go1.23.0"
 
-    AgentHello:
+    NodeHello:
       type: object
-      description: Initial hello message sent by the agent over WebSocket.
+      description: Initial hello message sent by the node over WebSocket.
       properties:
         schema:
           type: string
-          example: "agent.hello.v1"
+          example: "node.hello.v1"
         instance_id:
           type: string
           example: "inst_01HXYZABCDEF123456"
@@ -2247,9 +2247,9 @@ components:
           type: array
           items:
             type: string
-          example: ["agent.update.v1"]
+          example: ["node.update.v1"]
 
-    AgentUpdate:
+    NodeUpdate:
       description: Periodic status update sent by the daemon over WebSocket.
       allOf:
         - type: object
@@ -2413,10 +2413,10 @@ components:
           description: Owner group ID
         readable:
           type: boolean
-          description: Whether the agent can read this file
+          description: Whether the node can read this file
         writable:
           type: boolean
-          description: Whether the agent can write to this file
+          description: Whether the node can write to this file
         executable:
           type: boolean
           description: Whether this file is executable
@@ -2653,7 +2653,7 @@ components:
     WSMessage:
       type: object
       description: |
-        Base WebSocket message exchanged between agent and base.
+        Base WebSocket message exchanged between node and base.
         The message type is determined by the `kind` field.
       discriminator:
         propertyName: kind
@@ -2693,8 +2693,8 @@ components:
           format: date-time
         is_full_sync:
           type: boolean
-        agent:
-          $ref: '#/components/schemas/AgentInfo'
+        node:
+          $ref: '#/components/schemas/NodeInfo'
         status:
           $ref: '#/components/schemas/StatusInfo'
         health:
@@ -2712,7 +2712,7 @@ components:
         diagnostics:
           $ref: '#/components/schemas/DiagnosticsInfo'
 
-    AgentInfo:
+    NodeInfo:
       type: object
       required: [version, commit, build_date, go_version, os, arch]
       properties:
