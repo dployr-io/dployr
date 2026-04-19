@@ -604,8 +604,10 @@ case $OS in
         done
         
         if ! id "dployrd" &>/dev/null; then
-            useradd --system --create-home --shell /bin/bash -G dployr-admin dployrd
+            useradd --system --create-home --shell /bin/bash -G dployr-admin,docker dployrd
             log_json "info" "Created dployrd system user"
+        else
+            usermod -aG docker dployrd 2>/dev/null || true
         fi
         
         mkdir -p /var/log/dployrd /var/lib/dployrd
