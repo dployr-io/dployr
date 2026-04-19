@@ -259,8 +259,8 @@ try {
     
     # Install service
     & $nssmPath install dployrd $dployrdPath
-    & $nssmPath set dployrd DisplayName "dployr Daemon"
-    & $nssmPath set dployrd Description "dployr deployment management daemon"
+    & $nssmPath set dployrd DisplayName "Dployr Daemon"
+    & $nssmPath set dployrd Description "Dployr deployment management daemon"
     & $nssmPath set dployrd Start SERVICE_AUTO_START
     
     # Start the service

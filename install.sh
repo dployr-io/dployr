@@ -629,7 +629,7 @@ case $OS in
 
         cat > /etc/systemd/system/dployrd.service << 'EOF'
 [Unit]
-Description=dployr Daemon
+Description=Dployr Daemon
 After=network.target
 
 [Service]
