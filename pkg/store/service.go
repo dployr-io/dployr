@@ -43,7 +43,6 @@ type Service struct {
 	WorkingDir     string            `json:"working_dir,omitempty" db:"working_dir"`
 	StaticDir      string            `json:"static_dir,omitempty" db:"static_dir"`
 	Image          string            `json:"image,omitempty" db:"image"`
-	ServiceManager string            `json:"service_manager,omitempty" db:"service_manager"`
 	EnvVars        map[string]string `json:"env_vars,omitempty"`
 	Secrets        map[string]string `json:"secrets,omitempty"`
 	Remote         string            `json:"remote,omitempty" db:"remote_url"`

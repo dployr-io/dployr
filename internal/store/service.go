@@ -27,8 +27,8 @@ func (s ServiceStore) createService(ctx context.Context, svc *store.Service) (*s
 	stmt, err := s.db.PrepareContext(ctx, `
 		INSERT INTO services
 		(id, name, description, source, runtime, runtime_version, run_cmd, build_cmd, working_dir,
-		static_dir, image, service_manager, remote_url, remote_branch, remote_commit_hash, deployment_id, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		static_dir, image, remote_url, remote_branch, remote_commit_hash, deployment_id, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func (s ServiceStore) createService(ctx context.Context, svc *store.Service) (*s
 	}
 
 	_, err = stmt.ExecContext(ctx, svc.ID, svc.Name, svc.Description, svc.Source, svc.Runtime, svc.RuntimeVersion, svc.RunCmd, svc.BuildCmd,
-		svc.WorkingDir, svc.StaticDir, svc.Image, svc.ServiceManager, svc.Remote, svc.Branch, svc.CommitHash, svc.DeploymentId, createdAt.Unix(), updatedAt.Unix())
+		svc.WorkingDir, svc.StaticDir, svc.Image, svc.Remote, svc.Branch, svc.CommitHash, svc.DeploymentId, createdAt.Unix(), updatedAt.Unix())
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func (s ServiceStore) createService(ctx context.Context, svc *store.Service) (*s
 func (s ServiceStore) GetService(ctx context.Context, name string) (*store.Service, error) {
 	stmt, err := s.db.PrepareContext(ctx, `
 		SELECT id, name, description, source, runtime, runtime_version, run_cmd, build_cmd, working_dir,
-		       static_dir, image, service_manager, remote_url, remote_branch, remote_commit_hash, deployment_id, created_at, updated_at
+		       static_dir, image, remote_url, remote_branch, remote_commit_hash, deployment_id, created_at, updated_at
 		FROM services WHERE name = ?`)
 	if err != nil {
 		return nil, err
@@ -65,10 +65,10 @@ func (s ServiceStore) GetService(ctx context.Context, name string) (*store.Servi
 
 	var svc store.Service
 	var createdAtUnix, updatedAtUnix int64
-	var description, runCmd, buildCmd, staticDir, image, serviceManager, remoteURL, remoteBranch, remoteCommitHash, deploymentID sql.NullString
+	var description, runCmd, buildCmd, staticDir, image, remoteURL, remoteBranch, remoteCommitHash, deploymentID sql.NullString
 	err = row.Scan(
 		&svc.ID, &svc.Name, &description, &svc.Source, &svc.Runtime, &svc.RuntimeVersion, &runCmd, &buildCmd,
-		&svc.WorkingDir, &staticDir, &image, &serviceManager, &remoteURL, &remoteBranch,
+		&svc.WorkingDir, &staticDir, &image, &remoteURL, &remoteBranch,
 		&remoteCommitHash, &deploymentID, &createdAtUnix, &updatedAtUnix,
 	)
 	if err != nil {
@@ -79,7 +79,6 @@ func (s ServiceStore) GetService(ctx context.Context, name string) (*store.Servi
 	svc.BuildCmd = buildCmd.String
 	svc.StaticDir = staticDir.String
 	svc.Image = image.String
-	svc.ServiceManager = serviceManager.String
 	svc.Remote = remoteURL.String
 	svc.Branch = remoteBranch.String
 	svc.CommitHash = remoteCommitHash.String
@@ -103,7 +102,7 @@ func (s ServiceStore) GetService(ctx context.Context, name string) (*store.Servi
 func (s ServiceStore) ListServices(ctx context.Context, limit, offset int) ([]*store.Service, error) {
 	stmt, err := s.db.PrepareContext(ctx, `
 		SELECT id, name, description, source, runtime, runtime_version, run_cmd, build_cmd, working_dir,
-		       static_dir, image, service_manager, remote_url, remote_branch, remote_commit_hash, deployment_id, created_at, updated_at
+		       static_dir, image, remote_url, remote_branch, remote_commit_hash, deployment_id, created_at, updated_at
 		FROM services
 		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?`)
@@ -122,10 +121,10 @@ func (s ServiceStore) ListServices(ctx context.Context, limit, offset int) ([]*s
 	for rows.Next() {
 		var svc store.Service
 		var createdAtUnix, updatedAtUnix int64
-		var description, runCmd, buildCmd, staticDir, image, serviceManager, remoteURL, remoteBranch, remoteCommitHash, deploymentID sql.NullString
+		var description, runCmd, buildCmd, staticDir, image, remoteURL, remoteBranch, remoteCommitHash, deploymentID sql.NullString
 		err := rows.Scan(
 			&svc.ID, &svc.Name, &description, &svc.Source, &svc.Runtime, &svc.RuntimeVersion, &runCmd, &buildCmd,
-			&svc.WorkingDir, &staticDir, &image, &serviceManager, &remoteURL, &remoteBranch,
+			&svc.WorkingDir, &staticDir, &image, &remoteURL, &remoteBranch,
 			&remoteCommitHash, &deploymentID, &createdAtUnix, &updatedAtUnix,
 		)
 		if err != nil {
@@ -169,7 +168,7 @@ func (s ServiceStore) updateService(ctx context.Context, svc *store.Service) err
 	stmt, err := s.db.PrepareContext(ctx, `
 		UPDATE services 
 		SET name = ?, description = ?, source = ?, runtime = ?, runtime_version = ?, run_cmd = ?, build_cmd = ?, 
-		    working_dir = ?, static_dir = ?, image = ?, service_manager = ?, remote_url = ?, remote_branch = ?, 
+		    working_dir = ?, static_dir = ?, image = ?, remote_url = ?, remote_branch = ?, 
 			remote_commit_hash = ?, deployment_id = ?, updated_at = ? 
 		WHERE id = ?`)
 	if err != nil {
@@ -178,7 +177,7 @@ func (s ServiceStore) updateService(ctx context.Context, svc *store.Service) err
 	defer stmt.Close()
 
 	_, err = stmt.ExecContext(ctx, svc.Name, svc.Description, svc.Source, svc.Runtime, svc.RuntimeVersion, svc.RunCmd, svc.BuildCmd,
-		svc.WorkingDir, svc.StaticDir, svc.Image, svc.ServiceManager, svc.Remote, svc.Branch, svc.CommitHash, svc.DeploymentId,
+		svc.WorkingDir, svc.StaticDir, svc.Image, svc.Remote, svc.Branch, svc.CommitHash, svc.DeploymentId,
 		svc.UpdatedAt.Unix(), svc.ID)
 	return err
 }
