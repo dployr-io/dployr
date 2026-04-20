@@ -45,12 +45,6 @@ case "$action" in
             create_cmd+=(-p "${port}:${port}")
         fi
 
-        # Mount workdir as volume
-        if [ -d "$workdir" ]; then
-            create_cmd+=(-v "${workdir}:/app")
-            create_cmd+=(-w /app)
-        fi
-
         # Env file if exists
         if [ -f "$env_file" ]; then
             create_cmd+=(--env-file "$env_file")

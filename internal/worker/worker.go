@@ -156,22 +156,22 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	bp := store.Blueprint{
-		Name:           svcName,
-		Desc:           d.Blueprint.Desc,
-		Source:         d.Blueprint.Source,
-		Type:           d.Blueprint.Type,
-		Runtime:        d.Blueprint.Runtime,
-		Remote:         d.Blueprint.Remote,
-		RunCmd:         d.Blueprint.RunCmd,
-		BuildCmd:       d.Blueprint.BuildCmd,
-		Port:           d.Blueprint.Port,
-		WorkingDir:     dir,
-		StaticDir:      d.Blueprint.StaticDir,
-		Image:          d.Blueprint.Image,
-		EnvVars:        d.Blueprint.EnvVars,
-		Secrets:        d.Blueprint.Secrets,
-		Status:         d.Blueprint.Status,
-		ProjectID:      d.Blueprint.ProjectID,
+		Name:       svcName,
+		Desc:       d.Blueprint.Desc,
+		Source:     d.Blueprint.Source,
+		Type:       d.Blueprint.Type,
+		Runtime:    d.Blueprint.Runtime,
+		Remote:     d.Blueprint.Remote,
+		RunCmd:     d.Blueprint.RunCmd,
+		BuildCmd:   d.Blueprint.BuildCmd,
+		Port:       d.Blueprint.Port,
+		WorkingDir: dir,
+		StaticDir:  d.Blueprint.StaticDir,
+		Image:      d.Blueprint.Image,
+		EnvVars:    d.Blueprint.EnvVars,
+		Secrets:    d.Blueprint.Secrets,
+		Status:     d.Blueprint.Status,
+		ProjectID:  d.Blueprint.ProjectID,
 	}
 
 	shared.LogInfoF(id, logPath, "deploying application")
@@ -186,7 +186,8 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		ID:             svcName,
 		Name:           d.Blueprint.Name,
 		Description:    d.Blueprint.Desc,
-		Source:         string(d.Blueprint.Type),
+		Source:         d.Blueprint.Source,
+		Type:           d.Blueprint.Type,
 		Runtime:        d.Blueprint.Runtime.Type,
 		RuntimeVersion: d.Blueprint.Runtime.Version,
 		RunCmd:         d.Blueprint.RunCmd,
@@ -204,6 +205,8 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
+
+	w.logger.Info("saving service", "source", req.Source, "type", req.Type)
 
 	_, err = w.svcStore.SaveService(ctx, req)
 	if err != nil {

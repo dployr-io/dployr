@@ -26,8 +26,8 @@ IMAGE="${12:-}"
 STATIC_DIR="${13:-}"
 
 # --- logging ---
-log() { echo "[INFO] $*"; }
-warn() { echo "[WARN] $*"; }
+log() { echo "[INFO] $*" >&2; }
+warn() { echo "[WARN] $*" >&2; }
 abort() { echo "[ERROR] $*" >&2; exit 1; }
 
 # --- detect runtime backend ---
@@ -384,6 +384,157 @@ runtime_to_image() {
     esac
 }
 
+runtime_to_dockerfile() {
+    local runtime="$1"
+    local version="$2"
+    local port="$3"
+    local build_cmd="$4"
+    local run_cmd="$5"
+    
+    local image_ref
+    image_ref=$(runtime_to_image "$runtime" "$version")
+    
+    case "$runtime" in
+        nodejs)
+            if [ -n "$build_cmd" ]; then
+                cat <<EOF
+FROM ${image_ref}
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY . .
+
+${build_cmd:+RUN $build_cmd}
+
+ENV PORT=${port}
+
+CMD ${run_cmd:-}
+EOF
+            else
+                cat <<EOF
+FROM ${image_ref}
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY . .
+
+ENV PORT=${port}
+
+CMD ${run_cmd:-}
+EOF
+            fi
+            ;;
+        python)
+            cat <<EOF
+FROM ${image_ref}
+
+WORKDIR /app
+
+COPY requirements.txt ./
+
+RUN pip install -r requirements.txt
+
+COPY . .
+
+ENV PORT=${port}
+
+CMD ${run_cmd:-}
+EOF
+            ;;
+        golang)
+            cat <<EOF
+FROM ${image_ref}
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+
+RUN go mod download
+
+COPY . .
+
+ENV PORT=${port}
+
+RUN go build -o /app/bin ${run_cmd:-}
+
+CMD ["/app/bin"]
+EOF
+            ;;
+        php)
+            cat <<EOF
+FROM ${image_ref}
+
+WORKDIR /app
+
+COPY composer.* ./
+
+RUN if [ -f composer.lock ]; then composer install --no-dev --optimize-autoloader; fi
+
+COPY . .
+
+ENV PORT=${port}
+
+CMD ${run_cmd:-}
+EOF
+            ;;
+        ruby)
+            cat <<EOF
+FROM ${image_ref}
+
+WORKDIR /app
+
+COPY Gemfile* ./
+
+RUN if [ -f Gemfile ]; then bundle install; fi
+
+COPY . .
+
+ENV PORT=${port}
+
+CMD ${run_cmd:-}
+EOF
+            ;;
+        java)
+            cat <<EOF
+FROM ${image_ref}
+
+WORKDIR /app
+
+COPY pom.xml ./
+
+RUN if [ -f pom.xml ]; then mvn dependency:go-offline -B; fi
+
+COPY . .
+
+ENV PORT=${port}
+
+CMD ${run_cmd:-}
+EOF
+            ;;
+        *)
+            cat <<EOF
+FROM ${image_ref}
+
+WORKDIR /app
+
+COPY . .
+
+ENV PORT=${port}
+
+CMD ${run_cmd:-}
+EOF
+            ;;
+    esac
+}
+
 ensure_docker() {
     if ! command -v docker &> /dev/null; then
         log "Docker not found. Installing..."
@@ -402,7 +553,7 @@ ensure_docker() {
         log "Docker installed successfully"
     fi
     
-    if ! docker info &> /dev/null; then
+    if ! docker -v >/dev/null 2>&1; then
         abort "Docker daemon not running. Please start docker and try again."
     fi
     
@@ -415,6 +566,8 @@ docker_build_image() {
     local runtime="$3"
     local version="$4"
     local port="$5"
+    local build_cmd="$6"
+    local run_cmd="$7"
     
     local image_ref
     image_ref=$(runtime_to_image "$runtime" "$version")
@@ -425,23 +578,14 @@ docker_build_image() {
     
     local dockerfile="${workdir}/Dockerfile"
     if [ ! -f "$dockerfile" ]; then
-        cat > "$dockerfile" <<EOF
-FROM ${image_ref}
-
-WORKDIR /app
-
-COPY . .
-
-ENV PORT=${port}
-
-CMD ["${RUN_CMD:-}"]
-EOF
+        log "Generating Dockerfile for runtime: $runtime"
+        runtime_to_dockerfile "$runtime" "$version" "$port" "$build_cmd" "$run_cmd" > "$dockerfile"
         log "Created Dockerfile from template"
     fi
     
     cd "$workdir" || abort "cannot cd into workdir: $workdir"
     
-    if ! docker build -t "$image_name" .; then
+    if ! docker build --no-cache -t "$image_name" .; then
         abort "Docker build failed"
     fi
     
@@ -508,13 +652,18 @@ docker_create_container() {
     local type="$7"
     local static_dir="$8"
     
+    [ -z "$name" ] && abort "container name required"
+    [ -z "$image" ] && abort "image name required"
+    [ -z "$workdir" ] && abort "working directory required"
+    
     log "Creating Docker container: $name (type: $type)"
+    log "Image: $image"
     
     docker rm -f "$name" 2>/dev/null || true
     
     local create_cmd=(docker run -d --name "$name" --restart unless-stopped)
     
-    if [ -n "$port" ] && [ "$port" -ne 0 ] 2>/dev/null; then
+    if [ -n "$port" ] && [ "$port" != "0" ]; then
         create_cmd+=(-p "${port}:${port}")
     fi
     
@@ -539,16 +688,8 @@ docker_create_container() {
             create_cmd+=("caddy:2-alpine" "caddy" "file-server" "--root-dir" "/srv")
         fi
     elif [ -n "$run_cmd" ]; then
-        if [ -d "$workdir" ]; then
-            create_cmd+=(-v "${workdir}:/app")
-            create_cmd+=(-w /app)
-        fi
         create_cmd+=("$image" bash -c "$run_cmd")
     else
-        if [ -d "$workdir" ]; then
-            create_cmd+=(-v "${workdir}:/app")
-            create_cmd+=(-w /app)
-        fi
         create_cmd+=("$image")
     fi
     
@@ -651,8 +792,7 @@ deploy_docker() {
         image=$(docker_pull_image "$IMAGE")
     else
         log "Building image from workdir"
-        run_build "$WORKDIR" "$BUILD_CMD"
-        image=$(docker_build_image "$WORKDIR" "$SERVICE_NAME" "$RUNTIME" "$VERSION" "$PORT")
+        image=$(docker_build_image "$WORKDIR" "$SERVICE_NAME" "$RUNTIME" "$VERSION" "$PORT" "$BUILD_CMD" "$RUN_CMD")
     fi
     
     docker_create_container "$SERVICE_NAME" "$image" "$WORKDIR" "$PORT" "$RUN_CMD" "$DESCRIPTION" "$TYPE" "$STATIC_DIR"

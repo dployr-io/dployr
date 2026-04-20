@@ -33,7 +33,7 @@ type Service struct {
 	ID             string            `json:"id" db:"id"`
 	Name           string            `json:"name" db:"name"`
 	Description    string            `json:"description" db:"description"`
-	Source         string            `json:"source" db:"source"`
+	Source         Source            `json:"source" db:"source"`
 	Type           ServiceType       `json:"type" db:"type"`
 	Runtime        Runtime           `json:"runtime" db:"runtime"`
 	RuntimeVersion string            `json:"runtime_version,omitempty" db:"runtime_version"`
