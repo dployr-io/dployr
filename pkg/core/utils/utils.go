@@ -248,6 +248,7 @@ func GetDataDir() string {
 	}
 }
 
+// FormatName converts a string to a lowercase URL-safe slug (e.g., "My App v2.0 (Beta)" -> "my-app-v2-0-beta").
 func FormatName(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
 	s = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(s, "-")
