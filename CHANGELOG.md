@@ -1,3 +1,39 @@
+## [0.6.0] - 2026-04-20
+
+### 🚀 Features
+
+- *(api)* Simplify supported runtime types
+- *(core)* Add docker runtime support and service types
+- *(install)* Add Docker command permissions to sudoers configuration
+- *(install)* Add docker group to dployrd user creation and modification
+- *(deploy)* Implement dynamic Dockerfile generation and runtime templates
+- *(worker)* Integrate proxy route registration after deployment
+
+### 🐛 Bug Fixes
+
+- *(install)* Improve error logging for instance registration failures
+
+### 🚜 Refactor
+
+- *(web)* Clean comments
+- *(core)* Rename agent to node throughout the codebase
+- *(core)* Simplify supported runtime types
+- *(store)* Remove service_manager field from service model
+
+### 📚 Documentation
+
+- *(service)* Update comments
+- *(api)* Update terminology in documentation and schema
+- *(api)* Update openapi schema for service types and sources
+- *(utils)* Add comment
+
+### 🎨 Styling
+
+- *(install)* Capitalize "Dployr" in service descriptions
+
+### ⚙️ Miscellaneous Tasks
+
+- *(worker)* Simplify deployment log message
 ## [0.5.11] - 2026-01-18
 
 ### 🚜 Refactor
