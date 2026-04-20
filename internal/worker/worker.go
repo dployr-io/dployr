@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dployr-io/dployr/pkg/core/proxy"
 	"github.com/dployr-io/dployr/pkg/core/service"
 	"github.com/dployr-io/dployr/pkg/core/utils"
 	"github.com/dployr-io/dployr/pkg/shared"
@@ -24,6 +25,7 @@ type Worker struct {
 	logger        *shared.Logger
 	depsStore     store.DeploymentStore
 	svcStore      store.ServiceStore
+	proxyAPI      proxy.HandleProxy
 	cfg           *shared.Config
 	semaphore     *shared.Semaphore
 	activeJobs    map[string]bool
@@ -32,12 +34,13 @@ type Worker struct {
 }
 
 // New creates a new Worker instance
-func New(m int, c *shared.Config, l *shared.Logger, d store.DeploymentStore, s store.ServiceStore) *Worker {
+func New(m int, c *shared.Config, l *shared.Logger, d store.DeploymentStore, s store.ServiceStore, p proxy.HandleProxy) *Worker {
 	return &Worker{
 		maxConcurrent: m,
 		logger:        l,
 		depsStore:     d,
 		svcStore:      s,
+		proxyAPI:      p,
 		cfg:           c,
 		semaphore:     shared.NewSemaphore(m),
 		activeJobs:    make(map[string]bool),
@@ -216,7 +219,41 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	}
 
 	shared.LogInfoF(id, logPath, fmt.Sprintf("successfully deployed %s", d.Blueprint.Name))
+
+	if err := w.registerProxyRoute(ctx, req); err != nil {
+		w.logger.Warn("failed to register proxy route for service", "service", req.Name, "error", err)
+	}
+
 	w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusCompleted))
+
+	return nil
+}
+
+func (w *Worker) registerProxyRoute(ctx context.Context, svc *store.Service) error {
+	if w.proxyAPI == nil {
+		return nil
+	}
+
+	serviceName := utils.FormatName(svc.Name)
+	serviceDomain := serviceName + ".dployr.dev"
+
+	upstream := fmt.Sprintf("localhost:%d", svc.Port)
+	if svc.Port == 0 {
+		return fmt.Errorf("port is not set")
+	}
+
+	app := proxy.App{
+		Domain:   serviceDomain,
+		Upstream: upstream,
+		Template: proxy.TemplateReverseProxy,
+	}
+
+	w.logger.Info("registering proxy route", "domain", serviceDomain, "upstream", upstream)
+
+	apps := map[string]proxy.App{serviceDomain: app}
+	if err := w.proxyAPI.Add(apps); err != nil {
+		return fmt.Errorf("failed to add proxy route: %w", err)
+	}
 
 	return nil
 }

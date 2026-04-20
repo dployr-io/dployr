@@ -99,7 +99,7 @@ func TestWorker_New(t *testing.T) {
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
 
-	worker := New(5, cfg, logger, deployStore, svcStore)
+	worker := New(5, cfg, logger, deployStore, svcStore, nil)
 
 	if worker == nil {
 		t.Fatal("expected non-nil worker")
@@ -120,7 +120,7 @@ func TestWorker_Submit(t *testing.T) {
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
 
-	worker := New(2, cfg, logger, deployStore, svcStore)
+	worker := New(2, cfg, logger, deployStore, svcStore, nil)
 
 	t.Run("submit job to queue", func(t *testing.T) {
 		worker.Submit("test-job-1")
@@ -134,7 +134,7 @@ func TestWorker_Submit(t *testing.T) {
 	})
 
 	t.Run("submit multiple jobs", func(t *testing.T) {
-		worker2 := New(2, cfg, logger, deployStore, svcStore)
+		worker2 := New(2, cfg, logger, deployStore, svcStore, nil)
 
 		worker2.Submit("job-1")
 		worker2.Submit("job-2")
@@ -154,7 +154,7 @@ func TestWorker_ActiveJobs(t *testing.T) {
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
 
-	worker := New(2, cfg, logger, deployStore, svcStore)
+	worker := New(2, cfg, logger, deployStore, svcStore, nil)
 
 	t.Run("mark job as active", func(t *testing.T) {
 		worker.markActive("job-1")
@@ -203,7 +203,7 @@ func TestWorker_Semaphore(t *testing.T) {
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
 
 	t.Run("semaphore limits concurrent jobs", func(t *testing.T) {
-		worker := New(2, cfg, logger, deployStore, svcStore)
+		worker := New(2, cfg, logger, deployStore, svcStore, nil)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
@@ -268,7 +268,7 @@ func TestWorker_StatusUpdates(t *testing.T) {
 	}
 	deployStore.CreateDeployment(context.Background(), deployment)
 
-	worker := New(1, cfg, logger, deployStore, svcStore)
+	worker := New(1, cfg, logger, deployStore, svcStore, nil)
 	ctx := context.Background()
 
 	t.Run("status updates during execution", func(t *testing.T) {
@@ -300,7 +300,7 @@ func TestWorker_ContextCancellation(t *testing.T) {
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
 
-	worker := New(2, cfg, logger, deployStore, svcStore)
+	worker := New(2, cfg, logger, deployStore, svcStore, nil)
 
 	t.Run("worker stops on context cancellation", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -333,7 +333,7 @@ func TestWorker_DuplicateJobPrevention(t *testing.T) {
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
 
-	worker := New(2, cfg, logger, deployStore, svcStore)
+	worker := New(2, cfg, logger, deployStore, svcStore, nil)
 
 	// Mark a job as active
 	worker.markActive("duplicate-job")

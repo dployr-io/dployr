@@ -63,8 +63,11 @@ func main() {
 
 	ctx := context.Background()
 
+	proxyState := _proxy.LoadState()
+	ps := _proxy.Init(proxyState, logger)
+
 	workerMaxConcurrent := 5
-	w := worker.New(workerMaxConcurrent, cfg, logger, ds, ss)
+	w := worker.New(workerMaxConcurrent, cfg, logger, ds, ss, ps)
 
 	as := _auth.Init(cfg, is)
 	am := auth.NewMiddleware(as)
@@ -73,8 +76,6 @@ func main() {
 	deployer := deploy.NewDeployer(cfg, logger, ds, api)
 	dh := deploy.NewDeploymentHandler(deployer, logger)
 
-	proxyState := _proxy.LoadState()
-	ps := _proxy.Init(proxyState, logger)
 	proxier := proxy.NewProxier(proxyState, ps)
 	ph := proxy.NewProxyHandler(proxier, logger)
 
