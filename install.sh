@@ -281,52 +281,94 @@ parse_json() {
 echo "dployr Unix Installer" >&3
 echo "====================" >&3
 
-if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+show_help() {
     cat >&3 << EOF
-Usage: $0 [--version <VERSION>] [--token <TOKEN>] [--base <URL>]
+Usage: $0 [options]
 
-Arguments:
-  --version, -v     Optional dployr version tag (default: latest)
-  --token, -t       Optional install token obtained from dployr base
-  --base, -b    Optional dployr base URL (default: https://base.dployr.io)
+Options:
+  -v, --version <tag>       Install a specific version (default: latest)
+  -t, --token <token>       Instance registration token
+  -b, --base <url>          Base API URL (overrides --env)
+  -i, --instance <id>       Instance ID for config
+  -e, --env <env>           Environment: prod (default), dev
+  -h, --help                Show this help
+
+Environment:
+  prod → https://base.dployr.io
+  dev  → https://base.dployr.dev
 
 Examples:
-  $0 --version v0.3.1-beta.9
-  $0 --version v0.3.1-beta.9 --token eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
-  $0 --token eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9... --base https://my-base.example.com
-
-Available versions: https://github.com/dployr-io/dployr/releases
+  $0
+  $0 -e dev
+  $0 -v v0.3.1 -t <token>
+  $0 -e dev -b https://custom.internal
 EOF
+}
+
+if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+    show_help
     exit 0
 fi
 
+ENVIRONMENT="prod"
+BASE_URL_EXPLICIT=0
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --version|-v)
+        -v|--version)
             [[ -z "$2" ]] && error "Missing value for $1"
             VERSION="$2"
             shift 2
             ;;
-        --token|-t)
+        -t|--token)
             [[ -z "$2" ]] && error "Missing value for $1"
             TOKEN="$2"
             shift 2
             ;;
-        --base|-b)
+        -b|--base)
             [[ -z "$2" ]] && error "Missing value for $1"
             BASE_URL="$2"
+            BASE_URL_EXPLICIT=1
             shift 2
             ;;
-        --instance|-i)
+        -i|--instance)
             [[ -z "$2" ]] && error "Missing value for $1"
             INSTANCE_ID="$2"
             shift 2
+            ;;
+        -e|--env)
+            [[ -z "$2" ]] && error "Missing value for $1"
+            ENVIRONMENT="$2"
+            shift 2
+            ;;
+        -h|--help)
+            show_help
+            exit 0
             ;;
         *)
             error "Unknown argument: $1"
             ;;
     esac
 done
+
+case "$ENVIRONMENT" in
+    prod)
+        DEFAULT_BASE_URL="https://base.dployr.io"
+        ;;
+    dev)
+        DEFAULT_BASE_URL="https://base.dployr.dev"
+        ;;
+    *)
+        error "Invalid environment: $ENVIRONMENT (expected: prod or dev)"
+        ;;
+esac
+
+if [[ $BASE_URL_EXPLICIT -eq 0 ]]; then
+    BASE_URL="$DEFAULT_BASE_URL"
+fi
+
+info "Environment: $ENVIRONMENT"
+info "Base URL: $BASE_URL"
 
 register_instance() {
     local token="$1"
