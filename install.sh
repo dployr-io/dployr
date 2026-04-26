@@ -648,7 +648,9 @@ case $OS in
         done
         
         if ! id "dployrd" &>/dev/null; then
-            useradd --system --create-home --shell /bin/bash -G dployr-admin,docker dployrd
+            _groups="dployr-admin"
+            getent group docker &>/dev/null && _groups="dployr-admin,docker"
+            useradd --system --create-home --shell /bin/bash -G "$_groups" dployrd
             log_json "info" "Created dployrd system user"
         else
             usermod -aG docker dployrd 2>/dev/null || true
@@ -698,7 +700,6 @@ EOF
     darwin)
         for group in dployr-owner dployr-admin dployr-dev dployr-viewer; do
             if ! dscl . -read /Groups/"$group" &>/dev/null; then
-                local gid
                 gid=$(dscl . -list /Groups PrimaryGroupID | awk '{print $2}' | sort -n | tail -1 | awk '{print $1+1}')
                 dscl . -create /Groups/"$group"
                 dscl . -create /Groups/"$group" PrimaryGroupID "$gid"
