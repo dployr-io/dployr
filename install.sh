@@ -44,7 +44,7 @@ VERSION="latest"
 TOKEN=""
 REPO="dployr-io/dployr"
 DPLOYR_DOMAIN=""
-BASE_URL="https://base.dployr.io"
+BASE_URL=""
 INSTANCE_ID=""
 
 RED='\033[0;31m'
