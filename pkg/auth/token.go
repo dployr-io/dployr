@@ -245,7 +245,7 @@ func ComputeAuthHealth(ctx context.Context, instStore store.InstanceStore) (heal
 	debug = &system.AuthDebug{
 		NodeTokenAgeS:      age,
 		NodeTokenExpiresIn: ttl,
-		BootstrapToken:      bTok,
+		BootstrapToken:     bTok,
 	}
 
 	if ttl == 0 {

@@ -101,7 +101,7 @@ type Syncer struct {
 	fs                  *FileSystem
 	topCollector        *TopCollector
 	executor            *Executor
-	nodeTokenBackoff   time.Duration
+	nodeTokenBackoff    time.Duration
 	workerMaxConcurrent int
 	workerActiveJobs    func() int
 	epoch               string

@@ -117,7 +117,7 @@ type TasksDebug struct {
 type AuthDebug struct {
 	NodeTokenAgeS      int64  `json:"node_token_age_s"`
 	NodeTokenExpiresIn int64  `json:"node_token_expires_in_s"`
-	BootstrapToken      string `json:"bootstrap_token"`
+	BootstrapToken     string `json:"bootstrap_token"`
 }
 
 // CertDebug provides debugging information about the instance's public certificate.

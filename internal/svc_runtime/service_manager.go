@@ -39,7 +39,7 @@ func GetSvcMgrName() string {
 		return "launchd on macOS"
 	case "windows":
 		return "NSSM on Windows"
-	case "docker": 
+	case "docker":
 		return "docker"
 	default:
 		return "systemd on Linux, launchd on macOS, or NSSM on Windows or docker"

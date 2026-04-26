@@ -36,22 +36,22 @@ type RemoteObj struct {
 }
 
 type Blueprint struct {
-	Name           string            `json:"name" db:"name"`
-	Desc           string            `json:"description" db:"description"`
-	Source         Source            `json:"source" db:"source"`
-	Type           ServiceType       `json:"type" db:"type"`
-	Runtime        RuntimeObj        `json:"runtime" db:"runtime"`
-	Remote         RemoteObj         `json:"remote" db:"remote"`
-	RunCmd         string            `json:"run_cmd,omitempty" db:"run_cmd"`
-	BuildCmd       string            `json:"build_cmd,omitempty" db:"build_cmd"`
-	Port           int               `json:"port" db:"port"`
-	WorkingDir     string            `json:"working_dir,omitempty" db:"working_dir"`
-	StaticDir      string            `json:"static_dir,omitempty" db:"static_dir"`
-	Image          string            `json:"image,omitempty" db:"image"`
-	EnvVars        map[string]string `json:"env_vars,omitempty" db:"env_vars"`
-	Secrets        map[string]string `json:"secrets,omitempty" db:"secrets"`
-	Status         string            `json:"status" db:"status"`
-	ProjectID      *string           `json:"project_id,omitempty" db:"project_id"`
+	Name       string            `json:"name" db:"name"`
+	Desc       string            `json:"description" db:"description"`
+	Source     Source            `json:"source" db:"source"`
+	Type       ServiceType       `json:"type" db:"type"`
+	Runtime    RuntimeObj        `json:"runtime" db:"runtime"`
+	Remote     RemoteObj         `json:"remote" db:"remote"`
+	RunCmd     string            `json:"run_cmd,omitempty" db:"run_cmd"`
+	BuildCmd   string            `json:"build_cmd,omitempty" db:"build_cmd"`
+	Port       int               `json:"port" db:"port"`
+	WorkingDir string            `json:"working_dir,omitempty" db:"working_dir"`
+	StaticDir  string            `json:"static_dir,omitempty" db:"static_dir"`
+	Image      string            `json:"image,omitempty" db:"image"`
+	EnvVars    map[string]string `json:"env_vars,omitempty" db:"env_vars"`
+	Secrets    map[string]string `json:"secrets,omitempty" db:"secrets"`
+	Status     string            `json:"status" db:"status"`
+	ProjectID  *string           `json:"project_id,omitempty" db:"project_id"`
 }
 
 type Deployment struct {

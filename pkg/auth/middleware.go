@@ -21,7 +21,7 @@ const (
 	RoleDeveloper Role = "developer"
 	RoleAdmin     Role = "admin"
 	RoleOwner     Role = "owner"
-	RoleNode     Role = "node" // M2M role for daemon-to-base communication
+	RoleNode      Role = "node" // M2M role for daemon-to-base communication
 )
 
 type Middleware struct {
