@@ -539,25 +539,27 @@ else
                 apt install -y -qq debian-keyring debian-archive-keyring apt-transport-https
 
                 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
-                    | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+                    | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
+                    || error "Failed to import Caddy GPG key"
 
                 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
-                    | tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null
+                    | tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null \
+                    || error "Failed to add Caddy apt repository"
 
                 while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
                     sleep 2
                 done
 
-                apt update -qq
-                apt install -y -qq caddy
-                
+                apt update -qq || error "apt update failed after adding Caddy repository"
+                apt install -y -qq caddy || error "Failed to install Caddy via apt"
+
                 info "Configuring Caddy systemd service..."
                 systemctl stop caddy 2>/dev/null || true
                 systemctl disable caddy 2>/dev/null || true
-                
+
                 info "Granting Caddy capability to bind to privileged ports..."
-                setcap cap_net_bind_service=+ep /usr/bin/caddy
-                
+                setcap cap_net_bind_service=+ep /usr/bin/caddy || warn "setcap failed; Caddy may not bind to ports 80/443 without root"
+
                 mkdir -p /etc/systemd/system/caddy.service.d
                 cat > /etc/systemd/system/caddy.service.d/override.conf << 'EOF'
 [Service]
@@ -568,8 +570,8 @@ ExecStart=/usr/bin/caddy run --config /var/lib/dployrd/.dployr/caddy/Caddyfile
 WorkingDirectory=/var/lib/dployrd
 ReadWritePaths=/var/lib/dployrd/.dployr
 EOF
-                
-                systemctl daemon-reload
+
+                systemctl daemon-reload || error "systemctl daemon-reload failed"
                 systemctl start caddy 2>/dev/null || true
             else
                 CADDY_URL="https://github.com/caddyserver/caddy/releases/latest/download/caddy_${OS}_${ARCH}.tar.gz"
