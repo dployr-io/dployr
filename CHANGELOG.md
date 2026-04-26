@@ -1,3 +1,17 @@
+## [0.6.1] - 2026-04-26
+
+### 🚀 Features
+
+- *(install)* Enhance help message and add install option for dev servers to connect to dev base
+- *(install)* Improve error handling for Caddy installation steps
+- *(install)* Enhance user creation logic to include docker group if it exists
+- *(install)* Improve apt command handling by redirecting input to avoid blocking
+- *(install)* Remove default base URL for improved flexibility
+- *(auth)* Add logger to ObtainNodeTokenWithBackoff for improved error handling
+
+### ⚙️ Miscellaneous Tasks
+
+- *(formatting)* Gofmt
 ## [0.6.0] - 2026-04-20
 
 ### 🚀 Features
