@@ -37,6 +37,8 @@ log_json() {
 log_json "info" "Installation started"
 log_json "info" "Logging to $LOG_FILE"
 
+export DEBIAN_FRONTEND=noninteractive
+
 INSTALL_DIR="/usr/local/bin"
 VERSION="latest"
 TOKEN=""
@@ -88,13 +90,13 @@ install_git() {
                     sleep 1
                 done
 
-                apt update -qq || warn "apt update failed while installing git"
+                apt update -qq < /dev/null || warn "apt update failed while installing git"
 
                 while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
                     sleep 1
                 done
 
-                apt install -y -qq git || error "Failed to install git via apt"
+                apt install -y -qq git < /dev/null || error "Failed to install git via apt"
             elif command -v yum &>/dev/null; then
                 yum install -y -q git || error "Failed to install git via yum"
             else
@@ -129,13 +131,13 @@ install_jq() {
                     sleep 1
                 done
 
-                apt update -qq || warn "apt update failed while installing jq; attempting fallback download"
+                apt update -qq < /dev/null || warn "apt update failed while installing jq; attempting fallback download"
 
                 while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
                     sleep 1
                 done
 
-                if ! apt install -y -qq jq; then
+                if ! apt install -y -qq jq < /dev/null; then
                     warn "apt install jq failed; falling back to static jq binary download"
                     local jq_url="https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64"
                     curl -sL "$jq_url" -o "$INSTALL_DIR/jq" || error "Failed to download jq binary from $jq_url"
@@ -535,8 +537,8 @@ else
                     sleep 2
                 done
 
-                apt update -qq
-                apt install -y -qq debian-keyring debian-archive-keyring apt-transport-https
+                apt update -qq < /dev/null
+                apt install -y -qq debian-keyring debian-archive-keyring apt-transport-https < /dev/null
 
                 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
                     | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
@@ -550,8 +552,8 @@ else
                     sleep 2
                 done
 
-                apt update -qq || error "apt update failed after adding Caddy repository"
-                apt install -y -qq caddy || error "Failed to install Caddy via apt"
+                apt update -qq < /dev/null || error "apt update failed after adding Caddy repository"
+                apt install -y -qq caddy < /dev/null || error "Failed to install Caddy via apt"
 
                 info "Configuring Caddy systemd service..."
                 systemctl stop caddy 2>/dev/null || true
