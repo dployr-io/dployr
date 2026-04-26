@@ -115,7 +115,7 @@ func (s *Syncer) Executor() *Executor {
 }
 
 func (s *Syncer) obtainNodeTokenWithBackoff(ctx context.Context, bootstrapToken string) (string, error) {
-	return pkgAuth.ObtainNodeTokenWithBackoff(ctx, s.cfg.BaseURL, bootstrapToken, &s.nodeTokenBackoff)
+	return pkgAuth.ObtainNodeTokenWithBackoff(ctx, s.cfg.BaseURL, bootstrapToken, &s.nodeTokenBackoff, s.logger)
 }
 
 func (s *Syncer) ensureAccessToken(ctx context.Context, bootstrapToken string) (string, error) {

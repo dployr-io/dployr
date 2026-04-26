@@ -17,6 +17,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/dployr-io/dployr/pkg/core/system"
+	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
 )
 
@@ -69,7 +70,7 @@ func FetchNodeToken(ctx context.Context, baseURL, bootstrapToken string) (string
 	return body.Data.Token, nil
 }
 
-func ObtainNodeTokenWithBackoff(ctx context.Context, baseURL, bootstrapToken string, backoffDuration *time.Duration) (string, error) {
+func ObtainNodeTokenWithBackoff(ctx context.Context, baseURL, bootstrapToken string, backoffDuration *time.Duration, logger *shared.Logger) (string, error) {
 	const (
 		maxBackoff   = 12 * time.Hour
 		startBackoff = time.Minute
@@ -84,6 +85,15 @@ func ObtainNodeTokenWithBackoff(ctx context.Context, baseURL, bootstrapToken str
 		if err == nil && strings.TrimSpace(token) != "" {
 			*backoffDuration = 0
 			return token, nil
+		}
+
+		if err != nil {
+			var httpErr *HTTPError
+			if errors.As(err, &httpErr) && (httpErr.StatusCode == http.StatusUnauthorized || httpErr.StatusCode == http.StatusForbidden) {
+				logger.Error("auth: bootstrap token rejected", "status", httpErr.StatusCode, "error", err)
+				return "", fmt.Errorf("bootstrap token rejected (status %d): %w", httpErr.StatusCode, err)
+			}
+			logger.Warn("auth: node token fetch failed, will retry", "attempt", attempt+1, "error", err)
 		}
 
 		if attempt < 3 {
@@ -105,6 +115,7 @@ func ObtainNodeTokenWithBackoff(ctx context.Context, baseURL, bootstrapToken str
 		}
 
 		sleep := jitter(*backoffDuration)
+		logger.Warn("auth: backing off node token fetch", "backoff", sleep.String())
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
