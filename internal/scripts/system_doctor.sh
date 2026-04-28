@@ -43,17 +43,29 @@ check_systemd_caddy() {
     warn "caddy.service not registered with systemd"
   fi
 
+  if ! command -v caddy >/dev/null 2>&1; then
+    err "caddy binary not found in PATH"
+    return 1
+  fi
+  log "caddy binary found: $(command -v caddy)"
+
   status=$(systemctl is-active caddy 2>/dev/null || echo "unknown")
   log "caddy service status: $status"
   if [ "$status" != "active" ]; then
-    warn "caddy service is not active"
-  fi
-
-  if command -v caddy >/dev/null 2>&1; then
-    log "caddy binary found: $(command -v caddy)"
-  else
-    err "caddy binary not found in PATH"
-    return 1
+    warn "caddy service is not active; attempting restart"
+    if systemctl restart caddy 2>/dev/null; then
+      sleep 2
+      status=$(systemctl is-active caddy 2>/dev/null || echo "unknown")
+      if [ "$status" = "active" ]; then
+        log "caddy service revived successfully"
+      else
+        err "caddy service failed to come up after restart (status: $status)"
+        return 1
+      fi
+    else
+      err "systemctl restart caddy failed"
+      return 1
+    fi
   fi
 }
 
