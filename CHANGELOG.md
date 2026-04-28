@@ -1,3 +1,16 @@
+## [0.6.3] - 2026-04-28
+
+### 🚀 Features
+
+- *(install)* Enhance Caddy installation with systemd and launchd support
+- *(install)* Add Caddy restart logic after directory ownership changes
+- *(install)* Enhance caddy service check with restart logic if inactive
+## [0.6.2] - 2026-04-28
+
+### 🚀 Features
+
+- *(install)* Add Docker installation logic if not present
+- *(install)* Implement run_privileged function for privileged command execution
 ## [0.6.1] - 2026-04-26
 
 ### 🚀 Features
