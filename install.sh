@@ -605,6 +605,24 @@ else
     curl -sSL https://raw.githubusercontent.com/version-fox/vfox/main/install.sh | bash || error "Failed to install vfox"
 fi
 
+info "Installing docker..."
+if ! command -v docker &> /dev/null; then
+    info "Docker not found. Installing..."
+    if [ "$(id -u)" -ne 0 ]; then
+        error "Docker installation requires root privileges"
+    fi
+    
+    curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
+    sh /tmp/get-docker.sh
+    rm -f /tmp/get-docker.sh
+    
+    if ! command -v docker &> /dev/null; then
+        error "Docker installation failed"
+    fi
+    
+    info "Docker installed successfully"
+fi
+
 case $OS in
     darwin)
         CONFIG_DIR="/usr/local/etc/dployr"
