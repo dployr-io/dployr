@@ -757,6 +757,8 @@ case $OS in
         
         mkdir -p /var/lib/dployrd/.dployr/logs/caddy
         chown -R dployrd:dployrd /var/lib/dployrd/.dployr
+        systemctl restart caddy || warn "Failed to restart Caddy"
+        chown -R dployrd:dployrd /var/lib/dployrd/.dployr/logs/caddy
         
         mkdir -p /home/dployrd/.version-fox/temp
         chown -R dployrd:dployrd /home/dployrd/.version-fox
@@ -855,6 +857,9 @@ EOF
         launchctl load /Library/LaunchDaemons/io.dployr.dployrd.plist
         launchctl start io.dployr.dployrd
         info "dployrd service started"
+
+        # Restart Caddy (launchd) after directories are owned by _dployrd
+        launchctl kickstart -k system/com.caddyserver.caddy 2>/dev/null || launchctl start com.caddyserver.caddy || warn "Failed to restart Caddy"
 
         [[ -n "$TOKEN" ]] && { sleep 1; register_instance "$TOKEN" || true; }
         ;;
