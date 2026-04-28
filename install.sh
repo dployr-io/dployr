@@ -556,6 +556,7 @@ else
                 apt install -y -qq caddy < /dev/null || error "Failed to install Caddy via apt"
 
                 info "Configuring Caddy systemd service..."
+                # Stop and disable only if we need to replace the service file
                 systemctl stop caddy 2>/dev/null || true
                 systemctl disable caddy 2>/dev/null || true
 
@@ -564,6 +565,10 @@ else
 
                 mkdir -p /etc/systemd/system/caddy.service.d
                 cat > /etc/systemd/system/caddy.service.d/override.conf << 'EOF'
+[Unit]
+Description=Caddy web server
+After=network.target
+
 [Service]
 User=dployrd
 Group=dployrd
@@ -571,28 +576,99 @@ ExecStart=
 ExecStart=/usr/bin/caddy run --config /var/lib/dployrd/.dployr/caddy/Caddyfile
 WorkingDirectory=/var/lib/dployrd
 ReadWritePaths=/var/lib/dployrd/.dployr
+Restart=always
+RestartSec=5
 EOF
 
                 systemctl daemon-reload || error "systemctl daemon-reload failed"
-                systemctl start caddy 2>/dev/null || true
+                systemctl enable caddy || warn "Failed to enable Caddy service"
+                systemctl start caddy || error "Failed to start Caddy service"
             else
+                info "Installing Caddy via binary download..."
                 CADDY_URL="https://github.com/caddyserver/caddy/releases/latest/download/caddy_${OS}_${ARCH}.tar.gz"
                 curl -sL "$CADDY_URL" -o "$TEMP_DIR/caddy.tar.gz"
                 tar -xzf "$TEMP_DIR/caddy.tar.gz" -C "$TEMP_DIR"
                 cp "$TEMP_DIR/caddy" "$INSTALL_DIR/"
                 chmod +x "$INSTALL_DIR/caddy"
+
+                # Create systemd service for binary installation (if systemd exists)
+                if command -v systemctl &>/dev/null && [[ $EUID -eq 0 ]]; then
+                    info "Creating systemd service for Caddy..."
+                    cat > /etc/systemd/system/caddy.service << 'EOF'
+[Unit]
+Description=Caddy web server
+After=network.target
+
+[Service]
+User=dployrd
+Group=dployrd
+ExecStart=/usr/local/bin/caddy run --config /var/lib/dployrd/.dployr/caddy/Caddyfile
+WorkingDirectory=/var/lib/dployrd
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+                    systemctl daemon-reload
+                    systemctl enable caddy || warn "Failed to enable Caddy service"
+                    systemctl start caddy || error "Failed to start Caddy service"
+                else
+                    warn "systemd not available or not root – Caddy binary installed but not started automatically"
+                fi
             fi
             ;;
         darwin)
             if command -v brew &> /dev/null; then
                 info "Installing Caddy via Homebrew..."
                 brew install -q caddy
+                info "Starting Caddy as a background service..."
+                brew services start caddy || warn "Failed to start Caddy via brew services"
             else
+                info "Installing Caddy via binary download (macOS)..."
                 CADDY_URL="https://github.com/caddyserver/caddy/releases/latest/download/caddy_${OS}_${ARCH}.tar.gz"
                 curl -sL "$CADDY_URL" -o "$TEMP_DIR/caddy.tar.gz"
                 tar -xzf "$TEMP_DIR/caddy.tar.gz" -C "$TEMP_DIR"
                 cp "$TEMP_DIR/caddy" "$INSTALL_DIR/"
                 chmod +x "$INSTALL_DIR/caddy"
+
+                # Create launchd plist for binary installation
+                if [[ $EUID -eq 0 ]]; then
+                    info "Creating launchd plist for Caddy..."
+                    cat > /Library/LaunchDaemons/com.caddyserver.caddy.plist << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.caddyserver.caddy</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/caddy</string>
+        <string>run</string>
+        <string>--config</string>
+        <string>/var/lib/dployrd/.dployr/caddy/Caddyfile</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>WorkingDirectory</key>
+    <string>/var/lib/dployrd</string>
+    <key>StandardOutPath</key>
+    <string>/var/log/dployrd/caddy.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/dployrd/caddy.log</string>
+    <key>UserName</key>
+    <string>_dployrd</string>
+</dict>
+</plist>
+EOF
+                    launchctl load /Library/LaunchDaemons/com.caddyserver.caddy.plist
+                    launchctl start com.caddyserver.caddy || warn "Failed to start Caddy via launchctl"
+                else
+                    warn "Root privileges required to install launchd plist – Caddy binary installed but not started"
+                fi
             fi
             ;;
     esac
