@@ -524,6 +524,25 @@ chmod +x "$INSTALL_DIR/dployr"
 cp "$EXTRACT_DIR/dployrd" "$INSTALL_DIR/" || error "Failed to copy dployrd"
 chmod +x "$INSTALL_DIR/dployrd"
 
+if [[ $EUID -eq 0 ]]; then
+    # Create dployrd system user and required groups 
+    for group in dployr-owner dployr-admin dployr-dev dployr-viewer; do
+        if ! getent group "$group" &>/dev/null; then
+            groupadd "$group"
+            log_json "info" "Created group: $group"
+        fi
+    done
+
+    if ! id "dployrd" &>/dev/null; then
+        _groups="dployr-admin"
+        getent group docker &>/dev/null && _groups="dployr-admin,docker"
+        useradd --system --create-home --shell /bin/bash -G "$_groups" dployrd
+        log_json "info" "Created dployrd system user"
+    fi
+    mkdir -p /var/log/dployrd /var/lib/dployrd
+    chown dployrd:dployrd /var/log/dployrd /var/lib/dployrd
+fi
+
 info "Installing Caddy..."
 if command -v caddy &> /dev/null; then
     info "Caddy already installed"
@@ -736,13 +755,6 @@ fi
 info "Setting up dployrd service..."
 case $OS in
     linux)
-        for group in dployr-owner dployr-admin dployr-dev dployr-viewer; do
-            if ! getent group "$group" &>/dev/null; then
-                groupadd "$group"
-                log_json "info" "Created group: $group"
-            fi
-        done
-        
         if ! id "dployrd" &>/dev/null; then
             _groups="dployr-admin"
             getent group docker &>/dev/null && _groups="dployr-admin,docker"
@@ -796,15 +808,6 @@ EOF
         [[ -n "$TOKEN" ]] && { sleep 1; register_instance "$TOKEN" || true; }
         ;;
     darwin)
-        for group in dployr-owner dployr-admin dployr-dev dployr-viewer; do
-            if ! dscl . -read /Groups/"$group" &>/dev/null; then
-                gid=$(dscl . -list /Groups PrimaryGroupID | awk '{print $2}' | sort -n | tail -1 | awk '{print $1+1}')
-                dscl . -create /Groups/"$group"
-                dscl . -create /Groups/"$group" PrimaryGroupID "$gid"
-                log_json "info" "Created group: $group"
-            fi
-        done
-        
         if ! dscl . -read /Users/_dployrd &>/dev/null; then
             dscl . -create /Users/_dployrd
             dscl . -create /Users/_dployrd UserShell /usr/bin/false
