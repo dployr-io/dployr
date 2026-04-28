@@ -31,6 +31,17 @@ error() {
     exit 1
 }
 
+# run_privileged runs a command with sudo when not already root.
+# Uses -n (non-interactive) so it fails immediately if a password is required
+# rather than blocking on a missing TTY.
+run_privileged() {
+    if [[ "$(id -u)" -eq 0 ]]; then
+        "$@"
+    else
+        sudo -n "$@"
+    fi
+}
+
 # get_daemon_port tries to read the HTTP port from the config file,
 # falling back to the default 7879.
 get_daemon_port() {
@@ -157,26 +168,26 @@ wait_for_pending_tasks
 
 # Install binaries while daemon is still running
 log "Installing dployrd binary..."
-sudo rm -f "$INSTALL_DIR/dployrd"
-sudo cp "$EXTRACT_DIR/dployrd" "$INSTALL_DIR/" || error "Failed to copy dployrd"
-sudo chmod +x "$INSTALL_DIR/dployrd"
+run_privileged rm -f "$INSTALL_DIR/dployrd"
+run_privileged cp "$EXTRACT_DIR/dployrd" "$INSTALL_DIR/" || error "Failed to copy dployrd"
+run_privileged chmod +x "$INSTALL_DIR/dployrd"
 
 log "Installing dployr CLI binary..."
-sudo rm -f "$INSTALL_DIR/dployr"
-sudo cp "$EXTRACT_DIR/dployr" "$INSTALL_DIR/" || error "Failed to copy dployr"
-sudo chmod +x "$INSTALL_DIR/dployr"
+run_privileged rm -f "$INSTALL_DIR/dployr"
+run_privileged cp "$EXTRACT_DIR/dployr" "$INSTALL_DIR/" || error "Failed to copy dployrd"
+run_privileged chmod +x "$INSTALL_DIR/dployr"
 
 # Restart the daemon
 log "Restarting dployrd daemon..."
 case $OS in
     linux)
         if systemctl is-enabled --quiet dployrd 2>/dev/null; then
-            nohup bash -c 'sleep 1; sudo systemctl restart dployrd' >/dev/null 2>&1 &
+            nohup bash -c 'sleep 1; sudo -n systemctl restart dployrd' >/dev/null 2>&1 &
         fi
         ;;
     darwin)
         if launchctl list 2>/dev/null | grep -q io.dployr.dployrd; then
-            nohup bash -c 'sleep 1; sudo launchctl kickstart -k system/io.dployr.dployrd' >/dev/null 2>&1 &
+            nohup bash -c 'sleep 1; sudo -n launchctl kickstart -k system/io.dployr.dployrd' >/dev/null 2>&1 &
         fi
         ;;
 esac
