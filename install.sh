@@ -581,6 +581,13 @@ else
                 # Stop and disable only if we need to replace the service file
                 systemctl stop caddy 2>/dev/null || true
                 systemctl disable caddy 2>/dev/null || true
+                
+                cat > /var/lib/dployrd/.dployr/caddy/Caddyfile <<'EOF'
+:80 {
+    respond "dployr bootstrapping"
+}
+EOF
+                chown dployrd:dployrd /var/lib/dployrd/.dployr/caddy/Caddyfile
 
                 info "Granting Caddy capability to bind to privileged ports..."
                 setcap cap_net_bind_service=+ep /usr/bin/caddy || warn "setcap failed; Caddy may not bind to ports 80/443 without root"
