@@ -541,6 +541,9 @@ if [[ $EUID -eq 0 ]]; then
     fi
     mkdir -p /var/log/dployrd /var/lib/dployrd
     chown dployrd:dployrd /var/log/dployrd /var/lib/dployrd
+    mkdir -p /var/lib/dployrd/.dployr/caddy
+    touch /var/lib/dployrd/.dployr/caddy/Caddyfile
+    chown -R dployrd:dployrd /var/lib/dployrd/.dployr
 fi
 
 info "Installing Caddy..."
