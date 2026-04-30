@@ -186,7 +186,7 @@ func (c *CaddyHandler) Restart() error {
 	cfgPath := filepath.Join(dataDir, ".dployr", "caddy", "Caddyfile")
 
 	c.logger.Debug("validating caddy config", "path", cfgPath)
-	validate := exec.Command("sudo", "caddy", "validate", "--config", cfgPath, "--adapter", "caddyfile")
+	validate := exec.Command("caddy", "validate", "--config", cfgPath, "--adapter", "caddyfile")
 	res, err := validate.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("caddy config validation failed: %w -> %s", err, string(res))

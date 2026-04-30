@@ -889,7 +889,6 @@ fi
 info "Setting up sudo permissions..."
 SYSTEMCTL=$(command -v systemctl)
 TEE=$(command -v tee)
-CADDY=$(command -v caddy)
 MKDIR=$(command -v mkdir)
 RM=$(command -v rm)
 CP=$(command -v cp)
@@ -911,7 +910,6 @@ dployrd ALL=(ALL) NOPASSWD: $RM *
 dployrd ALL=(ALL) NOPASSWD: $CP *
 dployrd ALL=(ALL) NOPASSWD: $CHMOD *
 dployrd ALL=(ALL) NOPASSWD: $TEE *
-dployrd ALL=(ALL) NOPASSWD: $CADDY validate --config /var/lib/dployrd/.dployr/caddy/Caddyfile --adapter caddyfile
 dployrd ALL=(ALL) NOPASSWD: $DOCKER *
 EOF
 chmod 440 /etc/sudoers.d/dployr
