@@ -165,6 +165,7 @@ func getEnvAsInt64(key string, defaultValue int64) int64 {
 	return defaultValue
 }
 
+// Deprecated: Use instance store directly instead (store.GetAccessToken).
 func GetToken() (string, error) {
 	configDir, err := os.UserHomeDir()
 	if err != nil {
