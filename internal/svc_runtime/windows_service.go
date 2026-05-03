@@ -15,7 +15,9 @@ import (
 	"github.com/dployr-io/dployr/pkg/core/utils"
 )
 
-type NSSMManager struct{}
+type NSSMManager struct {
+	DockerService
+}
 
 // Locate nssm.exe
 func (n *NSSMManager) findExe() (string, error) {
@@ -47,6 +49,13 @@ func (n *NSSMManager) findExe() (string, error) {
 }
 
 func (n *NSSMManager) Status(name string) (string, error) {
+	if status, err := n.DockerService.Status(name); err == nil {
+		return status, nil
+	}
+	return n.nssmCheck(name)
+}
+
+func (n *NSSMManager) nssmCheck(name string) (string, error) {
 	nssm, err := n.findExe()
 	if err != nil {
 		return "", err
@@ -124,28 +133,6 @@ func (n *NSSMManager) Install(name, desc, runCmd, workDir string, envVars map[st
 	exec.Command(nssm, "set", name, "AppRotateDelay", "86400").Run()
 
 	return nil
-}
-
-func (n *NSSMManager) Start(name string) error {
-	nssm, err := n.findExe()
-	if err != nil {
-		return err
-	}
-	cmd := exec.Command(nssm, "start", utils.FormatName(name))
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
-func (n *NSSMManager) Stop(name string) error {
-	nssm, err := n.findExe()
-	if err != nil {
-		return err
-	}
-	cmd := exec.Command(nssm, "stop", utils.FormatName(name))
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
 }
 
 func (n *NSSMManager) Remove(name string) error {

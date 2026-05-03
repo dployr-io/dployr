@@ -6,6 +6,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/dployr-io/dployr/pkg/store"
@@ -26,9 +27,9 @@ func NewServiceStore(db *sql.DB, ds *DeploymentStore) *ServiceStore {
 func (s ServiceStore) createService(ctx context.Context, svc *store.Service) (*store.Service, error) {
 	stmt, err := s.db.PrepareContext(ctx, `
 		INSERT INTO services
-		(id, name, description, source, runtime, runtime_version, run_cmd, build_cmd, working_dir,
+		(id, name, description, source, type, runtime, runtime_version, run_cmd, build_cmd, working_dir,
 		static_dir, image, remote_url, remote_branch, remote_commit_hash, deployment_id, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +44,7 @@ func (s ServiceStore) createService(ctx context.Context, svc *store.Service) (*s
 		updatedAt = createdAt
 	}
 
-	_, err = stmt.ExecContext(ctx, svc.ID, svc.Name, svc.Description, svc.Source, svc.Runtime, svc.RuntimeVersion, svc.RunCmd, svc.BuildCmd,
+	_, err = stmt.ExecContext(ctx, svc.ID, svc.Name, svc.Description, svc.Source, svc.Type, svc.Runtime, svc.RuntimeVersion, svc.RunCmd, svc.BuildCmd,
 		svc.WorkingDir, svc.StaticDir, svc.Image, svc.Remote, svc.Branch, svc.CommitHash, svc.DeploymentId, createdAt.Unix(), updatedAt.Unix())
 	if err != nil {
 		return nil, err
@@ -53,7 +54,7 @@ func (s ServiceStore) createService(ctx context.Context, svc *store.Service) (*s
 
 func (s ServiceStore) GetService(ctx context.Context, name string) (*store.Service, error) {
 	stmt, err := s.db.PrepareContext(ctx, `
-		SELECT id, name, description, source, runtime, runtime_version, run_cmd, build_cmd, working_dir,
+		SELECT id, name, description, source, type, runtime, runtime_version, run_cmd, build_cmd, working_dir,
 		       static_dir, image, remote_url, remote_branch, remote_commit_hash, deployment_id, created_at, updated_at
 		FROM services WHERE name = ?`)
 	if err != nil {
@@ -67,7 +68,7 @@ func (s ServiceStore) GetService(ctx context.Context, name string) (*store.Servi
 	var createdAtUnix, updatedAtUnix int64
 	var description, runCmd, buildCmd, staticDir, image, remoteURL, remoteBranch, remoteCommitHash, deploymentID sql.NullString
 	err = row.Scan(
-		&svc.ID, &svc.Name, &description, &svc.Source, &svc.Runtime, &svc.RuntimeVersion, &runCmd, &buildCmd,
+		&svc.ID, &svc.Name, &description, &svc.Source, &svc.Type, &svc.Runtime, &svc.RuntimeVersion, &runCmd, &buildCmd,
 		&svc.WorkingDir, &staticDir, &image, &remoteURL, &remoteBranch,
 		&remoteCommitHash, &deploymentID, &createdAtUnix, &updatedAtUnix,
 	)
@@ -86,6 +87,10 @@ func (s ServiceStore) GetService(ctx context.Context, name string) (*store.Servi
 	svc.CreatedAt = time.Unix(createdAtUnix, 0)
 	svc.UpdatedAt = time.Unix(updatedAtUnix, 0)
 
+	// Diagnostic logging - verify database values are loaded
+	fmt.Printf("[GetService] Loaded from DB: id=%s name=%s runCmd=%s buildCmd=%s remote=%s branch=%s\n",
+		svc.ID, svc.Name, svc.RunCmd, svc.BuildCmd, svc.Remote, svc.Branch)
+
 	if svc.DeploymentId != "" {
 		deployment, err := s.ds.GetDeployment(ctx, svc.DeploymentId)
 		if err == nil {
@@ -101,7 +106,7 @@ func (s ServiceStore) GetService(ctx context.Context, name string) (*store.Servi
 
 func (s ServiceStore) ListServices(ctx context.Context, limit, offset int) ([]*store.Service, error) {
 	stmt, err := s.db.PrepareContext(ctx, `
-		SELECT id, name, description, source, runtime, runtime_version, run_cmd, build_cmd, working_dir,
+		SELECT id, name, description, source, type, runtime, runtime_version, run_cmd, build_cmd, working_dir,
 		       static_dir, image, remote_url, remote_branch, remote_commit_hash, deployment_id, created_at, updated_at
 		FROM services
 		ORDER BY created_at DESC
@@ -123,7 +128,7 @@ func (s ServiceStore) ListServices(ctx context.Context, limit, offset int) ([]*s
 		var createdAtUnix, updatedAtUnix int64
 		var description, runCmd, buildCmd, staticDir, image, remoteURL, remoteBranch, remoteCommitHash, deploymentID sql.NullString
 		err := rows.Scan(
-			&svc.ID, &svc.Name, &description, &svc.Source, &svc.Runtime, &svc.RuntimeVersion, &runCmd, &buildCmd,
+			&svc.ID, &svc.Name, &description, &svc.Source, &svc.Type, &svc.Runtime, &svc.RuntimeVersion, &runCmd, &buildCmd,
 			&svc.WorkingDir, &staticDir, &image, &remoteURL, &remoteBranch,
 			&remoteCommitHash, &deploymentID, &createdAtUnix, &updatedAtUnix,
 		)
@@ -141,6 +146,10 @@ func (s ServiceStore) ListServices(ctx context.Context, limit, offset int) ([]*s
 		svc.DeploymentId = deploymentID.String
 		svc.CreatedAt = time.Unix(createdAtUnix, 0)
 		svc.UpdatedAt = time.Unix(updatedAtUnix, 0)
+
+		// Diagnostic logging
+		fmt.Printf("[ListServices] Loaded from DB: id=%s name=%s runCmd=%s buildCmd=%s remote=%s branch=%s\n",
+			svc.ID, svc.Name, svc.RunCmd, svc.BuildCmd, svc.Remote, svc.Branch)
 
 		services = append(services, &svc)
 	}
@@ -166,17 +175,17 @@ func (s ServiceStore) ListServices(ctx context.Context, limit, offset int) ([]*s
 
 func (s ServiceStore) updateService(ctx context.Context, svc *store.Service) error {
 	stmt, err := s.db.PrepareContext(ctx, `
-		UPDATE services 
-		SET name = ?, description = ?, source = ?, runtime = ?, runtime_version = ?, run_cmd = ?, build_cmd = ?, 
-		    working_dir = ?, static_dir = ?, image = ?, remote_url = ?, remote_branch = ?, 
-			remote_commit_hash = ?, deployment_id = ?, updated_at = ? 
+		UPDATE services
+		SET name = ?, description = ?, source = ?, type = ?, runtime = ?, runtime_version = ?, run_cmd = ?, build_cmd = ?,
+		    working_dir = ?, static_dir = ?, image = ?, remote_url = ?, remote_branch = ?,
+			remote_commit_hash = ?, deployment_id = ?, updated_at = ?
 		WHERE id = ?`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	_, err = stmt.ExecContext(ctx, svc.Name, svc.Description, svc.Source, svc.Runtime, svc.RuntimeVersion, svc.RunCmd, svc.BuildCmd,
+	_, err = stmt.ExecContext(ctx, svc.Name, svc.Description, svc.Source, svc.Type, svc.Runtime, svc.RuntimeVersion, svc.RunCmd, svc.BuildCmd,
 		svc.WorkingDir, svc.StaticDir, svc.Image, svc.Remote, svc.Branch, svc.CommitHash, svc.DeploymentId,
 		svc.UpdatedAt.Unix(), svc.ID)
 	return err

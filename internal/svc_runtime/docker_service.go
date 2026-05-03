@@ -12,10 +12,10 @@ import (
 	"github.com/dployr-io/dployr/internal/scripts"
 )
 
-type DockerManager struct{}
+type DockerService struct{}
 
-func (d *DockerManager) runScript(scriptContent string, args ...string) error {
-	tmpFile, err := os.CreateTemp("", "docker*.sh")
+func runScript(scriptContent string, args ...string) error {
+	tmpFile, err := os.CreateTemp("", "dployr*.sh")
 	if err != nil {
 		return fmt.Errorf("failed to create temp script: %v", err)
 	}
@@ -37,7 +37,7 @@ func (d *DockerManager) runScript(scriptContent string, args ...string) error {
 	return cmd.Run()
 }
 
-func (d *DockerManager) Status(name string) (string, error) {
+func (d *DockerService) Status(name string) (string, error) {
 	tmpFile, err := os.CreateTemp("", "docker*.sh")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp script: %v", err)
@@ -67,20 +67,20 @@ func (d *DockerManager) Status(name string) (string, error) {
 	return status, nil
 }
 
-func (d *DockerManager) Install(name, desc, runCmd, workDir string, envVars map[string]string) error {
+func (d *DockerService) Install(name, desc, runCmd, workDir string, envVars map[string]string) error {
 	// Docker installations are handled by the deployment script (deploy_app.sh or docker.sh).
 	// This method is not used in the current workflow.
 	return nil
 }
 
-func (d *DockerManager) Start(name string) error {
-	return d.runScript(scripts.DockerScript, "start", name)
+func (d *DockerService) Start(name string) error {
+	return runScript(scripts.DockerScript, "start", name)
 }
 
-func (d *DockerManager) Stop(name string) error {
-	return d.runScript(scripts.DockerScript, "stop", name)
+func (d *DockerService) Stop(name string) error {
+	return runScript(scripts.DockerScript, "stop", name)
 }
 
-func (d *DockerManager) Remove(name string) error {
-	return d.runScript(scripts.DockerScript, "remove", name)
+func (d *DockerService) Remove(name string) error {
+	return runScript(scripts.DockerScript, "remove", name)
 }

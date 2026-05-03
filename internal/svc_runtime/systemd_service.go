@@ -14,32 +14,18 @@ import (
 	"github.com/dployr-io/dployr/internal/scripts"
 )
 
-type SystemdManager struct{}
-
-func (s *SystemdManager) runScript(scriptContent string, args ...string) error {
-	tmpFile, err := os.CreateTemp("", "systemd*.sh")
-	if err != nil {
-		return fmt.Errorf("failed to create temp script: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
-
-	if _, err := tmpFile.WriteString(scriptContent); err != nil {
-		tmpFile.Close()
-		return fmt.Errorf("failed to write script: %v", err)
-	}
-	tmpFile.Close()
-
-	if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
-		return fmt.Errorf("failed to make script executable: %v", err)
-	}
-
-	cmd := exec.Command("bash", append([]string{tmpFile.Name()}, args...)...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+type SystemdManager struct {
+	DockerService
 }
 
 func (s *SystemdManager) Status(name string) (string, error) {
+	if status, err := s.DockerService.Status(name); err == nil {
+		return status, nil
+	}
+	return s.systemdCheck(name)
+}
+
+func (s *SystemdManager) systemdCheck(name string) (string, error) {
 	name = utils.FormatName(name)
 
 	tmpFile, err := os.CreateTemp("", "systemd*.sh")
@@ -74,20 +60,5 @@ func (s *SystemdManager) Status(name string) (string, error) {
 
 func (s *SystemdManager) Install(name, desc, runCmd, workDir string, envVars map[string]string) error {
 	name = utils.FormatName(name)
-	return s.runScript(scripts.SystemdScript, "install", name, desc, runCmd, workDir)
-}
-
-func (s *SystemdManager) Start(name string) error {
-	name = utils.FormatName(name)
-	return s.runScript(scripts.SystemdScript, "start", name)
-}
-
-func (s *SystemdManager) Stop(name string) error {
-	name = utils.FormatName(name)
-	return s.runScript(scripts.SystemdScript, "stop", name)
-}
-
-func (s *SystemdManager) Remove(name string) error {
-	name = utils.FormatName(name)
-	return s.runScript(scripts.SystemdScript, "remove", name)
+	return runScript(scripts.SystemdScript, "install", name, desc, runCmd, workDir)
 }

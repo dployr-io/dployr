@@ -28,7 +28,6 @@ func SvcRuntime() (ServiceManager, error) {
 	default:
 		return nil, fmt.Errorf("no compatible runtime was detected")
 	}
-
 }
 
 func GetSvcMgrName() string {

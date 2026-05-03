@@ -14,9 +14,18 @@ import (
 	"github.com/dployr-io/dployr/pkg/core/utils"
 )
 
-type LaunchdManager struct{}
+type LaunchdManager struct {
+	DockerService
+}
 
 func (l *LaunchdManager) Status(name string) (string, error) {
+	if status, err := l.DockerService.Status(name); err == nil {
+		return status, nil
+	}
+	return l.launchdCheck(name)
+}
+
+func (l *LaunchdManager) launchdCheck(name string) (string, error) {
 	name = utils.FormatName(name)
 	label := fmt.Sprintf("user.%s", name)
 
@@ -117,26 +126,6 @@ func (l *LaunchdManager) Install(name, desc, runCmd, workDir string, envVars map
 	}
 
 	return nil
-}
-
-func (l *LaunchdManager) Start(name string) error {
-	name = utils.FormatName(name)
-	label := fmt.Sprintf("user.%s", name)
-
-	cmd := exec.Command("launchctl", "start", label)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
-func (l *LaunchdManager) Stop(name string) error {
-	name = utils.FormatName(name)
-	label := fmt.Sprintf("user.%s", name)
-
-	cmd := exec.Command("launchctl", "stop", label)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
 }
 
 func (l *LaunchdManager) Remove(name string) error {
