@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS services (
     name TEXT UNIQUE NOT NULL,
     description TEXT,
     source TEXT NOT NULL CHECK (source IN ('remote', 'image')),
+    type TEXT NOT NULL DEFAULT 'web' CHECK (type IN ('web', 'worker', 'job', 'static')),
     runtime TEXT NOT NULL CHECK (runtime IN ('golang', 'php', 'python', 'nodejs', 'ruby', 'dotnet', 'java')),
     runtime_version TEXT NOT NULL,
     run_cmd TEXT,

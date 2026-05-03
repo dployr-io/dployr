@@ -144,6 +144,7 @@ type ServiceV1_1 struct {
 	Name           string            `json:"name"`
 	Description    string            `json:"description"`
 	Type           string            `json:"type"`
+	Source         string            `json:"source"`
 	Runtime        string            `json:"runtime"`
 	RuntimeVersion *string           `json:"runtime_version,omitempty"`
 	Port           int               `json:"port"`
@@ -157,6 +158,7 @@ type ServiceV1_1 struct {
 	RemoteURL      *string           `json:"remote_url,omitempty"`
 	Branch         *string           `json:"branch,omitempty"`
 	CommitHash     *string           `json:"commit_hash,omitempty"`
+	DeploymentID   *string           `json:"deployment_id,omitempty"`
 	CreatedAt      string            `json:"created_at"`
 	UpdatedAt      string            `json:"updated_at"`
 }

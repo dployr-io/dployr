@@ -4,6 +4,7 @@
 package system
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/dployr-io/dployr/pkg/store"
@@ -83,9 +84,14 @@ func FromStoreService(s *store.Service) ServiceV1_1 {
 		return ServiceV1_1{}
 	}
 
+	// Diagnostic logging
+	fmt.Printf("[FromStoreService] Input: id=%s name=%s runCmd=%s buildCmd=%s remote=%s branch=%s\n",
+		s.ID, s.Name, s.RunCmd, s.BuildCmd, s.Remote, s.Branch)
+
 	svc := ServiceV1_1{
 		ID:          s.ID,
 		Name:        s.Name,
+		Source: 		 string(s.Source),
 		Description: s.Description,
 		Type:        string(s.Type),
 		Runtime:     string(s.Runtime),
@@ -122,6 +128,9 @@ func FromStoreService(s *store.Service) ServiceV1_1 {
 	}
 	if s.CommitHash != "" {
 		svc.CommitHash = &s.CommitHash
+	}
+	if s.DeploymentId != "" {
+		svc.DeploymentID = &s.DeploymentId
 	}
 
 	if len(s.EnvVars) > 0 {
