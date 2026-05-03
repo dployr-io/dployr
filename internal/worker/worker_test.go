@@ -93,13 +93,47 @@ func (m *mockServiceStore) DeleteService(ctx context.Context, id string) error {
 	return nil
 }
 
+type mockInstanceStore struct {
+	accessToken string
+}
+
+func (m *mockInstanceStore) GetAccessToken(ctx context.Context) (string, error) {
+	return m.accessToken, nil
+}
+
+func (m *mockInstanceStore) GetBootstrapToken(ctx context.Context) (string, error) {
+	return "bootstrap-token", nil
+}
+
+func (m *mockInstanceStore) SetAccessToken(ctx context.Context, token string) error {
+	m.accessToken = token
+	return nil
+}
+
+func (m *mockInstanceStore) SetBootstrapToken(ctx context.Context, token string) error {
+	return nil
+}
+
+func (m *mockInstanceStore) RegisterInstance(ctx context.Context, i *store.Instance) error {
+	return nil
+}
+
+func (m *mockInstanceStore) UpdateLastInstalledAt(ctx context.Context) error {
+	return nil
+}
+
+func (m *mockInstanceStore) GetInstance(ctx context.Context) (*store.Instance, error) {
+	return nil, nil
+}
+
 func TestWorker_New(t *testing.T) {
 	cfg := &shared.Config{}
 	logger := shared.NewLogger()
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
+	instStore := &mockInstanceStore{accessToken: "test-token"}
 
-	worker := New(5, cfg, logger, deployStore, svcStore, nil)
+	worker := New(5, cfg, logger, deployStore, svcStore, instStore, nil)
 
 	if worker == nil {
 		t.Fatal("expected non-nil worker")
@@ -119,8 +153,9 @@ func TestWorker_Submit(t *testing.T) {
 	logger := shared.NewLogger()
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
+	instStore := &mockInstanceStore{accessToken: "test-token"}
 
-	worker := New(2, cfg, logger, deployStore, svcStore, nil)
+	worker := New(2, cfg, logger, deployStore, svcStore, instStore, nil)
 
 	t.Run("submit job to queue", func(t *testing.T) {
 		worker.Submit("test-job-1")
@@ -134,7 +169,7 @@ func TestWorker_Submit(t *testing.T) {
 	})
 
 	t.Run("submit multiple jobs", func(t *testing.T) {
-		worker2 := New(2, cfg, logger, deployStore, svcStore, nil)
+		worker2 := New(2, cfg, logger, deployStore, svcStore, instStore, nil)
 
 		worker2.Submit("job-1")
 		worker2.Submit("job-2")
@@ -153,8 +188,9 @@ func TestWorker_ActiveJobs(t *testing.T) {
 	logger := shared.NewLogger()
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
+	instStore := &mockInstanceStore{accessToken: "test-token"}
 
-	worker := New(2, cfg, logger, deployStore, svcStore, nil)
+	worker := New(2, cfg, logger, deployStore, svcStore, instStore, nil)
 
 	t.Run("mark job as active", func(t *testing.T) {
 		worker.markActive("job-1")
@@ -201,9 +237,10 @@ func TestWorker_Semaphore(t *testing.T) {
 	logger := shared.NewLogger()
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
+	instStore := &mockInstanceStore{accessToken: "test-token"}
 
 	t.Run("semaphore limits concurrent jobs", func(t *testing.T) {
-		worker := New(2, cfg, logger, deployStore, svcStore, nil)
+		worker := New(2, cfg, logger, deployStore, svcStore, instStore, nil)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
@@ -254,6 +291,7 @@ func TestWorker_StatusUpdates(t *testing.T) {
 		statusCalls: []string{},
 	}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
+	instStore := &mockInstanceStore{accessToken: "test-token"}
 
 	// Create a test deployment
 	deployment := &store.Deployment{
@@ -266,9 +304,10 @@ func TestWorker_StatusUpdates(t *testing.T) {
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
+
 	deployStore.CreateDeployment(context.Background(), deployment)
 
-	worker := New(1, cfg, logger, deployStore, svcStore, nil)
+	worker := New(1, cfg, logger, deployStore, svcStore, instStore, nil)
 	ctx := context.Background()
 
 	t.Run("status updates during execution", func(t *testing.T) {
@@ -299,8 +338,9 @@ func TestWorker_ContextCancellation(t *testing.T) {
 	logger := shared.NewLogger()
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
+	instStore := &mockInstanceStore{accessToken: "test-token"}
 
-	worker := New(2, cfg, logger, deployStore, svcStore, nil)
+	worker := New(2, cfg, logger, deployStore, svcStore, instStore, nil)
 
 	t.Run("worker stops on context cancellation", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -332,8 +372,9 @@ func TestWorker_DuplicateJobPrevention(t *testing.T) {
 	logger := shared.NewLogger()
 	deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
 	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
+	instStore := &mockInstanceStore{accessToken: "test-token"}
 
-	worker := New(2, cfg, logger, deployStore, svcStore, nil)
+	worker := New(2, cfg, logger, deployStore, svcStore, instStore, nil)
 
 	// Mark a job as active
 	worker.markActive("duplicate-job")

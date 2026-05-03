@@ -4,9 +4,15 @@
 package worker
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,6 +31,7 @@ type Worker struct {
 	logger        *shared.Logger
 	depsStore     store.DeploymentStore
 	svcStore      store.ServiceStore
+	instStore     store.InstanceStore
 	proxyAPI      proxy.HandleProxy
 	cfg           *shared.Config
 	semaphore     *shared.Semaphore
@@ -34,12 +41,13 @@ type Worker struct {
 }
 
 // New creates a new Worker instance
-func New(m int, c *shared.Config, l *shared.Logger, d store.DeploymentStore, s store.ServiceStore, p proxy.HandleProxy) *Worker {
+func New(m int, c *shared.Config, l *shared.Logger, d store.DeploymentStore, s store.ServiceStore, i store.InstanceStore, p proxy.HandleProxy) *Worker {
 	return &Worker{
 		maxConcurrent: m,
 		logger:        l,
 		depsStore:     d,
 		svcStore:      s,
+		instStore:     i,
 		proxyAPI:      p,
 		cfg:           c,
 		semaphore:     shared.NewSemaphore(m),
@@ -83,13 +91,17 @@ func (w *Worker) execute(ctx context.Context, id string) {
 	}()
 
 	w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusInProgress))
+	logPath := filepath.Join(utils.GetDataDir(), ".dployr", "logs") + "/"
+
 	if err := w.runDeployment(ctx, id); err != nil {
 		w.logger.Error("deployment failed", "error", err)
 		w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusFailed))
+		go w.submitDeploymentLogs(ctx, id, logPath)
 		return
 	}
 
 	w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusCompleted))
+	go w.submitDeploymentLogs(ctx, id, logPath)
 }
 
 func (w *Worker) runDeployment(ctx context.Context, id string) error {
@@ -220,7 +232,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 
 	shared.LogInfoF(id, logPath, fmt.Sprintf("successfully deployed %s", d.Blueprint.Name))
 
-	if err := w.registerProxyRoute(ctx, req); err != nil {
+	if err := w.registerProxyRoute(req); err != nil {
 		w.logger.Warn("failed to register proxy route for service", "service", req.Name, "error", err)
 	}
 
@@ -229,7 +241,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	return nil
 }
 
-func (w *Worker) registerProxyRoute(ctx context.Context, svc *store.Service) error {
+func (w *Worker) registerProxyRoute(svc *store.Service) error {
 	if w.proxyAPI == nil {
 		return nil
 	}
@@ -281,4 +293,79 @@ func (w *Worker) ActiveJobs() int {
 	w.jobsMux.RLock()
 	defer w.jobsMux.RUnlock()
 	return len(w.activeJobs)
+}
+
+func (w *Worker) submitDeploymentLogs(ctx context.Context, id string, logPath string) {
+	logs, err := w.readDeploymentLogs(id, logPath)
+	if err != nil {
+		w.logger.Error("failed to read deployment logs", "error", err)
+		return
+	}
+
+	token, err := w.instStore.GetAccessToken(ctx)
+	if err != nil {
+		w.logger.Error("failed to get authentication token", "error", err)
+		return
+	}
+
+	finishURL := strings.TrimRight(w.cfg.BaseURL, "/") + "/v1/deployments/finish"
+
+	d, err := w.depsStore.GetDeployment(ctx, id)
+	if err != nil {
+		w.logger.Error("failed to retrieve deployment", "deployment_id", id, "error", err)
+		return
+	}
+
+	if d == nil {
+		w.logger.Error("deployment not found", "deployment_id", id)
+		return
+	}
+
+	payload := map[string]any{
+		"token":     token,
+		"id":        id,
+		"blueprint": d.Blueprint,
+		"userId":    d.UserId,
+		"logs":      logs,
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		w.logger.Warn("failed to marshal deployment logs", "error", err)
+		return
+	}
+
+	resp, err := http.Post(finishURL, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		w.logger.Warn("failed to submit deployment logs", "error", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		w.logger.Warn("deployment log submission failed", "status", resp.StatusCode, "response", string(body))
+		return
+	}
+
+	w.logger.Info("deployment logs submitted successfully", "deployment_id", id)
+}
+
+func (w *Worker) readDeploymentLogs(id string, logPath string) (string, error) {
+	attempts := []string{
+		filepath.Join(logPath, id+".log"),
+		filepath.Join(logPath, strings.ToLower(id)+".log"),
+		filepath.Join(logPath, strings.ToUpper(id)+".log"),
+	}
+
+	var lastErr error
+	for _, logFile := range attempts {
+		data, err := os.ReadFile(logFile)
+		if err == nil {
+			return string(data), nil
+		}
+		lastErr = err
+	}
+
+	return "", fmt.Errorf("failed to read log file: %w", lastErr)
 }

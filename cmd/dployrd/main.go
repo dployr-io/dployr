@@ -67,7 +67,7 @@ func main() {
 	ps := _proxy.Init(proxyState, logger)
 
 	workerMaxConcurrent := 5
-	w := worker.New(workerMaxConcurrent, cfg, logger, ds, ss, ps)
+	w := worker.New(workerMaxConcurrent, cfg, logger, ds, ss, is, ps)
 
 	as := _auth.Init(cfg, is)
 	am := auth.NewMiddleware(as)
