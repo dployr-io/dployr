@@ -108,6 +108,8 @@ type Syncer struct {
 
 	dedupeMu sync.Mutex
 	dedupe   map[string]time.Time
+
+	lastFullSyncAt atomic.Value // time.Time
 }
 
 func (s *Syncer) Executor() *Executor {
@@ -376,6 +378,7 @@ ws_connected:
 	}); err != nil {
 		logger.Error("syncer: failed to send immediate full sync", "error", err)
 	}
+	s.recordFullSync()
 
 	interval := shared.SanitizeSyncInterval(s.cfg.SyncInterval)
 	go func() {
@@ -409,12 +412,13 @@ ws_connected:
 					activeJobs = s.workerActiveJobs()
 				}
 
+				isFull := s.shouldFullSync()
 				upd, err := BuildUpdateV1_1(
 					connCtx,
 					s.cfg,
 					seq,
 					s.epoch,
-					true,
+					isFull,
 					s.instStore,
 					s.deployStore,
 					s.svcStore,
@@ -427,6 +431,10 @@ ws_connected:
 				if err != nil {
 					logger.Error("syncer: failed to build update", "error", err)
 					continue
+				}
+
+				if isFull {
+					s.recordFullSync()
 				}
 
 				msg := ws.Message{
@@ -484,6 +492,42 @@ ws_connected:
 				// features/hints can be used in future
 				// inform about new minor, major version
 			}
+		case "heartbeat":
+			msgLogger.Debug("syncer: received heartbeat, sending full sync")
+			seq := atomic.AddUint64(&updateSeq, 1)
+			activeJobs := 0
+			if s.workerActiveJobs != nil {
+				activeJobs = s.workerActiveJobs()
+			}
+			update, err := BuildUpdateV1_1(
+				ctxMsg,
+				s.cfg,
+				seq,
+				s.epoch,
+				true,
+				s.instStore,
+				s.deployStore,
+				s.svcStore,
+				s.proxyHandler,
+				s.fs,
+				s.topCollector,
+				s.workerMaxConcurrent,
+				activeJobs,
+			)
+			if err != nil {
+				msgLogger.Error("syncer: failed to build heartbeat response update", "error", err)
+			} else {
+				if err := ws.Send(ctxMsg, conn, ws.Message{
+					ID:     ulid.Make().String(),
+					TS:     time.Now(),
+					Kind:   "update",
+					Update: update,
+				}); err != nil {
+					msgLogger.Error("syncer: failed to send heartbeat response update", "error", err)
+				} else {
+					s.recordFullSync()
+				}
+			}
 		case "task":
 			msgLogger.Debug("syncer: received tasks", "count", len(msg.Items))
 			s.handleTasks(ctxMsg, conn, msg.Items, msgLogger)
@@ -530,8 +574,11 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 		tlog := logger.WithContext(tctx)
 		tlog.Debug("syncer: executing task", "task_id", t.ID, "type", t.Type)
 
-		// Send sync update immediately when deploy/proxy task is received
-		if strings.Contains(t.Type, "deployments") || strings.Contains(t.Type, "proxy") {
+		result := s.executor.Execute(tctx, task)
+
+		// Send full sync after deploy/proxy task completes
+		isDeployOrProxyTask := strings.Contains(t.Type, "deployments") || strings.Contains(t.Type, "proxy")
+		if isDeployOrProxyTask {
 			seq := atomic.AddUint64(&updateSeq, 1)
 			activeJobs := 0
 			if s.workerActiveJobs != nil {
@@ -553,7 +600,7 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 				activeJobs,
 			)
 			if err != nil {
-				tlog.Error("syncer: failed to build update for deploy", "error", err)
+				tlog.Error("syncer: failed to build update after task", "error", err)
 			} else {
 				if err := ws.Send(ctx, conn, ws.Message{
 					ID:     ulid.Make().String(),
@@ -561,12 +608,12 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 					Kind:   "update",
 					Update: update,
 				}); err != nil {
-					tlog.Error("syncer: failed to send sync message for deploy", "error", err)
+					tlog.Error("syncer: failed to send sync message after task", "error", err)
+				} else {
+					s.recordFullSync()
 				}
 			}
 		}
-
-		result := s.executor.Execute(tctx, task)
 
 		result.Metadata = map[string]any{
 			"instance_id": s.cfg.InstanceID,
@@ -671,6 +718,17 @@ func (s *Syncer) markTaskSeen(id string) {
 	s.dedupeMu.Lock()
 	s.dedupe[id] = time.Now().Add(ttl)
 	s.dedupeMu.Unlock()
+}
+
+func (s *Syncer) shouldFullSync() bool {
+	if v := s.lastFullSyncAt.Load(); v != nil {
+		return time.Since(v.(time.Time)) >= time.Hour
+	}
+	return true
+}
+
+func (s *Syncer) recordFullSync() {
+	s.lastFullSyncAt.Store(time.Now())
 }
 
 // fromTaskResults converts wire-level tasks.Result into stored TaskResult
