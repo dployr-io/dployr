@@ -223,7 +223,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 
 	w.logger.Info("saving service", "source", req.Source, "type", req.Type)
 
-	_, err = w.svcStore.SaveService(ctx, req)
+	_, err = w.svcStore.UpsertService(ctx, req)
 	if err != nil {
 		err = fmt.Errorf("failed to save service: %s", err)
 		shared.LogErrF(id, logPath, err)

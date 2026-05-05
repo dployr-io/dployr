@@ -4,10 +4,11 @@
 -- DEPLOYMENTS TABLE
 CREATE TABLE IF NOT EXISTS deployments (
     id TEXT PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
     config JSON NOT NULL DEFAULT '{}',
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'failed', 'completed')),
     metadata JSON NOT NULL DEFAULT '{}',
-    user_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
+    user_id TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

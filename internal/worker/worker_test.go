@@ -20,7 +20,7 @@ type mockDeploymentStore struct {
 	statusCalls []string
 }
 
-func (m *mockDeploymentStore) CreateDeployment(ctx context.Context, d *store.Deployment) error {
+func (m *mockDeploymentStore) UpsertDeployment(ctx context.Context, d *store.Deployment) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.deployments[d.ID] = d
@@ -83,7 +83,7 @@ func (m *mockServiceStore) ListServices(ctx context.Context, limit, offset int) 
 	return result, nil
 }
 
-func (m *mockServiceStore) SaveService(ctx context.Context, svc *store.Service) (*store.Service, error) {
+func (m *mockServiceStore) UpsertService(ctx context.Context, svc *store.Service) (*store.Service, error) {
 	m.services[svc.ID] = svc
 	return svc, nil
 }
@@ -305,7 +305,7 @@ func TestWorker_StatusUpdates(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 
-	deployStore.CreateDeployment(context.Background(), deployment)
+	deployStore.UpsertDeployment(context.Background(), deployment)
 
 	worker := New(1, cfg, logger, deployStore, svcStore, instStore, nil)
 	ctx := context.Background()

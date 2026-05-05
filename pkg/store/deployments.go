@@ -56,6 +56,7 @@ type Blueprint struct {
 
 type Deployment struct {
 	ID        string    `json:"id" db:"id"`
+	Name 			string 		`json:"name" db:"name"`
 	UserId    *string   `json:"user_id,omitempty" db:"user_id"`
 	Blueprint Blueprint `json:"config" db:"config"`
 	Status    Status    `json:"status" db:"status"`
@@ -65,7 +66,7 @@ type Deployment struct {
 }
 
 type DeploymentStore interface {
-	CreateDeployment(ctx context.Context, d *Deployment) error
+	UpsertDeployment(ctx context.Context, d *Deployment) error
 	GetDeployment(ctx context.Context, id string) (*Deployment, error)
 	ListDeployments(ctx context.Context, limit, offset int) ([]*Deployment, error)
 	UpdateDeploymentStatus(ctx context.Context, id string, status string) error

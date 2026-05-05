@@ -191,8 +191,8 @@ func (s ServiceStore) updateService(ctx context.Context, svc *store.Service) err
 	return err
 }
 
-// SaveService creates a new service or updates an existing one.
-func (s ServiceStore) SaveService(ctx context.Context, svc *store.Service) (*store.Service, error) {
+// UpsertService creates a new service or updates an existing one.
+func (s ServiceStore) UpsertService(ctx context.Context, svc *store.Service) (*store.Service, error) {
 	existing, err := s.GetService(ctx, svc.Name)
 	if err == nil && existing != nil {
 		svc.CreatedAt = existing.CreatedAt

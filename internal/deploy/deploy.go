@@ -58,6 +58,7 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 	deployment := &store.Deployment{
 		ID:     ulid.Make().String(),
 		Status: store.StatusPending,
+		Name:   req.Name,
 		Blueprint: store.Blueprint{
 			Name:       req.Name,
 			Desc:       req.Description,
@@ -79,8 +80,8 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 		UpdatedAt: time.Now(),
 	}
 
-	if err := d.store.CreateDeployment(ctx, deployment); err != nil {
-		msg := fmt.Sprintf("failed to create deployment: %s", err)
+	if err := d.store.UpsertDeployment(ctx, deployment); err != nil {
+		msg := fmt.Sprintf("failed to upsert deployment: %s", err)
 		d.logger.With("request_id", requestID, "trace_id", traceID).Error(msg)
 		return nil, fmt.Errorf("%s", msg)
 	}
@@ -89,7 +90,7 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 		"user_id", user.ID,
 		"request_id", requestID,
 		"trace_id", traceID,
-	).Info("created new deployment", "deployment_id", deployment.ID)
+	).Info("upserted deployment", "deployment_id", deployment.ID)
 
 	d.job.Submit(deployment.ID)
 
@@ -125,7 +126,7 @@ func (d *Deployer) UpdateDeploymentStatus(ctx context.Context, id string, status
 	}
 
 	if status == store.StatusCompleted || status == store.StatusFailed {
-		msg := fmt.Sprintf("connot modify state after failure or completion: %s", err)
+		msg := fmt.Sprintf("cannot modify state after failure or completion: %s", err)
 		d.logger.With("request_id", requestID).Error(msg)
 		return fmt.Errorf("%s", msg)
 	}
