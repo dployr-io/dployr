@@ -25,6 +25,114 @@ import (
 
 type DeployRequest struct{}
 
+// DockerIgnoreContent defines patterns to exclude from Docker builds
+const DockerIgnoreContent = `.git/
+.gitignore
+.gitattributes
+.dockerignore
+.editorconfig
+
+# AI/IDE tools and caches
+.claude/
+.cursor/
+.aider/
+.vscode/
+.vscode-server/
+.idea/
+.anthropic-api-cache/
+
+# Language-specific dependencies (reinstalled in container)
+node_modules/
+.npm/
+.pnpm-store/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+vendor/
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+.Python
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
+dist-info/
+Gemfile.lock
+.bundle/
+.rubygems.lock
+/vendor/bundle/
+
+# Build outputs
+dist/
+build/
+out/
+bin/
+obj/
+*.class
+*.jar
+*.war
+.gradle/
+.m2/
+target/
+.cache/
+.next/
+.nuxt/
+out/
+
+# Test coverage and reports
+test/
+tests/
+__tests__/
+*.test.js
+*.spec.js
+*.test.ts
+*.spec.ts
+coverage/
+.nyc_output/
+.xunit-results/
+
+# Development environment
+.env
+.env.local
+.env.*.local
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vagrant/
+.vfox.lock
+
+# Documentation and metadata
+README.md
+CHANGELOG.md
+LICENSE
+docs/
+examples/
+CONTRIBUTING.md
+.github/
+.gitlab-ci.yml
+.circleci/
+Dockerfile
+docker-compose*.yml
+
+# Runtime/temporary
+*.log
+.git-blame-ignore-revs
+.npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+.prettierignore
+lerna-debug.log*
+.pnp.js
+.yarn/install-state.gz
+`
+
 // SetupDir creates a working directory for the deployment
 func SetupDir(name string) (string, error) {
 	dataDir := utils.GetDataDir()
@@ -62,7 +170,7 @@ func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.C
 		if err := os.MkdirAll(destDir, 0755); err != nil {
 			return fmt.Errorf("failed to create destination directory: %s", err)
 		}
-		cloneCmd := fmt.Sprintf("git clone --branch %s %s .", remote.Branch, authUrl)
+		cloneCmd := fmt.Sprintf("git clone --depth 1 --branch %s %s .", remote.Branch, authUrl)
 		if err := shared.Exec(ctx, cloneCmd, destDir); err != nil {
 			if ctx.Err() == context.DeadlineExceeded {
 				return fmt.Errorf("git clone timed out after 5 minutes")
@@ -80,7 +188,21 @@ func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.C
 			return fmt.Errorf("git checkout failed: %s", err)
 		}
 	}
+
+	// Write .dockerignore to exclude build artifacts and dependencies
+	if err := writeDockerIgnore(destDir); err != nil {
+		return fmt.Errorf("failed to write .dockerignore: %s", err)
+	}
+
 	return nil
+}
+
+func writeDockerIgnore(destDir string) error {
+	dockerIgnorePath := filepath.Join(destDir, ".dockerignore")
+	if _, err := os.Stat(dockerIgnorePath); err == nil {
+		return nil // Respect existing .dockerignore
+	}
+	return os.WriteFile(dockerIgnorePath, []byte(DockerIgnoreContent), 0644)
 }
 
 // PullImage pulls a docker image from a registry
