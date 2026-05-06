@@ -115,8 +115,8 @@ type DeploymentV1_1 struct {
 	WorkingDir   *string           `json:"working_dir,omitempty"`
 	StaticDir    *string           `json:"static_dir,omitempty"`
 	Image        *string           `json:"image,omitempty"`
-	RunCommand   *string           `json:"run_command,omitempty"`
-	BuildCommand *string           `json:"build_command,omitempty"`
+	RunCommand   *string           `json:"run_cmd,omitempty"`
+	BuildCommand *string           `json:"build_cmd,omitempty"`
 	EnvVars      map[string]string `json:"env_vars,omitempty"`
 	Secrets      []SecretRef       `json:"secrets,omitempty"`
 	CreatedAt    string            `json:"created_at"`
