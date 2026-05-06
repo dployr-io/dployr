@@ -497,7 +497,7 @@ if pgrep -x "dployrd" > /dev/null; then
     # stopping the daemon for upgrade.
     wait_for_pending_tasks
 
-    info "Stopping running dployrd daemon..."
+    info "Stopping dployrd..."
     case $OS in
         linux)
             if systemctl is-active --quiet dployrd 2>/dev/null; then
@@ -703,12 +703,12 @@ EOF
     esac
 fi
 
-info "Installing vfox..."
-if command -v vfox &> /dev/null; then
-    info "vfox already installed"
-else
-    curl -sSL https://raw.githubusercontent.com/version-fox/vfox/main/install.sh | bash || error "Failed to install vfox"
-fi
+# info "Installing vfox..."
+# if command -v vfox &> /dev/null; then
+#     info "vfox already installed"
+# else
+#     curl -sSL https://raw.githubusercontent.com/version-fox/vfox/main/install.sh | bash || error "Failed to install vfox"
+# fi
 
 info "Installing docker..."
 if ! command -v docker &> /dev/null; then
