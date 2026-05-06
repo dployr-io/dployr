@@ -105,6 +105,7 @@ type Syncer struct {
 	workerMaxConcurrent int
 	workerActiveJobs    func() int
 	epoch               string
+	fullSyncRequests    chan struct{}
 
 	dedupeMu sync.Mutex
 	dedupe   map[string]time.Time
@@ -158,7 +159,15 @@ func NewSyncer(cfg *shared.Config, logger *shared.Logger, instStore store.Instan
 		executor:            NewExecutor(logger, cfg, handler, instStore, auth),
 		workerMaxConcurrent: workerMaxConcurrent,
 		workerActiveJobs:    workerActiveJobs,
+		fullSyncRequests:    make(chan struct{}, 1),
 		dedupe:              make(map[string]time.Time),
+	}
+}
+
+func (s *Syncer) RequestFullSync() {
+	select {
+	case s.fullSyncRequests <- struct{}{}:
+	default:
 	}
 }
 
@@ -451,6 +460,21 @@ ws_connected:
 		}
 	}()
 
+	go func() {
+		for {
+			select {
+			case <-connCtx.Done():
+				return
+			case <-s.fullSyncRequests:
+				logger.Debug("syncer: sending requested full sync")
+				if err := s.sendFullSync(connCtx, conn); err != nil {
+					logger.Error("syncer: failed to send requested full sync", "error", err)
+					return
+				}
+			}
+		}
+	}()
+
 	for {
 		msg, err := ws.Read(connCtx, conn)
 		if err != nil {
@@ -672,6 +696,45 @@ func (s *Syncer) sendTaskResponse(ctx context.Context, conn *websocket.Conn, tas
 	}
 
 	return ws.Send(ctx, conn, msg)
+}
+
+func (s *Syncer) sendFullSync(ctx context.Context, conn *websocket.Conn) error {
+	seq := atomic.AddUint64(&updateSeq, 1)
+	activeJobs := 0
+	if s.workerActiveJobs != nil {
+		activeJobs = s.workerActiveJobs()
+	}
+
+	update, err := BuildUpdateV1_1(
+		ctx,
+		s.cfg,
+		seq,
+		s.epoch,
+		true,
+		s.instStore,
+		s.deployStore,
+		s.svcStore,
+		s.proxyHandler,
+		s.fs,
+		s.topCollector,
+		s.workerMaxConcurrent,
+		activeJobs,
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := ws.Send(ctx, conn, ws.Message{
+		ID:     ulid.Make().String(),
+		TS:     time.Now(),
+		Kind:   "update",
+		Update: update,
+	}); err != nil {
+		return err
+	}
+
+	s.recordFullSync()
+	return nil
 }
 
 // mapErrorToCode maps error messages to WSErrorCode values

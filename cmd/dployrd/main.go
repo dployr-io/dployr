@@ -109,6 +109,9 @@ func main() {
 	mux := wh.BuildMux(cfg)
 
 	syncer := _system.NewSyncer(cfg, logger, is, trs, ds, ss, ps, mux, as, fs, workerMaxConcurrent, w.ActiveJobs)
+	w.SetCompletionHandler(func(id string) {
+		syncer.RequestFullSync()
+	})
 	syncer.Executor().SetTerminalHandler(terminalH)
 
 	go func() {

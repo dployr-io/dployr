@@ -38,6 +38,7 @@ type Worker struct {
 	activeJobs    map[string]bool
 	jobsMux       sync.RWMutex
 	queue         chan string
+	onComplete    func(id string)
 }
 
 // New creates a new Worker instance
@@ -84,6 +85,10 @@ func (w *Worker) Submit(id string) {
 	w.queue <- id
 }
 
+func (w *Worker) SetCompletionHandler(fn func(id string)) {
+	w.onComplete = fn
+}
+
 func (w *Worker) execute(ctx context.Context, id string) {
 	defer func() {
 		w.markInactive(id)
@@ -96,12 +101,20 @@ func (w *Worker) execute(ctx context.Context, id string) {
 	if err := w.runDeployment(ctx, id); err != nil {
 		w.logger.Error("deployment failed", "error", err)
 		w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusFailed))
+		w.notifyComplete(id)
 		go w.submitDeploymentLogs(ctx, id, logPath)
 		return
 	}
 
 	w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusCompleted))
+	w.notifyComplete(id)
 	go w.submitDeploymentLogs(ctx, id, logPath)
+}
+
+func (w *Worker) notifyComplete(id string) {
+	if w.onComplete != nil {
+		w.onComplete(id)
+	}
 }
 
 func (w *Worker) runDeployment(ctx context.Context, id string) error {
