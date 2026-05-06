@@ -577,10 +577,12 @@ docker_build_image() {
     log "Building Docker image: $image_name"
     
     local dockerfile="${workdir}/Dockerfile"
-    if [ ! -f "$dockerfile" ]; then
+    if [ ! -f "$dockerfile" ] || ! git -C "$workdir" ls-files --error-unmatch Dockerfile > /dev/null 2>&1; then
         log "Generating Dockerfile for runtime: $runtime"
         runtime_to_dockerfile "$runtime" "$version" "$port" "$build_cmd" "$run_cmd" > "$dockerfile"
         log "Created Dockerfile from template"
+    else
+        log "Using committed Dockerfile from repository"
     fi
     
     cd "$workdir" || abort "cannot cd into workdir: $workdir"
