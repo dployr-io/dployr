@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dployr-io/dployr/pkg/core/utils"
 	"github.com/dployr-io/dployr/pkg/store"
 )
 
@@ -88,14 +89,16 @@ func FromStoreService(s *store.Service) ServiceV1_1 {
 	fmt.Printf("[FromStoreService] Input: id=%s name=%s runCmd=%s buildCmd=%s remote=%s branch=%s\n",
 		s.ID, s.Name, s.RunCmd, s.BuildCmd, s.Remote, s.Branch)
 
+	containerName := utils.FormatName(s.Name)
 	svc := ServiceV1_1{
 		ID:          s.ID,
 		Name:        s.Name,
-		Source: 		 string(s.Source),
+		Source:      string(s.Source),
 		Description: s.Description,
 		Type:        string(s.Type),
 		Runtime:     string(s.Runtime),
 		Port:        s.Port,
+		HostPort:    utils.ComputeHostPort(containerName),
 		EnvVars:     make(map[string]string),
 		Secrets:     []SecretRef{},
 		CreatedAt:   s.CreatedAt.Format(time.RFC3339),

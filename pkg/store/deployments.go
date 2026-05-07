@@ -56,7 +56,7 @@ type Blueprint struct {
 
 type Deployment struct {
 	ID        string    `json:"id" db:"id"`
-	Name 			string 		`json:"name" db:"name"`
+	Name      string    `json:"name" db:"name"`
 	UserId    *string   `json:"user_id,omitempty" db:"user_id"`
 	Blueprint Blueprint `json:"config" db:"config"`
 	Status    Status    `json:"status" db:"status"`

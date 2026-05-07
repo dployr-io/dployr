@@ -6,6 +6,7 @@ package utils
 import (
 	"bufio"
 	"bytes"
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -246,6 +247,15 @@ func GetDataDir() string {
 	default: // linux and others
 		return "/var/lib/dployrd"
 	}
+}
+
+// ComputeHostPort returns the host port that docker.sh assigns to a container.
+// Matches the get_host_port function in docker.sh exactly.
+func ComputeHostPort(containerName string) int {
+	h := md5.Sum([]byte(containerName))
+	hashDec := uint64(h[0])<<24 | uint64(h[1])<<16 | uint64(h[2])<<8 | uint64(h[3])
+	portRange := uint64(64999 - 61000 + 1)
+	return int(hashDec%portRange) + 61000
 }
 
 // FormatName converts a string to a lowercase URL-safe slug (e.g., "My App v2.0 (Beta)" -> "my-app-v2-0-beta").

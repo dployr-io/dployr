@@ -148,6 +148,7 @@ type ServiceV1_1 struct {
 	Runtime        string            `json:"runtime"`
 	RuntimeVersion *string           `json:"runtime_version,omitempty"`
 	Port           int               `json:"port"`
+	HostPort       int               `json:"host_port"` // actual Docker host port (61000-64999)
 	WorkingDir     *string           `json:"working_dir,omitempty"`
 	StaticDir      *string           `json:"static_dir,omitempty"`
 	Image          *string           `json:"image,omitempty"`

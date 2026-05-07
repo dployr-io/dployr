@@ -374,6 +374,7 @@ ws_connected:
 		s.topCollector,
 		s.workerMaxConcurrent,
 		activeJobs,
+		logger,
 	)
 	if err != nil {
 		logger.Error("syncer: failed to build update", "error", err)
@@ -436,6 +437,7 @@ ws_connected:
 					s.topCollector,
 					s.workerMaxConcurrent,
 					activeJobs,
+					s.logger,
 				)
 				if err != nil {
 					logger.Error("syncer: failed to build update", "error", err)
@@ -537,6 +539,7 @@ ws_connected:
 				s.topCollector,
 				s.workerMaxConcurrent,
 				activeJobs,
+				s.logger,
 			)
 			if err != nil {
 				msgLogger.Error("syncer: failed to build heartbeat response update", "error", err)
@@ -622,6 +625,7 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 				s.topCollector,
 				s.workerMaxConcurrent,
 				activeJobs,
+				s.logger,
 			)
 			if err != nil {
 				tlog.Error("syncer: failed to build update after task", "error", err)
@@ -719,6 +723,7 @@ func (s *Syncer) sendFullSync(ctx context.Context, conn *websocket.Conn) error {
 		s.topCollector,
 		s.workerMaxConcurrent,
 		activeJobs,
+		s.logger,
 	)
 	if err != nil {
 		return err

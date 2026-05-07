@@ -36,6 +36,7 @@ func BuildUpdateV1_1(
 	topCollector *TopCollector,
 	workerMaxConcurrent int,
 	workerActiveJobs int,
+	l *shared.Logger,
 ) (*system.UpdateV1_1, error) {
 	now := time.Now()
 
@@ -54,14 +55,14 @@ func BuildUpdateV1_1(
 	update.Proxy = buildProxy(proxyHandler, isFullSync)
 	update.Processes = buildProcesses(ctx, topCollector, isFullSync)
 	update.Diagnostics = buildDiagnostics(ctx, instStore, isFullSync, workerMaxConcurrent, workerActiveJobs)
+	workloads, err := buildWorkloads(ctx, deployStore, svcStore)
+	if err != nil {
+		l.Error("error retrieving workloads", "error", err)
+	}
+	update.Workloads = workloads
 
 	if isFullSync {
 		update.Node = buildNode()
-		workloads, err := buildWorkloads(ctx, deployStore, svcStore)
-		if err != nil {
-			return nil, err
-		}
-		update.Workloads = workloads
 		update.Filesystem = buildFilesystem(fs)
 	}
 
