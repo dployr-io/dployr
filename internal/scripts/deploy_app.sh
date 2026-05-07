@@ -5,7 +5,7 @@
 
 # deploy_app.sh — unified deployment script
 # Handles runtime setup, build, and service installation in one go
-# Usage: deploy_app.sh <action> <service_name> <source> <type> <runtime> <version> <workdir> <run_cmd> <description> <build_cmd> <port> [image] [static_dir]
+# Usage: deploy_app.sh <action> <service_name> <source> <type> <runtime> <version> <workdir> <run_cmd> <description> <build_cmd> <port> <host_port> [image] [static_dir]
 # Environment variables are read from config.toml in the workdir
 
 set -euo pipefail
@@ -22,8 +22,9 @@ RUN_CMD="${8:-}"
 DESCRIPTION="${9:-}"
 BUILD_CMD="${10:-}"
 PORT="${11:-3000}"
-IMAGE="${12:-}"
-STATIC_DIR="${13:-}"
+HOST_PORT="${12:-}"
+IMAGE="${13:-}"
+STATIC_DIR="${14:-}"
 
 # --- logging ---
 log() { echo "[INFO] $*" >&2; }
@@ -191,7 +192,7 @@ create_service_exe() {
     local runtime="$2"
     local version="$3"
     local workdir="$4"
-    local run_cmd="$5"
+    local run_cmd="$6"
 
     local exe_script="${HOME}/.dployr/scripts/${service_name}.sh"
     mkdir -p "$(dirname "$exe_script")"
@@ -649,10 +650,11 @@ docker_create_container() {
     local image="$2"
     local workdir="$3"
     local port="$4"
-    local run_cmd="$5"
-    local description="$6"
-    local type="$7"
-    local static_dir="$8"
+    local host_port="$5"
+    local run_cmd="$6"
+    local description="$7"
+    local type="$8"
+    local static_dir="$9"
     
     [ -z "$name" ] && abort "container name required"
     [ -z "$image" ] && abort "image name required"
@@ -666,7 +668,11 @@ docker_create_container() {
     local create_cmd=(docker run -d --name "$name" --restart unless-stopped)
     
     if [ -n "$port" ] && [ "$port" != "0" ]; then
-        create_cmd+=(-p "${port}:${port}")
+        if [ -n "$host_port" ]; then
+            create_cmd+=(-p "${host_port}:${port}")
+        else
+            create_cmd+=(-p "${port}:${port}")
+        fi
     fi
     
     local env_file="${workdir}/.env"
@@ -797,7 +803,7 @@ deploy_docker() {
         image=$(docker_build_image "$WORKDIR" "$SERVICE_NAME" "$RUNTIME" "$VERSION" "$PORT" "$BUILD_CMD" "$RUN_CMD")
     fi
     
-    docker_create_container "$SERVICE_NAME" "$image" "$WORKDIR" "$PORT" "$RUN_CMD" "$DESCRIPTION" "$TYPE" "$STATIC_DIR"
+    docker_create_container "$SERVICE_NAME" "$image" "$WORKDIR" "$PORT" "$HOST_PORT" "$RUN_CMD" "$DESCRIPTION" "$TYPE" "$STATIC_DIR"
     
     docker_start "$SERVICE_NAME"
     
@@ -889,7 +895,7 @@ case "$ACTION" in
         status
         ;;
     *)
-        echo "Usage: $0 {deploy|start|stop|remove|status} <service_name> [source] [type] [runtime] [version] [workdir] [run_cmd] [description] [build_cmd] [port] [image] [static_dir]"
+        echo "Usage: $0 {deploy|start|stop|remove|status} <service_name> [source] [type] [runtime] [version] [workdir] [run_cmd] [description] [build_cmd] [port] [host_port] [image] [static_dir]"
         echo ""
         echo "Actions:"
         echo "  deploy  - Full deployment: setup runtime, build, install and start service"

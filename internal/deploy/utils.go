@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -296,6 +297,7 @@ func runDeployScript(ctx context.Context, bp store.Blueprint, deploymentID, logP
 		desc,
 		buildCmd,
 		port,
+		strconv.Itoa(utils.ComputeHostPort(bp.Name)),
 		bp.Image,
 		bp.StaticDir,
 	}
