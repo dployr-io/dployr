@@ -226,7 +226,7 @@ func PullImage(imageRef string, workDir string, config *shared.Config) error {
 }
 
 // DeployApp handles runtime setup, build, and service installation
-func DeployApp(bp store.Blueprint, deploymentID, logPath string) error {
+func DeployApp(bp store.Blueprint, name, logPath string) error {
 	version := string(bp.Runtime.Version)
 	if version == "" {
 		return fmt.Errorf("runtime version cannot be empty")
@@ -235,10 +235,10 @@ func DeployApp(bp store.Blueprint, deploymentID, logPath string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 
-	return runDeployScript(ctx, bp, deploymentID, logPath)
+	return runDeployScript(ctx, bp, name, logPath)
 }
 
-func runDeployScript(ctx context.Context, bp store.Blueprint, deploymentID, logPath string) error {
+func runDeployScript(ctx context.Context, bp store.Blueprint, name, logPath string) error {
 	if runtime.GOOS == "windows" {
 		return fmt.Errorf("unified deployment script not yet supported on Windows")
 	}
@@ -325,7 +325,7 @@ func runDeployScript(ctx context.Context, bp store.Blueprint, deploymentID, logP
 		defer wg.Done()
 		scanner := bufio.NewScanner(stdoutPipe)
 		for scanner.Scan() {
-			shared.LogInfoF(deploymentID, logPath, scanner.Text())
+			shared.LogInfoF(name, logPath, scanner.Text())
 		}
 	}()
 
@@ -335,7 +335,7 @@ func runDeployScript(ctx context.Context, bp store.Blueprint, deploymentID, logP
 		defer wg.Done()
 		scanner := bufio.NewScanner(stderrPipe)
 		for scanner.Scan() {
-			shared.LogWarnF(deploymentID, logPath, scanner.Text())
+			shared.LogWarnF(name, logPath, scanner.Text())
 		}
 	}()
 

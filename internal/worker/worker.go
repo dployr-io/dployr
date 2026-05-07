@@ -98,17 +98,18 @@ func (w *Worker) execute(ctx context.Context, id string) {
 	w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusInProgress))
 	logPath := filepath.Join(utils.GetDataDir(), ".dployr", "logs") + "/"
 
-	if err := w.runDeployment(ctx, id); err != nil {
+	name, err := w.runDeployment(ctx, id)
+	if err != nil {
 		w.logger.Error("deployment failed", "error", err)
 		w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusFailed))
 		w.notifyComplete(id)
-		go w.submitDeploymentLogs(ctx, id, logPath)
+		go w.submitDeploymentLogs(ctx, id, name, logPath)
 		return
 	}
 
 	w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusCompleted))
 	w.notifyComplete(id)
-	go w.submitDeploymentLogs(ctx, id, logPath)
+	go w.submitDeploymentLogs(ctx, id, name, logPath)
 }
 
 func (w *Worker) notifyComplete(id string) {
@@ -117,7 +118,7 @@ func (w *Worker) notifyComplete(id string) {
 	}
 }
 
-func (w *Worker) runDeployment(ctx context.Context, id string) error {
+func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 	dataDir := utils.GetDataDir()
 	logPath := filepath.Join(dataDir, ".dployr", "logs") + "/"
 
@@ -125,54 +126,54 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	if err != nil {
 		msg := fmt.Sprintf("could not resolve user home directory: %v", err)
 		w.logger.Error(msg)
-		return err
+		return "", err
 	}
 
-	shared.LogInfoF(id, logPath, "creating workspace")
+	svcName := utils.FormatName(d.Blueprint.Name)
+
+	shared.LogInfoF(svcName, logPath, "creating workspace")
 	workingDir, err := deploy.SetupDir(d.Blueprint.Name)
 	dir := ""
 	if err != nil {
 		err = fmt.Errorf("failed to setup working directory %s: %v", workingDir, err)
-		shared.LogErrF(id, logPath, err)
-		return err
+		shared.LogErrF(svcName, logPath, err)
+		return svcName, err
 	}
 
 	if d.Blueprint.Source == "remote" {
-		shared.LogInfoF(id, logPath, "cloning repository")
+		shared.LogInfoF(svcName, logPath, "cloning repository")
 		err = deploy.CloneRepo(d.Blueprint.Remote, workingDir, d.Blueprint.WorkingDir, w.cfg)
 		if err != nil {
 			err = fmt.Errorf("failed to clone repository: %s", err)
-			shared.LogErrF(id, logPath, err)
-			return err
+			shared.LogErrF(svcName, logPath, err)
+			return svcName, err
 		}
 	} else {
-		shared.LogInfoF(id, logPath, "pulling image")
+		shared.LogInfoF(svcName, logPath, "pulling image")
 		err = deploy.PullImage(d.Blueprint.Image, d.Blueprint.WorkingDir, w.cfg)
 		if err != nil {
 			err = fmt.Errorf("failed to pull image: %s", err)
-			shared.LogErrF(id, logPath, err)
-			return err
+			shared.LogErrF(svcName, logPath, err)
+			return svcName, err
 		}
 	}
 
 	// Set the working directory for the service
 	dir = fmt.Sprint(workingDir, "/", d.Blueprint.WorkingDir)
 
-	svcName := utils.FormatName(d.Blueprint.Name)
-
-	shared.LogInfoF(id, logPath, "checking for existing service")
+	shared.LogInfoF(svcName, logPath, "checking for existing service")
 	s, err := svc_runtime.SvcRuntime()
 	if err != nil {
 		err = fmt.Errorf("failed to default a compatible runtime manager: %s", err)
-		shared.LogErrF(id, logPath, err)
-		return err
+		shared.LogErrF(svcName, logPath, err)
+		return svcName, err
 	}
 
 	status, err := s.Status(svcName)
 	if err == nil {
 		// Service exists, remove it first
-		shared.LogWarnF(id, logPath, fmt.Sprintf("previous version of %s exists", svcName))
-		shared.LogInfoF(id, logPath, "uninstalling previous version...")
+		shared.LogWarnF(svcName, logPath, fmt.Sprintf("previous version of %s exists", svcName))
+		shared.LogInfoF(svcName, logPath, "uninstalling previous version...")
 		if status == string(service.SvcRunning) {
 			s.Stop(svcName)
 		}
@@ -180,7 +181,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		s.Remove(svcName)
 	} else {
 		// Service doesn't exist, new deployment
-		shared.LogInfoF(id, logPath, "no existing service found, proceeding with installation")
+		shared.LogInfoF(svcName, logPath, "no existing service found, proceeding with installation")
 	}
 
 	bp := store.Blueprint{
@@ -202,12 +203,12 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 		ProjectID:  d.Blueprint.ProjectID,
 	}
 
-	shared.LogInfoF(id, logPath, "deploying application")
-	err = deploy.DeployApp(bp, id, logPath)
+	shared.LogInfoF(svcName, logPath, "deploying application")
+	err = deploy.DeployApp(bp, svcName, logPath)
 	if err != nil {
 		err = fmt.Errorf("deployment failed: %s", err)
-		shared.LogErrF(id, logPath, err)
-		return err
+		shared.LogErrF(svcName, logPath, err)
+		return svcName, err
 	}
 
 	req := &store.Service{
@@ -239,11 +240,11 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 	_, err = w.svcStore.UpsertService(ctx, req)
 	if err != nil {
 		err = fmt.Errorf("failed to save service: %s", err)
-		shared.LogErrF(id, logPath, err)
-		return err
+		shared.LogErrF(svcName, logPath, err)
+		return svcName, err
 	}
 
-	shared.LogInfoF(id, logPath, fmt.Sprintf("successfully deployed %s", d.Blueprint.Name))
+	shared.LogInfoF(svcName, logPath, fmt.Sprintf("successfully deployed %s", d.Blueprint.Name))
 
 	if err := w.registerProxyRoute(req); err != nil {
 		w.logger.Warn("failed to register proxy route for service", "service", req.Name, "error", err)
@@ -251,7 +252,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) error {
 
 	w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusCompleted))
 
-	return nil
+	return svcName, nil
 }
 
 func (w *Worker) registerProxyRoute(svc *store.Service) error {
@@ -308,8 +309,8 @@ func (w *Worker) ActiveJobs() int {
 	return len(w.activeJobs)
 }
 
-func (w *Worker) submitDeploymentLogs(ctx context.Context, id string, logPath string) {
-	logs, err := w.readDeploymentLogs(id, logPath)
+func (w *Worker) submitDeploymentLogs(ctx context.Context, id string, name string, logPath string) {
+	logs, err := w.readDeploymentLogs(name, logPath)
 	if err != nil {
 		w.logger.Error("failed to read deployment logs", "error", err)
 		return
@@ -365,21 +366,11 @@ func (w *Worker) submitDeploymentLogs(ctx context.Context, id string, logPath st
 	w.logger.Info("deployment logs submitted successfully", "deployment_id", id)
 }
 
-func (w *Worker) readDeploymentLogs(id string, logPath string) (string, error) {
-	attempts := []string{
-		filepath.Join(logPath, id+".log"),
-		filepath.Join(logPath, strings.ToLower(id)+".log"),
-		filepath.Join(logPath, strings.ToUpper(id)+".log"),
+func (w *Worker) readDeploymentLogs(name string, logPath string) (string, error) {
+	logFile := filepath.Join(logPath, strings.ToLower(name)+".log")
+	data, err := os.ReadFile(logFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read log file: %w", err)
 	}
-
-	var lastErr error
-	for _, logFile := range attempts {
-		data, err := os.ReadFile(logFile)
-		if err == nil {
-			return string(data), nil
-		}
-		lastErr = err
-	}
-
-	return "", fmt.Errorf("failed to read log file: %w", lastErr)
+	return string(data), nil
 }

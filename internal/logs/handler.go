@@ -290,7 +290,7 @@ func (h *Handler) parseLogLine(line string) *logs.LogEntry {
 // Supported path formats:
 //   - "app" or empty: system log file
 //   - "service:<name>": service runtime logs (stdout/stderr)
-//   - "<deployment-id>": deployment-specific log file
+//   - "<service-name>": deployment log file (always use service name, never a UUID)
 func (h *Handler) getLogPath(path string) string {
 	clean := filepath.Clean(path)
 	if clean == "." || clean == "" {
