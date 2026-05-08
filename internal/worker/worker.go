@@ -336,12 +336,11 @@ func (w *Worker) submitDeploymentLogs(ctx context.Context, id string, name strin
 	}
 
 	payload := map[string]any{
-		"token":  token,
-		"id":     id,
-		"userId": d.UserId,
-		"name":   d.Name,
-		"type":   d.Blueprint.Type,
-		"logs":   logs,
+		"token": token,
+		"id":    id,
+		"name":  d.Name,
+		"type":  d.Blueprint.Type,
+		"logs":  logs,
 	}
 
 	jsonData, err := json.Marshal(payload)

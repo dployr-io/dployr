@@ -56,7 +56,7 @@ func FetchNodeToken(ctx context.Context, baseURL, bootstrapToken string) (string
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("node token request returned status %d", resp.StatusCode)
+		return "", &HTTPError{StatusCode: resp.StatusCode, Msg: fmt.Sprintf("node token request returned status %d", resp.StatusCode)}
 	}
 
 	var body nodeTokenResponse
