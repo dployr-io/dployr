@@ -12,8 +12,12 @@ permissions:
   contents: write
 
 jobs:
-  # Build and release for Linux/macOS/Windows 
+  test:
+    uses: ./.github/workflows/tests.yml
+
+  # Build and release for Linux/macOS/Windows
   release:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
