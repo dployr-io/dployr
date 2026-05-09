@@ -19,12 +19,12 @@ import (
 	"time"
 
 	"github.com/dployr-io/dployr/internal/scripts"
+	pkgAuth "github.com/dployr-io/dployr/pkg/auth"
 	"github.com/dployr-io/dployr/pkg/core/system"
 	"github.com/dployr-io/dployr/pkg/core/utils"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
 	"github.com/dployr-io/dployr/pkg/version"
-	"github.com/golang-jwt/jwt/v4"
 )
 
 var startTime = time.Now()
@@ -235,54 +235,7 @@ func tern[T any](cond bool, a, b T) T {
 
 // computeAuthHealthFromToken checks the node access token and returns health status and debug info.
 func (s *DefaultService) computeAuthHealthFromToken(ctx context.Context) (string, *system.AuthDebug) {
-	if s.store == nil {
-		return system.HealthDown, nil
-	}
-
-	tok, err := s.store.GetBootstrapToken(ctx)
-	if err != nil || strings.TrimSpace(tok) == "" {
-		return system.HealthDown, nil
-	}
-
-	claims := &jwt.RegisteredClaims{}
-	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
-	if _, _, err := parser.ParseUnverified(strings.TrimSpace(tok), claims); err != nil {
-		return system.HealthDown, nil
-	}
-
-	now := time.Now()
-	var expTime, iatTime time.Time
-	if claims.ExpiresAt != nil {
-		expTime = claims.ExpiresAt.Time
-	}
-	if claims.IssuedAt != nil {
-		iatTime = claims.IssuedAt.Time
-	}
-
-	age := int64(0)
-	if !iatTime.IsZero() {
-		age = int64(now.Sub(iatTime).Seconds())
-	}
-	ttl := int64(0)
-	if !expTime.IsZero() {
-		ttl = int64(expTime.Sub(now).Seconds())
-	}
-	if age < 0 {
-		age = 0
-	}
-	if ttl < 0 {
-		ttl = 0
-	}
-
-	authDbg := &system.AuthDebug{
-		NodeTokenAgeS:      age,
-		NodeTokenExpiresIn: ttl,
-	}
-
-	if ttl == 0 {
-		return system.HealthDown, authDbg
-	}
-	return system.HealthOK, authDbg
+	return pkgAuth.ComputeAuthHealth(ctx, s.store)
 }
 
 // worst returns the most severe status string among the provided values.
