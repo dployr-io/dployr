@@ -47,7 +47,7 @@ func TestComputeHostPort_Range(t *testing.T) {
 
 func TestComputeHostPort_Deterministic(t *testing.T) {
 	name := "my-service"
-	if ComputeHostPort(name) != ComputeHostPort(name) {
+	if first, second := ComputeHostPort(name), ComputeHostPort(name); first != second {
 		t.Errorf("ComputeHostPort(%q) not deterministic", name)
 	}
 }

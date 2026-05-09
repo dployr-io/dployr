@@ -172,6 +172,7 @@ For first-time owner registration (requires secret key):
 		Use:   "deploy",
 		Short: "create a new deployment",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			//lint:ignore SA1019 CLI pending rewrite
 			token, _ := shared.GetToken()
 
 			name, _ := cmd.Flags().GetString("name")
@@ -296,6 +297,7 @@ For first-time owner registration (requires secret key):
 		Use:   "list",
 		Short: "list previous deployments",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			//lint:ignore SA1019 CLI pending rewrite
 			token, _ := shared.GetToken()
 
 			limit, _ := cmd.Flags().GetInt("limit")
@@ -365,6 +367,7 @@ For first-time owner registration (requires secret key):
 		Short: "view logs from deployment",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			//lint:ignore SA1019 CLI pending rewrite
 			token, _ := shared.GetToken()
 
 			var deploymentID string
@@ -499,6 +502,7 @@ For first-time owner registration (requires secret key):
 		Use:   "list",
 		Short: "list services",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			//lint:ignore SA1019 CLI pending rewrite
 			token, _ := shared.GetToken()
 
 			limit, _ := cmd.Flags().GetInt("limit")
@@ -567,6 +571,7 @@ For first-time owner registration (requires secret key):
 		Short: "get service details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			//lint:ignore SA1019 CLI pending rewrite
 			token, _ := shared.GetToken()
 			name := args[0]
 
@@ -628,6 +633,7 @@ For first-time owner registration (requires secret key):
 		Use:   "status",
 		Short: "get proxy service status",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			//lint:ignore SA1019 CLI pending rewrite
 			token, _ := shared.GetToken()
 
 			r, err := http.NewRequest("GET", addr+"/proxy/status", nil)
@@ -668,6 +674,7 @@ For first-time owner registration (requires secret key):
 		Use:   "restart",
 		Short: "restart proxy service",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			//lint:ignore SA1019 CLI pending rewrite
 			token, _ := shared.GetToken()
 
 			r, err := http.NewRequest("GET", addr+"/proxy/restart", nil)
@@ -703,6 +710,7 @@ For first-time owner registration (requires secret key):
 		Use:   "setup",
 		Short: "setup proxy with app configurations",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			//lint:ignore SA1019 CLI pending rewrite
 			token, _ := shared.GetToken()
 
 			domain, _ := cmd.Flags().GetString("domain")
@@ -772,6 +780,7 @@ For first-time owner registration (requires secret key):
 		Use:   "add",
 		Short: "add new app to proxy configuration",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			//lint:ignore SA1019 CLI pending rewrite
 			token, _ := shared.GetToken()
 
 			domain, _ := cmd.Flags().GetString("domain")
@@ -842,6 +851,7 @@ For first-time owner registration (requires secret key):
 		Short: "remove apps from proxy configuration",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			//lint:ignore SA1019 CLI pending rewrite
 			token, _ := shared.GetToken()
 
 			domains := args
@@ -884,6 +894,7 @@ For first-time owner registration (requires secret key):
 		Use:   "list",
 		Short: "list proxy app configurations",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			//lint:ignore SA1019 CLI pending rewrite
 			token, _ := shared.GetToken()
 
 			r, err := http.NewRequest("GET", addr+"/proxy/apps", nil)
