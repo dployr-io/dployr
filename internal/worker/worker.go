@@ -262,12 +262,16 @@ func (w *Worker) registerProxyRoute(svc *store.Service) error {
 
 	serviceName := utils.FormatName(svc.Name)
 	serviceDomain := serviceName + ".dployr.dev"
+	url := "localhost:%d"
+	upstream := ""
+	port := 3000
 
-	upstream := fmt.Sprintf("localhost:%d", svc.Port)
 	if svc.Port == 0 {
-		return fmt.Errorf("port is not set")
+		upstream = fmt.Sprintf(url, port)
+	} else {
+		upstream = fmt.Sprintf(url, svc.Port)
 	}
-
+	
 	app := proxy.App{
 		Domain:   serviceDomain,
 		Upstream: upstream,

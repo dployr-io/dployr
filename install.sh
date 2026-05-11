@@ -895,7 +895,7 @@ CP=$(command -v cp)
 CHMOD=$(command -v chmod)
 DOCKER=$(command -v docker)
 
-for cmd in SYSTEMCTL TEE CADDY MKDIR RM CP CHMOD; do
+for cmd in SYSTEMCTL TEE MKDIR RM CP CHMOD; do
     [[ -z "${!cmd}" ]] && error "Command $cmd not found"
 done
 
