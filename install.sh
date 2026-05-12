@@ -46,6 +46,7 @@ REPO="dployr-io/dployr"
 DPLOYR_DOMAIN=""
 BASE_URL=""
 INSTANCE_ID=""
+TOMATO_VERSION="${TOMATO_VERSION:-1.0.0}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -183,7 +184,7 @@ get_daemon_port() {
 
     if [[ -r "$cfg_file" ]]; then
         local p
-        p=$(grep -E '^port[[:space:]]*=' "$cfg_file" | head -1 | sed 's/[^0-9]*\([0-9][0-9]*\).*/\1/' || true)
+        p=$(tomato get 'port' "$cfg_file" 2>/dev/null || echo "")
         if [[ -n "$p" ]]; then
             echo "$p"
             return 0
@@ -279,6 +280,20 @@ parse_json() {
         echo "$value"
     fi
 }
+
+install_tomato() {
+    if command -v tomato >/dev/null 2>&1; then return; fi
+    info "Installing tomato v${TOMATO_VERSION}..."
+    local tmp; tmp="$(mktemp -d)"
+    local url="https://github.com/ceejbot/tomato/releases/download/v${TOMATO_VERSION}/tomato-x86_64-unknown-linux-gnu.tar.gz"
+    curl -fsSL "$url" -o "$tmp/tomato.tar.gz" || { rm -rf "$tmp"; error "Failed to download tomato"; }
+    tar -xzf "$tmp/tomato.tar.gz" -C "$tmp" || { rm -rf "$tmp"; error "Failed to extract tomato"; }
+    mv "$tmp/target/release/tomato" "$INSTALL_DIR/tomato" || { rm -rf "$tmp"; error "Failed to install tomato"; }
+    chmod +x "$INSTALL_DIR/tomato"
+    rm -rf "$tmp"
+}
+
+tget() { tomato get "$1" "$CONFIG_FILE" 2>/dev/null || echo ""; }
 
 echo "dployr Unix Installer" >&3
 echo "====================" >&3
@@ -475,6 +490,7 @@ info "Detected platform: $PLATFORM-$ARCH"
 
 install_git
 install_jq
+[[ "$OS" == "linux" && "$ARCH" == "x86_64" && $EUID -eq 0 ]] && install_tomato
 
 if [[ "$VERSION" == "latest" ]]; then
     info "Fetching latest release..."
