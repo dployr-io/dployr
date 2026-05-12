@@ -16,6 +16,8 @@ TOKEN="${2:-}"
 REPO="dployr-io/dployr"
 INSTALL_DIR="/usr/local/bin"
 TEMP_DIR=$(mktemp -d)
+TOMATO_VERSION="${TOMATO_VERSION:-1.0.0}"
+CONFIG_PATH="/etc/dployr/config.toml"
 
 cleanup() {
     rm -rf "$TEMP_DIR"
@@ -29,6 +31,27 @@ log() {
 error() {
     log "ERROR: $*"
     exit 1
+}
+
+install_tomato() {
+    if command -v tomato >/dev/null 2>&1; then return; fi
+    log "Installing tomato v${TOMATO_VERSION}..."
+    local tmp; tmp="$(mktemp -d)"
+    local url="https://github.com/ceejbot/tomato/releases/download/v${TOMATO_VERSION}/tomato-x86_64-unknown-linux-gnu.tar.gz"
+    curl -fsSL "$url" -o "$tmp/tomato.tar.gz" || { rm -rf "$tmp"; error "Failed to download tomato"; }
+    tar -xzf "$tmp/tomato.tar.gz" -C "$tmp" || { rm -rf "$tmp"; error "Failed to extract tomato"; }
+    run_privileged mv "$tmp/target/release/tomato" "$INSTALL_DIR/tomato" || { rm -rf "$tmp"; error "Failed to install tomato"; }
+    run_privileged chmod +x "$INSTALL_DIR/tomato"
+    rm -rf "$tmp"
+}
+
+tget() { tomato get "$1" "$CONFIG_PATH" 2>/dev/null || echo ""; }
+
+log_system() {
+    local level="$1" msg="$2"
+    local ts; ts=$(date -Iseconds 2>/dev/null || date "+%Y-%m-%dT%H:%M:%S%z")
+    printf '{"time":"%s","level":"%s","msg":"%s"}\n' "$ts" "$level" "$msg" \
+        >> /var/log/dployrd/app.log 2>/dev/null || true
 }
 
 # run_privileged runs a command with sudo when not already root.
@@ -191,6 +214,38 @@ case $OS in
         fi
         ;;
 esac
+
+configure_build_node_limits() {
+    [ "$OS" != "linux" ] && return 0
+    [ ! -r "$CONFIG_PATH" ] && return 0
+    [ "$(tget 'node_role')" != "build" ] && return 0
+
+    local total_mem_mb
+    total_mem_mb=$(awk '/^MemTotal:/ { printf "%d", $2/1024 }' /proc/meminfo 2>/dev/null || echo 0)
+    if [ "$total_mem_mb" -lt 512 ]; then
+        log_system "warn" "could not determine system memory, skipping cgroup limit setup"
+        return 0
+    fi
+
+    local docker_max_mb=$(( total_mem_mb - 512 ))
+    local cpu_count
+    cpu_count=$(nproc 2>/dev/null || echo 1)
+    local cpu_quota_pct=$(( (cpu_count * 100) - 5 ))
+
+    local override_dir="/etc/systemd/system/docker.service.d"
+    run_privileged mkdir -p "$override_dir"
+    run_privileged tee "${override_dir}/limits.conf" > /dev/null <<EOF
+[Service]
+MemoryMax=${docker_max_mb}M
+CPUQuota=${cpu_quota_pct}%
+EOF
+
+    run_privileged systemctl daemon-reload
+    log_system "info" "build node cgroup limits applied: MemoryMax=${docker_max_mb}M CPUQuota=${cpu_quota_pct}%"
+}
+
+install_tomato
+configure_build_node_limits
 
 log "Installation completed successfully: $VERSION"
 echo "$VERSION"

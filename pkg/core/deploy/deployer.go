@@ -28,23 +28,24 @@ func NewDeployer(c *shared.Config, l *shared.Logger, s store.DeploymentStore, a 
 }
 
 type DeployRequest struct {
-	Name        string          `json:"name" validate:"required"`
-	Description string          `json:"description,omitempty"`
-	UserId      string          `json:"user_id" validate:"required"`
-	Type        string          `json:"type" validate:"required,oneof= static web worker job"`
-	Source      string          `json:"source" validate:"required,oneof=remote image"`
-	Runtime     string          `json:"runtime" validate:"required,oneof=static golang php python nodejs ruby dotnet java"`
-	Version     string          `json:"version,omitempty"`
-	RunCmd      string          `json:"run_cmd,omitempty"`
-	BuildCmd    string          `json:"build_cmd,omitempty"`
-	Port        int             `json:"port,omitempty"`
-	WorkingDir  string          `json:"working_dir,omitempty"`
-	StaticDir   string          `json:"static_dir,omitempty"`
-	Image       string          `json:"image,omitempty"`
-	EnvVars     map[string]any  `json:"env_vars,omitempty"`
-	Secrets     map[string]any  `json:"secrets,omitempty"`
-	Remote      store.RemoteObj `json:"remote,omitempty"`
-	Domain      string          `json:"domain,omitempty"`
+	Name        string             `json:"name" validate:"required"`
+	Description string             `json:"description,omitempty"`
+	UserId      string             `json:"user_id" validate:"required"`
+	Type        string             `json:"type" validate:"required,oneof= static web worker job"`
+	Source      string             `json:"source" validate:"required,oneof=remote image"`
+	Runtime     string             `json:"runtime" validate:"required,oneof=static golang php python nodejs ruby dotnet java"`
+	Version     string             `json:"version,omitempty"`
+	RunCmd      string             `json:"run_cmd,omitempty"`
+	BuildCmd    string             `json:"build_cmd,omitempty"`
+	Port        int                `json:"port,omitempty"`
+	WorkingDir  string             `json:"working_dir,omitempty"`
+	StaticDir   string             `json:"static_dir,omitempty"`
+	Image       string             `json:"image,omitempty"`
+	EnvVars     map[string]any     `json:"env_vars,omitempty"`
+	Secrets     map[string]any     `json:"secrets,omitempty"`
+	Remote      store.RemoteObj    `json:"remote,omitempty"`
+	Domain      string             `json:"domain,omitempty"`
+	HealthCheck *store.HealthCheck `json:"health_check,omitempty"`
 }
 
 func (dr *DeployRequest) GetRuntimeObj() store.RuntimeObj {

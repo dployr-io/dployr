@@ -5,8 +5,8 @@
 
 # deploy_app.sh — unified deployment script
 # Handles runtime setup, build, and service installation in one go
-# Usage: deploy_app.sh <action> <service_name> <source> <type> <runtime> <version> <workdir> <run_cmd> <description> <build_cmd> <port> <host_port> [image] [static_dir]
-# Environment variables are read from config.toml in the workdir
+# Usage: deploy_app.sh <action> <service_name> <source> <type> <runtime> <version> <workdir> <run_cmd> <description> <build_cmd> <port> <host_port> [image] [static_dir] [memory_mb] [cpu_millicores] [storage_gb] [build_memory_mb]
+# Env vars and health_check are read from config.toml in the workdir; resource limits are positional args
 
 set -euo pipefail
 
@@ -25,6 +25,10 @@ PORT="${11:-3000}"
 HOST_PORT="${12:-}"
 IMAGE="${13:-}"
 STATIC_DIR="${14:-}"
+MEMORY="${15:-0}"
+CPU="${16:-0}"
+STORAGE="${17:-0}"
+BUILD_MEMORY="${18:-0}"
 
 # --- logging ---
 log() { echo "[INFO] $*" >&2; }
@@ -42,6 +46,22 @@ detect_backend() {
 
 BACKEND=$(detect_backend)
 log "Detected backend: $BACKEND (source=$SOURCE, type=$TYPE)"
+
+HEALTH_PATH=""; HEALTH_INTERVAL=30; HEALTH_TIMEOUT=5; HEALTH_RETRIES=3
+
+tget() { tomato get "$1" "${WORKDIR}/config.toml" 2>/dev/null || echo ""; }
+
+read_service_config() {
+    local config_file="${WORKDIR}/config.toml"
+    [ -z "$WORKDIR" ] || [ ! -f "$config_file" ] && return 0
+    ! command -v tomato >/dev/null 2>&1 && return 0
+
+    local val
+    val=$(tget 'health_check.path');     [ -n "$val" ] && HEALTH_PATH="$val"
+    val=$(tget 'health_check.interval'); [ -n "$val" ] && HEALTH_INTERVAL="$val"
+    val=$(tget 'health_check.timeout');  [ -n "$val" ] && HEALTH_TIMEOUT="$val"
+    val=$(tget 'health_check.retries');  [ -n "$val" ] && HEALTH_RETRIES="$val"
+}
 
 # ==== SYSTEMD BACKEND ====
 
@@ -587,8 +607,13 @@ docker_build_image() {
     fi
     
     cd "$workdir" || abort "cannot cd into workdir: $workdir"
-    
-    if ! docker build --no-cache -t "$image_name" .; then
+
+    local build_flags=(--no-cache -t "$image_name")
+    if [ "${BUILD_MEMORY:-0}" -gt 0 ] 2>/dev/null; then
+        build_flags+=(--memory="${BUILD_MEMORY}m" --memory-swap="${BUILD_MEMORY}m")
+    fi
+
+    if ! docker build "${build_flags[@]}" .; then
         abort "Docker build failed"
     fi
     
@@ -683,7 +708,28 @@ docker_create_container() {
     if [ -n "$description" ]; then
         create_cmd+=(--label "description=$description")
     fi
-    
+
+    if [ "${MEMORY:-0}" -gt 0 ] 2>/dev/null; then
+        create_cmd+=(--memory "${MEMORY}m" --memory-swap "${MEMORY}m")
+    fi
+    if [ "${CPU:-0}" -gt 0 ] 2>/dev/null; then
+        local cpu_float
+        cpu_float=$(awk "BEGIN {printf \"%.2f\", ${CPU}/1000}")
+        create_cmd+=(--cpus "$cpu_float")
+    fi
+    if [ "${STORAGE:-0}" -gt 0 ] 2>/dev/null; then
+        create_cmd+=(--storage-opt "size=${STORAGE}g")
+    fi
+
+    if [ -n "${HEALTH_PATH:-}" ] && [ "$type" != "static" ]; then
+        create_cmd+=(
+            --health-cmd "curl -sf http://localhost:${port}${HEALTH_PATH} || exit 1"
+            --health-interval "${HEALTH_INTERVAL}s"
+            --health-timeout "${HEALTH_TIMEOUT}s"
+            --health-retries "${HEALTH_RETRIES}"
+        )
+    fi
+
     if [ "$type" = "static" ]; then
         local serve_dir="${static_dir:-${workdir}}"
         if [ -d "$serve_dir" ]; then
@@ -786,9 +832,10 @@ deploy_docker() {
     [ -z "$SERVICE_NAME" ] && abort "service name required"
     
     ensure_docker
-    
+
     create_env_file "$WORKDIR" "$PORT"
-    
+    read_service_config
+
     if [ "$TYPE" = "static" ]; then
         log "Setting up static deployment with Caddy"
         create_caddyfile "$WORKDIR" "$PORT" "$STATIC_DIR"

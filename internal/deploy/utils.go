@@ -226,7 +226,7 @@ func PullImage(imageRef string, workDir string, config *shared.Config) error {
 }
 
 // DeployApp handles runtime setup, build, and service installation
-func DeployApp(bp store.Blueprint, name, logPath string) error {
+func DeployApp(bp store.Blueprint, name, logPath string, cfg *shared.Config) error {
 	version := string(bp.Runtime.Version)
 	if version == "" {
 		return fmt.Errorf("runtime version cannot be empty")
@@ -235,53 +235,52 @@ func DeployApp(bp store.Blueprint, name, logPath string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 
-	return runDeployScript(ctx, bp, name, logPath)
+	return runDeployScript(ctx, bp, name, logPath, cfg)
 }
 
-func runDeployScript(ctx context.Context, bp store.Blueprint, name, logPath string) error {
+func runDeployScript(ctx context.Context, bp store.Blueprint, name, logPath string, cfg *shared.Config) error {
 	if runtime.GOOS == "windows" {
 		return fmt.Errorf("unified deployment script not yet supported on Windows")
 	}
 
-	// Use service name as description if empty
 	desc := bp.Desc
 	if desc == "" {
 		desc = fmt.Sprintf("%s service", bp.Name)
 	}
 
-	// Write service config.toml with env vars and secrets
 	if err := writeServiceConfig(bp); err != nil {
 		return fmt.Errorf("failed to write service config: %v", err)
 	}
 
-	// Create temporary script file
 	tmpFile, err := os.CreateTemp("", "deploy_app*.sh")
 	if err != nil {
 		return fmt.Errorf("failed to create temp script: %v", err)
 	}
 	defer os.Remove(tmpFile.Name())
 
-	// Write script content
 	if _, err := tmpFile.WriteString(scripts.DeployScript); err != nil {
 		tmpFile.Close()
 		return fmt.Errorf("failed to write script: %v", err)
 	}
 	tmpFile.Close()
 
-	// Make script executable
 	if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
 		return fmt.Errorf("failed to make script executable: %v", err)
 	}
 
-	// Build arguments - always include all positional args
 	buildCmd := bp.BuildCmd
-	if buildCmd == "" {
-		buildCmd = ""
-	}
 
 	port := fmt.Sprintf("%d", bp.Port)
 	if bp.Port == 0 {
 		port = "3000"
+	}
+
+	memory, cpu, storage, buildMemory := 0, 0, 0, 0
+	if cfg != nil {
+		memory = cfg.ContainerMemory
+		cpu = cfg.ContainerCPU
+		storage = cfg.ContainerStorage
+		buildMemory = cfg.BuildMemory
 	}
 
 	args := []string{
@@ -300,12 +299,14 @@ func runDeployScript(ctx context.Context, bp store.Blueprint, name, logPath stri
 		strconv.Itoa(utils.ComputeHostPort(bp.Name)),
 		bp.Image,
 		bp.StaticDir,
+		strconv.Itoa(memory),
+		strconv.Itoa(cpu),
+		strconv.Itoa(storage),
+		strconv.Itoa(buildMemory),
 	}
 
 	cmd := exec.CommandContext(ctx, "bash", args...)
-	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("HOME=%s", os.Getenv("HOME")),
-	)
+	cmd.Env = append(os.Environ(), fmt.Sprintf("HOME=%s", os.Getenv("HOME")))
 
 	// Capture stdout and stderr to deployment log
 	stdoutPipe, err := cmd.StdoutPipe()
@@ -350,50 +351,49 @@ func runDeployScript(ctx context.Context, bp store.Blueprint, name, logPath stri
 	return cmd.Wait()
 }
 
-// ServiceConfig represents the TOML structure for service environment configuration
-type ServiceConfig struct {
-	Env     map[string]string `toml:"env"`
-	Secrets map[string]string `toml:"secrets"`
-}
-
-// writeServiceConfig writes the service config.toml file with env vars and secrets
 func writeServiceConfig(bp store.Blueprint) error {
-	configDir := filepath.Join(bp.WorkingDir)
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(bp.WorkingDir, 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %v", err)
 	}
 
-	configPath := filepath.Join(configDir, "config.toml")
-
-	config := ServiceConfig{
-		Env:     bp.EnvVars,
-		Secrets: bp.Secrets,
+	env := bp.EnvVars
+	if env == nil {
+		env = make(map[string]string)
+	}
+	secrets := bp.Secrets
+	if secrets == nil {
+		secrets = make(map[string]string)
 	}
 
-	// Initialize empty maps if nil to ensure proper TOML output
-	if config.Env == nil {
-		config.Env = make(map[string]string)
-	}
-	if config.Secrets == nil {
-		config.Secrets = make(map[string]string)
+	var b strings.Builder
+
+	b.WriteString("[env]\n")
+	for k, v := range env {
+		fmt.Fprintf(&b, "%s = %q\n", k, v)
 	}
 
-	// Build TOML content manually to maintain control over format
-	var content strings.Builder
-	content.WriteString("[env]\n")
-	for key, value := range config.Env {
-		content.WriteString(fmt.Sprintf("%s = %q\n", key, value))
-	}
-	content.WriteString("\n[secrets]\n")
-	for key, value := range config.Secrets {
-		content.WriteString(fmt.Sprintf("%s = %q\n", key, value))
+	b.WriteString("\n[secrets]\n")
+	for k, v := range secrets {
+		fmt.Fprintf(&b, "%s = %q\n", k, v)
 	}
 
-	if err := os.WriteFile(configPath, []byte(content.String()), 0600); err != nil {
-		return fmt.Errorf("failed to write config file: %v", err)
+	if bp.HealthCheck != nil && bp.HealthCheck.Path != "" && bp.Type != store.TypeStatic {
+		hc := bp.HealthCheck
+		interval, timeout, retries := hc.Interval, hc.Timeout, hc.Retries
+		if interval <= 0 {
+			interval = 30
+		}
+		if timeout <= 0 {
+			timeout = 5
+		}
+		if retries <= 0 {
+			retries = 3
+		}
+		fmt.Fprintf(&b, "\n[health_check]\npath = %q\ninterval = %d\ntimeout = %d\nretries = %d\n",
+			hc.Path, interval, timeout, retries)
 	}
 
-	return nil
+	return os.WriteFile(filepath.Join(bp.WorkingDir, "config.toml"), []byte(b.String()), 0600)
 }
 
 func buildAuthUrl(url string) (string, error) {

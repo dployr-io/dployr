@@ -8,6 +8,13 @@ import (
 	"time"
 )
 
+type NodeRole string
+
+const (
+	NodeRoleInstance NodeRole = "instance"
+	NodeRoleBuild    NodeRole = "build"
+)
+
 type Runtime string
 
 const (

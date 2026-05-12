@@ -204,7 +204,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 	}
 
 	shared.LogInfoF(svcName, logPath, "deploying application")
-	err = deploy.DeployApp(bp, svcName, logPath)
+	err = deploy.DeployApp(bp, svcName, logPath, w.cfg)
 	if err != nil {
 		err = fmt.Errorf("deployment failed: %s", err)
 		shared.LogErrF(svcName, logPath, err)
@@ -271,7 +271,7 @@ func (w *Worker) registerProxyRoute(svc *store.Service) error {
 	} else {
 		upstream = fmt.Sprintf(url, svc.Port)
 	}
-	
+
 	app := proxy.App{
 		Domain:   serviceDomain,
 		Upstream: upstream,

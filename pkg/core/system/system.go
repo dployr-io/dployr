@@ -128,10 +128,11 @@ type CertDebug struct {
 
 // RegisterInstanceRequest is used to request a registration of an instance.
 type RegisterInstanceRequest struct {
-	Claim      string `json:"claim"`
-	InstanceID string `json:"instance_id"`
-	Issuer     string `json:"issuer"`
-	Audience   string `json:"audience"`
+	Claim      string         `json:"claim"`
+	InstanceID string         `json:"instance_id"`
+	Issuer     string         `json:"issuer"`
+	Audience   string         `json:"audience"`
+	Role       store.NodeRole `json:"role,omitempty"`
 }
 
 // RequestDomainRequest is used to request a domain for an instance.
