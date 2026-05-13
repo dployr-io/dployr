@@ -367,6 +367,106 @@ func TestWorker_ContextCancellation(t *testing.T) {
 	})
 }
 
+// TestWorker_SourceRemoteGuard verifies that an instance node (non-build role)
+// rejects a source=remote deployment instead of attempting to clone and build.
+// This guards against a routing anomaly where a build task leaks to a regular instance.
+func TestWorker_SourceRemoteGuard(t *testing.T) {
+	logger := shared.NewLogger()
+	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
+	instStore := &mockInstanceStore{accessToken: "test-token"}
+
+	t.Run("instance node fails source=remote deployment", func(t *testing.T) {
+		cfg := &shared.Config{Role: store.NodeRoleInstance}
+		deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
+
+		deployment := &store.Deployment{
+			ID:     "remote-deploy-1",
+			Status: store.StatusPending,
+			Blueprint: store.Blueprint{
+				Name:   "my-app",
+				Source: store.SourceRemote,
+				Remote: store.RemoteObj{Url: "https://github.com/example/app", Branch: "main"},
+				Runtime: store.RuntimeObj{Type: store.RuntimeNodeJS, Version: "20"},
+			},
+		}
+		deployStore.UpsertDeployment(context.Background(), deployment)
+
+		w := New(1, cfg, logger, deployStore, svcStore, instStore, nil)
+		_, err := w.runDeployment(context.Background(), "remote-deploy-1")
+
+		if err == nil {
+			t.Fatal("expected error when instance node receives source=remote — got nil")
+		}
+		if !containsAny(err.Error(), "source=remote", "routing error", "NodeRoleBuild") {
+			t.Errorf("expected routing error message, got: %s", err.Error())
+		}
+	})
+
+	t.Run("build node accepts source=remote deployment", func(t *testing.T) {
+		cfg := &shared.Config{Role: store.NodeRoleBuild}
+		deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
+
+		deployment := &store.Deployment{
+			ID:     "remote-deploy-build",
+			Status: store.StatusPending,
+			Blueprint: store.Blueprint{
+				Name:   "my-app",
+				Source: store.SourceRemote,
+				Remote: store.RemoteObj{Url: "https://github.com/example/app", Branch: "main"},
+				Runtime: store.RuntimeObj{Type: store.RuntimeNodeJS, Version: "20"},
+			},
+		}
+		deployStore.UpsertDeployment(context.Background(), deployment)
+
+		w := New(1, cfg, logger, deployStore, svcStore, instStore, nil)
+		_, err := w.runDeployment(context.Background(), "remote-deploy-build")
+
+		// Build will fail (no real git/docker in test), but NOT with the routing guard error.
+		// The guard only fires on instance nodes — a build node should proceed past it.
+		if err != nil && containsAny(err.Error(), "expected source=image", "routing error") {
+			t.Errorf("build node must not trigger the instance routing guard, got: %s", err.Error())
+		}
+	})
+
+	t.Run("instance node accepts source=image deployment", func(t *testing.T) {
+		cfg := &shared.Config{Role: store.NodeRoleInstance}
+		deployStore := &mockDeploymentStore{deployments: make(map[string]*store.Deployment)}
+
+		deployment := &store.Deployment{
+			ID:     "image-deploy-1",
+			Status: store.StatusPending,
+			Blueprint: store.Blueprint{
+				Name:   "my-app",
+				Source: store.SourceImage,
+				Image:  "registry.digitalocean.com/dployr/my-app:1234",
+				Runtime: store.RuntimeObj{Type: store.RuntimeNodeJS, Version: "20"},
+			},
+		}
+		deployStore.UpsertDeployment(context.Background(), deployment)
+
+		w := New(1, cfg, logger, deployStore, svcStore, instStore, nil)
+		_, err := w.runDeployment(context.Background(), "image-deploy-1")
+
+		// Will fail at docker pull (no daemon in CI), but must NOT fail with the routing guard message.
+		if err != nil && containsAny(err.Error(), "expected source=image", "routing error", "source=remote") {
+			t.Errorf("instance node must accept source=image, got unexpected error: %s", err.Error())
+		}
+	})
+}
+
+func containsAny(s string, substrings ...string) bool {
+	for _, sub := range substrings {
+		if len(s) >= len(sub) {
+			for i := 0; i <= len(s)-len(sub); i++ {
+				if s[i:i+len(sub)] == sub {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func TestWorker_DuplicateJobPrevention(t *testing.T) {
 	cfg := &shared.Config{}
 	logger := shared.NewLogger()
