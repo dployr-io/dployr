@@ -24,7 +24,50 @@ import (
 	"github.com/dployr-io/dployr/internal/scripts"
 )
 
-type DeployRequest struct{}
+func imageRef(registryURL, name string) string {
+	tag := fmt.Sprintf("%d", time.Now().UnixMilli())
+	slug := strings.ToLower(strings.ReplaceAll(name, "_", "-"))
+	return fmt.Sprintf("%s/%s:%s", strings.TrimRight(registryURL, "/"), slug, tag)
+}
+
+func BuildImage(name, srcDir string, cfg *shared.Config) (string, error) {
+	if cfg.RegistryURL == "" {
+		return "", fmt.Errorf("REGISTRY_URL is not configured on this build node")
+	}
+
+	ref := imageRef(cfg.RegistryURL, name)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+	defer cancel()
+
+	if cfg.RegistryAuth != "" {
+		loginCmd := fmt.Sprintf("echo %s | docker login --username _ --password-stdin %s",
+			cfg.RegistryAuth, strings.SplitN(ref, "/", 2)[0])
+		if err := shared.Exec(ctx, loginCmd, srcDir); err != nil {
+			return "", fmt.Errorf("registry login failed: %w", err)
+		}
+	}
+
+	buildCmd := fmt.Sprintf("docker build --tag %s .", ref)
+	if err := shared.Exec(ctx, buildCmd, srcDir); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("docker build timed out after 20 minutes")
+		}
+		return "", fmt.Errorf("docker build failed: %w", err)
+	}
+
+	pushCmd := fmt.Sprintf("docker push %s", ref)
+	if err := shared.Exec(ctx, pushCmd, srcDir); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("docker push timed out")
+		}
+		return "", fmt.Errorf("docker push failed: %w", err)
+	}
+
+	_ = shared.Exec(ctx, fmt.Sprintf("docker rmi %s", ref), srcDir)
+
+	return ref, nil
+}
 
 // DockerIgnoreContent defines patterns to exclude from Docker builds
 const DockerIgnoreContent = `.git/

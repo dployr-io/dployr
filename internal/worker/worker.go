@@ -140,15 +140,8 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 		return svcName, err
 	}
 
-	if d.Blueprint.Source == "remote" {
-		shared.LogInfoF(svcName, logPath, "cloning repository")
-		err = deploy.CloneRepo(d.Blueprint.Remote, workingDir, d.Blueprint.WorkingDir, w.cfg)
-		if err != nil {
-			err = fmt.Errorf("failed to clone repository: %s", err)
-			shared.LogErrF(svcName, logPath, err)
-			return svcName, err
-		}
-	} else {
+	switch d.Blueprint.Source {
+	case store.SourceImage:
 		shared.LogInfoF(svcName, logPath, "pulling image")
 		err = deploy.PullImage(d.Blueprint.Image, d.Blueprint.WorkingDir, w.cfg)
 		if err != nil {
@@ -156,6 +149,26 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 			shared.LogErrF(svcName, logPath, err)
 			return svcName, err
 		}
+	case store.SourceRemote:
+		// Remote-source builds are handled exclusively by build nodes.
+		// Instance nodes receive source=image after the build node pushes the image.
+		// A source=remote task reaching an instance node indicates a routing anaomaly (should normally never happen).
+		if w.cfg.Role != store.NodeRoleBuild {
+			err = fmt.Errorf("instance node received source=remote deployment %s — expected source=image; possible routing error", d.ID)
+			shared.LogErrF(svcName, logPath, err)
+			return svcName, err
+		}
+		shared.LogInfoF(svcName, logPath, "cloning repository")
+		err = deploy.CloneRepo(d.Blueprint.Remote, workingDir, d.Blueprint.WorkingDir, w.cfg)
+		if err != nil {
+			err = fmt.Errorf("failed to clone repository: %s", err)
+			shared.LogErrF(svcName, logPath, err)
+			return svcName, err
+		}
+	default:
+		err = fmt.Errorf("unknown deployment source %q", d.Blueprint.Source)
+		shared.LogErrF(svcName, logPath, err)
+		return svcName, err
 	}
 
 	// Set the working directory for the service

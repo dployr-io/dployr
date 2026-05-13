@@ -62,8 +62,24 @@ type DeployResponse struct {
 	CreatedAt time.Time `json:"created_at,omitempty"`
 }
 
+type BuildRequest struct {
+	DeployRequest
+	CallbackInstance string `json:"callback_instance"`
+}
+
+type PublishRequest struct {
+	Image   string        `json:"image"`
+	Payload DeployRequest `json:"payload"`
+}
+
+type BuildResponse struct {
+	Image string `json:"image"`
+}
+
 type HandleDeployment interface {
 	Deploy(ctx context.Context, req *DeployRequest) (*DeployResponse, error)
+	Build(ctx context.Context, req *BuildRequest) (*BuildResponse, error)
+	Publish(ctx context.Context, req *PublishRequest) (*DeployResponse, error)
 	GetDeployment(ctx context.Context, id string) (*store.Deployment, error)
 	ListDeployments(ctx context.Context, id string, limit, offset int) ([]*store.Deployment, error)
 	UpdateDeploymentStatus(ctx context.Context, id string, status store.Status) error

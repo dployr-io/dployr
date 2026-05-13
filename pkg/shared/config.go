@@ -34,6 +34,9 @@ type Config struct {
 
 	Role store.NodeRole
 
+	RegistryURL  string
+	RegistryAuth string
+
 	BuildSlots  int
 	BuildMemory int
 
@@ -70,9 +73,11 @@ func LoadConfig() (*Config, error) {
 		WSMaxMessageSize: getEnvAsInt64("WS_MAX_MESSAGE_SIZE", 10*1024*1024),
 		TaskDedupTTL:     getEnvAsPositiveDuration("TASK_DEDUP_TTL", 5*time.Minute),
 
-		Role:        store.NodeRole(getEnv("NODE_ROLE", string(store.NodeRoleInstance))),
-		BuildSlots:  getEnvAsInt("BUILD_SLOTS", 4),
-		BuildMemory: getEnvAsInt("BUILD_MEMORY", 1536),
+		Role:         store.NodeRole(getEnv("NODE_ROLE", string(store.NodeRoleInstance))),
+		RegistryURL:  getEnv("REGISTRY_URL", ""),
+		RegistryAuth: getEnv("REGISTRY_AUTH", ""),
+		BuildSlots:   getEnvAsInt("BUILD_SLOTS", 4),
+		BuildMemory:  getEnvAsInt("BUILD_MEMORY", 1536),
 
 		ContainerMemory:  getEnvAsInt("CONTAINER_MEMORY", 0),
 		ContainerCPU:     getEnvAsInt("CONTAINER_CPU", 0),

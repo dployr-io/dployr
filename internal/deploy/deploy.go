@@ -103,6 +103,31 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 	}, nil
 }
 
+func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy.BuildResponse, error) {
+	workDir, err := SetupDir(req.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup working directory: %w", err)
+	}
+
+	if err := CloneRepo(req.Remote, workDir, req.WorkingDir, d.cfg); err != nil {
+		return nil, fmt.Errorf("failed to clone repository: %w", err)
+	}
+
+	image, err := BuildImage(req.Name, workDir, d.cfg)
+	if err != nil {
+		return nil, fmt.Errorf("build failed: %w", err)
+	}
+
+	return &deploy.BuildResponse{Image: image}, nil
+}
+
+func (d *Deployer) Publish(ctx context.Context, req *deploy.PublishRequest) (*deploy.DeployResponse, error) {
+	deployReq := req.Payload
+	deployReq.Source = string(store.SourceImage)
+	deployReq.Image = req.Image
+	return d.Deploy(ctx, &deployReq)
+}
+
 func (d *Deployer) GetDeployment(ctx context.Context, id string) (*store.Deployment, error) {
 	return d.store.GetDeployment(ctx, id)
 }

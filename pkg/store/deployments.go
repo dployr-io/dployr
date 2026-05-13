@@ -35,12 +35,6 @@ type RemoteObj struct {
 	CommitHash string `json:"commit_hash" db:"commit_hash"`
 }
 
-type ResourceLimits struct {
-	Memory  int `json:"memory,omitempty"`
-	CPU     int `json:"cpu,omitempty"`
-	Storage int `json:"storage,omitempty"`
-}
-
 type HealthCheck struct {
 	Path     string `json:"path"`
 	Interval int    `json:"interval,omitempty"`

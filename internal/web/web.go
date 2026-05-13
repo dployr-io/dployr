@@ -20,6 +20,7 @@ type WebHandler struct {
 	SystemH  SystemHandler
 	FSH      FSHandler
 	TopH     TopHandler
+	BuildH   BuildHandler
 	AuthM    *auth.Middleware
 	MetricsH http.Handler
 }
@@ -68,6 +69,11 @@ type FSHandler interface {
 
 type TopHandler interface {
 	HandleTop(w http.ResponseWriter, r *http.Request)
+}
+
+type BuildHandler interface {
+	HandleBuild(w http.ResponseWriter, r *http.Request)
+	HandlePublish(w http.ResponseWriter, r *http.Request)
 }
 
 // BuildMux creates and returns the configured HTTP multiplexer.
@@ -183,6 +189,11 @@ func (w *WebHandler) BuildMux(cfg *shared.Config) *http.ServeMux {
 			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, nil)
 		}
 	}))))
+
+	if w.BuildH != nil {
+		mux.Handle("/builds", corsMiddleware(w.AuthM.Auth(http.HandlerFunc(w.BuildH.HandleBuild))))
+		mux.Handle("/builds/publish", corsMiddleware(w.AuthM.Auth(http.HandlerFunc(w.BuildH.HandlePublish))))
+	}
 
 	if w.MetricsH != nil {
 		mux.Handle("/metrics", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(w.MetricsH))))

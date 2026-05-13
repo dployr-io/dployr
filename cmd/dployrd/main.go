@@ -75,6 +75,7 @@ func main() {
 	api := _deploy.Init(cfg, logger, ds, w)
 	deployer := deploy.NewDeployer(cfg, logger, ds, api)
 	dh := deploy.NewDeploymentHandler(deployer, logger)
+	bh := deploy.NewBuildHandler(deployer, logger)
 
 	proxier := proxy.NewProxier(proxyState, ps)
 	ph := proxy.NewProxyHandler(proxier, logger)
@@ -102,6 +103,7 @@ func main() {
 		SystemH:  sysH,
 		FSH:      fsH,
 		TopH:     topH,
+		BuildH:   bh,
 		AuthM:    am,
 		MetricsH: metricsH,
 	}
