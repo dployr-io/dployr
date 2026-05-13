@@ -41,8 +41,9 @@ func BuildImage(name, srcDir string, cfg *shared.Config) (string, error) {
 	defer cancel()
 
 	if cfg.RegistryAuth != "" {
-		loginCmd := fmt.Sprintf("echo %s | docker login --username _ --password-stdin %s",
-			cfg.RegistryAuth, strings.SplitN(ref, "/", 2)[0])
+		registry := strings.SplitN(ref, "/", 2)[0]
+		loginCmd := fmt.Sprintf("echo %s | docker login --username %s --password-stdin %s",
+			cfg.RegistryAuth, cfg.RegistryAuth, registry)
 		if err := shared.Exec(ctx, loginCmd, srcDir); err != nil {
 			return "", fmt.Errorf("registry login failed: %w", err)
 		}

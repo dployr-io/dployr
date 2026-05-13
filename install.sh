@@ -769,6 +769,9 @@ max-workers = 5
 
 base_url = "$BASE_URL"
 instance_id = "$instance_value"
+
+registry_url = "${REGISTRY_URL:-}"
+registry_auth = "${REGISTRY_AUTH:-}"
 EOF
     chmod 644 "$CONFIG_FILE"
     chmod 755 "$CONFIG_DIR"
