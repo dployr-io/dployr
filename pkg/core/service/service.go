@@ -29,6 +29,8 @@ type HandleService interface {
 	GetService(ctx context.Context, name string) (*store.Service, error)
 	ListServices(ctx context.Context, userID string, limit, offset int) ([]*store.Service, error)
 	DeleteService(ctx context.Context, name string) error
+	SleepService(name string) error
+	WakeService(name string) error
 }
 
 func NewServicer(c *shared.Config, l *shared.Logger, s store.ServiceStore, a HandleService) *Servicer {

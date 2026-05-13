@@ -34,6 +34,8 @@ type ServiceHandler interface {
 	GetService(w http.ResponseWriter, r *http.Request)
 	ListServices(w http.ResponseWriter, r *http.Request)
 	DeleteService(w http.ResponseWriter, r *http.Request)
+	SleepService(w http.ResponseWriter, r *http.Request)
+	WakeService(w http.ResponseWriter, r *http.Request)
 }
 
 type ProxyHandler interface {
@@ -154,6 +156,8 @@ func (w *WebHandler) BuildMux(cfg *shared.Config) *http.ServeMux {
 		}
 	})
 	mux.Handle("/services/", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(w.AuthM.Trace(svcH)))))
+	mux.Handle("/services/sleep", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.SvcH.SleepService)))))
+	mux.Handle("/services/wake", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.SvcH.WakeService)))))
 	mux.Handle("/proxy/status", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.GetStatus)))))
 	mux.Handle("/proxy/restart", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleRestart)))))
 	mux.Handle("/proxy/add", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleAdd)))))

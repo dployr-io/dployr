@@ -143,6 +143,50 @@ func (h *ServiceHandler) DeleteService(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *ServiceHandler) SleepService(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
+		return
+	}
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		e := shared.Errors.Request.MissingParams
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"param": "name"})
+		return
+	}
+	if err := h.servicer.api.SleepService(name); err != nil {
+		h.logger.Error("failed to sleep service", "error", err, "name", name)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]any{"status": "sleeping", "name": name})
+}
+
+func (h *ServiceHandler) WakeService(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
+		return
+	}
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		e := shared.Errors.Request.MissingParams
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"param": "name"})
+		return
+	}
+	if err := h.servicer.api.WakeService(name); err != nil {
+		h.logger.Error("failed to wake service", "error", err, "name", name)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]any{"status": "waking", "name": name})
+}
+
 func parseLimit(s string) int {
 	v, err := strconv.Atoi(s)
 	if err != nil {

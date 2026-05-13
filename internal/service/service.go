@@ -45,6 +45,30 @@ func (s *Servicer) ListServices(ctx context.Context, userID string, limit, offse
 	return s.store.ListServices(ctx, limit, offset)
 }
 
+func (s *Servicer) SleepService(name string) error {
+	if s.svcMgr == nil {
+		return fmt.Errorf("service manager not available")
+	}
+	svcName := utils.FormatName(name)
+	s.logger.Info("sleeping service", "service", svcName)
+	if err := s.svcMgr.Stop(svcName); err != nil {
+		return fmt.Errorf("failed to stop service %s: %w", svcName, err)
+	}
+	return nil
+}
+
+func (s *Servicer) WakeService(name string) error {
+	if s.svcMgr == nil {
+		return fmt.Errorf("service manager not available")
+	}
+	svcName := utils.FormatName(name)
+	s.logger.Info("waking service", "service", svcName)
+	if err := s.svcMgr.Start(svcName); err != nil {
+		return fmt.Errorf("failed to start service %s: %w", svcName, err)
+	}
+	return nil
+}
+
 func (s *Servicer) DeleteService(ctx context.Context, name string) error {
 	svc, err := s.store.GetService(ctx, name)
 	if err != nil {
