@@ -383,9 +383,9 @@ func TestWorker_SourceRemoteGuard(t *testing.T) {
 			ID:     "remote-deploy-1",
 			Status: store.StatusPending,
 			Blueprint: store.Blueprint{
-				Name:   "my-app",
-				Source: store.SourceRemote,
-				Remote: store.RemoteObj{Url: "https://github.com/example/app", Branch: "main"},
+				Name:    "my-app",
+				Source:  store.SourceRemote,
+				Remote:  store.RemoteObj{Url: "https://github.com/example/app", Branch: "main"},
 				Runtime: store.RuntimeObj{Type: store.RuntimeNodeJS, Version: "20"},
 			},
 		}
@@ -410,9 +410,9 @@ func TestWorker_SourceRemoteGuard(t *testing.T) {
 			ID:     "remote-deploy-build",
 			Status: store.StatusPending,
 			Blueprint: store.Blueprint{
-				Name:   "my-app",
-				Source: store.SourceRemote,
-				Remote: store.RemoteObj{Url: "https://github.com/example/app", Branch: "main"},
+				Name:    "my-app",
+				Source:  store.SourceRemote,
+				Remote:  store.RemoteObj{Url: "https://github.com/example/app", Branch: "main"},
 				Runtime: store.RuntimeObj{Type: store.RuntimeNodeJS, Version: "20"},
 			},
 		}
@@ -436,9 +436,9 @@ func TestWorker_SourceRemoteGuard(t *testing.T) {
 			ID:     "image-deploy-1",
 			Status: store.StatusPending,
 			Blueprint: store.Blueprint{
-				Name:   "my-app",
-				Source: store.SourceImage,
-				Image:  "registry.digitalocean.com/dployr/my-app:1234",
+				Name:    "my-app",
+				Source:  store.SourceImage,
+				Image:   "registry.digitalocean.com/dployr/my-app:1234",
 				Runtime: store.RuntimeObj{Type: store.RuntimeNodeJS, Version: "20"},
 			},
 		}

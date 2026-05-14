@@ -4,6 +4,7 @@
 package system
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -257,5 +258,89 @@ func TestFromStoreServices_Empty(t *testing.T) {
 	result = FromStoreServices([]*store.Service{})
 	if result != nil {
 		t.Errorf("Expected nil for empty slice, got %v", result)
+	}
+}
+
+func TestFromStoreService_HealthStatusDefaultsEmpty(t *testing.T) {
+	svc := &store.Service{
+		ID:        "svc-1",
+		Name:      "web",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	result := FromStoreService(svc)
+	if result.HealthStatus != "" {
+		t.Errorf("HealthStatus should default to empty string, got %q", result.HealthStatus)
+	}
+}
+
+func TestServiceV1_1_HealthStatusSerialises(t *testing.T) {
+	svc := ServiceV1_1{HealthStatus: "healthy"}
+	b, err := json.Marshal(svc)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(b, &out); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if out["health_status"] != "healthy" {
+		t.Errorf("expected health_status=healthy in JSON, got %v", out["health_status"])
+	}
+}
+
+func TestUpdateV1_1_TrafficOmittedWhenEmpty(t *testing.T) {
+	u := UpdateV1_1{Schema: "v1.1"}
+	b, err := json.Marshal(u)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(b, &out); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if _, ok := out["traffic"]; ok {
+		t.Error("traffic field should be omitted when empty (omitempty)")
+	}
+}
+
+func TestUpdateV1_1_TrafficRoundTrip(t *testing.T) {
+	u := UpdateV1_1{
+		Schema: "v1.1",
+		Traffic: []TrafficSignals{
+			{
+				Domain:        "app.example.com",
+				WindowHours:   1,
+				RequestCount:  42,
+				UniqueSubnets: 3,
+				CadenceCV:     0.85,
+				UniquePaths:   7,
+				LastRequestAt: 1700000000000,
+			},
+		},
+	}
+	b, err := json.Marshal(u)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	var decoded UpdateV1_1
+	if err := json.Unmarshal(b, &decoded); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if len(decoded.Traffic) != 1 {
+		t.Fatalf("expected 1 TrafficSignals, got %d", len(decoded.Traffic))
+	}
+	ts := decoded.Traffic[0]
+	if ts.Domain != "app.example.com" {
+		t.Errorf("Domain = %q, want app.example.com", ts.Domain)
+	}
+	if ts.RequestCount != 42 {
+		t.Errorf("RequestCount = %d, want 42", ts.RequestCount)
+	}
+	if ts.CadenceCV != 0.85 {
+		t.Errorf("CadenceCV = %v, want 0.85", ts.CadenceCV)
+	}
+	if ts.LastRequestAt != 1700000000000 {
+		t.Errorf("LastRequestAt = %d, want 1700000000000", ts.LastRequestAt)
 	}
 }

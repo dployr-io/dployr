@@ -44,6 +44,8 @@ func TestInfoString(t *testing.T) {
 }
 
 func TestShort(t *testing.T) {
+	orig := Version
+	t.Cleanup(func() { Version = orig })
 	Version = "1.2.3"
 	result := Short()
 	if result != "1.2.3" {

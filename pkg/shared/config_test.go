@@ -6,7 +6,6 @@ package shared
 import (
 	"encoding/base64"
 	"encoding/json"
-	"os"
 	"testing"
 	"time"
 )
@@ -83,9 +82,9 @@ func TestSanitizeSyncInterval(t *testing.T) {
 
 func TestGetEnvAsDuration(t *testing.T) {
 	key := "TEST_SYNC_INTERVAL"
-	os.Unsetenv(key)
 
 	t.Run("uses default when unset", func(t *testing.T) {
+		t.Setenv(key, "")
 		got := getEnvAsDuration(key, 45*time.Second)
 		if got != sanitizeSyncInterval(45*time.Second) {
 			t.Fatalf("expected default duration, got %v", got)
@@ -93,8 +92,7 @@ func TestGetEnvAsDuration(t *testing.T) {
 	})
 
 	t.Run("parses duration string", func(t *testing.T) {
-		os.Setenv(key, "20s")
-		defer os.Unsetenv(key)
+		t.Setenv(key, "20s")
 		got := getEnvAsDuration(key, 45*time.Second)
 		if got != sanitizeSyncInterval(20*time.Second) {
 			t.Fatalf("expected 20s, got %v", got)
@@ -102,8 +100,7 @@ func TestGetEnvAsDuration(t *testing.T) {
 	})
 
 	t.Run("parses integer seconds", func(t *testing.T) {
-		os.Setenv(key, "15")
-		defer os.Unsetenv(key)
+		t.Setenv(key, "15")
 		got := getEnvAsDuration(key, 45*time.Second)
 		if got != sanitizeSyncInterval(15*time.Second) {
 			t.Fatalf("expected 15s, got %v", got)
