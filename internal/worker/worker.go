@@ -131,6 +131,14 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 
 	svcName := utils.FormatName(d.Blueprint.Name)
 
+	// Guard: source=remote deployments must only run on build nodes.
+	// Check before SetupDir to avoid unnecessary filesystem operations.
+	if d.Blueprint.Source == store.SourceRemote && w.cfg.Role != store.NodeRoleBuild {
+		err = fmt.Errorf("instance node received source=remote deployment %s — expected source=image; possible routing error", d.ID)
+		shared.LogErrF(svcName, logPath, err)
+		return svcName, err
+	}
+
 	shared.LogInfoF(svcName, logPath, "creating workspace")
 	workingDir, err := deploy.SetupDir(d.Blueprint.Name)
 	dir := ""
@@ -150,14 +158,6 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 			return svcName, err
 		}
 	case store.SourceRemote:
-		// Remote-source builds are handled exclusively by build nodes.
-		// Instance nodes receive source=image after the build node pushes the image.
-		// A source=remote task reaching an instance node indicates a routing anaomaly (should normally never happen).
-		if w.cfg.Role != store.NodeRoleBuild {
-			err = fmt.Errorf("instance node received source=remote deployment %s — expected source=image; possible routing error", d.ID)
-			shared.LogErrF(svcName, logPath, err)
-			return svcName, err
-		}
 		shared.LogInfoF(svcName, logPath, "cloning repository")
 		err = deploy.CloneRepo(d.Blueprint.Remote, workingDir, d.Blueprint.WorkingDir, w.cfg)
 		if err != nil {
