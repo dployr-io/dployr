@@ -21,6 +21,7 @@ type WebHandler struct {
 	FSH      FSHandler
 	TopH     TopHandler
 	BuildH   BuildHandler
+	StorageH StorageHandler
 	AuthM    *auth.Middleware
 	MetricsH http.Handler
 }
@@ -60,6 +61,11 @@ type SystemHandler interface {
 	SetMode(w http.ResponseWriter, r *http.Request)
 	UpdateBootstrapToken(w http.ResponseWriter, r *http.Request)
 	Registered(w http.ResponseWriter, r *http.Request)
+	DockerPrune(w http.ResponseWriter, r *http.Request)
+}
+
+type StorageHandler interface {
+	HandleMount(w http.ResponseWriter, r *http.Request)
 }
 
 type FSHandler interface {
@@ -195,6 +201,12 @@ func (w *WebHandler) BuildMux(cfg *shared.Config) *http.ServeMux {
 			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, nil)
 		}
 	}))))
+
+	mux.Handle("/system/docker-prune", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.SystemH.DockerPrune)))))
+
+	if w.StorageH != nil {
+		mux.Handle("/storage/mount", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.StorageH.HandleMount)))))
+	}
 
 	if w.BuildH != nil {
 		mux.Handle("/builds", corsMiddleware(w.AuthM.Auth(http.HandlerFunc(w.BuildH.HandleBuild))))

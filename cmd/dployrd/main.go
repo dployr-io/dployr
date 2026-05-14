@@ -25,11 +25,13 @@ import (
 	_deploy "github.com/dployr-io/dployr/internal/deploy"
 	_proxy "github.com/dployr-io/dployr/internal/proxy"
 	_service "github.com/dployr-io/dployr/internal/service"
+	_storage "github.com/dployr-io/dployr/internal/storage"
 	_store "github.com/dployr-io/dployr/internal/store"
 	_system "github.com/dployr-io/dployr/internal/system"
 	_terminal "github.com/dployr-io/dployr/internal/terminal"
 	"github.com/dployr-io/dployr/internal/web"
 	"github.com/dployr-io/dployr/internal/worker"
+	pkgstorage "github.com/dployr-io/dployr/pkg/core/storage"
 )
 
 func main() {
@@ -86,7 +88,7 @@ func main() {
 
 	sysSvc := _system.NewDefaultService(cfg, is, trs)
 	sysH := system.NewServiceHandler(sysSvc)
-	metricsH := _system.NewMetrics(cfg, is, trs)
+	mh := _system.NewMetrics(cfg, is, trs)
 
 	fs := _system.NewFS()
 	fsH := system.NewFSHandler(fs, logger)
@@ -95,6 +97,9 @@ func main() {
 	topH := system.NewTopHandler(topCollector, logger)
 
 	terminalH := _terminal.NewHandler(logger)
+
+	storageMounter := _storage.NewMounter(logger)
+	storageH := pkgstorage.NewHandler(storageMounter, logger)
 
 	wh := web.WebHandler{
 		DepsH:    dh,
@@ -105,7 +110,8 @@ func main() {
 		TopH:     topH,
 		BuildH:   bh,
 		AuthM:    am,
-		MetricsH: metricsH,
+		MetricsH: mh,
+		StorageH: storageH,
 	}
 
 	mux := wh.BuildMux(cfg)

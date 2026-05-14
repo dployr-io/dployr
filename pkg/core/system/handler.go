@@ -6,6 +6,7 @@ package system
 import (
 	"encoding/json"
 	"net/http"
+	"os/exec"
 	"strings"
 
 	"github.com/dployr-io/dployr/pkg/shared"
@@ -326,6 +327,31 @@ func (h *ServiceHandler) Restart(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func (h *ServiceHandler) DockerPrune(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
+		return
+	}
+
+	ctx := r.Context()
+	logger := shared.LogWithContext(ctx)
+	logger.Info("system.docker_prune request")
+
+	if out, err := exec.CommandContext(ctx, "docker", "image", "prune", "-f", "--filter", "until=168h").CombinedOutput(); err != nil {
+		logger.Error("docker image prune failed", "error", err, "output", string(out))
+	} else {
+		logger.Info("docker image prune completed", "output", string(out))
+	}
+
+	if out, err := exec.CommandContext(ctx, "docker", "builder", "prune", "-f", "--filter", "until=24h").CombinedOutput(); err != nil {
+		logger.Error("docker builder prune failed", "error", err, "output", string(out))
+	} else {
+		logger.Info("docker builder prune completed", "output", string(out))
+	}
+
+	shared.WriteJSON(w, http.StatusOK, map[string]any{"status": "pruned"})
 }
 
 func (h *ServiceHandler) Reboot(w http.ResponseWriter, r *http.Request) {
