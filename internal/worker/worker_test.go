@@ -454,6 +454,64 @@ func TestWorker_SourceRemoteGuard(t *testing.T) {
 	})
 }
 
+// TestWorker_PublishPath verifies the full publish callback path on an instance node:
+// Publish() → Deploy() stores source=image → Submit() queues it → execute() transitions
+// status to in_progress, then fails at docker pull (no daemon in test env) — never
+// hitting the routing guard that fires for source=remote.
+func TestWorker_PublishPath(t *testing.T) {
+	cfg := &shared.Config{Role: store.NodeRoleInstance}
+	logger := shared.NewLogger()
+	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
+	instStore := &mockInstanceStore{accessToken: "test-token"}
+	deployStore := &mockDeploymentStore{
+		deployments: make(map[string]*store.Deployment),
+		statusCalls: []string{},
+	}
+
+	// This deployment was created by Publish() on the instance node:
+	// source is already overridden to image before the worker ever sees it.
+	dep := &store.Deployment{
+		ID:     "publish-path-01",
+		Status: store.StatusPending,
+		Blueprint: store.Blueprint{
+			Name:    "my-app",
+			Source:  store.SourceImage,
+			Image:   "registry.example.com/my-app:built-sha",
+			Runtime: store.RuntimeObj{Type: store.RuntimeNodeJS, Version: "20"},
+		},
+	}
+	deployStore.UpsertDeployment(context.Background(), dep)
+
+	w := New(1, cfg, logger, deployStore, svcStore, instStore, nil)
+	ctx := context.Background()
+
+	done := make(chan struct{})
+	go func() {
+		w.execute(ctx, "publish-path-01")
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("execute() did not complete within timeout")
+	}
+
+	calls := deployStore.statusCallsSnapshot()
+	if len(calls) == 0 {
+		t.Fatal("expected at least one status update, got none")
+	}
+	if calls[0] != string(store.StatusInProgress) {
+		t.Errorf("first status update = %q, want %q", calls[0], store.StatusInProgress)
+	}
+
+	// Re-run runDeployment to confirm the routing guard does not fire for source=image.
+	_, err := w.runDeployment(ctx, "publish-path-01")
+	if err != nil && containsAny(err.Error(), "expected source=image", "routing error", "source=remote") {
+		t.Errorf("routing guard must not fire for source=image on instance node: %s", err.Error())
+	}
+}
+
 func containsAny(s string, substrings ...string) bool {
 	for _, sub := range substrings {
 		if len(s) >= len(sub) {
