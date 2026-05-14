@@ -4,6 +4,11 @@
 package deploy
 
 import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -92,5 +97,61 @@ func TestBuildAuthUrl_SSHUrl(t *testing.T) {
 	}
 	if got != url {
 		t.Errorf("buildAuthUrl(SSH) = %q, want unchanged %q", got, url)
+	}
+}
+
+// fakeRegistry spins up a minimal Docker Registry v2 HTTP server that accepts
+// any credentials and records the Authorization header it received.
+func fakeRegistry(t *testing.T) (host string) {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	return strings.TrimPrefix(srv.URL, "http://")
+}
+
+func b64JSON(username, password string) string {
+	raw, _ := json.Marshal(map[string]string{"username": username, "password": password})
+	return base64.StdEncoding.EncodeToString(raw)
+}
+
+func b64Colon(username, password string) string {
+	return base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
+}
+
+// TestRegistryLogin_Base64JSONCreds covers auth stored as base64({"username":"…","password":"…"}).
+func TestRegistryLogin_Base64JSONCreds(t *testing.T) {
+	host := fakeRegistry(t)
+	auth := b64JSON("user@example.com", "secret-token")
+	if err := registryLogin(context.Background(), host, auth, t.TempDir()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// TestRegistryLogin_Base64ColonCreds covers the standard Docker Basic Auth format: base64("user:pass").
+func TestRegistryLogin_Base64ColonCreds(t *testing.T) {
+	host := fakeRegistry(t)
+	auth := b64Colon("user@example.com", "dop_v1_sometoken")
+	if err := registryLogin(context.Background(), host, auth, t.TempDir()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// TestRegistryLogin_Base64RawToken covers base64 of a bare API token (no colon, no JSON).
+func TestRegistryLogin_Base64RawToken(t *testing.T) {
+	host := fakeRegistry(t)
+	auth := base64.StdEncoding.EncodeToString([]byte("dop_v1_sometoken"))
+	if err := registryLogin(context.Background(), host, auth, t.TempDir()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// TestRegistryLogin_RawToken covers a plain token stored directly (no base64 encoding).
+func TestRegistryLogin_RawToken(t *testing.T) {
+	host := fakeRegistry(t)
+	if err := registryLogin(context.Background(), host, "dop_v1_plaintexttoken", t.TempDir()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

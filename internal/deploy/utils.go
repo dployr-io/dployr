@@ -6,6 +6,8 @@ package deploy
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -42,9 +44,7 @@ func BuildImage(name, srcDir string, cfg *shared.Config) (string, error) {
 
 	if cfg.RegistryAuth != "" {
 		registry := strings.SplitN(ref, "/", 2)[0]
-		loginCmd := fmt.Sprintf("echo %s | docker login --username token --password-stdin %s",
-			cfg.RegistryAuth, registry)
-		if err := shared.Exec(ctx, loginCmd, srcDir); err != nil {
+		if err := registryLogin(ctx, registry, cfg.RegistryAuth, srcDir); err != nil {
 			return "", fmt.Errorf("registry login failed: %w", err)
 		}
 	}
@@ -68,6 +68,41 @@ func BuildImage(name, srcDir string, cfg *shared.Config) (string, error) {
 	_ = shared.Exec(ctx, fmt.Sprintf("docker rmi %s", ref), srcDir)
 
 	return ref, nil
+}
+
+// registryLogin authenticates Docker against the given registry.
+// authB64 must be a base64-encoded JSON blob: {"username":"…","password":"…"}.
+// Falls back to treating the value as a raw password with username "token" for
+// registries (like DigitalOcean) that accept any username.
+func registryLogin(ctx context.Context, registry, authB64, workDir string) error {
+	username, password := "token", authB64
+
+	raw, err := base64.StdEncoding.DecodeString(authB64)
+	if err == nil {
+		decoded := string(raw)
+		var creds struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+		}
+		if json.Unmarshal(raw, &creds) == nil && creds.Password != "" {
+			username, password = creds.Username, creds.Password
+		} else if u, p, ok := strings.Cut(decoded, ":"); ok {
+			// base64("username:password") — standard Docker Basic Auth format
+			username, password = u, p
+		} else {
+			// bare token — use as password
+			password = decoded
+		}
+	}
+
+	cmd := exec.CommandContext(ctx, "docker", "login", "--username", username, "--password-stdin", registry)
+	cmd.Dir = workDir
+	cmd.Stdin = strings.NewReader(password)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("exit status %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 // DockerIgnoreContent defines patterns to exclude from Docker builds
