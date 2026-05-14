@@ -6,21 +6,35 @@ package system
 
 // UpdateV1_1 is the v1.1 status update schema
 type UpdateV1_1 struct {
-	Schema      string          `json:"schema"` // "v1.1"
-	Sequence    uint64          `json:"sequence"`
-	Epoch       string          `json:"epoch"`
-	InstanceID  string          `json:"instance_id"`
-	Timestamp   string          `json:"timestamp"` // RFC3339
-	IsFullSync  bool            `json:"is_full_sync"`
-	Node        *NodeInfo       `json:"node,omitempty"`
-	Status      StatusInfo      `json:"status"`
-	Health      HealthInfo      `json:"health"`
-	Resources   ResourcesInfo   `json:"resources"`
-	Workloads   *WorkloadsInfo  `json:"workloads,omitempty"`
-	Proxy       ProxyInfo       `json:"proxy"`
-	Processes   ProcessesInfo   `json:"processes"`
-	Filesystem  *FilesystemInfo `json:"filesystem,omitempty"`
-	Diagnostics DiagnosticsInfo `json:"diagnostics"`
+	Schema      string           `json:"schema"` // "v1.1"
+	Sequence    uint64           `json:"sequence"`
+	Epoch       string           `json:"epoch"`
+	InstanceID  string           `json:"instance_id"`
+	Timestamp   string           `json:"timestamp"` // RFC3339
+	IsFullSync  bool             `json:"is_full_sync"`
+	Node        *NodeInfo        `json:"node,omitempty"`
+	Status      StatusInfo       `json:"status"`
+	Health      HealthInfo       `json:"health"`
+	Resources   ResourcesInfo    `json:"resources"`
+	Workloads   *WorkloadsInfo   `json:"workloads,omitempty"`
+	Proxy       ProxyInfo        `json:"proxy"`
+	Processes   ProcessesInfo    `json:"processes"`
+	Filesystem  *FilesystemInfo  `json:"filesystem,omitempty"`
+	Diagnostics DiagnosticsInfo  `json:"diagnostics"`
+	Traffic     []TrafficSignals `json:"traffic,omitempty"`
+}
+
+// TrafficSignals holds bot-detection signals for a single service derived from
+// its Caddy access log over a rolling 1-hour window. All three signals must
+// indicate bot-like behaviour before a service is considered genuinely idle.
+type TrafficSignals struct {
+	Domain        string  `json:"domain"`
+	WindowHours   int     `json:"window_hours"`
+	RequestCount  int     `json:"request_count"`
+	UniqueSubnets int     `json:"unique_subnets"`
+	CadenceCV     float64 `json:"cadence_cv"`
+	UniquePaths   int     `json:"unique_paths"`
+	LastRequestAt int64   `json:"last_request_at"` // Unix ms, 0 if no traffic
 }
 
 // NodeInfo - static node metadata

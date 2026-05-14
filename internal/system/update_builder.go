@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/dployr-io/dployr/internal/svc_runtime"
+	"github.com/dployr-io/dployr/internal/traffic"
 	pkgAuth "github.com/dployr-io/dployr/pkg/auth"
 	"github.com/dployr-io/dployr/pkg/core/proxy"
 	"github.com/dployr-io/dployr/pkg/core/system"
@@ -61,6 +62,7 @@ func BuildUpdateV1_1(
 		l.Error("error retrieving workloads", "error", err)
 	}
 	update.Workloads = workloads
+	update.Traffic = buildTraffic(proxyHandler)
 
 	if isFullSync {
 		update.Node = buildNode()
@@ -437,6 +439,41 @@ func buildWorkloads(ctx context.Context, deployStore store.DeploymentStore, svcS
 	}
 
 	return workloads, nil
+}
+
+// buildTraffic computes bot-detection signals for every proxied service by reading
+// Caddy's per-domain JSON access logs. Results are omitted when no proxy apps exist
+// or the log directory cannot be accessed.
+func buildTraffic(proxyHandler proxy.HandleProxy) []system.TrafficSignals {
+	if proxyHandler == nil {
+		return nil
+	}
+
+	apps := proxyHandler.GetApps()
+	if len(apps) == 0 {
+		return nil
+	}
+
+	logDir := traffic.CaddyLogDir()
+	signals := make([]system.TrafficSignals, 0, len(apps))
+
+	for _, app := range apps {
+		if app.Domain == "" {
+			continue
+		}
+		sig := traffic.Compute(app.Domain, logDir)
+		signals = append(signals, system.TrafficSignals{
+			Domain:        sig.Domain,
+			WindowHours:   sig.WindowHours,
+			RequestCount:  sig.RequestCount,
+			UniqueSubnets: sig.UniqueSubnets,
+			CadenceCV:     sig.CadenceCV,
+			UniquePaths:   sig.UniquePaths,
+			LastRequestAt: sig.LastRequestAt,
+		})
+	}
+
+	return signals
 }
 
 func buildFilesystem(fs *FileSystem) *system.FilesystemInfo {
