@@ -46,6 +46,9 @@ REPO="dployr-io/dployr"
 DPLOYR_DOMAIN=""
 BASE_URL=""
 INSTANCE_ID=""
+NODE_ROLE="${NODE_ROLE:-instance}"
+REGISTRY_URL="${REGISTRY_URL:-}"
+REGISTRY_AUTH="${REGISTRY_AUTH:-}"
 TOMATO_VERSION="${TOMATO_VERSION:-1.0.0}"
 
 RED='\033[0;31m'
@@ -303,12 +306,15 @@ show_help() {
 Usage: $0 [options]
 
 Options:
-  -v, --version <tag>       Install a specific version (default: latest)
-  -t, --token <token>       Instance registration token
-  -b, --base <url>          Base API URL (overrides --env)
-  -i, --instance <id>       Instance ID for config
-  -e, --env <env>           Environment: prod (default), dev
-  -h, --help                Show this help
+  -v, --version <tag>         Install a specific version (default: latest)
+  -t, --token <token>         Instance registration token
+  -b, --base <url>            Base API URL (overrides --env)
+  -i, --instance <id>         Instance ID for config
+  -e, --env <env>             Environment: prod (default), dev
+  -R, --role <role>           Node role: instance (default) or build
+  -r, --registry-url <url>    OCI registry URL (required for build nodes)
+      --registry-auth <token> Registry credentials (required for build nodes)
+  -h, --help                  Show this help
 
 Environment:
   prod → https://base.dployr.io
@@ -319,6 +325,7 @@ Examples:
   $0 -e dev
   $0 -v v0.3.1 -t <token>
   $0 -e dev -b https://custom.internal
+  $0 -R build -r registry.digitalocean.com/my-registry --registry-auth <do-token>
 EOF
 }
 
@@ -358,6 +365,21 @@ while [[ $# -gt 0 ]]; do
             ENVIRONMENT="$2"
             shift 2
             ;;
+        -R|--role)
+            [[ -z "$2" ]] && error "Missing value for $1"
+            NODE_ROLE="$2"
+            shift 2
+            ;;
+        -r|--registry-url)
+            [[ -z "$2" ]] && error "Missing value for $1"
+            REGISTRY_URL="$2"
+            shift 2
+            ;;
+        --registry-auth)
+            [[ -z "$2" ]] && error "Missing value for $1"
+            REGISTRY_AUTH="$2"
+            shift 2
+            ;;
         -h|--help)
             show_help
             exit 0
@@ -380,12 +402,24 @@ case "$ENVIRONMENT" in
         ;;
 esac
 
+case "$NODE_ROLE" in
+    instance|build) ;;
+    *) error "Invalid role: $NODE_ROLE (expected: instance or build)" ;;
+esac
+
 if [[ $BASE_URL_EXPLICIT -eq 0 ]]; then
     BASE_URL="$DEFAULT_BASE_URL"
 fi
 
+if [[ "$NODE_ROLE" == "build" ]]; then
+    [[ -z "$REGISTRY_URL" ]] && error "--registry-url is required when --role build is set"
+    [[ -z "$REGISTRY_AUTH" ]] && error "--registry-auth is required when --role build is set"
+fi
+
 info "Environment: $ENVIRONMENT"
+info "Node role: $NODE_ROLE"
 info "Base URL: $BASE_URL"
+[[ "$NODE_ROLE" == "build" ]] && info "Registry: $REGISTRY_URL"
 
 register_instance() {
     local token="$1"
@@ -760,7 +794,6 @@ info "Creating system configuration..."
 mkdir -p "$CONFIG_DIR"
 
 if [[ ! -f "$CONFIG_FILE" ]]; then
-    # Use custom instance_id if provided, otherwise use default
     instance_value="${INSTANCE_ID:-my-instance-id}"
     cat > "$CONFIG_FILE" << EOF
 address = "localhost"
@@ -769,16 +802,19 @@ max-workers = 5
 
 base_url = "$BASE_URL"
 instance_id = "$instance_value"
+node_role = "$NODE_ROLE"
 
-registry_url = "${REGISTRY_URL:-}"
-registry_auth = "${REGISTRY_AUTH:-}"
+registry_url = "$REGISTRY_URL"
+registry_auth = "$REGISTRY_AUTH"
 EOF
     chmod 644 "$CONFIG_FILE"
     chmod 755 "$CONFIG_DIR"
     info "Created system config at $CONFIG_FILE"
     [[ -n "$INSTANCE_ID" ]] && info "Using custom instance_id: $INSTANCE_ID"
+    [[ "$NODE_ROLE" == "build" ]] && info "Build node configured with registry: $REGISTRY_URL"
 else
-    info "Config file already exists at $CONFIG_FILE"
+    info "Config file already exists at $CONFIG_FILE — skipping config write"
+    info "To update registry/role settings, edit $CONFIG_FILE directly"
 fi
 
 info "Setting up dployrd service..."
