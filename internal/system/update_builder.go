@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/dployr-io/dployr/internal/svc_runtime"
 	pkgAuth "github.com/dployr-io/dployr/pkg/auth"
 	"github.com/dployr-io/dployr/pkg/core/proxy"
 	"github.com/dployr-io/dployr/pkg/core/system"
@@ -424,6 +425,13 @@ func buildWorkloads(ctx context.Context, deployStore store.DeploymentStore, svcS
 			return nil, fmt.Errorf("failed to list services: %w", err)
 		}
 		if converted := system.FromStoreServices(svcs); converted != nil {
+			svcMgr, svcMgrErr := svc_runtime.SvcRuntime()
+			for i := range converted {
+				if svcMgrErr == nil {
+					status, _ := svcMgr.HealthStatus(converted[i].Name)
+					converted[i].HealthStatus = status
+				}
+			}
 			workloads.Services = converted
 		}
 	}

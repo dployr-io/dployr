@@ -84,3 +84,11 @@ func (d *DockerService) Stop(name string) error {
 func (d *DockerService) Remove(name string) error {
 	return runScript(scripts.DockerScript, "remove", name)
 }
+
+func (d *DockerService) HealthStatus(name string) (string, error) {
+	out, err := exec.Command("docker", "inspect", "--format", "{{.State.Health.Status}}", name).Output()
+	if err != nil {
+		return "", nil
+	}
+	return strings.TrimSpace(string(out)), nil
+}

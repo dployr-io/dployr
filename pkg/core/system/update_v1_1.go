@@ -160,6 +160,7 @@ type ServiceV1_1 struct {
 	Branch         *string           `json:"branch,omitempty"`
 	CommitHash     *string           `json:"commit_hash,omitempty"`
 	DeploymentID   *string           `json:"deployment_id,omitempty"`
+	HealthStatus   string            `json:"health_status"` // "healthy" | "unhealthy" | "starting" | ""
 	CreatedAt      string            `json:"created_at"`
 	UpdatedAt      string            `json:"updated_at"`
 }
