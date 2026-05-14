@@ -6,6 +6,7 @@ package deploy
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/dployr-io/dployr/pkg/core/deploy"
@@ -120,7 +121,12 @@ func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
-	image, err := BuildImage(req.Name, workDir, d.cfg)
+	buildDir := workDir
+	if req.WorkingDir != "" {
+		buildDir = filepath.Join(workDir, req.WorkingDir)
+	}
+
+	image, err := BuildImage(req.Name, buildDir, d.cfg)
 	if err != nil {
 		return nil, fmt.Errorf("build failed: %w", err)
 	}
