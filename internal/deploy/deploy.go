@@ -81,6 +81,13 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 		UpdatedAt: time.Now(),
 	}
 
+	// Guard: reject source=remote at the API boundary on non-build nodes.
+	// This prevents the deployment from ever reaching the worker queue on instance nodes,
+	// which only handle pre-built images dispatched via builds/publish:post.
+	if store.Source(req.Source) == store.SourceRemote && d.cfg.Role != store.NodeRoleBuild {
+		return nil, fmt.Errorf("node role %q cannot accept source=remote deployments; expected source=image", d.cfg.Role)
+	}
+
 	if err := d.store.UpsertDeployment(ctx, deployment); err != nil {
 		msg := fmt.Sprintf("failed to upsert deployment: %s", err)
 		d.logger.With("request_id", requestID, "trace_id", traceID).Error(msg)
