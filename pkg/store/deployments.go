@@ -33,7 +33,7 @@ type RemoteObj struct {
 	Url        string `json:"url" db:"url"`
 	Branch     string `json:"branch" db:"branch"`
 	CommitHash string `json:"commit_hash" db:"commit_hash"`
-	Token string `json:"token,omitempty" db:"-"`
+	Token      string `json:"token,omitempty" db:"-"`
 }
 
 type HealthCheck struct {
