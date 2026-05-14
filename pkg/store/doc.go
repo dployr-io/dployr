@@ -12,4 +12,9 @@
 //	Memory  — megabytes (MB).  e.g. 64 = 64 MB, 512 = 512 MB
 //	CPU     — millicores.      e.g. 100 = 0.1 vCPU, 1000 = 1 vCPU
 //	Storage — gigabytes (GB).  e.g. 5 = 5 GB, 25 = 25 GB
+//
+// Token is a short-lived credential injected by the control plane at dispatch
+// time. It is used to authenticate git clone for private repositories and is
+// never persisted to long-term storage.
+
 package store

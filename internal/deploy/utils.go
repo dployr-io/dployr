@@ -192,7 +192,7 @@ func SetupDir(name string) (string, error) {
 
 // CloneRepo clones a git repository to the specified directory
 func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.Config) error {
-	authUrl, err := buildAuthUrl(remote.Url)
+	authUrl, err := buildAuthUrl(remote.Url, remote.Token)
 	if err != nil {
 		return err
 	}
@@ -440,27 +440,38 @@ func writeServiceConfig(bp store.Blueprint) error {
 	return os.WriteFile(filepath.Join(bp.WorkingDir, "config.toml"), []byte(b.String()), 0600)
 }
 
-func buildAuthUrl(url string) (string, error) {
+func buildAuthUrl(url, token string) (string, error) {
 	if strings.Contains(url, "@") {
-		return url, nil
-	}
-	var token, username string
-
-	switch {
+		return url, nil // credentials already embedded
 	}
 
 	if token == "" {
 		return url, nil
 	}
 
+	// Normalise to HTTPS — git over SSH cannot embed credentials in the URL.
 	cleanUrl := url
 	if after, ok := strings.CutPrefix(cleanUrl, "http://"); ok {
 		cleanUrl = "https://" + after
 	}
-	if strings.HasPrefix(cleanUrl, "https://") {
-		return strings.Replace(cleanUrl, "https://", fmt.Sprintf("https://%s:%s@", username, token), 1), nil
+
+	if !strings.HasPrefix(cleanUrl, "https://") {
+		return url, nil
 	}
-	return url, nil
+
+	var username string
+	switch {
+	case strings.Contains(cleanUrl, "github.com"):
+		username = "x-access-token"
+	case strings.Contains(cleanUrl, "gitlab.com"):
+		username = "oauth2"
+	case strings.Contains(cleanUrl, "bitbucket.org"):
+		username = "x-token-auth"
+	default:
+		username = "oauth2" // reasonable default for self-hosted providers
+	}
+
+	return strings.Replace(cleanUrl, "https://", fmt.Sprintf("https://%s:%s@", username, token), 1), nil
 }
 
 var dockerImageRegex = regexp.MustCompile(`^([a-zA-Z0-9][-a-zA-Z0-9.]*(?::[0-9]+)?/)?([a-zA-Z0-9._/-]+/)?([a-zA-Z0-9._/-]+)(:[a-zA-Z0-9._-]+|@sha256:[a-fA-F0-9]{64})?$`)

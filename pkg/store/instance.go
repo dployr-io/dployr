@@ -22,9 +22,7 @@ type Instance struct {
 
 // InstanceStore provides access to the instance record stored in SQLite.
 type InstanceStore interface {
-	// GetInstance returns the current instance record, if any.
 	GetInstance(ctx context.Context) (*Instance, error)
-	// RegisterInstance persists the instance row on first registration.
 	RegisterInstance(ctx context.Context, i *Instance) error
 	UpdateLastInstalledAt(ctx context.Context) error
 	SetBootstrapToken(ctx context.Context, token string) error

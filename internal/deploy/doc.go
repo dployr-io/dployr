@@ -18,4 +18,16 @@
 //
 //   - imageRef(registryURL, name) constructs the image reference used as the tag
 //     for both docker build and docker push.
+//
+// buildAuthUrl injects the provided token into the HTTPS clone URL so git can
+// authenticate against private repositories without interactive prompts.
+//
+// Token semantics per provider:
+//   - GitHub  → x-access-token:{token}  (GitHub App installation token)
+//   - GitLab  → oauth2:{token}           (OAuth2 personal/user token)
+//   - BitBucket → x-token-auth:{token}  (App password or access token)
+//
+// If url already contains credentials (has an "@"), it is returned as-is.
+// If token is empty, the URL is returned unchanged (public repo assumed).
+
 package deploy
