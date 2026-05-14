@@ -126,12 +126,17 @@ func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy
 		buildDir = filepath.Join(workDir, req.WorkingDir)
 	}
 
+	if err := writeDockerIgnore(buildDir); err != nil {
+		return nil, fmt.Errorf("failed to write .dockerignore: %w", err)
+	}
+
 	image, err := BuildImage(req.Name, buildDir, d.cfg, BuildOpts{
 		Runtime:  req.Runtime,
 		Version:  req.Version,
 		BuildCmd: req.BuildCmd,
 		RunCmd:   req.RunCmd,
 		Port:     req.Port,
+		IsNextJS: req.Runtime == "nodejs" && detectNextJS(buildDir),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("build failed: %w", err)

@@ -38,6 +38,32 @@ type BuildOpts struct {
 	BuildCmd string
 	RunCmd   string
 	Port     int
+	IsNextJS bool
+}
+
+// detectNextJS returns true if the directory looks like a Next.js project —
+// either a next.config.* file exists or package.json lists "next" as a dependency.
+func detectNextJS(dir string) bool {
+	patterns := []string{"next.config.js", "next.config.ts", "next.config.mjs", "next.config.cjs"}
+	for _, p := range patterns {
+		if _, err := os.Stat(filepath.Join(dir, p)); err == nil {
+			return true
+		}
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "package.json"))
+	if err != nil {
+		return false
+	}
+	var pkg struct {
+		Dependencies    map[string]string `json:"dependencies"`
+		DevDependencies map[string]string `json:"devDependencies"`
+	}
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return false
+	}
+	_, inDeps := pkg.Dependencies["next"]
+	_, inDev := pkg.DevDependencies["next"]
+	return inDeps || inDev
 }
 
 func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts) (string, error) {
@@ -82,12 +108,20 @@ func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts) (string
 	return ref, nil
 }
 
-// ensureDockerfile writes a generated Dockerfile if one is not already present.
+// ensureDockerfile writes a generated Dockerfile unless the repo already ships one.
+// It checks git to distinguish committed Dockerfiles from stale generated ones left
+// by a previous build attempt — stale files are always overwritten.
 func ensureDockerfile(dir string, opts BuildOpts) error {
 	dockerfilePath := filepath.Join(dir, "Dockerfile")
-	if _, err := os.Stat(dockerfilePath); err == nil {
-		return nil // repo already has a Dockerfile
+
+	// Only skip generation if the Dockerfile is tracked by git (committed by the user).
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "-C", dir, "ls-files", "--error-unmatch", "Dockerfile")
+	if err := cmd.Run(); err == nil {
+		return nil // committed Dockerfile — respect it
 	}
+
 	content := generateDockerfile(opts)
 	return os.WriteFile(dockerfilePath, []byte(content), 0644)
 }
@@ -123,11 +157,30 @@ func generateDockerfile(opts BuildOpts) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "FROM %s\n\nWORKDIR /app\n\n", image)
 
+	// templateInstall is the install command already baked into each runtime's
+	// template layer. We skip BuildCmd if it would just re-run the same thing.
+	var templateInstall string
 	switch opts.runtime() {
 	case "nodejs":
+		if opts.IsNextJS {
+			fmt.Fprintf(&b, "COPY package*.json ./\nRUN npm install\nCOPY . .\n")
+			buildCmd := opts.BuildCmd
+			if buildCmd == "" {
+				buildCmd = "npm run build"
+			}
+			fmt.Fprintf(&b, "RUN %s\n", buildCmd)
+			b.WriteString("\nFROM node:alpine AS runner\nWORKDIR /app\n")
+			b.WriteString("COPY --from=0 /app/.next/standalone ./\n")
+			b.WriteString("COPY --from=0 /app/.next/static ./.next/static\n")
+			b.WriteString("COPY --from=0 /app/public ./public\n")
+			fmt.Fprintf(&b, "\nENV PORT=%d\nCMD [\"node\", \"server.js\"]\n", port)
+			return b.String()
+		}
 		b.WriteString("COPY package*.json ./\nRUN npm install\nCOPY . .\n")
+		templateInstall = "npm install"
 	case "python":
 		b.WriteString("COPY requirements.txt ./\nRUN pip install -r requirements.txt\nCOPY . .\n")
+		templateInstall = "pip install -r requirements.txt"
 	case "golang":
 		b.WriteString("COPY go.mod go.sum ./\nRUN go mod download\nCOPY . .\n")
 		if opts.RunCmd != "" {
@@ -139,13 +192,15 @@ func generateDockerfile(opts BuildOpts) string {
 		return b.String()
 	case "ruby":
 		b.WriteString("COPY Gemfile* ./\nRUN bundle install\nCOPY . .\n")
+		templateInstall = "bundle install"
 	case "java":
 		b.WriteString("COPY pom.xml ./\nRUN mvn dependency:go-offline -B\nCOPY . .\n")
+		templateInstall = "mvn dependency:go-offline -B"
 	default:
 		b.WriteString("COPY . .\n")
 	}
 
-	if opts.BuildCmd != "" {
+	if opts.BuildCmd != "" && strings.TrimSpace(opts.BuildCmd) != templateInstall {
 		fmt.Fprintf(&b, "RUN %s\n", opts.BuildCmd)
 	}
 	fmt.Fprintf(&b, "\nENV PORT=%d\n", port)

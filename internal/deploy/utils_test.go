@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -158,6 +159,58 @@ func TestRegistryLogin_RawToken(t *testing.T) {
 	}
 }
 
+func TestDetectNextJS_ConfigFile(t *testing.T) {
+	for _, name := range []string{"next.config.js", "next.config.ts", "next.config.mjs"} {
+		dir := t.TempDir()
+		os.WriteFile(filepath.Join(dir, name), []byte("module.exports = {}"), 0644)
+		if !detectNextJS(dir) {
+			t.Errorf("detectNextJS: expected true for %s", name)
+		}
+	}
+}
+
+func TestDetectNextJS_PackageJSON(t *testing.T) {
+	dir := t.TempDir()
+	pkg := `{"dependencies":{"next":"14.0.0","react":"18.0.0"}}`
+	os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkg), 0644)
+	if !detectNextJS(dir) {
+		t.Error("detectNextJS: expected true when next in dependencies")
+	}
+}
+
+func TestDetectNextJS_NotNextJS(t *testing.T) {
+	dir := t.TempDir()
+	pkg := `{"dependencies":{"express":"4.0.0"}}`
+	os.WriteFile(filepath.Join(dir, "package.json"), []byte(pkg), 0644)
+	if detectNextJS(dir) {
+		t.Error("detectNextJS: expected false for plain express app")
+	}
+}
+
+func TestGenerateDockerfile_NextJS(t *testing.T) {
+	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20", BuildCmd: "npm run build", Port: 3000, IsNextJS: true})
+	for _, want := range []string{
+		"FROM node:20", "RUN npm install", "RUN npm run build",
+		"FROM node:alpine AS runner",
+		"COPY --from=0 /app/.next/standalone",
+		"COPY --from=0 /app/.next/static",
+		"COPY --from=0 /app/public",
+		`CMD ["node", "server.js"]`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("generateDockerfile(nextjs): missing %q\n\ngot:\n%s", want, out)
+		}
+	}
+}
+
+func TestGenerateDockerfile_NextJS_DefaultBuildCmd(t *testing.T) {
+	// No build_cmd set — should default to "npm run build"
+	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20", IsNextJS: true, Port: 3000})
+	if !strings.Contains(out, "RUN npm run build") {
+		t.Errorf("generateDockerfile(nextjs, no build_cmd): expected default npm run build\n\ngot:\n%s", out)
+	}
+}
+
 func TestGenerateDockerfile_NodejsWithBuildCmd(t *testing.T) {
 	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20", BuildCmd: "npm run build", RunCmd: "npm start", Port: 3000})
 	for _, want := range []string{"FROM node:20", "RUN npm install", "RUN npm run build", "CMD npm start", "ENV PORT=3000"} {
@@ -217,12 +270,50 @@ func TestEnsureDockerfile_WritesWhenMissing(t *testing.T) {
 	}
 }
 
-func TestEnsureDockerfile_PreservesExisting(t *testing.T) {
+func TestEnsureDockerfile_OverwritesStaleFile(t *testing.T) {
+	// A Dockerfile that exists on disk but is NOT tracked by git (e.g. left by a
+	// previous failed build) must be overwritten with a freshly generated one.
 	dir := t.TempDir()
-	existing := "FROM scratch\nCMD [\"custom\"]\n"
-	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte(existing), 0644); err != nil {
+	stale := []byte("\n") // 1-byte stale file, as seen in production
+	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), stale, 0644); err != nil {
 		t.Fatal(err)
 	}
+	if err := ensureDockerfile(dir, BuildOpts{Runtime: "nodejs", Version: "20", RunCmd: "npm start"}); err != nil {
+		t.Fatalf("ensureDockerfile failed: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(dir, "Dockerfile"))
+	if err != nil {
+		t.Fatalf("Dockerfile missing after ensureDockerfile: %v", err)
+	}
+	if !strings.Contains(string(content), "FROM node:20") {
+		t.Errorf("stale Dockerfile was not overwritten\n\ngot:\n%s", content)
+	}
+}
+
+func TestEnsureDockerfile_PreservesCommitted(t *testing.T) {
+	// A Dockerfile tracked by git must not be overwritten.
+	dir := t.TempDir()
+
+	// Init a git repo and commit a Dockerfile so ls-files reports it as tracked.
+	for _, args := range [][]string{
+		{"init"},
+		{"config", "user.email", "test@test.com"},
+		{"config", "user.name", "test"},
+	} {
+		if out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	committed := "FROM scratch\nCMD [\"custom\"]\n"
+	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte(committed), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"add", "Dockerfile"}, {"commit", "-m", "add dockerfile"}} {
+		if out, err := exec.Command("git", append([]string{"-C", dir}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
 	if err := ensureDockerfile(dir, BuildOpts{Runtime: "nodejs", Version: "20"}); err != nil {
 		t.Fatalf("ensureDockerfile failed: %v", err)
 	}
@@ -230,7 +321,7 @@ func TestEnsureDockerfile_PreservesExisting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(content) != existing {
-		t.Errorf("ensureDockerfile overwrote existing Dockerfile\n\ngot:\n%s", content)
+	if string(content) != committed {
+		t.Errorf("ensureDockerfile overwrote committed Dockerfile\n\ngot:\n%s", content)
 	}
 }
