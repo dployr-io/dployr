@@ -92,3 +92,22 @@ func (d *DockerService) HealthStatus(name string) (string, error) {
 	}
 	return strings.TrimSpace(string(out)), nil
 }
+
+// Ice stops the container and removes its image to free up disk space.
+// The container configuration is preserved in the service store so it can be redeployed.
+func (d *DockerService) Ice(name string) error {
+	// Capture image name before stopping so we can remove it afterward.
+	imageOut, _ := exec.Command("docker", "inspect", "--format", "{{.Config.Image}}", name).Output()
+	image := strings.TrimSpace(string(imageOut))
+
+	if err := exec.Command("docker", "stop", name).Run(); err != nil {
+		return fmt.Errorf("failed to stop container %s: %w", name, err)
+	}
+
+	if image != "" {
+		// Best-effort: ignore errors (image may be shared or already removed).
+		exec.Command("docker", "rmi", image).Run()
+	}
+
+	return nil
+}

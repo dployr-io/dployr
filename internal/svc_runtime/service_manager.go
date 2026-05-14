@@ -16,6 +16,7 @@ type ServiceManager interface {
 	Start(name string) error
 	Stop(name string) error
 	Remove(name string) error
+	Ice(name string) error
 }
 
 func SvcRuntime() (ServiceManager, error) {

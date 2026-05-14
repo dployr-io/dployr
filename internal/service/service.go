@@ -69,6 +69,18 @@ func (s *Servicer) WakeService(name string) error {
 	return nil
 }
 
+func (s *Servicer) IceService(name string) error {
+	if s.svcMgr == nil {
+		return fmt.Errorf("service manager not available")
+	}
+	svcName := utils.FormatName(name)
+	s.logger.Info("icing service", "service", svcName)
+	if err := s.svcMgr.Ice(svcName); err != nil {
+		return fmt.Errorf("failed to ice service %s: %w", svcName, err)
+	}
+	return nil
+}
+
 func (s *Servicer) DeleteService(ctx context.Context, name string) error {
 	svc, err := s.store.GetService(ctx, name)
 	if err != nil {

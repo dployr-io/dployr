@@ -187,6 +187,28 @@ func (h *ServiceHandler) WakeService(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]any{"status": "waking", "name": name})
 }
 
+func (h *ServiceHandler) IceService(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		shared.WriteError(w, shared.Errors.Request.MethodNotAllowed.HTTPStatus, string(shared.Errors.Request.MethodNotAllowed.Code), shared.Errors.Request.MethodNotAllowed.Message, nil)
+		return
+	}
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		e := shared.Errors.Request.MissingParams
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, map[string]any{"param": "name"})
+		return
+	}
+	if err := h.servicer.api.IceService(name); err != nil {
+		h.logger.Error("failed to ice service", "error", err, "name", name)
+		e := shared.Errors.Runtime.InternalServer
+		shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]any{"status": "iced", "name": name})
+}
+
 func parseLimit(s string) int {
 	v, err := strconv.Atoi(s)
 	if err != nil {
