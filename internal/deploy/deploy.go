@@ -117,7 +117,7 @@ func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy
 		return nil, fmt.Errorf("failed to setup working directory: %w", err)
 	}
 
-	if err := CloneRepo(req.Remote, workDir, req.WorkingDir, d.cfg); err != nil {
+	if err := CloneRepo(req.Remote, workDir, d.cfg); err != nil {
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
@@ -126,7 +126,13 @@ func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy
 		buildDir = filepath.Join(workDir, req.WorkingDir)
 	}
 
-	image, err := BuildImage(req.Name, buildDir, d.cfg)
+	image, err := BuildImage(req.Name, buildDir, d.cfg, BuildOpts{
+		Runtime:  req.Runtime,
+		Version:  req.Version,
+		BuildCmd: req.BuildCmd,
+		RunCmd:   req.RunCmd,
+		Port:     req.Port,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("build failed: %w", err)
 	}

@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -153,5 +155,82 @@ func TestRegistryLogin_RawToken(t *testing.T) {
 	host := fakeRegistry(t)
 	if err := registryLogin(context.Background(), host, "dop_v1_plaintexttoken", t.TempDir()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGenerateDockerfile_NodejsWithBuildCmd(t *testing.T) {
+	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20", BuildCmd: "npm run build", RunCmd: "npm start", Port: 3000})
+	for _, want := range []string{"FROM node:20", "RUN npm install", "RUN npm run build", "CMD npm start", "ENV PORT=3000"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("generateDockerfile(nodejs): missing %q\n\ngot:\n%s", want, out)
+		}
+	}
+}
+
+func TestGenerateDockerfile_NodejsNoBuildCmd(t *testing.T) {
+	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20", RunCmd: "node index.js", Port: 8080})
+	if strings.Contains(out, "RUN npm run") {
+		t.Errorf("generateDockerfile(nodejs, no build_cmd): unexpected RUN build step\n\ngot:\n%s", out)
+	}
+	if !strings.Contains(out, "CMD node index.js") {
+		t.Errorf("generateDockerfile(nodejs, no build_cmd): missing CMD\n\ngot:\n%s", out)
+	}
+}
+
+func TestGenerateDockerfile_Golang(t *testing.T) {
+	out := generateDockerfile(BuildOpts{Runtime: "golang", Version: "1.22", Port: 8080})
+	for _, want := range []string{"FROM golang:1.22", "go mod download", "go build -o /app/bin", "CMD [\"/app/bin\"]"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("generateDockerfile(golang): missing %q\n\ngot:\n%s", want, out)
+		}
+	}
+}
+
+func TestGenerateDockerfile_Python(t *testing.T) {
+	out := generateDockerfile(BuildOpts{Runtime: "python", Version: "3.12", RunCmd: "python app.py", Port: 5000})
+	for _, want := range []string{"FROM python:3.12", "pip install -r requirements.txt", "ENV PORT=5000"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("generateDockerfile(python): missing %q\n\ngot:\n%s", want, out)
+		}
+	}
+}
+
+func TestGenerateDockerfile_DefaultPort(t *testing.T) {
+	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20"})
+	if !strings.Contains(out, "ENV PORT=8080") {
+		t.Errorf("generateDockerfile: expected default PORT=8080\n\ngot:\n%s", out)
+	}
+}
+
+func TestEnsureDockerfile_WritesWhenMissing(t *testing.T) {
+	dir := t.TempDir()
+	opts := BuildOpts{Runtime: "nodejs", Version: "20", RunCmd: "npm start", Port: 3000}
+	if err := ensureDockerfile(dir, opts); err != nil {
+		t.Fatalf("ensureDockerfile failed: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(dir, "Dockerfile"))
+	if err != nil {
+		t.Fatalf("Dockerfile not written: %v", err)
+	}
+	if !strings.Contains(string(content), "FROM node:20") {
+		t.Errorf("written Dockerfile missing expected content\n\ngot:\n%s", content)
+	}
+}
+
+func TestEnsureDockerfile_PreservesExisting(t *testing.T) {
+	dir := t.TempDir()
+	existing := "FROM scratch\nCMD [\"custom\"]\n"
+	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte(existing), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureDockerfile(dir, BuildOpts{Runtime: "nodejs", Version: "20"}); err != nil {
+		t.Fatalf("ensureDockerfile failed: %v", err)
+	}
+	content, err := os.ReadFile(filepath.Join(dir, "Dockerfile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != existing {
+		t.Errorf("ensureDockerfile overwrote existing Dockerfile\n\ngot:\n%s", content)
 	}
 }

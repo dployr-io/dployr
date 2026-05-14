@@ -159,7 +159,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 		}
 	case store.SourceRemote:
 		shared.LogInfoF(svcName, logPath, "cloning repository")
-		err = deploy.CloneRepo(d.Blueprint.Remote, workingDir, d.Blueprint.WorkingDir, w.cfg)
+		err = deploy.CloneRepo(d.Blueprint.Remote, workingDir, w.cfg)
 		if err != nil {
 			err = fmt.Errorf("failed to clone repository: %s", err)
 			shared.LogErrF(svcName, logPath, err)

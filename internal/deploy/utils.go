@@ -32,7 +32,15 @@ func imageRef(registryURL, name string) string {
 	return fmt.Sprintf("%s/%s:%s", strings.TrimRight(registryURL, "/"), slug, tag)
 }
 
-func BuildImage(name, srcDir string, cfg *shared.Config) (string, error) {
+type BuildOpts struct {
+	Runtime  string
+	Version  string
+	BuildCmd string
+	RunCmd   string
+	Port     int
+}
+
+func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts) (string, error) {
 	if cfg.RegistryURL == "" {
 		return "", fmt.Errorf("REGISTRY_URL is not configured on this build node")
 	}
@@ -47,6 +55,10 @@ func BuildImage(name, srcDir string, cfg *shared.Config) (string, error) {
 		if err := registryLogin(ctx, registry, cfg.RegistryAuth, srcDir); err != nil {
 			return "", fmt.Errorf("registry login failed: %w", err)
 		}
+	}
+
+	if err := ensureDockerfile(srcDir, opts); err != nil {
+		return "", fmt.Errorf("dockerfile setup failed: %w", err)
 	}
 
 	buildCmd := fmt.Sprintf("docker build --tag %s .", ref)
@@ -68,6 +80,93 @@ func BuildImage(name, srcDir string, cfg *shared.Config) (string, error) {
 	_ = shared.Exec(ctx, fmt.Sprintf("docker rmi %s", ref), srcDir)
 
 	return ref, nil
+}
+
+// ensureDockerfile writes a generated Dockerfile if one is not already present.
+func ensureDockerfile(dir string, opts BuildOpts) error {
+	dockerfilePath := filepath.Join(dir, "Dockerfile")
+	if _, err := os.Stat(dockerfilePath); err == nil {
+		return nil // repo already has a Dockerfile
+	}
+	content := generateDockerfile(opts)
+	return os.WriteFile(dockerfilePath, []byte(content), 0644)
+}
+
+func runtimeBaseImage(runtime, version string) string {
+	switch runtime {
+	case "golang":
+		return "golang:" + version
+	case "php":
+		return "php:" + version
+	case "python":
+		return "python:" + version
+	case "nodejs":
+		return "node:" + version
+	case "ruby":
+		return "ruby:" + version
+	case "dotnet":
+		return "mcr.microsoft.com/dotnet:" + version
+	case "java":
+		return "eclipse-temurin:" + version
+	default:
+		return runtime + ":" + version
+	}
+}
+
+func generateDockerfile(opts BuildOpts) string {
+	image := runtimeBaseImage(opts.runtime(), opts.version())
+	port := opts.Port
+	if port == 0 {
+		port = 8080
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "FROM %s\n\nWORKDIR /app\n\n", image)
+
+	switch opts.runtime() {
+	case "nodejs":
+		b.WriteString("COPY package*.json ./\nRUN npm install\nCOPY . .\n")
+	case "python":
+		b.WriteString("COPY requirements.txt ./\nRUN pip install -r requirements.txt\nCOPY . .\n")
+	case "golang":
+		b.WriteString("COPY go.mod go.sum ./\nRUN go mod download\nCOPY . .\n")
+		if opts.RunCmd != "" {
+			fmt.Fprintf(&b, "RUN go build -o /app/bin %s\n", opts.RunCmd)
+		} else {
+			b.WriteString("RUN go build -o /app/bin .\n")
+		}
+		fmt.Fprintf(&b, "\nENV PORT=%d\nCMD [\"/app/bin\"]\n", port)
+		return b.String()
+	case "ruby":
+		b.WriteString("COPY Gemfile* ./\nRUN bundle install\nCOPY . .\n")
+	case "java":
+		b.WriteString("COPY pom.xml ./\nRUN mvn dependency:go-offline -B\nCOPY . .\n")
+	default:
+		b.WriteString("COPY . .\n")
+	}
+
+	if opts.BuildCmd != "" {
+		fmt.Fprintf(&b, "RUN %s\n", opts.BuildCmd)
+	}
+	fmt.Fprintf(&b, "\nENV PORT=%d\n", port)
+	if opts.RunCmd != "" {
+		fmt.Fprintf(&b, "CMD %s\n", opts.RunCmd)
+	}
+	return b.String()
+}
+
+func (o BuildOpts) runtime() string {
+	if o.Runtime == "" {
+		return "nodejs"
+	}
+	return o.Runtime
+}
+
+func (o BuildOpts) version() string {
+	if o.Version == "" {
+		return "lts"
+	}
+	return o.Version
 }
 
 // registryLogin authenticates Docker against the given registry.
@@ -226,7 +325,7 @@ func SetupDir(name string) (string, error) {
 }
 
 // CloneRepo clones a git repository to the specified directory
-func CloneRepo(remote store.RemoteObj, destDir, workDir string, config *shared.Config) error {
+func CloneRepo(remote store.RemoteObj, destDir string, config *shared.Config) error {
 	authUrl, err := buildAuthUrl(remote.Url, remote.Token)
 	if err != nil {
 		return err
