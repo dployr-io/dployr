@@ -27,9 +27,9 @@ import (
 )
 
 func imageRef(registryURL, name string) string {
-	tag := fmt.Sprintf("%d", time.Now().UnixMilli())
 	slug := strings.ToLower(strings.ReplaceAll(name, "_", "-"))
-	return fmt.Sprintf("%s/%s:%s", strings.TrimRight(registryURL, "/"), slug, tag)
+	tag := fmt.Sprintf("%s-%d", slug, time.Now().UnixMilli())
+	return fmt.Sprintf("%s/apps:%s", strings.TrimRight(registryURL, "/"), tag)
 }
 
 type BuildOpts struct {
