@@ -61,6 +61,7 @@ read_service_config() {
     val=$(tget 'health_check.interval'); [ -n "$val" ] && HEALTH_INTERVAL="$val"
     val=$(tget 'health_check.timeout');  [ -n "$val" ] && HEALTH_TIMEOUT="$val"
     val=$(tget 'health_check.retries');  [ -n "$val" ] && HEALTH_RETRIES="$val"
+    return 0
 }
 
 # ==== SYSTEMD BACKEND ====
@@ -742,7 +743,7 @@ docker_create_container() {
             create_cmd+=("caddy:2-alpine" "caddy" "file-server" "--root-dir" "/srv")
         fi
     elif [ -n "$run_cmd" ]; then
-        create_cmd+=("$image" bash -c "$run_cmd")
+        create_cmd+=(--entrypoint /bin/sh "$image" -c "$run_cmd")
     else
         create_cmd+=("$image")
     fi

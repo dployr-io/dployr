@@ -151,12 +151,13 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 	switch d.Blueprint.Source {
 	case store.SourceImage:
 		shared.LogInfoF(svcName, logPath, "pulling image")
-		err = deploy.PullImage(d.Blueprint.Image, d.Blueprint.WorkingDir, w.cfg)
+		err = deploy.PullImage(d.Blueprint.Image, workingDir, w.cfg)
 		if err != nil {
 			err = fmt.Errorf("failed to pull image: %s", err)
 			shared.LogErrF(svcName, logPath, err)
 			return svcName, err
 		}
+		dir = workingDir
 	case store.SourceRemote:
 		shared.LogInfoF(svcName, logPath, "cloning repository")
 		err = deploy.CloneRepo(d.Blueprint.Remote, workingDir, w.cfg)
@@ -165,14 +166,15 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 			shared.LogErrF(svcName, logPath, err)
 			return svcName, err
 		}
+		dir = workingDir
+		if d.Blueprint.WorkingDir != "" {
+			dir = filepath.Join(workingDir, d.Blueprint.WorkingDir)
+		}
 	default:
 		err = fmt.Errorf("unknown deployment source %q", d.Blueprint.Source)
 		shared.LogErrF(svcName, logPath, err)
 		return svcName, err
 	}
-
-	// Set the working directory for the service
-	dir = fmt.Sprint(workingDir, "/", d.Blueprint.WorkingDir)
 
 	shared.LogInfoF(svcName, logPath, "checking for existing service")
 	s, err := svc_runtime.SvcRuntime()
@@ -352,12 +354,33 @@ func (w *Worker) submitDeploymentLogs(ctx context.Context, id string, name strin
 		return
 	}
 
+	bp := d.Blueprint
+	blueprint := map[string]any{
+		"name":             bp.Name,
+		"type":             string(bp.Type),
+		"source":           string(bp.Source),
+		"description":      bp.Desc,
+		"run_cmd":          bp.RunCmd,
+		"build_cmd":        bp.BuildCmd,
+		"port":             bp.Port,
+		"working_dir":      bp.WorkingDir,
+		"static_dir":       bp.StaticDir,
+		"image":            bp.Image,
+		"runtime_type":     string(bp.Runtime.Type),
+		"runtime_version":  string(bp.Runtime.Version),
+		"remote_url":       bp.Remote.Url,
+		"remote_branch":    bp.Remote.Branch,
+		"remote_commit_hash": bp.Remote.CommitHash,
+	}
+	if d.UserId != nil {
+		blueprint["user_id"] = *d.UserId
+	}
+
 	payload := map[string]any{
-		"token": token,
-		"id":    id,
-		"name":  d.Name,
-		"type":  d.Blueprint.Type,
-		"logs":  logs,
+		"token":     token,
+		"id":        id,
+		"logs":      logs,
+		"blueprint": blueprint,
 	}
 
 	jsonData, err := json.Marshal(payload)

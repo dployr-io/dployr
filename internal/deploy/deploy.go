@@ -56,6 +56,13 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 		return nil, fmt.Errorf("unauthenticated deployment attempt")
 	}
 
+	// Note: Publish tasks carry the original user_id in the payload.
+	// The JWT context user is the node identity (instance tag), not the real user.
+	userID := user.ID
+	if req.UserId != "" {
+		userID = req.UserId
+	}
+
 	deployment := &store.Deployment{
 		ID:     ulid.Make().String(),
 		Status: store.StatusPending,
@@ -77,7 +84,7 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 			Source:      store.Source(req.Source),
 			HealthCheck: req.HealthCheck,
 		},
-		UserId:    &user.ID,
+		UserId:    &userID,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}

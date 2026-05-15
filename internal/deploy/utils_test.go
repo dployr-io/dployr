@@ -191,7 +191,7 @@ func TestGenerateDockerfile_NextJS(t *testing.T) {
 	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20", BuildCmd: "npm run build", Port: 3000, IsNextJS: true})
 	for _, want := range []string{
 		"FROM node:20", "RUN npm install", "RUN npm run build",
-		"FROM node:alpine AS runner",
+		"FROM node:20-alpine AS runner",
 		"COPY --from=0 /app/.next/standalone",
 		"COPY --from=0 /app/.next/static",
 		"COPY --from=0 /app/public",
@@ -204,7 +204,6 @@ func TestGenerateDockerfile_NextJS(t *testing.T) {
 }
 
 func TestGenerateDockerfile_NextJS_DefaultBuildCmd(t *testing.T) {
-	// No build_cmd set — should default to "npm run build"
 	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20", IsNextJS: true, Port: 3000})
 	if !strings.Contains(out, "RUN npm run build") {
 		t.Errorf("generateDockerfile(nextjs, no build_cmd): expected default npm run build\n\ngot:\n%s", out)
@@ -213,37 +212,92 @@ func TestGenerateDockerfile_NextJS_DefaultBuildCmd(t *testing.T) {
 
 func TestGenerateDockerfile_NodejsWithBuildCmd(t *testing.T) {
 	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20", BuildCmd: "npm run build", RunCmd: "npm start", Port: 3000})
-	for _, want := range []string{"FROM node:20", "RUN npm install", "RUN npm run build", "CMD npm start", "ENV PORT=3000"} {
+	for _, want := range []string{
+		"FROM node:20", "RUN npm install", "RUN npm run build",
+		"FROM node:20-alpine AS runner",
+		"npm install --omit=dev",
+		"CMD npm start", "ENV PORT=3000",
+	} {
 		if !strings.Contains(out, want) {
-			t.Errorf("generateDockerfile(nodejs): missing %q\n\ngot:\n%s", want, out)
+			t.Errorf("generateDockerfile(nodejs+build): missing %q\n\ngot:\n%s", want, out)
 		}
 	}
 }
 
 func TestGenerateDockerfile_NodejsNoBuildCmd(t *testing.T) {
 	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20", RunCmd: "node index.js", Port: 8080})
+	for _, want := range []string{"FROM node:20-alpine", "npm install --omit=dev", "CMD node index.js", "ENV PORT=8080"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("generateDockerfile(nodejs, no build_cmd): missing %q\n\ngot:\n%s", want, out)
+		}
+	}
 	if strings.Contains(out, "RUN npm run") {
 		t.Errorf("generateDockerfile(nodejs, no build_cmd): unexpected RUN build step\n\ngot:\n%s", out)
 	}
-	if !strings.Contains(out, "CMD node index.js") {
-		t.Errorf("generateDockerfile(nodejs, no build_cmd): missing CMD\n\ngot:\n%s", out)
+}
+
+func TestGenerateDockerfile_NodejsDefaultPort(t *testing.T) {
+	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20"})
+	if !strings.Contains(out, "FROM node:20-alpine") {
+		t.Errorf("generateDockerfile(nodejs): expected alpine base\n\ngot:\n%s", out)
+	}
+	if !strings.Contains(out, "--omit=dev") {
+		t.Errorf("generateDockerfile(nodejs): expected --omit=dev\n\ngot:\n%s", out)
 	}
 }
 
 func TestGenerateDockerfile_Golang(t *testing.T) {
 	out := generateDockerfile(BuildOpts{Runtime: "golang", Version: "1.22", Port: 8080})
-	for _, want := range []string{"FROM golang:1.22", "go mod download", "go build -o /app/bin", "CMD [\"/app/bin\"]"} {
+	for _, want := range []string{
+		"FROM golang:1.22", "go mod download",
+		"CGO_ENABLED=0 go build -o /bin/app .",
+		"FROM alpine:3", "ca-certificates",
+		"COPY --from=0 /bin/app /bin/app",
+		`CMD ["/bin/app"]`,
+	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("generateDockerfile(golang): missing %q\n\ngot:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "golang:1.22\nWORKDIR") && strings.Contains(out, "CMD [\"/bin/app\"]") {
+		// remove golang toolchain from final stage
+		stages := strings.Split(out, "FROM alpine")
+		if len(stages) < 2 {
+			t.Errorf("generateDockerfile(golang): expected multi-stage build\n\ngot:\n%s", out)
 		}
 	}
 }
 
 func TestGenerateDockerfile_Python(t *testing.T) {
 	out := generateDockerfile(BuildOpts{Runtime: "python", Version: "3.12", RunCmd: "python app.py", Port: 5000})
-	for _, want := range []string{"FROM python:3.12", "pip install -r requirements.txt", "ENV PORT=5000"} {
+	for _, want := range []string{"FROM python:3.12-slim", "pip install --no-cache-dir -r requirements.txt", "ENV PORT=5000"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("generateDockerfile(python): missing %q\n\ngot:\n%s", want, out)
+		}
+	}
+}
+
+func TestGenerateDockerfile_Ruby(t *testing.T) {
+	out := generateDockerfile(BuildOpts{Runtime: "ruby", Version: "3.3", RunCmd: "ruby app.rb", Port: 4567})
+	for _, want := range []string{"FROM ruby:3.3-slim", "bundle config set --local without", "bundle install", "ENV PORT=4567"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("generateDockerfile(ruby): missing %q\n\ngot:\n%s", want, out)
+		}
+	}
+}
+
+func TestGenerateDockerfile_Java(t *testing.T) {
+	out := generateDockerfile(BuildOpts{Runtime: "java", Version: "21", Port: 8080})
+	for _, want := range []string{
+		"FROM maven:3-eclipse-temurin-21",
+		"mvn dependency:go-offline",
+		"mvn package -DskipTests",
+		"FROM eclipse-temurin:21-jre-alpine",
+		"COPY --from=0 /app/target/*.jar app.jar",
+		`CMD ["java", "-jar", "app.jar"]`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("generateDockerfile(java): missing %q\n\ngot:\n%s", want, out)
 		}
 	}
 }

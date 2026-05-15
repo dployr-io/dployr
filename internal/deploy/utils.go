@@ -131,17 +131,17 @@ func runtimeBaseImage(runtime, version string) string {
 	case "golang":
 		return "golang:" + version
 	case "php":
-		return "php:" + version
+		return "php:" + version + "-fpm-alpine"
 	case "python":
-		return "python:" + version
+		return "python:" + version + "-slim"
 	case "nodejs":
 		return "node:" + version
 	case "ruby":
-		return "ruby:" + version
+		return "ruby:" + version + "-slim"
 	case "dotnet":
 		return "mcr.microsoft.com/dotnet:" + version
 	case "java":
-		return "eclipse-temurin:" + version
+		return "maven:3-eclipse-temurin-" + version
 	default:
 		return runtime + ":" + version
 	}
@@ -160,8 +160,16 @@ func generateDockerfile(opts BuildOpts) string {
 	// templateInstall is the install command already baked into each runtime's
 	// template layer. We skip BuildCmd if it would just re-run the same thing.
 	var templateInstall string
+	alpineTag := func(ver string) string {
+		if ver == "" || ver == "lts" {
+			return "node:lts-alpine"
+		}
+		return "node:" + ver + "-alpine"
+	}
+
 	switch opts.runtime() {
 	case "nodejs":
+		ver := opts.version()
 		if opts.IsNextJS {
 			fmt.Fprintf(&b, "COPY package*.json ./\nRUN npm install\nCOPY . .\n")
 			buildCmd := opts.BuildCmd
@@ -169,33 +177,60 @@ func generateDockerfile(opts BuildOpts) string {
 				buildCmd = "npm run build"
 			}
 			fmt.Fprintf(&b, "RUN %s\n", buildCmd)
-			b.WriteString("\nFROM node:alpine AS runner\nWORKDIR /app\n")
+			fmt.Fprintf(&b, "\nFROM %s AS runner\nWORKDIR /app\n", alpineTag(ver))
 			b.WriteString("COPY --from=0 /app/.next/standalone ./\n")
 			b.WriteString("COPY --from=0 /app/.next/static ./.next/static\n")
 			b.WriteString("COPY --from=0 /app/public ./public\n")
 			fmt.Fprintf(&b, "\nENV PORT=%d\nCMD [\"node\", \"server.js\"]\n", port)
 			return b.String()
 		}
-		b.WriteString("COPY package*.json ./\nRUN npm install\nCOPY . .\n")
-		templateInstall = "npm install"
+		if opts.BuildCmd != "" {
+			// Multi-stage: full image to build, alpine to run.
+			b.WriteString("COPY package*.json ./\nRUN npm install\nCOPY . .\n")
+			fmt.Fprintf(&b, "RUN %s\n", opts.BuildCmd)
+			fmt.Fprintf(&b, "\nFROM %s AS runner\nWORKDIR /app\n", alpineTag(ver))
+			b.WriteString("COPY package*.json ./\nRUN npm install --omit=dev\n")
+			b.WriteString("COPY --from=0 /app ./\n")
+			fmt.Fprintf(&b, "\nENV PORT=%d\n", port)
+			if opts.RunCmd != "" {
+				fmt.Fprintf(&b, "CMD %s\n", opts.RunCmd)
+			}
+			return b.String()
+		}
+		// No build step — install prod deps only on alpine directly.
+		b.Reset()
+		fmt.Fprintf(&b, "FROM %s\n\nWORKDIR /app\n\n", alpineTag(ver))
+		b.WriteString("COPY package*.json ./\nRUN npm install --omit=dev\nCOPY . .\n")
+		templateInstall = "npm install --omit=dev"
 	case "python":
-		b.WriteString("COPY requirements.txt ./\nRUN pip install -r requirements.txt\nCOPY . .\n")
-		templateInstall = "pip install -r requirements.txt"
+		b.WriteString("COPY requirements.txt ./\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY . .\n")
+		templateInstall = "pip install --no-cache-dir -r requirements.txt"
 	case "golang":
 		b.WriteString("COPY go.mod go.sum ./\nRUN go mod download\nCOPY . .\n")
+		buildTarget := "."
 		if opts.RunCmd != "" {
-			fmt.Fprintf(&b, "RUN go build -o /app/bin %s\n", opts.RunCmd)
-		} else {
-			b.WriteString("RUN go build -o /app/bin .\n")
+			buildTarget = opts.RunCmd
 		}
-		fmt.Fprintf(&b, "\nENV PORT=%d\nCMD [\"/app/bin\"]\n", port)
+		fmt.Fprintf(&b, "RUN CGO_ENABLED=0 go build -o /bin/app %s\n", buildTarget)
+		b.WriteString("\nFROM alpine:3\n")
+		b.WriteString("RUN apk --no-cache add ca-certificates tzdata\n")
+		b.WriteString("COPY --from=0 /bin/app /bin/app\n")
+		fmt.Fprintf(&b, "\nENV PORT=%d\nCMD [\"/bin/app\"]\n", port)
 		return b.String()
 	case "ruby":
-		b.WriteString("COPY Gemfile* ./\nRUN bundle install\nCOPY . .\n")
+		b.WriteString("COPY Gemfile* ./\nRUN bundle config set --local without 'development test' && bundle install\nCOPY . .\n")
 		templateInstall = "bundle install"
 	case "java":
+		buildCmd := opts.BuildCmd
+		if buildCmd == "" {
+			buildCmd = "mvn package -DskipTests"
+		}
 		b.WriteString("COPY pom.xml ./\nRUN mvn dependency:go-offline -B\nCOPY . .\n")
-		templateInstall = "mvn dependency:go-offline -B"
+		fmt.Fprintf(&b, "RUN %s\n", buildCmd)
+		fmt.Fprintf(&b, "\nFROM eclipse-temurin:%s-jre-alpine\nWORKDIR /app\n", opts.version())
+		b.WriteString("COPY --from=0 /app/target/*.jar app.jar\n")
+		fmt.Fprintf(&b, "\nENV PORT=%d\nCMD [\"java\", \"-jar\", \"app.jar\"]\n", port)
+		return b.String()
 	default:
 		b.WriteString("COPY . .\n")
 	}
@@ -448,6 +483,13 @@ func PullImage(imageRef string, workDir string, config *shared.Config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
+	if config != nil && config.RegistryAuth != "" {
+		registry := strings.SplitN(imageRef, "/", 2)[0]
+		if err := registryLogin(ctx, registry, config.RegistryAuth, workDir); err != nil {
+			return fmt.Errorf("registry login failed: %w", err)
+		}
+	}
+
 	pullCmd := fmt.Sprintf("docker pull %s", imageRef)
 	if err := shared.Exec(ctx, pullCmd, workDir); err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
@@ -552,6 +594,7 @@ func runDeployScript(ctx context.Context, bp store.Blueprint, name, logPath stri
 	}
 
 	var wg sync.WaitGroup
+	var scriptErr string // last [ERROR] line written by abort()
 
 	// Stream stdout to log file
 	wg.Add(1)
@@ -563,13 +606,17 @@ func runDeployScript(ctx context.Context, bp store.Blueprint, name, logPath stri
 		}
 	}()
 
-	// Stream stderr to log file
+	// Stream stderr to log file; surface [ERROR] lines for structured logging
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		scanner := bufio.NewScanner(stderrPipe)
 		for scanner.Scan() {
-			shared.LogWarnF(name, logPath, scanner.Text())
+			line := scanner.Text()
+			shared.LogWarnF(name, logPath, line)
+			if strings.HasPrefix(line, "[ERROR]") {
+				scriptErr = strings.TrimPrefix(line, "[ERROR] ")
+			}
 		}
 	}()
 
@@ -577,11 +624,15 @@ func runDeployScript(ctx context.Context, bp store.Blueprint, name, logPath stri
 		return fmt.Errorf("failed to start command: %w", err)
 	}
 
-	// Wait for streaming to complete
 	wg.Wait()
 
-	// Wait for command to finish
-	return cmd.Wait()
+	if err := cmd.Wait(); err != nil {
+		if scriptErr != "" {
+			return fmt.Errorf("%w: %s", err, scriptErr)
+		}
+		return err
+	}
+	return nil
 }
 
 func writeServiceConfig(bp store.Blueprint) error {
