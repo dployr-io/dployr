@@ -86,11 +86,28 @@ func (d *DockerService) Remove(name string) error {
 }
 
 func (d *DockerService) HealthStatus(name string) (string, error) {
-	out, err := exec.Command("docker", "inspect", "--format", "{{.State.Health.Status}}", name).Output()
+	// Fetch both health check status and container state in one call.
+	// Health.Status is only populated when the image was built with a HEALTHCHECK
+	// instruction; older containers fall back to mapping State.Status instead.
+	out, err := exec.Command("docker", "inspect", "--format", "{{.State.Health.Status}}\t{{.State.Status}}", name).Output()
 	if err != nil {
 		return "", nil
 	}
-	return strings.TrimSpace(string(out)), nil
+	parts := strings.SplitN(strings.TrimSpace(string(out)), "\t", 2)
+	if len(parts) == 2 && parts[0] != "" && parts[0] != "<no value>" {
+		return parts[0], nil
+	}
+	if len(parts) == 2 {
+		switch parts[1] {
+		case "running":
+			return "healthy", nil
+		case "created", "restarting":
+			return "starting", nil
+		default:
+			return "unhealthy", nil
+		}
+	}
+	return "", nil
 }
 
 // Ice stops the container and removes its image to free up disk space.

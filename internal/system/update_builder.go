@@ -428,7 +428,7 @@ func buildWorkloads(ctx context.Context, deployStore store.DeploymentStore, svcS
 			for i := range converted {
 				if svcMgrErr == nil {
 					status, _ := svcMgr.HealthStatus(converted[i].Name)
-					converted[i].HealthStatus = status
+					converted[i].Status = status
 				}
 			}
 			workloads.Services = converted

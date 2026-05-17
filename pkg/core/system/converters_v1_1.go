@@ -55,10 +55,10 @@ func FromStoreDeployment(d *store.Deployment) DeploymentV1_1 {
 		dep.Image = &d.Blueprint.Image
 	}
 	if d.Blueprint.RunCmd != "" {
-		dep.RunCommand = &d.Blueprint.RunCmd
+		dep.RunCmd = &d.Blueprint.RunCmd
 	}
 	if d.Blueprint.BuildCmd != "" {
-		dep.BuildCommand = &d.Blueprint.BuildCmd
+		dep.BuildCmd = &d.Blueprint.BuildCmd
 	}
 
 	if len(d.Blueprint.EnvVars) > 0 {
@@ -118,10 +118,10 @@ func FromStoreService(s *store.Service) ServiceV1_1 {
 		svc.Image = &s.Image
 	}
 	if s.RunCmd != "" {
-		svc.RunCommand = &s.RunCmd
+		svc.RunCmd = &s.RunCmd
 	}
 	if s.BuildCmd != "" {
-		svc.BuildCommand = &s.BuildCmd
+		svc.BuildCmd = &s.BuildCmd
 	}
 	if s.Remote != "" {
 		svc.RemoteURL = &s.Remote

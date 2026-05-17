@@ -33,12 +33,13 @@ func imageRef(registryURL, name string) string {
 }
 
 type BuildOpts struct {
-	Runtime  string
-	Version  string
-	BuildCmd string
-	RunCmd   string
-	Port     int
-	IsNextJS bool
+	Runtime         string
+	Version         string
+	BuildCmd        string
+	RunCmd          string
+	Port            int
+	IsNextJS        bool
+	HealthCheckPath string // optional; defaults to root URL check if empty
 }
 
 // detectNextJS returns true if the directory looks like a Next.js project —
@@ -147,6 +148,20 @@ func runtimeBaseImage(runtime, version string) string {
 	}
 }
 
+// healthCheck returns the HEALTHCHECK instruction for the given opts.
+// If HealthCheckPath is set, it issues a strict spider check (expects 2xx).
+// Otherwise it uses the root URL but accepts any HTTP response (including 404)
+// as "alive" — only a connection failure marks the container unhealthy.
+func healthCheck(opts BuildOpts) string {
+	const prefix = "HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD "
+	path := opts.HealthCheckPath
+	if path == "" {
+		// Lenient: grep for any HTTP response line so 404 is still treated as alive.
+		return prefix + `wget -qSO /dev/null http://localhost:${PORT}/ 2>&1 | grep -qE "^\s+HTTP/"` + "\n"
+	}
+	return prefix + fmt.Sprintf("wget --spider -q http://localhost:${PORT}%s || exit 1", path) + "\n"
+}
+
 func generateDockerfile(opts BuildOpts) string {
 	image := runtimeBaseImage(opts.runtime(), opts.version())
 	port := opts.Port
@@ -181,7 +196,7 @@ func generateDockerfile(opts BuildOpts) string {
 			b.WriteString("COPY --from=0 /app/.next/standalone ./\n")
 			b.WriteString("COPY --from=0 /app/.next/static ./.next/static\n")
 			b.WriteString("COPY --from=0 /app/public ./public\n")
-			fmt.Fprintf(&b, "\nENV PORT=%d\nCMD [\"node\", \"server.js\"]\n", port)
+			fmt.Fprintf(&b, "\nENV PORT=%d\n%sCMD [\"node\", \"server.js\"]\n", port, healthCheck(opts))
 			return b.String()
 		}
 		if opts.BuildCmd != "" {
@@ -191,7 +206,7 @@ func generateDockerfile(opts BuildOpts) string {
 			fmt.Fprintf(&b, "\nFROM %s AS runner\nWORKDIR /app\n", alpineTag(ver))
 			b.WriteString("COPY package*.json ./\nRUN npm install --omit=dev\n")
 			b.WriteString("COPY --from=0 /app ./\n")
-			fmt.Fprintf(&b, "\nENV PORT=%d\n", port)
+			fmt.Fprintf(&b, "\nENV PORT=%d\n%s", port, healthCheck(opts))
 			if opts.RunCmd != "" {
 				fmt.Fprintf(&b, "CMD %s\n", opts.RunCmd)
 			}
@@ -215,7 +230,7 @@ func generateDockerfile(opts BuildOpts) string {
 		b.WriteString("\nFROM alpine:3\n")
 		b.WriteString("RUN apk --no-cache add ca-certificates tzdata\n")
 		b.WriteString("COPY --from=0 /bin/app /bin/app\n")
-		fmt.Fprintf(&b, "\nENV PORT=%d\nCMD [\"/bin/app\"]\n", port)
+		fmt.Fprintf(&b, "\nENV PORT=%d\n%sCMD [\"/bin/app\"]\n", port, healthCheck(opts))
 		return b.String()
 	case "ruby":
 		b.WriteString("COPY Gemfile* ./\nRUN bundle config set --local without 'development test' && bundle install\nCOPY . .\n")
@@ -229,7 +244,7 @@ func generateDockerfile(opts BuildOpts) string {
 		fmt.Fprintf(&b, "RUN %s\n", buildCmd)
 		fmt.Fprintf(&b, "\nFROM eclipse-temurin:%s-jre-alpine\nWORKDIR /app\n", opts.version())
 		b.WriteString("COPY --from=0 /app/target/*.jar app.jar\n")
-		fmt.Fprintf(&b, "\nENV PORT=%d\nCMD [\"java\", \"-jar\", \"app.jar\"]\n", port)
+		fmt.Fprintf(&b, "\nENV PORT=%d\n%sCMD [\"java\", \"-jar\", \"app.jar\"]\n", port, healthCheck(opts))
 		return b.String()
 	default:
 		b.WriteString("COPY . .\n")
@@ -238,7 +253,7 @@ func generateDockerfile(opts BuildOpts) string {
 	if opts.BuildCmd != "" && strings.TrimSpace(opts.BuildCmd) != templateInstall {
 		fmt.Fprintf(&b, "RUN %s\n", opts.BuildCmd)
 	}
-	fmt.Fprintf(&b, "\nENV PORT=%d\n", port)
+	fmt.Fprintf(&b, "\nENV PORT=%d\n%s", port, healthCheck(opts))
 	if opts.RunCmd != "" {
 		fmt.Fprintf(&b, "CMD %s\n", opts.RunCmd)
 	}

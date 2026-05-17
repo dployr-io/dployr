@@ -102,25 +102,25 @@ type WorkloadsInfo struct {
 }
 
 type DeploymentV1_1 struct {
-	ID           string            `json:"id"`
-	UserID       *string           `json:"user_id,omitempty"`
-	Name         string            `json:"name"`
-	Description  string            `json:"description"`
-	Status       string            `json:"status"` // "pending" | "in_progress" | "completed" | "failed"
-	Type         string            `json:"type"`
-	Source       string            `json:"source"` // "remote" | "image" | "local"
-	Runtime      RuntimeInfo       `json:"runtime"`
-	Remote       *RemoteInfo       `json:"remote,omitempty"`
-	Port         int               `json:"port"`
-	WorkingDir   *string           `json:"working_dir,omitempty"`
-	StaticDir    *string           `json:"static_dir,omitempty"`
-	Image        *string           `json:"image,omitempty"`
-	RunCommand   *string           `json:"run_cmd,omitempty"`
-	BuildCommand *string           `json:"build_cmd,omitempty"`
-	EnvVars      map[string]string `json:"env_vars,omitempty"`
-	Secrets      []SecretRef       `json:"secrets,omitempty"`
-	CreatedAt    string            `json:"created_at"`
-	UpdatedAt    string            `json:"updated_at"`
+	ID          string            `json:"id"`
+	UserID      *string           `json:"user_id,omitempty"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Status      string            `json:"status"` // "pending" | "in_progress" | "completed" | "failed"
+	Type        string            `json:"type"`
+	Source      string            `json:"source"` // "remote" | "image" | "local"
+	Runtime     RuntimeInfo       `json:"runtime"`
+	Remote      *RemoteInfo       `json:"remote,omitempty"`
+	Port        int               `json:"port"`
+	WorkingDir  *string           `json:"working_dir,omitempty"`
+	StaticDir   *string           `json:"static_dir,omitempty"`
+	Image       *string           `json:"image,omitempty"`
+	RunCmd      *string           `json:"run_cmd,omitempty"`
+	BuildCmd    *string           `json:"build_cmd,omitempty"`
+	EnvVars     map[string]string `json:"env_vars,omitempty"`
+	Secrets     []SecretRef       `json:"secrets,omitempty"`
+	CreatedAt   string            `json:"created_at"`
+	UpdatedAt   string            `json:"updated_at"`
 }
 
 type RuntimeInfo struct {
@@ -152,15 +152,15 @@ type ServiceV1_1 struct {
 	WorkingDir     *string           `json:"working_dir,omitempty"`
 	StaticDir      *string           `json:"static_dir,omitempty"`
 	Image          *string           `json:"image,omitempty"`
-	RunCommand     *string           `json:"run_command,omitempty"`
-	BuildCommand   *string           `json:"build_command,omitempty"`
+	RunCmd         *string           `json:"run_cmd,omitempty"`
+	BuildCmd       *string           `json:"build_cmd,omitempty"`
 	EnvVars        map[string]string `json:"env_vars"`
 	Secrets        []SecretRef       `json:"secrets"`
 	RemoteURL      *string           `json:"remote_url,omitempty"`
 	Branch         *string           `json:"branch,omitempty"`
 	CommitHash     *string           `json:"commit_hash,omitempty"`
 	DeploymentID   *string           `json:"deployment_id,omitempty"`
-	HealthStatus   string            `json:"health_status"` // "healthy" | "unhealthy" | "starting" | ""
+	Status         string            `json:"status"` // "healthy" | "unhealthy" | "starting" | ""
 	CreatedAt      string            `json:"created_at"`
 	UpdatedAt      string            `json:"updated_at"`
 }

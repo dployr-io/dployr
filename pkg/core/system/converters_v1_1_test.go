@@ -269,13 +269,13 @@ func TestFromStoreService_HealthStatusDefaultsEmpty(t *testing.T) {
 		UpdatedAt: time.Now(),
 	}
 	result := FromStoreService(svc)
-	if result.HealthStatus != "" {
-		t.Errorf("HealthStatus should default to empty string, got %q", result.HealthStatus)
+	if result.Status != "" {
+		t.Errorf("HealthStatus should default to empty string, got %q", result.Status)
 	}
 }
 
 func TestServiceV1_1_HealthStatusSerialises(t *testing.T) {
-	svc := ServiceV1_1{HealthStatus: "healthy"}
+	svc := ServiceV1_1{Status: "healthy"}
 	b, err := json.Marshal(svc)
 	if err != nil {
 		t.Fatalf("marshal error: %v", err)
@@ -284,7 +284,7 @@ func TestServiceV1_1_HealthStatusSerialises(t *testing.T) {
 	if err := json.Unmarshal(b, &out); err != nil {
 		t.Fatalf("unmarshal error: %v", err)
 	}
-	if out["health_status"] != "healthy" {
-		t.Errorf("expected health_status=healthy in JSON, got %v", out["health_status"])
+	if out["status"] != "healthy" {
+		t.Errorf("expected status=healthy in JSON, got %v", out["status"])
 	}
 }
