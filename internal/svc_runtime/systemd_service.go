@@ -1,6 +1,8 @@
 // Copyright 2025 Emmanuel Madehin
 // SPDX-License-Identifier: Apache-2.0
 
+//go:build linux
+
 package svc_runtime
 
 import (
@@ -60,5 +62,26 @@ func (s *SystemdManager) systemdCheck(name string) (string, error) {
 
 func (s *SystemdManager) Install(name, desc, runCmd, workDir string, envVars map[string]string) error {
 	name = utils.FormatName(name)
-	return runScript(scripts.SystemdScript, "install", name, desc, runCmd, workDir)
+
+	tmpFile, err := os.CreateTemp("", "systemd*.sh")
+	if err != nil {
+		return fmt.Errorf("failed to create temp script: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	if _, err := tmpFile.WriteString(scripts.SystemdScript); err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("failed to write script: %v", err)
+	}
+	tmpFile.Close()
+
+	if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
+		return fmt.Errorf("failed to make script executable: %v", err)
+	}
+
+	cmd := exec.Command("bash", tmpFile.Name(), "install", name, desc, runCmd, workDir)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("systemd install failed: %v\n%s", err, out)
+	}
+	return nil
 }

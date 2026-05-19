@@ -4,8 +4,7 @@
 package utils
 
 import (
-	"bufio"
-	"bytes"
+	"context"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -17,6 +16,9 @@ import (
 	"strings"
 
 	"github.com/dployr-io/dployr/version"
+	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/host"
+	"github.com/shirou/gopsutil/v3/mem"
 )
 
 type BuildInfo struct {
@@ -68,6 +70,7 @@ type SystemInfo struct {
 
 func GetSystemInfo() (SystemInfo, error) {
 	var info SystemInfo
+	ctx := context.Background()
 
 	// Build info from version package
 	bi := version.GetBuildInfo()
@@ -83,162 +86,76 @@ func GetSystemInfo() (SystemInfo, error) {
 	info.HW.Arch = runtime.GOARCH
 	info.HW.CPUCount = runtime.NumCPU()
 
-	if host, err := os.Hostname(); err == nil {
-		info.HW.Hostname = ptr(strings.TrimSpace(host))
+	if hostname, err := os.Hostname(); err == nil {
+		info.HW.Hostname = ptr(strings.TrimSpace(hostname))
 	}
 
-	// kernel/version info on Unix-like systems
-	if runtime.GOOS != "windows" {
-		cmd := exec.Command("uname", "-sr")
-		if out, err := cmd.Output(); err == nil {
-			k := strings.TrimSpace(string(out))
-			info.HW.Kernel = ptr(k)
+	// Kernel version via gopsutil — no exec, cross-platform.
+	if hostInfo, err := host.InfoWithContext(ctx); err == nil {
+		info.HW.Kernel = ptr(hostInfo.KernelVersion)
+	}
+
+	// Memory via gopsutil — replaces `free -h`.
+	if vmStat, err := mem.VirtualMemoryWithContext(ctx); err == nil {
+		info.HW.MemTotal = ptr(formatBytes(vmStat.Total))
+		info.HW.MemUsed = ptr(formatBytes(vmStat.Used))
+		info.HW.MemFree = ptr(formatBytes(vmStat.Available))
+	}
+	if swapStat, err := mem.SwapMemoryWithContext(ctx); err == nil && swapStat.Total > 0 {
+		info.HW.SwapTotal = ptr(formatBytes(swapStat.Total))
+		info.HW.SwapUsed = ptr(formatBytes(swapStat.Used))
+	}
+
+	// Disk partitions via gopsutil — replaces `df -h`.
+	if parts, err := disk.PartitionsWithContext(ctx, false); err == nil {
+		for _, p := range parts {
+			usage, err := disk.UsageWithContext(ctx, p.Mountpoint)
+			if err != nil {
+				continue
+			}
+			info.Storage.Partitions = append(info.Storage.Partitions, DiskUsage{
+				Filesystem: p.Device,
+				Size:       formatBytes(usage.Total),
+				Used:       formatBytes(usage.Used),
+				Available:  formatBytes(usage.Free),
+				UsePercent: fmt.Sprintf("%.0f%%", usage.UsedPercent),
+				Mountpoint: p.Mountpoint,
+			})
 		}
 	}
 
-	// Memory info via free -h (Linux/Unix only; optional)
-	if runtime.GOOS != "windows" {
-		if out, err := exec.Command("free", "-h").Output(); err == nil {
-			parseFreeOutput(&info.HW, string(out))
-		}
-	}
-
-	// Disk usage via df -h
-	if out, err := exec.Command("df", "-h").Output(); err == nil {
-		info.Storage.Partitions = parseDfOutput(string(out))
-	}
-
-	// Block devices via lsblk
-	if runtime.GOOS != "windows" {
-		if out, err := exec.Command("lsblk", "-J", "-o", "NAME,SIZE,TYPE,MOUNTPOINTS").Output(); err == nil {
-			info.Storage.Devices = parseLsblkJSON(out)
-		} else if out, err := exec.Command("lsblk").Output(); err == nil {
-			info.Storage.Devices = parseLsblkPlain(string(out))
+	// Synthesise block device list from partition data — replaces `lsblk`.
+	seen := map[string]bool{}
+	for _, p := range info.Storage.Partitions {
+		name := filepath.Base(p.Filesystem)
+		if !seen[name] {
+			seen[name] = true
+			info.Storage.Devices = append(info.Storage.Devices, BlockDevice{
+				Name:        name,
+				Type:        "disk",
+				Mountpoints: []string{p.Mountpoint},
+			})
 		}
 	}
 
 	return info, nil
 }
 
+// formatBytes converts a byte count to a human-readable string (e.g. 1073741824 → "1.0GB").
+func formatBytes(b uint64) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%dB", b)
+	}
+	div, exp := uint64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f%cB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
 func ptr[T any](v T) *T { return &v }
-
-func parseFreeOutput(hw *HardwareInfo, out string) {
-	scanner := bufio.NewScanner(strings.NewReader(out))
-	for scanner.Scan() {
-		line := scanner.Text()
-		fields := strings.Fields(line)
-		if len(fields) < 2 {
-			continue
-		}
-		if strings.HasPrefix(fields[0], "Mem:") && len(fields) >= 7 {
-			// free -h output: total used free shared buff/cache available
-			hw.MemTotal = ptr(fields[1])
-			hw.MemUsed = ptr(fields[2])
-			hw.MemFree = ptr(fields[6])
-		}
-		if strings.HasPrefix(fields[0], "Swap:") && len(fields) >= 3 {
-			hw.SwapTotal = ptr(fields[1])
-			hw.SwapUsed = ptr(fields[2])
-		}
-	}
-}
-
-func parseDfOutput(out string) []DiskUsage {
-	scanner := bufio.NewScanner(strings.NewReader(out))
-	var result []DiskUsage
-	first := true
-	for scanner.Scan() {
-		line := scanner.Text()
-		if first {
-			first = false
-			continue // skip header
-		}
-		fields := strings.Fields(line)
-		if len(fields) < 6 {
-			continue
-		}
-		du := DiskUsage{
-			Filesystem: fields[0],
-			Size:       fields[1],
-			Used:       fields[2],
-			Available:  fields[3],
-			UsePercent: fields[4],
-			Mountpoint: fields[5],
-		}
-		result = append(result, du)
-	}
-	return result
-}
-
-func parseLsblkJSON(out []byte) []BlockDevice {
-	type lsblkMount struct {
-		Mountpoint string `json:"mountpoint"`
-	}
-	type lsblkEntry struct {
-		Name        string       `json:"name"`
-		Size        string       `json:"size"`
-		Type        string       `json:"type"`
-		Mountpoints []lsblkMount `json:"mountpoints"`
-		Children    []lsblkEntry `json:"children"`
-	}
-	type lsblkRoot struct {
-		Blockdevices []lsblkEntry `json:"blockdevices"`
-	}
-
-	var root lsblkRoot
-	if err := json.Unmarshal(out, &root); err != nil {
-		return nil
-	}
-
-	var devices []BlockDevice
-	var walk func(e lsblkEntry)
-	walk = func(e lsblkEntry) {
-		var mps []string
-		for _, m := range e.Mountpoints {
-			if m.Mountpoint != "" {
-				mps = append(mps, m.Mountpoint)
-			}
-		}
-		devices = append(devices, BlockDevice{
-			Name:        e.Name,
-			Size:        e.Size,
-			Type:        e.Type,
-			Mountpoints: mps,
-		})
-		for _, c := range e.Children {
-			walk(c)
-		}
-	}
-
-	for _, e := range root.Blockdevices {
-		walk(e)
-	}
-	return devices
-}
-
-func parseLsblkPlain(out string) []BlockDevice {
-	scanner := bufio.NewScanner(bytes.NewReader([]byte(out)))
-	var result []BlockDevice
-	first := true
-	for scanner.Scan() {
-		line := scanner.Text()
-		if first {
-			first = false
-			continue // header
-		}
-		fields := strings.Fields(line)
-		if len(fields) < 4 {
-			continue
-		}
-		bd := BlockDevice{
-			Name: fields[0],
-			Size: fields[3],
-			Type: fields[5],
-		}
-		result = append(result, bd)
-	}
-	return result
-}
 
 func GetDataDir() string {
 	switch runtime.GOOS {
@@ -279,8 +196,6 @@ func GetRuntimePath(runtime, version string, tools ...string) (map[string]string
 
 	base := filepath.Join(home, ".version-fox", "cache", runtime)
 	entries, err := os.ReadDir(base)
-	// [DEBUG]
-	fmt.Println(entries)
 	if err != nil {
 		return nil, fmt.Errorf("%s not found in cache: %v", runtime, err)
 	}
@@ -289,9 +204,6 @@ func GetRuntimePath(runtime, version string, tools ...string) (map[string]string
 	if err != nil {
 		return nil, err
 	}
-
-	// [DEBUG]
-	fmt.Println(root)
 
 	subDirs, err := os.ReadDir(root)
 	if err == nil {
@@ -309,15 +221,8 @@ func GetRuntimePath(runtime, version string, tools ...string) (map[string]string
 	}
 
 	searchPaths := getSearchPaths(runtime)
-
-	// [DEBUG]
-	fmt.Println(root)
-	// [DEBUG]
-	fmt.Println(searchPaths)
-
 	binaries := []string{getRuntimeBinary(runtime)}
 	binaries = append(binaries, tools...)
-
 	results := make(map[string]string)
 	for _, binary := range binaries {
 		if path := findBinary(root, binary, searchPaths); path != "" {
@@ -343,9 +248,6 @@ func FindRuntimeVersionDir(base string, entries []os.DirEntry, version string) (
 
 		name := e.Name()
 
-		// [DEBUG]
-		fmt.Println(name)
-
 		if name == version {
 			exactMatch = filepath.Join(base, name)
 			break
@@ -354,9 +256,6 @@ func FindRuntimeVersionDir(base string, entries []os.DirEntry, version string) (
 			prefixMatch = filepath.Join(base, name)
 		}
 	}
-
-	// [DEBUG]
-	fmt.Println(exactMatch)
 
 	root := exactMatch
 	if root == "" {

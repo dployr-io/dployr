@@ -115,9 +115,6 @@ For first-time owner registration (requires secret key):
 				return fmt.Errorf("failed to read response body: %v", err)
 			}
 
-			// [DEBUG]
-			fmt.Printf("Response body: %s\n", string(body))
-
 			if res.StatusCode != http.StatusOK {
 				return fmt.Errorf("login failed with status: %d", res.StatusCode)
 			}

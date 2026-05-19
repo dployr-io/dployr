@@ -5,13 +5,41 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/dployr-io/dployr/pkg/core/proxy"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
 )
+
+// mockProxyAPI implements proxy.HandleProxy for testing.
+type mockProxyAPI struct {
+	mu     sync.Mutex
+	added  []map[string]proxy.App
+	addErr error
+}
+
+func (m *mockProxyAPI) Setup(apps map[string]proxy.App) error { return nil }
+func (m *mockProxyAPI) Status() proxy.ProxyStatus             { return proxy.ProxyStatus{} }
+func (m *mockProxyAPI) GetApps() []proxy.App                  { return nil }
+func (m *mockProxyAPI) Restart() error                        { return nil }
+func (m *mockProxyAPI) Remove(domains []string) error         { return nil }
+func (m *mockProxyAPI) Add(apps map[string]proxy.App) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.added = append(m.added, apps)
+	return m.addErr
+}
+func (m *mockProxyAPI) snapshot() []map[string]proxy.App {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]map[string]proxy.App, len(m.added))
+	copy(out, m.added)
+	return out
+}
 
 // Mock stores for testing
 type mockDeploymentStore struct {
@@ -510,6 +538,136 @@ func TestWorker_PublishPath(t *testing.T) {
 	if err != nil && containsAny(err.Error(), "expected source=image", "routing error", "source=remote") {
 		t.Errorf("routing guard must not fire for source=image on instance node: %s", err.Error())
 	}
+}
+
+func newWorkerWithProxy(p proxy.HandleProxy) *Worker {
+	cfg := &shared.Config{}
+	return &Worker{
+		cfg:        cfg,
+		logger:     shared.NewLogger(),
+		proxyAPI:   p,
+		activeJobs: make(map[string]bool),
+	}
+}
+
+func TestRegisterProxyRoute_Web(t *testing.T) {
+	mock := &mockProxyAPI{}
+	w := newWorkerWithProxy(mock)
+
+	err := w.registerProxyRoute(&store.Service{
+		Name: "my-app",
+		Type: store.TypeWeb,
+		Port: 8080,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	calls := mock.snapshot()
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 Add call, got %d", len(calls))
+	}
+	app := calls[0]["my-app.dployr.dev"]
+	if app.Template != proxy.TemplateReverseProxy {
+		t.Errorf("template = %q, want reverse_proxy", app.Template)
+	}
+	if app.Upstream != "localhost:8080" {
+		t.Errorf("upstream = %q, want localhost:8080", app.Upstream)
+	}
+}
+
+func TestRegisterProxyRoute_WebDefaultPort(t *testing.T) {
+	mock := &mockProxyAPI{}
+	w := newWorkerWithProxy(mock)
+
+	w.registerProxyRoute(&store.Service{Name: "api", Type: store.TypeWeb, Port: 0})
+
+	calls := mock.snapshot()
+	app := calls[0]["api.dployr.dev"]
+	if app.Upstream != "localhost:3000" {
+		t.Errorf("upstream = %q, want localhost:3000 for zero port", app.Upstream)
+	}
+}
+
+func TestRegisterProxyRoute_Static(t *testing.T) {
+	mock := &mockProxyAPI{}
+	w := newWorkerWithProxy(mock)
+
+	err := w.registerProxyRoute(&store.Service{
+		Name:       "my-site",
+		Type:       store.TypeStatic,
+		WorkingDir: "/data/services/my-site",
+		StaticDir:  "dist",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	calls := mock.snapshot()
+	app := calls[0]["my-site.dployr.dev"]
+	if app.Template != proxy.TemplateStatic {
+		t.Errorf("template = %q, want static", app.Template)
+	}
+	if app.Root != "/data/services/my-site/dist" {
+		t.Errorf("root = %q, want /data/services/my-site/dist", app.Root)
+	}
+	if app.Upstream != "" {
+		t.Errorf("upstream = %q, want empty for static", app.Upstream)
+	}
+}
+
+func TestRegisterProxyRoute_StaticNoSubDir(t *testing.T) {
+	mock := &mockProxyAPI{}
+	w := newWorkerWithProxy(mock)
+
+	w.registerProxyRoute(&store.Service{
+		Name:       "my-site",
+		Type:       store.TypeStatic,
+		WorkingDir: "/data/services/my-site",
+		StaticDir:  "",
+	})
+
+	app := mock.snapshot()[0]["my-site.dployr.dev"]
+	if app.Root != "/data/services/my-site" {
+		t.Errorf("root = %q, want /data/services/my-site when StaticDir is empty", app.Root)
+	}
+}
+
+func TestRegisterProxyRoute_Failure(t *testing.T) {
+	mock := &mockProxyAPI{addErr: errors.New("caddy config invalid")}
+	w := newWorkerWithProxy(mock)
+
+	err := w.registerProxyRoute(&store.Service{
+		Name: "broken-app",
+		Type: store.TypeWeb,
+		Port: 3000,
+	})
+	if err == nil {
+		t.Fatal("expected error from proxy Add failure, got nil")
+	}
+	if !errors.Is(err, mock.addErr) && !containsStr(err.Error(), "caddy config invalid") {
+		t.Errorf("error = %q, expected to contain proxy error", err)
+	}
+}
+
+func TestRegisterProxyRoute_NilProxy(t *testing.T) {
+	w := newWorkerWithProxy(nil)
+	// Must not panic and must return nil when no proxy is configured.
+	if err := w.registerProxyRoute(&store.Service{Name: "x", Type: store.TypeWeb}); err != nil {
+		t.Errorf("expected nil when proxyAPI is nil, got %v", err)
+	}
+}
+
+func containsStr(s, sub string) bool {
+	return len(s) >= len(sub) && (s == sub || len(sub) == 0 ||
+		func() bool {
+			for i := 0; i <= len(s)-len(sub); i++ {
+				if s[i:i+len(sub)] == sub {
+					return true
+				}
+			}
+			return false
+		}())
 }
 
 func containsAny(s string, substrings ...string) bool {

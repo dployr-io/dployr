@@ -20,13 +20,18 @@ type ServiceManager interface {
 }
 
 func SvcRuntime() (ServiceManager, error) {
+	cli, err := NewDockerClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to Docker daemon: %w", err)
+	}
+	ds := DockerService{cli: cli}
 	switch runtime.GOOS {
 	case "linux":
-		return &SystemdManager{}, nil
+		return &SystemdManager{DockerService: ds}, nil
 	case "darwin":
-		return &LaunchdManager{}, nil
+		return &LaunchdManager{DockerService: ds}, nil
 	case "windows":
-		return &NSSMManager{}, nil
+		return &NSSMManager{DockerService: ds}, nil
 	default:
 		return nil, fmt.Errorf("no compatible runtime was detected")
 	}

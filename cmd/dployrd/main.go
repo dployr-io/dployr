@@ -20,6 +20,8 @@ import (
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/version"
 
+	dockerclient "github.com/docker/docker/client"
+
 	_auth "github.com/dployr-io/dployr/internal/auth"
 	"github.com/dployr-io/dployr/internal/db"
 	_deploy "github.com/dployr-io/dployr/internal/deploy"
@@ -74,7 +76,15 @@ func main() {
 	as := _auth.Init(cfg, is)
 	am := auth.NewMiddleware(as)
 
-	api := _deploy.Init(cfg, logger, ds, w)
+	dockerCli, err := dockerclient.NewClientWithOpts(
+		dockerclient.FromEnv,
+		dockerclient.WithAPIVersionNegotiation(),
+	)
+	if err != nil {
+		log.Printf("warning: failed to connect to Docker daemon: %v", err)
+	}
+
+	api := _deploy.Init(cfg, logger, ds, w, dockerCli)
 	deployer := deploy.NewDeployer(cfg, logger, ds, api)
 	dh := deploy.NewDeploymentHandler(deployer, logger)
 	bh := deploy.NewBuildHandler(deployer, logger)

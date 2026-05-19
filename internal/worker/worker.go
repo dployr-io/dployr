@@ -22,6 +22,8 @@ import (
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
 
+	dockerclient "github.com/docker/docker/client"
+
 	"github.com/dployr-io/dployr/internal/deploy"
 	"github.com/dployr-io/dployr/internal/svc_runtime"
 )
@@ -34,6 +36,7 @@ type Worker struct {
 	instStore     store.InstanceStore
 	proxyAPI      proxy.HandleProxy
 	cfg           *shared.Config
+	dockerCli     *dockerclient.Client
 	semaphore     *shared.Semaphore
 	activeJobs    map[string]bool
 	jobsMux       sync.RWMutex
@@ -43,6 +46,13 @@ type Worker struct {
 
 // New creates a new Worker instance
 func New(m int, c *shared.Config, l *shared.Logger, d store.DeploymentStore, s store.ServiceStore, i store.InstanceStore, p proxy.HandleProxy) *Worker {
+	dockerCli, err := dockerclient.NewClientWithOpts(
+		dockerclient.FromEnv,
+		dockerclient.WithAPIVersionNegotiation(),
+	)
+	if err != nil {
+		l.Warn("failed to connect to Docker daemon", "error", err)
+	}
 	return &Worker{
 		maxConcurrent: m,
 		logger:        l,
@@ -51,6 +61,7 @@ func New(m int, c *shared.Config, l *shared.Logger, d store.DeploymentStore, s s
 		instStore:     i,
 		proxyAPI:      p,
 		cfg:           c,
+		dockerCli:     dockerCli,
 		semaphore:     shared.NewSemaphore(m),
 		activeJobs:    make(map[string]bool),
 		queue:         make(chan string, 100),
@@ -124,8 +135,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 
 	d, err := w.depsStore.GetDeployment(ctx, id)
 	if err != nil {
-		msg := fmt.Sprintf("could not resolve user home directory: %v", err)
-		w.logger.Error(msg)
+		w.logger.Error("failed to get deployment", "deployment_id", id, "error", err)
 		return "", err
 	}
 
@@ -151,7 +161,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 	switch d.Blueprint.Source {
 	case store.SourceImage:
 		shared.LogInfoF(svcName, logPath, "pulling image")
-		err = deploy.PullImage(d.Blueprint.Image, workingDir, w.cfg)
+		err = deploy.PullImage(d.Blueprint.Image, w.cfg, w.dockerCli)
 		if err != nil {
 			err = fmt.Errorf("failed to pull image: %s", err)
 			shared.LogErrF(svcName, logPath, err)
@@ -219,7 +229,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 	}
 
 	shared.LogInfoF(svcName, logPath, "deploying application")
-	err = deploy.DeployApp(bp, svcName, logPath, w.cfg)
+	err = deploy.DeployApp(bp, svcName, logPath, w.cfg, w.dockerCli)
 	if err != nil {
 		err = fmt.Errorf("deployment failed: %s", err)
 		shared.LogErrF(svcName, logPath, err)
@@ -237,7 +247,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 		RunCmd:         d.Blueprint.RunCmd,
 		BuildCmd:       d.Blueprint.BuildCmd,
 		Port:           d.Blueprint.Port,
-		WorkingDir:     d.Blueprint.WorkingDir,
+		WorkingDir:     dir,
 		StaticDir:      d.Blueprint.StaticDir,
 		Image:          d.Blueprint.Image,
 		EnvVars:        d.Blueprint.EnvVars,
@@ -262,10 +272,8 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 	shared.LogInfoF(svcName, logPath, fmt.Sprintf("successfully deployed %s", d.Blueprint.Name))
 
 	if err := w.registerProxyRoute(req); err != nil {
-		w.logger.Warn("failed to register proxy route for service", "service", req.Name, "error", err)
+		return svcName, fmt.Errorf("failed to register proxy route for %s: %w", req.Name, err)
 	}
-
-	w.depsStore.UpdateDeploymentStatus(ctx, id, string(store.StatusCompleted))
 
 	return svcName, nil
 }
@@ -277,26 +285,30 @@ func (w *Worker) registerProxyRoute(svc *store.Service) error {
 
 	serviceName := utils.FormatName(svc.Name)
 	serviceDomain := serviceName + ".dployr.dev"
-	url := "localhost:%d"
-	upstream := ""
-	port := 3000
 
-	if svc.Port == 0 {
-		upstream = fmt.Sprintf(url, port)
+	var app proxy.App
+	if store.ServiceType(svc.Type) == store.TypeStatic {
+		root := deploy.ResolveStaticDir(svc.WorkingDir, svc.StaticDir)
+		app = proxy.App{
+			Domain:   serviceDomain,
+			Root:     root,
+			Template: proxy.TemplateStatic,
+		}
+		w.logger.Info("registering static proxy route", "domain", serviceDomain, "root", root)
 	} else {
-		upstream = fmt.Sprintf(url, svc.Port)
+		port := svc.Port
+		if port == 0 {
+			port = 3000
+		}
+		app = proxy.App{
+			Domain:   serviceDomain,
+			Upstream: fmt.Sprintf("localhost:%d", port),
+			Template: proxy.TemplateReverseProxy,
+		}
+		w.logger.Info("registering proxy route", "domain", serviceDomain, "upstream", app.Upstream)
 	}
 
-	app := proxy.App{
-		Domain:   serviceDomain,
-		Upstream: upstream,
-		Template: proxy.TemplateReverseProxy,
-	}
-
-	w.logger.Info("registering proxy route", "domain", serviceDomain, "upstream", upstream)
-
-	apps := map[string]proxy.App{serviceDomain: app}
-	if err := w.proxyAPI.Add(apps); err != nil {
+	if err := w.proxyAPI.Add(map[string]proxy.App{serviceDomain: app}); err != nil {
 		return fmt.Errorf("failed to add proxy route: %w", err)
 	}
 
@@ -363,7 +375,6 @@ func (w *Worker) submitDeploymentLogs(ctx context.Context, id string, name strin
 		"run_cmd":            bp.RunCmd,
 		"build_cmd":          bp.BuildCmd,
 		"port":               bp.Port,
-		"working_dir":        bp.WorkingDir,
 		"static_dir":         bp.StaticDir,
 		"image":              bp.Image,
 		"runtime_type":       string(bp.Runtime.Type),
@@ -371,6 +382,14 @@ func (w *Worker) submitDeploymentLogs(ctx context.Context, id string, name strin
 		"remote_url":         bp.Remote.Url,
 		"remote_branch":      bp.Remote.Branch,
 		"remote_commit_hash": bp.Remote.CommitHash,
+	}
+	// Only send working_dir back to base if it is a relative user-specified path
+	// (e.g. a monorepo subdirectory like "packages/frontend"). The absolute
+	// runtime path managed by dployrd is an internal detail and must never be
+	// stored in the base deployment record — it causes path-doubling on build
+	// nodes and corrupts the UI "Working Directory" field.
+	if bp.WorkingDir != "" && !filepath.IsAbs(bp.WorkingDir) {
+		blueprint["working_dir"] = bp.WorkingDir
 	}
 	if d.UserId != nil {
 		blueprint["user_id"] = *d.UserId

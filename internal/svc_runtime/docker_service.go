@@ -4,104 +4,87 @@
 package svc_runtime
 
 import (
+	"context"
 	"fmt"
-	"os"
-	"os/exec"
 	"strings"
+	"time"
 
-	"github.com/dployr-io/dployr/internal/scripts"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 )
 
-type DockerService struct{}
+const dockerOpTimeout = 30 * time.Second
 
-func runScript(scriptContent string, args ...string) error {
-	tmpFile, err := os.CreateTemp("", "dployr*.sh")
-	if err != nil {
-		return fmt.Errorf("failed to create temp script: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
+func dockerCtx() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), dockerOpTimeout)
+}
 
-	if _, err := tmpFile.WriteString(scriptContent); err != nil {
-		tmpFile.Close()
-		return fmt.Errorf("failed to write script: %v", err)
-	}
-	tmpFile.Close()
-
-	if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
-		return fmt.Errorf("failed to make script executable: %v", err)
-	}
-
-	cmd := exec.Command("bash", append([]string{tmpFile.Name()}, args...)...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+type DockerService struct {
+	cli dockerAPI
 }
 
 func (d *DockerService) Status(name string) (string, error) {
-	tmpFile, err := os.CreateTemp("", "docker*.sh")
+	ctx, cancel := dockerCtx()
+	defer cancel()
+	info, err := d.cli.ContainerInspect(ctx, name)
 	if err != nil {
-		return "", fmt.Errorf("failed to create temp script: %v", err)
+		return "", fmt.Errorf("service %s does not exist", name)
 	}
-	defer os.Remove(tmpFile.Name())
-
-	if _, err := tmpFile.WriteString(scripts.DockerScript); err != nil {
-		tmpFile.Close()
-		return "", fmt.Errorf("failed to write script: %v", err)
+	if info.State != nil && info.State.Running {
+		return "running", nil
 	}
-	tmpFile.Close()
-
-	if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
-		return "", fmt.Errorf("failed to make script executable: %v", err)
-	}
-
-	cmd := exec.Command("bash", tmpFile.Name(), "status", name)
-	output, err := cmd.Output()
-
-	status := strings.TrimSpace(string(output))
-	if err != nil {
-		if status == "stopped" {
-			return "", fmt.Errorf("service %s does not exist", name)
-		}
-		return "", fmt.Errorf("failed to check service status: %v", err)
-	}
-	return status, nil
+	return "stopped", nil
 }
 
 func (d *DockerService) Install(name, desc, runCmd, workDir string, envVars map[string]string) error {
-	// Docker installations are handled by the deployment script (deploy_app.sh or docker.sh).
-	// This method is not used in the current workflow.
 	return nil
 }
 
 func (d *DockerService) Start(name string) error {
-	return runScript(scripts.DockerScript, "start", name)
+	ctx, cancel := dockerCtx()
+	defer cancel()
+	if err := d.cli.ContainerStart(ctx, name, container.StartOptions{}); err != nil {
+		return fmt.Errorf("docker start %s: %w", name, err)
+	}
+	return nil
 }
 
 func (d *DockerService) Stop(name string) error {
-	return runScript(scripts.DockerScript, "stop", name)
+	ctx, cancel := dockerCtx()
+	defer cancel()
+	if err := d.cli.ContainerStop(ctx, name, container.StopOptions{}); err != nil {
+		return fmt.Errorf("docker stop %s: %w", name, err)
+	}
+	return nil
 }
 
 func (d *DockerService) Remove(name string) error {
-	return runScript(scripts.DockerScript, "remove", name)
+	ctx, cancel := dockerCtx()
+	defer cancel()
+	if err := d.cli.ContainerRemove(ctx, name, container.RemoveOptions{Force: true}); err != nil {
+		return fmt.Errorf("docker rm -f %s: %w", name, err)
+	}
+	return nil
 }
 
 func (d *DockerService) HealthStatus(name string) (string, error) {
-	// Fetch both health check status and container state in one call.
-	// Health.Status is only populated when the image was built with a HEALTHCHECK
-	// instruction; older containers fall back to mapping State.Status instead.
-	out, err := exec.Command("docker", "inspect", "--format", "{{.State.Health.Status}}\t{{.State.Status}}", name).Output()
+	ctx, cancel := dockerCtx()
+	defer cancel()
+	info, err := d.cli.ContainerInspect(ctx, name)
 	if err != nil {
 		return "", nil
 	}
-	parts := strings.SplitN(strings.TrimSpace(string(out)), "\t", 2)
-	if len(parts) == 2 && parts[0] != "" && parts[0] != "<no value>" {
-		return parts[0], nil
+	if info.State != nil && info.State.Health != nil {
+		hs := info.State.Health.Status
+		if hs != "" && hs != "<no value>" {
+			return hs, nil
+		}
 	}
-	if len(parts) == 2 {
-		switch parts[1] {
-		case "running":
+	if info.State != nil {
+		switch {
+		case info.State.Running:
 			return "healthy", nil
-		case "created", "restarting":
+		case info.State.Status == "created" || info.State.Status == "restarting":
 			return "starting", nil
 		default:
 			return "unhealthy", nil
@@ -110,21 +93,27 @@ func (d *DockerService) HealthStatus(name string) (string, error) {
 	return "", nil
 }
 
-// Ice stops the container and removes its image to free up disk space.
-// The container configuration is preserved in the service store so it can be redeployed.
+// Ice stops the container and removes its image to free disk space.
+// The service record is preserved so the container can be redeployed.
 func (d *DockerService) Ice(name string) error {
-	// Capture image name before stopping so we can remove it afterward.
-	imageOut, _ := exec.Command("docker", "inspect", "--format", "{{.Config.Image}}", name).Output()
-	image := strings.TrimSpace(string(imageOut))
+	ctx, cancel := dockerCtx()
+	defer cancel()
+	info, _ := d.cli.ContainerInspect(ctx, name)
+	var img string
+	if info.Config != nil {
+		img = strings.TrimSpace(info.Config.Image)
+	}
 
-	if err := exec.Command("docker", "stop", name).Run(); err != nil {
+	ctx2, cancel2 := dockerCtx()
+	defer cancel2()
+	if err := d.cli.ContainerStop(ctx2, name, container.StopOptions{}); err != nil {
 		return fmt.Errorf("failed to stop container %s: %w", name, err)
 	}
 
-	if image != "" {
-		// Best-effort: ignore errors (image may be shared or already removed).
-		exec.Command("docker", "rmi", image).Run()
+	if img != "" {
+		ctx3, cancel3 := dockerCtx()
+		defer cancel3()
+		d.cli.ImageRemove(ctx3, img, image.RemoveOptions{}) //nolint:errcheck
 	}
-
 	return nil
 }

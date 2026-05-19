@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,12 +20,31 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dployr-io/dployr/pkg/core/utils"
+	dockertypes "github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/registry"
+	"github.com/docker/docker/pkg/archive"
+	specs "github.com/opencontainers/image-spec/specs-go/v1"
+
+	coreutils "github.com/dployr-io/dployr/pkg/core/utils"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
 
 	"github.com/dployr-io/dployr/internal/scripts"
 )
+
+// deployDockerAPI is the subset of the Docker client used by this package.
+type deployDockerAPI interface {
+	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *specs.Platform, containerName string) (container.CreateResponse, error)
+	ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error
+	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
+	ImagePull(ctx context.Context, refStr string, options image.PullOptions) (io.ReadCloser, error)
+	ImageBuild(ctx context.Context, buildContext io.Reader, options dockertypes.ImageBuildOptions) (dockertypes.ImageBuildResponse, error)
+	ImagePush(ctx context.Context, image string, options image.PushOptions) (io.ReadCloser, error)
+	ImageRemove(ctx context.Context, imageID string, options image.RemoveOptions) ([]image.DeleteResponse, error)
+}
 
 func imageRef(registryURL, name string) string {
 	slug := strings.ToLower(strings.ReplaceAll(name, "_", "-"))
@@ -67,7 +87,7 @@ func detectNextJS(dir string) bool {
 	return inDeps || inDev
 }
 
-func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts) (string, error) {
+func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts, dockerCli deployDockerAPI) (string, error) {
 	if cfg.RegistryURL == "" {
 		return "", fmt.Errorf("REGISTRY_URL is not configured on this build node")
 	}
@@ -77,34 +97,83 @@ func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts) (string
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 
-	if cfg.RegistryAuth != "" {
-		registry := strings.SplitN(ref, "/", 2)[0]
-		if err := registryLogin(ctx, registry, cfg.RegistryAuth, srcDir); err != nil {
-			return "", fmt.Errorf("registry login failed: %w", err)
-		}
-	}
-
 	if err := ensureDockerfile(srcDir, opts); err != nil {
 		return "", fmt.Errorf("dockerfile setup failed: %w", err)
 	}
 
-	buildCmd := fmt.Sprintf("docker build --tag %s .", ref)
-	if err := shared.Exec(ctx, buildCmd, srcDir); err != nil {
+	// Build tar context from srcDir, honouring .dockerignore if present.
+	var excludes []string
+	if data, err := os.ReadFile(filepath.Join(srcDir, ".dockerignore")); err == nil {
+		for _, line := range strings.Split(string(data), "\n") {
+			if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "#") {
+				excludes = append(excludes, line)
+			}
+		}
+	}
+	buildCtx, err := archive.TarWithOptions(srcDir, &archive.TarOptions{ExcludePatterns: excludes})
+	if err != nil {
+		return "", fmt.Errorf("failed to create build context: %w", err)
+	}
+
+	buildOpts := dockertypes.ImageBuildOptions{
+		Tags:       []string{ref},
+		Dockerfile: "Dockerfile",
+		Remove:     true,
+	}
+	if cfg.BuildMemory > 0 {
+		buildOpts.Memory = int64(cfg.BuildMemory) * 1024 * 1024
+	}
+	if cfg.RegistryAuth != "" {
+		authStr, err := buildRegistryAuth(cfg.RegistryAuth, ref)
+		if err == nil {
+			registryHost := strings.SplitN(ref, "/", 2)[0]
+			buildOpts.AuthConfigs = map[string]registry.AuthConfig{
+				registryHost: parseAuthConfig(authStr),
+			}
+		}
+	}
+
+	buildResp, err := dockerCli.ImageBuild(ctx, buildCtx, buildOpts)
+	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return "", fmt.Errorf("docker build timed out after 20 minutes")
 		}
 		return "", fmt.Errorf("docker build failed: %w", err)
 	}
+	defer buildResp.Body.Close()
 
-	pushCmd := fmt.Sprintf("docker push %s", ref)
-	if err := shared.Exec(ctx, pushCmd, srcDir); err != nil {
+	// Drain and check for build errors in the JSON stream.
+	scanner := bufio.NewScanner(buildResp.Body)
+	for scanner.Scan() {
+		var msg struct {
+			Error  string `json:"error"`
+			Stream string `json:"stream"`
+		}
+		if json.Unmarshal(scanner.Bytes(), &msg) == nil && msg.Error != "" {
+			return "", fmt.Errorf("docker build: %s", strings.TrimSpace(msg.Error))
+		}
+	}
+
+	var authStr string
+	if cfg.RegistryAuth != "" {
+		authStr, _ = buildRegistryAuth(cfg.RegistryAuth, ref)
+	}
+	pushRC, err := dockerCli.ImagePush(ctx, ref, image.PushOptions{RegistryAuth: authStr})
+	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return "", fmt.Errorf("docker push timed out")
 		}
 		return "", fmt.Errorf("docker push failed: %w", err)
 	}
+	defer pushRC.Close()
+	if _, err := io.Copy(io.Discard, pushRC); err != nil {
+		return "", fmt.Errorf("docker push stream error: %w", err)
+	}
 
-	_ = shared.Exec(ctx, fmt.Sprintf("docker rmi %s", ref), srcDir)
+	if _, err := dockerCli.ImageRemove(ctx, ref, image.RemoveOptions{Force: true}); err != nil {
+		// Non-fatal: the image was pushed successfully; log and continue.
+		_ = err
+	}
 
 	return ref, nil
 }
@@ -274,11 +343,10 @@ func (o BuildOpts) version() string {
 	return o.Version
 }
 
-// registryLogin authenticates Docker against the given registry.
-// authB64 must be a base64-encoded JSON blob: {"username":"…","password":"…"}.
-// Falls back to treating the value as a raw password with username "token" for
-// registries (like DigitalOcean) that accept any username.
-func registryLogin(ctx context.Context, registry, authB64, workDir string) error {
+// buildRegistryAuth parses authB64 (base64-encoded JSON {"username","password"} or
+// base64("user:pass") or a bare token) and returns a base64-encoded JSON auth string
+// suitable for Docker SDK PullOptions.RegistryAuth / PushOptions.RegistryAuth.
+func buildRegistryAuth(authB64, imageRef string) (string, error) {
 	username, password := "token", authB64
 
 	raw, err := base64.StdEncoding.DecodeString(authB64)
@@ -291,22 +359,36 @@ func registryLogin(ctx context.Context, registry, authB64, workDir string) error
 		if json.Unmarshal(raw, &creds) == nil && creds.Password != "" {
 			username, password = creds.Username, creds.Password
 		} else if u, p, ok := strings.Cut(decoded, ":"); ok {
-			// base64("username:password") — standard Docker Basic Auth format
 			username, password = u, p
 		} else {
-			// bare token — use as password
 			password = decoded
 		}
 	}
 
-	cmd := exec.CommandContext(ctx, "docker", "login", "--username", username, "--password-stdin", registry)
-	cmd.Dir = workDir
-	cmd.Stdin = strings.NewReader(password)
-	out, err := cmd.CombinedOutput()
+	registry := strings.SplitN(imageRef, "/", 2)[0]
+	authCfg := struct {
+		Username      string `json:"username"`
+		Password      string `json:"password"`
+		ServerAddress string `json:"serveraddress"`
+	}{Username: username, Password: password, ServerAddress: registry}
+
+	jsonBytes, err := json.Marshal(authCfg)
 	if err != nil {
-		return fmt.Errorf("exit status %w: %s", err, strings.TrimSpace(string(out)))
+		return "", fmt.Errorf("failed to marshal auth config: %w", err)
 	}
-	return nil
+	return base64.URLEncoding.EncodeToString(jsonBytes), nil
+}
+
+// parseAuthConfig decodes a buildRegistryAuth string back into a typed struct
+// for use in ImageBuildOptions.AuthConfigs.
+func parseAuthConfig(authStr string) registry.AuthConfig {
+	raw, err := base64.URLEncoding.DecodeString(authStr)
+	if err != nil {
+		return registry.AuthConfig{}
+	}
+	var ac registry.AuthConfig
+	json.Unmarshal(raw, &ac) //nolint:errcheck
+	return ac
 }
 
 // DockerIgnoreContent defines patterns to exclude from Docker builds
@@ -419,8 +501,8 @@ lerna-debug.log*
 
 // SetupDir creates a working directory for the deployment
 func SetupDir(name string) (string, error) {
-	dataDir := utils.GetDataDir()
-	workDir := filepath.Join(dataDir, ".dployr", "services", utils.FormatName(name))
+	dataDir := coreutils.GetDataDir()
+	workDir := filepath.Join(dataDir, ".dployr", "services", coreutils.FormatName(name))
 	err := os.MkdirAll(workDir, 0755)
 	if err != nil {
 		return "", err
@@ -489,8 +571,8 @@ func writeDockerIgnore(destDir string) error {
 	return os.WriteFile(dockerIgnorePath, []byte(DockerIgnoreContent), 0644)
 }
 
-// PullImage pulls a docker image from a registry
-func PullImage(imageRef string, workDir string, config *shared.Config) error {
+// PullImage pulls a docker image from a registry using the Docker SDK.
+func PullImage(imageRef string, config *shared.Config, dockerCli deployDockerAPI) error {
 	if !isValidDockerImageRef(imageRef) {
 		return fmt.Errorf("invalid docker image reference: %s", imageRef)
 	}
@@ -498,35 +580,135 @@ func PullImage(imageRef string, workDir string, config *shared.Config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
+	var authStr string
 	if config != nil && config.RegistryAuth != "" {
-		registry := strings.SplitN(imageRef, "/", 2)[0]
-		if err := registryLogin(ctx, registry, config.RegistryAuth, workDir); err != nil {
-			return fmt.Errorf("registry login failed: %w", err)
+		var err error
+		authStr, err = buildRegistryAuth(config.RegistryAuth, imageRef)
+		if err != nil {
+			return fmt.Errorf("registry auth failed: %w", err)
 		}
 	}
 
-	pullCmd := fmt.Sprintf("docker pull %s", imageRef)
-	if err := shared.Exec(ctx, pullCmd, workDir); err != nil {
+	rc, err := dockerCli.ImagePull(ctx, imageRef, image.PullOptions{RegistryAuth: authStr})
+	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return fmt.Errorf("docker pull timed out after 5 minutes")
 		}
-		return fmt.Errorf("docker pull failed: %s", err)
+		return fmt.Errorf("docker pull failed: %w", err)
+	}
+	defer rc.Close()
+	if _, err := io.Copy(io.Discard, rc); err != nil {
+		return fmt.Errorf("docker pull stream error: %w", err)
 	}
 	return nil
 }
 
-// DeployApp handles runtime setup, build, and service installation
-func DeployApp(bp store.Blueprint, name, logPath string, cfg *shared.Config) error {
-	version := string(bp.Runtime.Version)
-	if version == "" {
-		return fmt.Errorf("runtime version cannot be empty")
-	}
-
+// DeployApp handles runtime setup, build, and service installation.
+// Jobs (TypeJob) use the systemd/vfox bash path; all other types use the Go
+// Docker path which avoids the bash script entirely.
+func DeployApp(bp store.Blueprint, name, logPath string, cfg *shared.Config, dockerCli deployDockerAPI) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 
-	return runDeployScript(ctx, bp, name, logPath, cfg)
+	if bp.Type == store.TypeStatic {
+		// No container needed — the host Caddy proxy serves files directly.
+		// registerProxyRoute in the worker registers the static.tpl route.
+		return nil
+	}
+
+	if bp.Type == store.TypeJob {
+		version := string(bp.Runtime.Version)
+		if version == "" {
+			return fmt.Errorf("runtime version cannot be empty")
+		}
+		return runDeployScript(ctx, bp, name, logPath, cfg)
+	}
+
+	return deployDocker(ctx, bp, name, logPath, cfg, dockerCli)
 }
+
+// deployDocker uses the Docker SDK to deploy web, worker, and static service
+// types without spawning any shell processes.
+func deployDocker(ctx context.Context, bp store.Blueprint, name, logPath string, cfg *shared.Config, dockerCli deployDockerAPI) error {
+	port := bp.Port
+	if port == 0 {
+		port = 3000
+	}
+
+	// Write .env to disk so the process can source it at runtime (TypeJob reads it;
+	// Docker containers also receive env vars inline via ContainerConfig.Env).
+	if err := WriteEnvFile(bp.WorkingDir, bp, port); err != nil {
+		return fmt.Errorf("failed to write env file: %w", err)
+	}
+
+	if bp.Image != "" {
+		if err := PullImage(bp.Image, cfg, dockerCli); err != nil {
+			return fmt.Errorf("failed to pull image: %w", err)
+		}
+	}
+
+	cc := &ContainerConfig{
+		Name:        name,
+		Image:       bp.Image,
+		Port:        port,
+		HostPort:    coreutils.ComputeHostPort(name),
+		Env:         buildEnv(bp, port),
+		Description: bp.Desc,
+		Type:        bp.Type,
+		RunCmd:      bp.RunCmd,
+		HealthCheck: bp.HealthCheck,
+	}
+	if cfg != nil {
+		cc.Memory = cfg.ContainerMemory
+		cc.CPU = cfg.ContainerCPU
+		cc.Storage = cfg.ContainerStorage
+	}
+
+	// Remove any pre-existing container with the same name (best-effort).
+	dockerCli.ContainerRemove(ctx, name, container.RemoveOptions{Force: true}) //nolint:errcheck
+
+	resp, err := dockerCli.ContainerCreate(ctx, ptr(cc.ContainerCfg()), ptr(cc.HostCfg()), nil, nil, name)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("docker create timed out")
+		}
+		return fmt.Errorf("docker create failed: %w", err)
+	}
+
+	if err := dockerCli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("docker start timed out")
+		}
+		return fmt.Errorf("docker start failed: %w", err)
+	}
+
+	shared.LogInfoF(name, logPath, fmt.Sprintf("container started: %s", resp.ID))
+	return nil
+}
+
+// buildEnv builds a deduplicated KEY=value slice from a Blueprint.
+// PORT is always first; EnvVars come next; Secrets fill in any remaining keys.
+func buildEnv(bp store.Blueprint, port int) []string {
+	var env []string
+	written := map[string]bool{}
+	write := func(k, v string) {
+		if written[k] {
+			return
+		}
+		written[k] = true
+		env = append(env, k+"="+v)
+	}
+	write("PORT", fmt.Sprintf("%d", port))
+	for k, v := range bp.EnvVars {
+		write(k, v)
+	}
+	for k, v := range bp.Secrets {
+		write(k, v)
+	}
+	return env
+}
+
+func ptr[T any](v T) *T { return &v }
 
 func runDeployScript(ctx context.Context, bp store.Blueprint, name, logPath string, cfg *shared.Config) error {
 	if runtime.GOOS == "windows" {
@@ -586,7 +768,7 @@ func runDeployScript(ctx context.Context, bp store.Blueprint, name, logPath stri
 		desc,
 		buildCmd,
 		port,
-		strconv.Itoa(utils.ComputeHostPort(bp.Name)),
+		strconv.Itoa(coreutils.ComputeHostPort(bp.Name)),
 		bp.Image,
 		bp.StaticDir,
 		strconv.Itoa(memory),

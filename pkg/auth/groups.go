@@ -4,14 +4,12 @@
 package auth
 
 import (
-	"os/exec"
 	"os/user"
-	"strings"
 
 	"github.com/dployr-io/dployr/pkg/store"
 )
 
-// System group to role mapping
+// SystemGroupToRole maps Unix group names to dployr roles.
 var SystemGroupToRole = map[string]store.Role{
 	"dployr-owner":  store.RoleOwner,
 	"dployr-admin":  store.RoleAdmin,
@@ -19,40 +17,52 @@ var SystemGroupToRole = map[string]store.Role{
 	"dployr-viewer": store.RoleViewer,
 }
 
-// GetUserSystemRole returns the highest system role for a specific user
-func GetUserSystemRole(username string) (store.Role, error) {
-	cmd := exec.Command("id", "-Gn", username)
-	output, err := cmd.Output()
-	if err != nil {
-		return store.RoleViewer, err
-	}
-
-	userGroups := strings.Fields(string(output))
-
-	// Find highest role from group membership
-	highestRole := store.RoleViewer
-	highestLevel := store.RoleLevel[highestRole]
-
-	for _, group := range userGroups {
-		if role, exists := SystemGroupToRole[group]; exists {
-			if store.RoleLevel[role] > highestLevel {
-				highestRole = role
-				highestLevel = store.RoleLevel[role]
+// highestRoleFromGroups returns the highest dployr role found in a list of
+// Unix group names. Returns RoleViewer if no dployr group is present.
+func highestRoleFromGroups(groups []string) store.Role {
+	role := store.RoleViewer
+	level := store.RoleLevel[role]
+	for _, g := range groups {
+		if r, ok := SystemGroupToRole[g]; ok {
+			if store.RoleLevel[r] > level {
+				role = r
+				level = store.RoleLevel[r]
 			}
 		}
 	}
-
-	return highestRole, nil
+	return role
 }
 
-// GetCurrentUserSystemRole returns the current user's highest system role
-//
-// Example: dployr-admin returns store.RoleAdmin
-func GetCurrentUserSystemRole() (store.Role, error) {
-	currentUser, err := user.Current()
+// GetUserSystemRole returns the highest dployr role for username derived from
+// Unix group membership. Defaults to RoleViewer if no dployr group is found.
+func GetUserSystemRole(username string) (store.Role, error) {
+	u, err := user.Lookup(username)
 	if err != nil {
 		return store.RoleViewer, err
 	}
 
-	return GetUserSystemRole(currentUser.Username)
+	gids, err := u.GroupIds()
+	if err != nil {
+		return store.RoleViewer, err
+	}
+
+	names := make([]string, 0, len(gids))
+	for _, gid := range gids {
+		g, err := user.LookupGroupId(gid)
+		if err != nil {
+			continue // group may have been deleted from the system
+		}
+		names = append(names, g.Name)
+	}
+
+	return highestRoleFromGroups(names), nil
+}
+
+// GetCurrentUserSystemRole returns the current process user's highest dployr role.
+func GetCurrentUserSystemRole() (store.Role, error) {
+	u, err := user.Current()
+	if err != nil {
+		return store.RoleViewer, err
+	}
+	return GetUserSystemRole(u.Username)
 }

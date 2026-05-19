@@ -426,6 +426,12 @@ func buildWorkloads(ctx context.Context, deployStore store.DeploymentStore, svcS
 		if converted := system.FromStoreServices(svcs); converted != nil {
 			svcMgr, svcMgrErr := svc_runtime.SvcRuntime()
 			for i := range converted {
+				if store.ServiceType(svcs[i].Type) == store.TypeStatic {
+					// No container to inspect — Caddy serves files directly.
+					// Present as healthy if the service record exists.
+					converted[i].Status = "healthy"
+					continue
+				}
 				if svcMgrErr == nil {
 					status, _ := svcMgr.HealthStatus(converted[i].Name)
 					converted[i].Status = status

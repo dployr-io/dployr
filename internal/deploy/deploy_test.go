@@ -5,6 +5,7 @@ package deploy
 
 import (
 	"context"
+	"maps"
 	"sync"
 	"testing"
 
@@ -44,9 +45,7 @@ func (m *mockDeployStore) snapshot() map[string]*store.Deployment {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	out := make(map[string]*store.Deployment, len(m.deployments))
-	for k, v := range m.deployments {
-		out[k] = v
-	}
+	maps.Copy(out, m.deployments)
 	return out
 }
 
@@ -67,8 +66,6 @@ func (m *mockDisp) count() int {
 	return len(m.submitted)
 }
 
-// --- helpers ---
-
 func newDeployCtx() context.Context {
 	ctx := context.Background()
 	ctx = shared.WithTrace(ctx, ulid.Make().String())
@@ -84,6 +81,7 @@ func newDeployer(role store.NodeRole) (*Deployer, *mockDeployStore, *mockDisp) {
 		shared.NewLogger(),
 		ds,
 		disp,
+		nil, // no Docker client needed for routing tests
 	)
 	return d, ds, disp
 }

@@ -21,19 +21,22 @@ type Dispatcher interface {
 }
 
 type Deployer struct {
-	cfg    *shared.Config
-	logger *shared.Logger
-	store  store.DeploymentStore
-	job    Dispatcher
+	cfg       *shared.Config
+	logger    *shared.Logger
+	store     store.DeploymentStore
+	job       Dispatcher
+	dockerCli deployDockerAPI
 }
 
-// Init creates a new Deployer instance
-func Init(c *shared.Config, l *shared.Logger, s store.DeploymentStore, j Dispatcher) *Deployer {
+// Init creates a new Deployer instance. dockerCli must satisfy deployDockerAPI
+// (a *client.Client from github.com/docker/docker/client does so automatically).
+func Init(c *shared.Config, l *shared.Logger, s store.DeploymentStore, j Dispatcher, dockerCli deployDockerAPI) *Deployer {
 	return &Deployer{
-		cfg:    c,
-		logger: l,
-		store:  s,
-		job:    j,
+		cfg:       c,
+		logger:    l,
+		store:     s,
+		job:       j,
+		dockerCli: dockerCli,
 	}
 }
 
@@ -96,6 +99,13 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 		return nil, fmt.Errorf("node role %q cannot accept source=remote deployments; expected source=image", d.cfg.Role)
 	}
 
+	// Guard: TypeStatic + source=image has no mechanism to extract files to disk.
+	// Static sites must be deployed from source (source=remote) so the files are
+	// cloned to the working directory that Caddy serves directly.
+	if store.ServiceType(req.Type) == store.TypeStatic && store.Source(req.Source) == store.SourceImage {
+		return nil, fmt.Errorf("static sites must use source=remote; source=image is not supported for TypeStatic")
+	}
+
 	if err := d.store.UpsertDeployment(ctx, deployment); err != nil {
 		msg := fmt.Sprintf("failed to upsert deployment: %s", err)
 		d.logger.With("request_id", requestID, "trace_id", traceID).Error(msg)
@@ -129,7 +139,7 @@ func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy
 	}
 
 	buildDir := workDir
-	if req.WorkingDir != "" {
+	if req.WorkingDir != "" && !filepath.IsAbs(req.WorkingDir) {
 		buildDir = filepath.Join(workDir, req.WorkingDir)
 	}
 
@@ -149,7 +159,7 @@ func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy
 		Port:            req.Port,
 		IsNextJS:        req.Runtime == "nodejs" && detectNextJS(buildDir),
 		HealthCheckPath: healthCheckPath,
-	})
+	}, d.dockerCli)
 	if err != nil {
 		return nil, fmt.Errorf("build failed: %w", err)
 	}
@@ -188,9 +198,8 @@ func (d *Deployer) UpdateDeploymentStatus(ctx context.Context, id string, status
 	}
 
 	if status == store.StatusCompleted || status == store.StatusFailed {
-		msg := fmt.Sprintf("cannot modify state after failure or completion: %s", err)
-		d.logger.With("request_id", requestID).Error(msg)
-		return fmt.Errorf("%s", msg)
+		d.logger.With("request_id", requestID).Error("rejected attempt to set terminal status via API", "status", status)
+		return fmt.Errorf("terminal status %q can only be set by the worker, not via the API", status)
 	}
 
 	return d.store.UpdateDeploymentStatus(ctx, id, string(status))
