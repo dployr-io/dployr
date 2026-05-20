@@ -236,29 +236,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 		return svcName, err
 	}
 
-	req := &store.Service{
-		ID:             svcName,
-		Name:           d.Blueprint.Name,
-		Description:    d.Blueprint.Desc,
-		Source:         d.Blueprint.Source,
-		Type:           d.Blueprint.Type,
-		Runtime:        d.Blueprint.Runtime.Type,
-		RuntimeVersion: d.Blueprint.Runtime.Version,
-		RunCmd:         d.Blueprint.RunCmd,
-		BuildCmd:       d.Blueprint.BuildCmd,
-		Port:           d.Blueprint.Port,
-		WorkingDir:     dir,
-		StaticDir:      d.Blueprint.StaticDir,
-		Image:          d.Blueprint.Image,
-		EnvVars:        d.Blueprint.EnvVars,
-		Secrets:        d.Blueprint.Secrets,
-		Remote:         d.Blueprint.Remote.Url,
-		Branch:         d.Blueprint.Remote.Branch,
-		CommitHash:     d.Blueprint.Remote.CommitHash,
-		DeploymentId:   d.ID,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
-	}
+	req := buildServiceRecord(d, svcName)
 
 	w.logger.Info("saving service", "source", req.Source, "type", req.Type)
 
@@ -278,6 +256,35 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 	return svcName, nil
 }
 
+// buildServiceRecord constructs the store.Service record from a completed deployment.
+// WorkingDir is always the relative path from the blueprint — never the absolute
+// runtime dir — so the UI and workload sync never expose internal host paths.
+func buildServiceRecord(d *store.Deployment, svcName string) *store.Service {
+	return &store.Service{
+		ID:             svcName,
+		Name:           d.Blueprint.Name,
+		Description:    d.Blueprint.Desc,
+		Source:         d.Blueprint.Source,
+		Type:           d.Blueprint.Type,
+		Runtime:        d.Blueprint.Runtime.Type,
+		RuntimeVersion: d.Blueprint.Runtime.Version,
+		RunCmd:         d.Blueprint.RunCmd,
+		BuildCmd:       d.Blueprint.BuildCmd,
+		Port:           d.Blueprint.Port,
+		WorkingDir:     d.Blueprint.WorkingDir,
+		StaticDir:      d.Blueprint.StaticDir,
+		Image:          d.Blueprint.Image,
+		EnvVars:        d.Blueprint.EnvVars,
+		Secrets:        d.Blueprint.Secrets,
+		Remote:         d.Blueprint.Remote.Url,
+		Branch:         d.Blueprint.Remote.Branch,
+		CommitHash:     d.Blueprint.Remote.CommitHash,
+		DeploymentId:   d.ID,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+}
+
 func (w *Worker) registerProxyRoute(svc *store.Service) error {
 	if w.proxyAPI == nil {
 		return nil
@@ -288,7 +295,11 @@ func (w *Worker) registerProxyRoute(svc *store.Service) error {
 
 	var app proxy.App
 	if store.ServiceType(svc.Type) == store.TypeStatic {
-		root := deploy.ResolveStaticDir(svc.WorkingDir, svc.StaticDir)
+		absWorkDir := filepath.Join(utils.GetDataDir(), ".dployr", "services", serviceName)
+		if svc.WorkingDir != "" {
+			absWorkDir = filepath.Join(absWorkDir, svc.WorkingDir)
+		}
+		root := deploy.ResolveStaticDir(absWorkDir, svc.StaticDir)
 		app = proxy.App{
 			Domain:   serviceDomain,
 			Root:     root,
@@ -383,11 +394,8 @@ func (w *Worker) submitDeploymentLogs(ctx context.Context, id string, name strin
 		"remote_branch":      bp.Remote.Branch,
 		"remote_commit_hash": bp.Remote.CommitHash,
 	}
-	// Only send working_dir back to base if it is a relative user-specified path
-	// (e.g. a monorepo subdirectory like "packages/frontend"). The absolute
-	// runtime path managed by dployrd is an internal detail and must never be
-	// stored in the base deployment record — it causes path-doubling on build
-	// nodes and corrupts the UI "Working Directory" field.
+
+	// e.g. "my_app/public"
 	if bp.WorkingDir != "" && !filepath.IsAbs(bp.WorkingDir) {
 		blueprint["working_dir"] = bp.WorkingDir
 	}

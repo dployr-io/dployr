@@ -64,7 +64,7 @@ func (c *ContainerConfig) ContainerCfg() container.Config {
 			retries = 3
 		}
 		cfg.Healthcheck = &container.HealthConfig{
-			Test:     []string{"CMD-SHELL", fmt.Sprintf("curl -sf http://localhost:%d%s || exit 1", c.Port, c.HealthCheck.Path)},
+			Test:     []string{"CMD-SHELL", fmt.Sprintf("wget -qO- http://localhost:%d%s || exit 1", c.Port, c.HealthCheck.Path)},
 			Interval: time.Duration(interval) * time.Second,
 			Timeout:  time.Duration(timeout) * time.Second,
 			Retries:  retries,

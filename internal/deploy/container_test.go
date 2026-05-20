@@ -84,7 +84,7 @@ func TestContainerConfig_HealthCheck(t *testing.T) {
 	if hc == nil {
 		t.Fatal("Healthcheck is nil")
 	}
-	if len(hc.Test) < 2 || hc.Test[1] != "curl -sf http://localhost:8080/healthz || exit 1" {
+	if len(hc.Test) < 2 || hc.Test[1] != "wget -qO- http://localhost:8080/healthz || exit 1" {
 		t.Errorf("Healthcheck.Test = %v", hc.Test)
 	}
 	if hc.Interval != 15*time.Second {

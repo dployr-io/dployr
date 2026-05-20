@@ -6,11 +6,14 @@ package worker
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/dployr-io/dployr/internal/deploy"
 	"github.com/dployr-io/dployr/pkg/core/proxy"
+	"github.com/dployr-io/dployr/pkg/core/utils"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
 )
@@ -593,23 +596,28 @@ func TestRegisterProxyRoute_Static(t *testing.T) {
 	mock := &mockProxyAPI{}
 	w := newWorkerWithProxy(mock)
 
+	// WorkingDir is relative (e.g. "nodejs"); registerProxyRoute computes the
+	// absolute host path from GetDataDir() + service name + WorkingDir.
 	err := w.registerProxyRoute(&store.Service{
 		Name:       "my-site",
 		Type:       store.TypeStatic,
-		WorkingDir: "/data/services/my-site",
+		WorkingDir: "src",
 		StaticDir:  "dist",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	absWorkDir := filepath.Join(utils.GetDataDir(), ".dployr", "services", "my-site", "src")
+	wantRoot := deploy.ResolveStaticDir(absWorkDir, "dist")
+
 	calls := mock.snapshot()
 	app := calls[0]["my-site.dployr.dev"]
 	if app.Template != proxy.TemplateStatic {
 		t.Errorf("template = %q, want static", app.Template)
 	}
-	if app.Root != "/data/services/my-site/dist" {
-		t.Errorf("root = %q, want /data/services/my-site/dist", app.Root)
+	if app.Root != wantRoot {
+		t.Errorf("root = %q, want %q", app.Root, wantRoot)
 	}
 	if app.Upstream != "" {
 		t.Errorf("upstream = %q, want empty for static", app.Upstream)
@@ -621,15 +629,15 @@ func TestRegisterProxyRoute_StaticNoSubDir(t *testing.T) {
 	w := newWorkerWithProxy(mock)
 
 	w.registerProxyRoute(&store.Service{
-		Name:       "my-site",
-		Type:       store.TypeStatic,
-		WorkingDir: "/data/services/my-site",
-		StaticDir:  "",
+		Name:      "my-site",
+		Type:      store.TypeStatic,
+		StaticDir: "",
 	})
 
+	wantRoot := deploy.ResolveStaticDir(filepath.Join(utils.GetDataDir(), ".dployr", "services", "my-site"), "")
 	app := mock.snapshot()[0]["my-site.dployr.dev"]
-	if app.Root != "/data/services/my-site" {
-		t.Errorf("root = %q, want /data/services/my-site when StaticDir is empty", app.Root)
+	if app.Root != wantRoot {
+		t.Errorf("root = %q, want %q when WorkingDir and StaticDir are empty", app.Root, wantRoot)
 	}
 }
 
@@ -681,6 +689,114 @@ func containsAny(s string, substrings ...string) bool {
 		}
 	}
 	return false
+}
+
+// TestBuildServiceRecord_WorkingDirRelative is a regression test for the bug where
+// the service record was stored with the absolute host path (dir) instead of the
+// relative user-supplied working_dir. The UI and workload sync must never see
+// internal host paths like /var/lib/dployrd/.dployr/services/ronaldo/nodejs.
+func TestBuildServiceRecord_WorkingDirRelative(t *testing.T) {
+	dep := &store.Deployment{
+		ID: "dep-01",
+		Blueprint: store.Blueprint{
+			Name:       "My App",
+			Source:     store.SourceRemote,
+			Type:       store.TypeWeb,
+			WorkingDir: "nodejs",
+			StaticDir:  "public",
+			Runtime:    store.RuntimeObj{Type: store.RuntimeNodeJS, Version: "20"},
+			Remote:     store.RemoteObj{Url: "https://github.com/example/app", Branch: "main"},
+			Port:       3000,
+		},
+	}
+
+	svc := buildServiceRecord(dep, "my-app")
+
+	if svc.WorkingDir != "nodejs" {
+		t.Errorf("WorkingDir = %q, want %q (relative) — got an absolute path leak", svc.WorkingDir, "nodejs")
+	}
+	if svc.StaticDir != "public" {
+		t.Errorf("StaticDir = %q, want %q", svc.StaticDir, "public")
+	}
+	if svc.ID != "my-app" {
+		t.Errorf("ID = %q, want my-app", svc.ID)
+	}
+	if svc.DeploymentId != "dep-01" {
+		t.Errorf("DeploymentId = %q, want dep-01", svc.DeploymentId)
+	}
+	if svc.Port != 3000 {
+		t.Errorf("Port = %d, want 3000", svc.Port)
+	}
+}
+
+// TestBuildServiceRecord_EmptyWorkingDir verifies that a blueprint with no working_dir
+// produces an empty string in the service record — not a default or computed path.
+func TestBuildServiceRecord_EmptyWorkingDir(t *testing.T) {
+	dep := &store.Deployment{
+		ID: "dep-02",
+		Blueprint: store.Blueprint{
+			Name:   "simple-app",
+			Source: store.SourceImage,
+			Type:   store.TypeWeb,
+			Image:  "registry.example.com/simple:latest",
+		},
+	}
+
+	svc := buildServiceRecord(dep, "simple-app")
+
+	if svc.WorkingDir != "" {
+		t.Errorf("WorkingDir = %q, want empty string when blueprint has none", svc.WorkingDir)
+	}
+}
+
+// TestWorker_ExecuteFailed_SetsStatusFailed verifies that when runDeployment fails
+// (e.g. docker is unavailable), execute() transitions the deployment to "failed".
+func TestWorker_ExecuteFailed_SetsStatusFailed(t *testing.T) {
+	cfg := &shared.Config{Role: store.NodeRoleInstance}
+	logger := shared.NewLogger()
+	svcStore := &mockServiceStore{services: make(map[string]*store.Service)}
+	instStore := &mockInstanceStore{accessToken: "test-token"}
+	deployStore := &mockDeploymentStore{
+		deployments: make(map[string]*store.Deployment),
+		statusCalls: []string{},
+	}
+
+	dep := &store.Deployment{
+		ID:     "fail-dep-01",
+		Status: store.StatusPending,
+		Blueprint: store.Blueprint{
+			Name:   "broken-app",
+			Source: store.SourceImage,
+			Image:  "registry.example.com/app:latest",
+		},
+	}
+	deployStore.UpsertDeployment(context.Background(), dep)
+
+	w := New(1, cfg, logger, deployStore, svcStore, instStore, nil)
+
+	done := make(chan struct{})
+	go func() {
+		w.execute(context.Background(), "fail-dep-01")
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("execute() did not complete within timeout")
+	}
+
+	calls := deployStore.statusCallsSnapshot()
+	if len(calls) < 2 {
+		t.Fatalf("expected at least 2 status updates (in_progress + failed/completed), got %v", calls)
+	}
+	if calls[0] != string(store.StatusInProgress) {
+		t.Errorf("first status = %q, want in_progress", calls[0])
+	}
+	last := calls[len(calls)-1]
+	if last != string(store.StatusFailed) && last != string(store.StatusCompleted) {
+		t.Errorf("final status = %q, want failed or completed", last)
+	}
 }
 
 func TestWorker_DuplicateJobPrevention(t *testing.T) {

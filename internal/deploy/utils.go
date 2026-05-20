@@ -46,6 +46,7 @@ type deployDockerAPI interface {
 	ImageRemove(ctx context.Context, imageID string, options image.RemoveOptions) ([]image.DeleteResponse, error)
 }
 
+// imageRef constructs a uniqe docker image ref
 func imageRef(registryURL, name string) string {
 	slug := strings.ToLower(strings.ReplaceAll(name, "_", "-"))
 	tag := fmt.Sprintf("%s-%d", slug, time.Now().UnixMilli())
@@ -101,14 +102,14 @@ func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts, dockerC
 		return "", fmt.Errorf("dockerfile setup failed: %w", err)
 	}
 
-	// Build tar context from srcDir, honouring .dockerignore if present.
+	// Build tar context from srcDir
 	var excludes []string
-	if data, err := os.ReadFile(filepath.Join(srcDir, ".dockerignore")); err == nil {
-		for _, line := range strings.Split(string(data), "\n") {
-			if line = strings.TrimSpace(line); line != "" && !strings.HasPrefix(line, "#") {
-				excludes = append(excludes, line)
-			}
+	for line := range strings.SplitSeq(DockerIgnoreContent, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") || line == "Dockerfile" || line == ".dockerignore" {
+			continue
 		}
+		excludes = append(excludes, line)
 	}
 	buildCtx, err := archive.TarWithOptions(srcDir, &archive.TarOptions{ExcludePatterns: excludes})
 	if err != nil {
@@ -125,11 +126,12 @@ func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts, dockerC
 	}
 	if cfg.RegistryAuth != "" {
 		authStr, err := buildRegistryAuth(cfg.RegistryAuth, ref)
-		if err == nil {
-			registryHost := strings.SplitN(ref, "/", 2)[0]
-			buildOpts.AuthConfigs = map[string]registry.AuthConfig{
-				registryHost: parseAuthConfig(authStr),
-			}
+		if err != nil {
+			return "", fmt.Errorf("failed to build registry auth for %s: %w", ref, err)
+		}
+		registryHost := strings.SplitN(ref, "/", 2)[0]
+		buildOpts.AuthConfigs = map[string]registry.AuthConfig{
+			registryHost: parseAuthConfig(authStr),
 		}
 	}
 
@@ -156,7 +158,10 @@ func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts, dockerC
 
 	var authStr string
 	if cfg.RegistryAuth != "" {
-		authStr, _ = buildRegistryAuth(cfg.RegistryAuth, ref)
+		authStr, err = buildRegistryAuth(cfg.RegistryAuth, ref)
+		if err != nil {
+			return "", fmt.Errorf("failed to build registry auth for push %s: %w", ref, err)
+		}
 	}
 	pushRC, err := dockerCli.ImagePush(ctx, ref, image.PushOptions{RegistryAuth: authStr})
 	if err != nil {
