@@ -163,9 +163,9 @@ func (w *WebHandler) BuildMux(cfg *shared.Config) *http.ServeMux {
 		}
 	})
 	mux.Handle("/services/", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(w.AuthM.Trace(svcH)))))
-	mux.Handle("/services/sleep", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.SvcH.SleepService)))))
-	mux.Handle("/services/wake", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.SvcH.WakeService)))))
-	mux.Handle("/services/ice", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.SvcH.IceService)))))
+	mux.Handle("/services/sleep", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireAnyRole(string(store.RoleAdmin), string(auth.RoleNode))(http.HandlerFunc(w.SvcH.SleepService)))))
+	mux.Handle("/services/wake", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireAnyRole(string(store.RoleAdmin), string(auth.RoleNode))(http.HandlerFunc(w.SvcH.WakeService)))))
+	mux.Handle("/services/ice", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireAnyRole(string(store.RoleAdmin), string(auth.RoleNode))(http.HandlerFunc(w.SvcH.IceService)))))
 	mux.Handle("/proxy/status", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.GetStatus)))))
 	mux.Handle("/proxy/restart", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleRestart)))))
 	mux.Handle("/proxy/add", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleAdmin))(http.HandlerFunc(w.ProxyH.HandleAdd)))))

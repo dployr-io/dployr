@@ -148,6 +148,34 @@ func (m *Middleware) RequireRole(required string) func(http.Handler) http.Handle
 	}
 }
 
+// RequireAnyRole passes if the caller satisfies at least one of the listed roles.
+func (m *Middleware) RequireAnyRole(roles ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			logger := shared.LogWithContext(ctx)
+			claims, ok := ctx.Value(claimsCtxKey).(*Claims)
+			if !ok {
+				e := shared.Errors.Runtime.InternalServer
+				logger.Error("missing claims in context during permission check")
+				shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
+				return
+			}
+
+			for _, role := range roles {
+				if isPermitted(claims.Perm, role) {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			e := shared.Errors.Auth.Forbidden
+			logger.Warn("permission denied", "required", roles, "actual", claims.Perm)
+			shared.WriteError(w, e.HTTPStatus, string(e.Code), e.Message, nil)
+		})
+	}
+}
+
 func (m *Middleware) Trace(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := shared.EnrichContext(r.Context())
