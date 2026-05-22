@@ -232,16 +232,23 @@ func TestDetectNextJS_NotNextJS(t *testing.T) {
 func TestGenerateDockerfile_NextJS(t *testing.T) {
 	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20", BuildCmd: "npm run build", Port: 3000, IsNextJS: true})
 	for _, want := range []string{
-		"FROM node:20", "RUN npm install", "RUN npm run build",
+		"FROM node:20",
+		"RUN npm install",
+		"RUN npm run build",
 		"FROM node:20-alpine AS runner",
-		"COPY --from=0 /app/.next/standalone",
-		"COPY --from=0 /app/.next/static",
-		"COPY --from=0 /app/public",
-		`CMD ["node", "server.js"]`,
+		"npm install --omit=dev",
+		"COPY --from=0 /app/.next ./.next",
+		"COPY --from=0 /app/public ./public",
+		"COPY --from=0 /app/next.config.* ./",
+		`CMD ["/bin/sh", "-c", "npm start"]`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("generateDockerfile(nextjs): missing %q\n\ngot:\n%s", want, out)
 		}
+	}
+	// Must NOT use standalone path
+	if strings.Contains(out, ".next/standalone") {
+		t.Errorf("generateDockerfile(nextjs): unexpected standalone path\n\ngot:\n%s", out)
 	}
 }
 
@@ -249,6 +256,69 @@ func TestGenerateDockerfile_NextJS_DefaultBuildCmd(t *testing.T) {
 	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20", IsNextJS: true, Port: 3000})
 	if !strings.Contains(out, "RUN npm run build") {
 		t.Errorf("generateDockerfile(nextjs, no build_cmd): expected default npm run build\n\ngot:\n%s", out)
+	}
+}
+
+func TestGenerateDockerfile_NextJS_DefaultRunCmd(t *testing.T) {
+	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20", IsNextJS: true, Port: 3000})
+	if !strings.Contains(out, "npm start") {
+		t.Errorf("generateDockerfile(nextjs, no run_cmd): expected default npm start\n\ngot:\n%s", out)
+	}
+}
+
+func TestGenerateDockerfile_NextJS_CustomRunCmd(t *testing.T) {
+	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20", IsNextJS: true, Port: 3000, RunCmd: "node server.js"})
+	if !strings.Contains(out, "node server.js") {
+		t.Errorf("generateDockerfile(nextjs, custom run_cmd): expected custom run cmd\n\ngot:\n%s", out)
+	}
+	if strings.Contains(out, "npm start") {
+		t.Errorf("generateDockerfile(nextjs, custom run_cmd): npm start should not appear when run_cmd is set\n\ngot:\n%s", out)
+	}
+}
+
+func TestGenerateDockerfile_NextJS_ConfigCopied(t *testing.T) {
+	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20", IsNextJS: true, Port: 3000})
+	if !strings.Contains(out, "COPY --from=0 /app/next.config.* ./") {
+		t.Errorf("generateDockerfile(nextjs): runner stage must copy next.config.*\n\ngot:\n%s", out)
+	}
+	// Fallback creation must be present in builder stage
+	if !strings.Contains(out, "next.config.js") || !strings.Contains(out, "next.config.mjs") {
+		t.Errorf("generateDockerfile(nextjs): builder must guarantee next.config.* exists\n\ngot:\n%s", out)
+	}
+}
+
+func TestGenerateDockerfile_NextJS_NextPublicArgs(t *testing.T) {
+	opts := BuildOpts{
+		Runtime:  "nodejs",
+		Version:  "20",
+		IsNextJS: true,
+		Port:     3000,
+		Env: map[string]string{
+			"NEXT_PUBLIC_API_URL": "https://api.example.com",
+			"NEXT_PUBLIC_APP_ID":  "myapp",
+			"SECRET_KEY":          "should-not-appear",
+		},
+	}
+	out := generateDockerfile(opts)
+	if !strings.Contains(out, "ARG NEXT_PUBLIC_API_URL") {
+		t.Errorf("generateDockerfile(nextjs): missing ARG for NEXT_PUBLIC_API_URL\n\ngot:\n%s", out)
+	}
+	if !strings.Contains(out, "ARG NEXT_PUBLIC_APP_ID") {
+		t.Errorf("generateDockerfile(nextjs): missing ARG for NEXT_PUBLIC_APP_ID\n\ngot:\n%s", out)
+	}
+	if strings.Contains(out, "ARG SECRET_KEY") {
+		t.Errorf("generateDockerfile(nextjs): non-NEXT_PUBLIC_ var must not appear as ARG\n\ngot:\n%s", out)
+	}
+}
+
+func TestGenerateDockerfile_NextJS_MultiStage(t *testing.T) {
+	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20", IsNextJS: true, Port: 3000})
+	stages := strings.Count(out, "FROM ")
+	if stages < 2 {
+		t.Errorf("generateDockerfile(nextjs): expected multi-stage build (>=2 FROM), got %d\n\ngot:\n%s", stages, out)
+	}
+	if !strings.Contains(out, "--omit=dev") {
+		t.Errorf("generateDockerfile(nextjs): runner stage must use npm install --omit=dev\n\ngot:\n%s", out)
 	}
 }
 

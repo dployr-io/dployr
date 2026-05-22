@@ -61,6 +61,7 @@ type BuildOpts struct {
 	Port            int
 	IsNextJS        bool
 	HealthCheckPath string // optional; defaults to root URL check if empty
+	Env             map[string]string
 }
 
 // detectNextJS returns true if the directory looks like a Next.js project —
@@ -120,6 +121,15 @@ func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts, dockerC
 		Tags:       []string{ref},
 		Dockerfile: "Dockerfile",
 		Remove:     true,
+	}
+	for k, v := range opts.Env {
+		if strings.HasPrefix(k, "NEXT_PUBLIC_") {
+			if buildOpts.BuildArgs == nil {
+				buildOpts.BuildArgs = map[string]*string{}
+			}
+			val := v
+			buildOpts.BuildArgs[k] = &val
+		}
 	}
 	if cfg.BuildMemory > 0 {
 		buildOpts.Memory = int64(cfg.BuildMemory) * 1024 * 1024
@@ -260,17 +270,29 @@ func generateDockerfile(opts BuildOpts) string {
 	case "nodejs":
 		ver := opts.version()
 		if opts.IsNextJS {
-			fmt.Fprintf(&b, "COPY package*.json ./\nRUN npm install\nCOPY . .\n")
+			for k := range opts.Env {
+				if strings.HasPrefix(k, "NEXT_PUBLIC_") {
+					fmt.Fprintf(&b, "ARG %s\n", k)
+				}
+			}
+			b.WriteString("COPY package*.json ./\nRUN npm install\nCOPY . .\n")
 			buildCmd := opts.BuildCmd
 			if buildCmd == "" {
 				buildCmd = "npm run build"
 			}
 			fmt.Fprintf(&b, "RUN %s\n", buildCmd)
+			// Guarantee at least one next.config.* exists so the COPY in the runner never fails.
+			b.WriteString("RUN [ -f next.config.js ] || [ -f next.config.mjs ] || echo 'module.exports = {};' > next.config.js\n")
+			runCmd := opts.RunCmd
+			if runCmd == "" {
+				runCmd = "npm start"
+			}
 			fmt.Fprintf(&b, "\nFROM %s AS runner\nWORKDIR /app\n", alpineTag(ver))
-			b.WriteString("COPY --from=0 /app/.next/standalone ./\n")
-			b.WriteString("COPY --from=0 /app/.next/static ./.next/static\n")
+			b.WriteString("COPY package*.json ./\nRUN npm install --omit=dev\n")
+			b.WriteString("COPY --from=0 /app/.next ./.next\n")
 			b.WriteString("COPY --from=0 /app/public ./public\n")
-			fmt.Fprintf(&b, "\nENV PORT=%d\n%sCMD [\"node\", \"server.js\"]\n", port, healthCheck(opts))
+			b.WriteString("COPY --from=0 /app/next.config.* ./\n")
+			fmt.Fprintf(&b, "\nENV PORT=%d\n%sCMD [\"/bin/sh\", \"-c\", \"%s\"]\n", port, healthCheck(opts), runCmd)
 			return b.String()
 		}
 		if opts.BuildCmd != "" {
