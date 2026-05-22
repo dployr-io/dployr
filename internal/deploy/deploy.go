@@ -151,6 +151,17 @@ func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy
 	if req.HealthCheck != nil {
 		healthCheckPath = req.HealthCheck.Path
 	}
+	env := make(map[string]string, len(req.EnvVars)+len(req.Secrets))
+	for k, v := range req.EnvVars {
+		if s, ok := v.(string); ok {
+			env[k] = s
+		}
+	}
+	for k, v := range req.Secrets {
+		if s, ok := v.(string); ok {
+			env[k] = s
+		}
+	}
 	image, err := BuildImage(req.Name, buildDir, d.cfg, BuildOpts{
 		Runtime:         req.Runtime,
 		Version:         req.Version,
@@ -159,6 +170,7 @@ func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy
 		Port:            req.Port,
 		IsNextJS:        req.Runtime == "nodejs" && detectNextJS(buildDir),
 		HealthCheckPath: healthCheckPath,
+		Env:             env,
 	}, d.dockerCli)
 	if err != nil {
 		return nil, fmt.Errorf("build failed: %w", err)
