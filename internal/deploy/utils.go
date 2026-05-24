@@ -56,6 +56,8 @@ func imageRef(registryURL, name string) string {
 type BuildOpts struct {
 	Runtime         string
 	Version         string
+	BuilderImage    string // resolved primary FROM image; falls back to runtimeBaseImage when empty
+	RunnerImage     string // resolved runner FROM image for multi-stage builds; falls back when empty
 	BuildCmd        string
 	RunCmd          string
 	Port            int
@@ -247,28 +249,47 @@ func healthCheck(opts BuildOpts) string {
 }
 
 func generateDockerfile(opts BuildOpts) string {
-	image := runtimeBaseImage(opts.runtime(), opts.version())
+	// builderImg is the primary FROM image. When BuilderImage is pre-resolved by
+	// the version resolver it is used directly; otherwise we fall back to the
+	// legacy runtime+version construction so that tests and direct callers that
+	// only supply Runtime/Version continue to work.
+	builderImg := opts.BuilderImage
+	if builderImg == "" {
+		builderImg = runtimeBaseImage(opts.runtime(), opts.version())
+	}
+
+	// runnerImg is the lightweight image used in the final stage of multi-stage
+	// builds (Node.js, Java). It defaults to the builder image for runtimes that
+	// use a single stage.
+	runnerImg := func(fallback string) string {
+		if opts.RunnerImage != "" {
+			return opts.RunnerImage
+		}
+		return fallback
+	}
+
 	port := opts.Port
 	if port == 0 {
 		port = 8080
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "FROM %s\n\nWORKDIR /app\n\n", image)
+	fmt.Fprintf(&b, "FROM %s\n\nWORKDIR /app\n\n", builderImg)
 
 	// templateInstall is the install command already baked into each runtime's
 	// template layer. We skip BuildCmd if it would just re-run the same thing.
 	var templateInstall string
-	alpineTag := func(ver string) string {
-		if ver == "" || ver == "lts" {
-			return "node:lts-alpine"
-		}
-		return "node:" + ver + "-alpine"
-	}
 
 	switch opts.runtime() {
 	case "nodejs":
 		ver := opts.version()
+		nodeAlpine := runnerImg(func() string {
+			if ver == "" || ver == "lts" {
+				return "node:lts-alpine"
+			}
+			return "node:" + ver + "-alpine"
+		}())
+
 		if opts.IsNextJS {
 			for k := range opts.Env {
 				if strings.HasPrefix(k, "NEXT_PUBLIC_") {
@@ -287,7 +308,7 @@ func generateDockerfile(opts BuildOpts) string {
 			if runCmd == "" {
 				runCmd = "npm start"
 			}
-			fmt.Fprintf(&b, "\nFROM %s AS runner\nWORKDIR /app\n", alpineTag(ver))
+			fmt.Fprintf(&b, "\nFROM %s AS runner\nWORKDIR /app\n", nodeAlpine)
 			b.WriteString("COPY package*.json ./\nRUN npm install --omit=dev\n")
 			b.WriteString("COPY --from=0 /app/.next ./.next\n")
 			b.WriteString("COPY --from=0 /app/public ./public\n")
@@ -299,7 +320,7 @@ func generateDockerfile(opts BuildOpts) string {
 			// Multi-stage: full image to build, alpine to run.
 			b.WriteString("COPY package*.json ./\nRUN npm install\nCOPY . .\n")
 			fmt.Fprintf(&b, "RUN %s\n", opts.BuildCmd)
-			fmt.Fprintf(&b, "\nFROM %s AS runner\nWORKDIR /app\n", alpineTag(ver))
+			fmt.Fprintf(&b, "\nFROM %s AS runner\nWORKDIR /app\n", nodeAlpine)
 			b.WriteString("COPY package*.json ./\nRUN npm install --omit=dev\n")
 			b.WriteString("COPY --from=0 /app ./\n")
 			fmt.Fprintf(&b, "\nENV PORT=%d\n%s", port, healthCheck(opts))
@@ -310,7 +331,7 @@ func generateDockerfile(opts BuildOpts) string {
 		}
 		// No build step — install prod deps only on alpine directly.
 		b.Reset()
-		fmt.Fprintf(&b, "FROM %s\n\nWORKDIR /app\n\n", alpineTag(ver))
+		fmt.Fprintf(&b, "FROM %s\n\nWORKDIR /app\n\n", nodeAlpine)
 		b.WriteString("COPY package*.json ./\nRUN npm install --omit=dev\nCOPY . .\n")
 		templateInstall = "npm install --omit=dev"
 	case "python":
@@ -338,7 +359,10 @@ func generateDockerfile(opts BuildOpts) string {
 		}
 		b.WriteString("COPY pom.xml ./\nRUN mvn dependency:go-offline -B\nCOPY . .\n")
 		fmt.Fprintf(&b, "RUN %s\n", buildCmd)
-		fmt.Fprintf(&b, "\nFROM eclipse-temurin:%s-jre-alpine\nWORKDIR /app\n", opts.version())
+		// Runner image: use pre-resolved RunnerImage when available, otherwise
+		// derive from the resolved version tag stored in opts.Version.
+		javaRunner := runnerImg(fmt.Sprintf("eclipse-temurin:%s-jre-alpine", opts.version()))
+		fmt.Fprintf(&b, "\nFROM %s\nWORKDIR /app\n", javaRunner)
 		b.WriteString("COPY --from=0 /app/target/*.jar app.jar\n")
 		fmt.Fprintf(&b, "\nENV PORT=%d\n%sCMD [\"java\", \"-jar\", \"app.jar\"]\n", port, healthCheck(opts))
 		return b.String()
@@ -364,9 +388,6 @@ func (o BuildOpts) runtime() string {
 }
 
 func (o BuildOpts) version() string {
-	if o.Version == "" {
-		return "lts"
-	}
 	return o.Version
 }
 

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/dployr-io/dployr/internal/version_resolver"
 	"github.com/dployr-io/dployr/pkg/core/deploy"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
@@ -26,6 +27,7 @@ type Deployer struct {
 	store     store.DeploymentStore
 	job       Dispatcher
 	dockerCli deployDockerAPI
+	resolver  *version_resolver.Resolver
 }
 
 // Init creates a new Deployer instance. dockerCli must satisfy deployDockerAPI
@@ -37,6 +39,7 @@ func Init(c *shared.Config, l *shared.Logger, s store.DeploymentStore, j Dispatc
 		store:     s,
 		job:       j,
 		dockerCli: dockerCli,
+		resolver:  version_resolver.New(version_resolver.NewHTTPClient()),
 	}
 }
 
@@ -147,6 +150,11 @@ func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy
 		return nil, fmt.Errorf("failed to write .dockerignore: %w", err)
 	}
 
+	resolution, err := d.resolver.Resolve(req.Runtime, req.Version)
+	if err != nil {
+		return nil, fmt.Errorf("unsupported runtime or version: %w", err)
+	}
+
 	healthCheckPath := ""
 	if req.HealthCheck != nil {
 		healthCheckPath = req.HealthCheck.Path
@@ -164,7 +172,9 @@ func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy
 	}
 	image, err := BuildImage(req.Name, buildDir, d.cfg, BuildOpts{
 		Runtime:         req.Runtime,
-		Version:         req.Version,
+		Version:         resolution.Version,
+		BuilderImage:    resolution.BuilderImage,
+		RunnerImage:     resolution.RunnerImage,
 		BuildCmd:        req.BuildCmd,
 		RunCmd:          req.RunCmd,
 		Port:            req.Port,
