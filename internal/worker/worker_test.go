@@ -570,7 +570,7 @@ func TestRegisterProxyRoute_Web(t *testing.T) {
 	if len(calls) != 1 {
 		t.Fatalf("expected 1 Add call, got %d", len(calls))
 	}
-	app := calls[0]["my-app.dployr.dev"]
+	app := calls[0]["my-app.dployr.run"]
 	if app.Template != proxy.TemplateReverseProxy {
 		t.Errorf("template = %q, want reverse_proxy", app.Template)
 	}
@@ -586,7 +586,7 @@ func TestRegisterProxyRoute_WebDefaultPort(t *testing.T) {
 	w.registerProxyRoute(&store.Service{Name: "api", Type: store.TypeWeb, Port: 0})
 
 	calls := mock.snapshot()
-	app := calls[0]["api.dployr.dev"]
+	app := calls[0]["api.dployr.run"]
 	if app.Upstream != "localhost:3000" {
 		t.Errorf("upstream = %q, want localhost:3000 for zero port", app.Upstream)
 	}
@@ -612,7 +612,7 @@ func TestRegisterProxyRoute_Static(t *testing.T) {
 	wantRoot := deploy.ResolveStaticDir(absWorkDir, "dist")
 
 	calls := mock.snapshot()
-	app := calls[0]["my-site.dployr.dev"]
+	app := calls[0]["my-site.dployr.run"]
 	if app.Template != proxy.TemplateStatic {
 		t.Errorf("template = %q, want static", app.Template)
 	}
@@ -635,7 +635,7 @@ func TestRegisterProxyRoute_StaticNoSubDir(t *testing.T) {
 	})
 
 	wantRoot := deploy.ResolveStaticDir(filepath.Join(utils.GetDataDir(), ".dployr", "services", "my-site"), "")
-	app := mock.snapshot()[0]["my-site.dployr.dev"]
+	app := mock.snapshot()[0]["my-site.dployr.run"]
 	if app.Root != wantRoot {
 		t.Errorf("root = %q, want %q when WorkingDir and StaticDir are empty", app.Root, wantRoot)
 	}

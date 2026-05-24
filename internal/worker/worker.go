@@ -291,7 +291,7 @@ func (w *Worker) registerProxyRoute(svc *store.Service) error {
 	}
 
 	serviceName := utils.FormatName(svc.Name)
-	serviceDomain := serviceName + ".dployr.dev"
+	serviceDomain := serviceName + ".dployr.run"
 
 	var app proxy.App
 	if store.ServiceType(svc.Type) == store.TypeStatic {
