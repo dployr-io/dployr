@@ -793,6 +793,10 @@ info "Creating system configuration..."
 
 mkdir -p "$CONFIG_DIR"
 
+CONTAINER_MEMORY="${CONTAINER_MEMORY:-0}"
+CONTAINER_CPU="${CONTAINER_CPU:-0}"
+CONTAINER_STORAGE="${CONTAINER_STORAGE:-0}"
+
 if [[ ! -f "$CONFIG_FILE" ]]; then
     instance_value="${INSTANCE_ID:-my-instance-id}"
     cat > "$CONFIG_FILE" << EOF
@@ -806,6 +810,10 @@ node_role = "$NODE_ROLE"
 
 registry_url = "$REGISTRY_URL"
 registry_auth = "$REGISTRY_AUTH"
+
+container_memory = $CONTAINER_MEMORY
+container_cpu = $CONTAINER_CPU
+container_storage = $CONTAINER_STORAGE
 EOF
     chmod 644 "$CONFIG_FILE"
     chmod 755 "$CONFIG_DIR"
