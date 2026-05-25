@@ -24,6 +24,7 @@ import (
 	pkgAuth "github.com/dployr-io/dployr/pkg/auth"
 	"github.com/dployr-io/dployr/pkg/core/proxy"
 	"github.com/dployr-io/dployr/pkg/core/system"
+	"github.com/dployr-io/dployr/pkg/core/utils"
 	"github.com/dployr-io/dployr/pkg/core/ws"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
@@ -100,6 +101,7 @@ type Syncer struct {
 	proxyHandler        proxy.HandleProxy
 	fs                  *FileSystem
 	topCollector        *TopCollector
+	watchDog            *WatchDog
 	executor            *Executor
 	nodeTokenBackoff    time.Duration
 	workerMaxConcurrent int
@@ -156,6 +158,7 @@ func NewSyncer(cfg *shared.Config, logger *shared.Logger, instStore store.Instan
 		proxyHandler:        proxyHandler,
 		fs:                  fs,
 		topCollector:        NewTopCollector(),
+		watchDog:            NewHealthPoller(),
 		executor:            NewExecutor(logger, cfg, handler, instStore, auth),
 		workerMaxConcurrent: workerMaxConcurrent,
 		workerActiveJobs:    workerActiveJobs,
@@ -172,6 +175,30 @@ func (s *Syncer) RequestFullSync() {
 }
 
 func (s *Syncer) Start(ctx context.Context) {
+	go s.watchDog.Run(ctx, func() []WatchTarget {
+		if s.svcStore == nil {
+			return nil
+		}
+		svcs, err := s.svcStore.ListServices(ctx, 100, 0)
+		if err != nil {
+			return nil
+		}
+		targets := make([]WatchTarget, 0, len(svcs))
+		for _, svc := range svcs {
+			var healthPath string
+			if svc.Blueprint != nil && svc.Blueprint.HealthCheck != nil {
+				healthPath = svc.Blueprint.HealthCheck.Path
+			}
+			
+			targets = append(targets, WatchTarget{
+				Name:     svc.Name,
+				HostPort: utils.ComputeHostPort(svc.Name),
+				Path:     healthPath,
+			})
+		}
+		return targets
+	})
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -372,6 +399,7 @@ ws_connected:
 		s.proxyHandler,
 		s.fs,
 		s.topCollector,
+		s.watchDog,
 		s.workerMaxConcurrent,
 		activeJobs,
 		logger,
@@ -435,6 +463,7 @@ ws_connected:
 					s.proxyHandler,
 					s.fs,
 					s.topCollector,
+					s.watchDog,
 					s.workerMaxConcurrent,
 					activeJobs,
 					s.logger,
@@ -537,6 +566,7 @@ ws_connected:
 				s.proxyHandler,
 				s.fs,
 				s.topCollector,
+				s.watchDog,
 				s.workerMaxConcurrent,
 				activeJobs,
 				s.logger,
@@ -623,6 +653,7 @@ func (s *Syncer) handleTasks(ctx context.Context, conn *websocket.Conn, items []
 				s.proxyHandler,
 				s.fs,
 				s.topCollector,
+				s.watchDog,
 				s.workerMaxConcurrent,
 				activeJobs,
 				s.logger,
@@ -721,6 +752,7 @@ func (s *Syncer) sendFullSync(ctx context.Context, conn *websocket.Conn) error {
 		s.proxyHandler,
 		s.fs,
 		s.topCollector,
+		s.watchDog,
 		s.workerMaxConcurrent,
 		activeJobs,
 		s.logger,

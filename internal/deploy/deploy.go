@@ -155,10 +155,6 @@ func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy
 		return nil, fmt.Errorf("unsupported runtime or version: %w", err)
 	}
 
-	healthCheckPath := ""
-	if req.HealthCheck != nil {
-		healthCheckPath = req.HealthCheck.Path
-	}
 	env := make(map[string]string, len(req.EnvVars)+len(req.Secrets))
 	for k, v := range req.EnvVars {
 		if s, ok := v.(string); ok {
@@ -171,16 +167,15 @@ func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy
 		}
 	}
 	image, err := BuildImage(req.Name, buildDir, d.cfg, BuildOpts{
-		Runtime:         req.Runtime,
-		Version:         resolution.Version,
-		BuilderImage:    resolution.BuilderImage,
-		RunnerImage:     resolution.RunnerImage,
-		BuildCmd:        req.BuildCmd,
-		RunCmd:          req.RunCmd,
-		Port:            req.Port,
-		IsNextJS:        req.Runtime == "nodejs" && detectNextJS(buildDir),
-		HealthCheckPath: healthCheckPath,
-		Env:             env,
+		Runtime:      req.Runtime,
+		Version:      resolution.Version,
+		BuilderImage: resolution.BuilderImage,
+		RunnerImage:  resolution.RunnerImage,
+		BuildCmd:     req.BuildCmd,
+		RunCmd:       req.RunCmd,
+		Port:         req.Port,
+		IsNextJS:     req.Runtime == "nodejs" && detectNextJS(buildDir),
+		Env:          env,
 	}, d.dockerCli)
 	if err != nil {
 		return nil, fmt.Errorf("build failed: %w", err)

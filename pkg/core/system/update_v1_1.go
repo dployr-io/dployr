@@ -160,9 +160,11 @@ type ServiceV1_1 struct {
 	Branch         *string           `json:"branch,omitempty"`
 	CommitHash     *string           `json:"commit_hash,omitempty"`
 	DeploymentID   *string           `json:"deployment_id,omitempty"`
-	Status         string            `json:"status"` // "healthy" | "unhealthy" | "starting" | ""
-	CreatedAt      string            `json:"created_at"`
-	UpdatedAt      string            `json:"updated_at"`
+	Status          string            `json:"status"`                    // container state: "running" | "starting" | "stopped"
+	Health          string            `json:"health"`                    // host probe result: "healthy" | "degraded"
+	HealthCheck     string            `json:"health_check,omitempty"`    // probe path, e.g. "/health"
+	CreatedAt       string            `json:"created_at"`
+	UpdatedAt       string            `json:"updated_at"`
 }
 
 // ProxyInfo - reverse proxy state

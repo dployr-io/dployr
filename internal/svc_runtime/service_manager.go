@@ -11,7 +11,7 @@ import (
 // ServiceManager defines the interface for service management across platforms
 type ServiceManager interface {
 	Status(name string) (string, error)
-	HealthStatus(name string) (string, error)
+	ExitCode(name string) (int, error)
 	Install(name, desc, runCmd, workDir string, envVars map[string]string) error
 	Start(name string) error
 	Stop(name string) error

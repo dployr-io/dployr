@@ -54,16 +54,15 @@ func imageRef(registryURL, name string) string {
 }
 
 type BuildOpts struct {
-	Runtime         string
-	Version         string
-	BuilderImage    string // resolved primary FROM image; falls back to runtimeBaseImage when empty
-	RunnerImage     string // resolved runner FROM image for multi-stage builds; falls back when empty
-	BuildCmd        string
-	RunCmd          string
-	Port            int
-	IsNextJS        bool
-	HealthCheckPath string // optional; defaults to root URL check if empty
-	Env             map[string]string
+	Runtime      string
+	Version      string
+	BuilderImage string // resolved primary FROM image; falls back to runtimeBaseImage when empty
+	RunnerImage  string // resolved runner FROM image for multi-stage builds; falls back when empty
+	BuildCmd     string
+	RunCmd       string
+	Port         int
+	IsNextJS     bool
+	Env          map[string]string
 }
 
 // detectNextJS returns true if the directory looks like a Next.js project —
@@ -234,20 +233,6 @@ func runtimeBaseImage(runtime, version string) string {
 	}
 }
 
-// healthCheck returns the HEALTHCHECK instruction for the given opts.
-// If HealthCheckPath is set, it issues a strict spider check (expects 2xx).
-// Otherwise it uses the root URL but accepts any HTTP response (including 404)
-// as "alive" — only a connection failure marks the container unhealthy.
-func healthCheck(opts BuildOpts) string {
-	const prefix = "HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD "
-	path := opts.HealthCheckPath
-	if path == "" {
-		// Lenient: grep for any HTTP response line so 404 is still treated as alive.
-		return prefix + `wget -qSO /dev/null http://localhost:${PORT}/ 2>&1 | grep -qE "^\s+HTTP/"` + "\n"
-	}
-	return prefix + fmt.Sprintf("wget --spider -q http://localhost:${PORT}%s || exit 1", path) + "\n"
-}
-
 func generateDockerfile(opts BuildOpts) string {
 	// builderImg is the primary FROM image. When BuilderImage is pre-resolved by
 	// the version resolver it is used directly; otherwise we fall back to the
@@ -313,7 +298,7 @@ func generateDockerfile(opts BuildOpts) string {
 			b.WriteString("COPY --from=0 /app/.next ./.next\n")
 			b.WriteString("COPY --from=0 /app/public ./public\n")
 			b.WriteString("COPY --from=0 /app/next.config.* ./\n")
-			fmt.Fprintf(&b, "\nENV PORT=%d\n%sCMD [\"/bin/sh\", \"-c\", \"%s\"]\n", port, healthCheck(opts), runCmd)
+			fmt.Fprintf(&b, "\nENV PORT=%d\nCMD [\"/bin/sh\", \"-c\", \"%s\"]\n", port, runCmd)
 			return b.String()
 		}
 		if opts.BuildCmd != "" {
@@ -323,7 +308,7 @@ func generateDockerfile(opts BuildOpts) string {
 			fmt.Fprintf(&b, "\nFROM %s AS runner\nWORKDIR /app\n", nodeAlpine)
 			b.WriteString("COPY package*.json ./\nRUN npm install --omit=dev\n")
 			b.WriteString("COPY --from=0 /app ./\n")
-			fmt.Fprintf(&b, "\nENV PORT=%d\n%s", port, healthCheck(opts))
+			fmt.Fprintf(&b, "\nENV PORT=%d\n", port)
 			if opts.RunCmd != "" {
 				fmt.Fprintf(&b, "CMD %s\n", opts.RunCmd)
 			}
@@ -347,7 +332,7 @@ func generateDockerfile(opts BuildOpts) string {
 		b.WriteString("\nFROM alpine:3\n")
 		b.WriteString("RUN apk --no-cache add ca-certificates tzdata\n")
 		b.WriteString("COPY --from=0 /bin/app /bin/app\n")
-		fmt.Fprintf(&b, "\nENV PORT=%d\n%sCMD [\"/bin/app\"]\n", port, healthCheck(opts))
+		fmt.Fprintf(&b, "\nENV PORT=%d\nCMD [\"/bin/app\"]\n", port)
 		return b.String()
 	case "ruby":
 		b.WriteString("COPY Gemfile* ./\nRUN bundle config set --local without 'development test' && bundle install\nCOPY . .\n")
@@ -364,7 +349,7 @@ func generateDockerfile(opts BuildOpts) string {
 		javaRunner := runnerImg(fmt.Sprintf("eclipse-temurin:%s-jre-alpine", opts.version()))
 		fmt.Fprintf(&b, "\nFROM %s\nWORKDIR /app\n", javaRunner)
 		b.WriteString("COPY --from=0 /app/target/*.jar app.jar\n")
-		fmt.Fprintf(&b, "\nENV PORT=%d\n%sCMD [\"java\", \"-jar\", \"app.jar\"]\n", port, healthCheck(opts))
+		fmt.Fprintf(&b, "\nENV PORT=%d\nCMD [\"java\", \"-jar\", \"app.jar\"]\n", port)
 		return b.String()
 	default:
 		b.WriteString("COPY . .\n")
@@ -373,7 +358,7 @@ func generateDockerfile(opts BuildOpts) string {
 	if opts.BuildCmd != "" && strings.TrimSpace(opts.BuildCmd) != templateInstall {
 		fmt.Fprintf(&b, "RUN %s\n", opts.BuildCmd)
 	}
-	fmt.Fprintf(&b, "\nENV PORT=%d\n%s", port, healthCheck(opts))
+	fmt.Fprintf(&b, "\nENV PORT=%d\n", port)
 	if opts.RunCmd != "" {
 		fmt.Fprintf(&b, "CMD %s\n", opts.RunCmd)
 	}
@@ -704,7 +689,6 @@ func deployDocker(ctx context.Context, bp store.Blueprint, name, logPath string,
 		Description: bp.Desc,
 		Type:        bp.Type,
 		RunCmd:      bp.RunCmd,
-		HealthCheck: bp.HealthCheck,
 	}
 	if cfg != nil {
 		cc.Memory = cfg.ContainerMemory
@@ -904,22 +888,6 @@ func writeServiceConfig(bp store.Blueprint) error {
 	b.WriteString("\n[secrets]\n")
 	for k, v := range secrets {
 		fmt.Fprintf(&b, "%s = %q\n", k, v)
-	}
-
-	if bp.HealthCheck != nil && bp.HealthCheck.Path != "" && bp.Type != store.TypeStatic {
-		hc := bp.HealthCheck
-		interval, timeout, retries := hc.Interval, hc.Timeout, hc.Retries
-		if interval <= 0 {
-			interval = 30
-		}
-		if timeout <= 0 {
-			timeout = 5
-		}
-		if retries <= 0 {
-			retries = 3
-		}
-		fmt.Fprintf(&b, "\n[health_check]\npath = %q\ninterval = %d\ntimeout = %d\nretries = %d\n",
-			hc.Path, interval, timeout, retries)
 	}
 
 	return os.WriteFile(filepath.Join(bp.WorkingDir, "config.toml"), []byte(b.String()), 0600)

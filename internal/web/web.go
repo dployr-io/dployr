@@ -116,7 +116,7 @@ func (w *WebHandler) BuildMux(cfg *shared.Config) *http.ServeMux {
 			shared.WriteError(rw, e.HTTPStatus, string(e.Code), e.Message, nil)
 		}
 	})
-	mux.Handle("/deployments", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireRole(string(store.RoleDeveloper))(w.AuthM.Trace(depsH)))))
+	mux.Handle("/deployments", corsMiddleware(w.AuthM.Auth(w.AuthM.RequireAnyRole(string(store.RoleDeveloper), string(auth.RoleNode))(w.AuthM.Trace(depsH)))))
 
 	svcListH := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if req.URL.Path != "/services" {
