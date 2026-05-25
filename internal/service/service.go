@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/docker/docker/errdefs"
+
 	"github.com/dployr-io/dployr/internal/svc_runtime"
 	"github.com/dployr-io/dployr/pkg/core/proxy"
 	"github.com/dployr-io/dployr/pkg/core/utils"
@@ -14,15 +16,20 @@ import (
 	"github.com/dployr-io/dployr/pkg/store"
 )
 
+// RedeployFunc recreates a missing container from its last known blueprint.
+// Injected at startup so the service layer stays decoupled from deploy internals.
+type RedeployFunc func(name string) error
+
 type Servicer struct {
 	cfg      *shared.Config
 	logger   *shared.Logger
 	store    store.ServiceStore
 	proxyAPI proxy.HandleProxy
 	svcMgr   svc_runtime.ServiceManager
+	redeploy RedeployFunc // nil = redeploy not available
 }
 
-func Init(cfg *shared.Config, logger *shared.Logger, store store.ServiceStore, proxyAPI proxy.HandleProxy) *Servicer {
+func Init(cfg *shared.Config, logger *shared.Logger, store store.ServiceStore, proxyAPI proxy.HandleProxy, redeploy RedeployFunc) *Servicer {
 	svcMgr, err := svc_runtime.SvcRuntime()
 	if err != nil {
 		logger.Error("failed to initialize service manager", "error", err)
@@ -34,6 +41,7 @@ func Init(cfg *shared.Config, logger *shared.Logger, store store.ServiceStore, p
 		store:    store,
 		proxyAPI: proxyAPI,
 		svcMgr:   svcMgr,
+		redeploy: redeploy,
 	}
 }
 
@@ -64,7 +72,21 @@ func (s *Servicer) WakeService(name string) error {
 	svcName := utils.FormatName(name)
 	s.logger.Info("waking service", "service", svcName)
 	if err := s.svcMgr.Start(svcName); err != nil {
+		if errdefs.IsNotFound(err) {
+			return s.redeployService(svcName)
+		}
 		return fmt.Errorf("failed to start service %s: %w", svcName, err)
+	}
+	return nil
+}
+
+func (s *Servicer) redeployService(name string) error {
+	if s.redeploy == nil {
+		return fmt.Errorf("container %s not found and redeploy is not available", name)
+	}
+	s.logger.Info("container missing, redeploying service", "service", name)
+	if err := s.redeploy(name); err != nil {
+		return fmt.Errorf("failed to redeploy service %s: %w", name, err)
 	}
 	return nil
 }

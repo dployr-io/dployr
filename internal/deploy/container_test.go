@@ -6,7 +6,6 @@ package deploy
 import (
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/dployr-io/dployr/pkg/store"
 )
@@ -63,73 +62,6 @@ func TestContainerConfig_NoPortBindingWhenZero(t *testing.T) {
 	hc := cfg.HostCfg()
 	if len(hc.PortBindings) != 0 {
 		t.Errorf("PortBindings should be empty for zero port, got %v", hc.PortBindings)
-	}
-}
-
-func TestContainerConfig_HealthCheck(t *testing.T) {
-	cfg := &ContainerConfig{
-		Name:  "api",
-		Image: "registry/api:v1",
-		Port:  8080,
-		Type:  store.TypeWeb,
-		HealthCheck: &store.HealthCheck{
-			Path:     "/healthz",
-			Interval: 15,
-			Timeout:  3,
-			Retries:  5,
-		},
-	}
-	cc := cfg.ContainerCfg()
-	hc := cc.Healthcheck
-	if hc == nil {
-		t.Fatal("Healthcheck is nil")
-	}
-	if len(hc.Test) < 2 || hc.Test[1] != "wget -qO- http://localhost:8080/healthz || exit 1" {
-		t.Errorf("Healthcheck.Test = %v", hc.Test)
-	}
-	if hc.Interval != 15*time.Second {
-		t.Errorf("Interval = %v, want 15s", hc.Interval)
-	}
-	if hc.Timeout != 3*time.Second {
-		t.Errorf("Timeout = %v, want 3s", hc.Timeout)
-	}
-	if hc.Retries != 5 {
-		t.Errorf("Retries = %d, want 5", hc.Retries)
-	}
-}
-
-func TestContainerConfig_HealthCheckDefaults(t *testing.T) {
-	cfg := &ContainerConfig{
-		Name:        "api",
-		Image:       "registry/api:v1",
-		Port:        8080,
-		Type:        store.TypeWeb,
-		HealthCheck: &store.HealthCheck{Path: "/health"},
-	}
-	hc := cfg.ContainerCfg().Healthcheck
-	if hc == nil {
-		t.Fatal("Healthcheck is nil")
-	}
-	if hc.Interval != 30*time.Second {
-		t.Errorf("default Interval = %v, want 30s", hc.Interval)
-	}
-	if hc.Timeout != 5*time.Second {
-		t.Errorf("default Timeout = %v, want 5s", hc.Timeout)
-	}
-	if hc.Retries != 3 {
-		t.Errorf("default Retries = %d, want 3", hc.Retries)
-	}
-}
-
-func TestContainerConfig_HealthCheckSkippedWhenNoPath(t *testing.T) {
-	cfg := &ContainerConfig{
-		Name:        "api",
-		Image:       "img",
-		Type:        store.TypeWeb,
-		HealthCheck: &store.HealthCheck{}, // Path is empty
-	}
-	if cfg.ContainerCfg().Healthcheck != nil {
-		t.Error("Healthcheck must not be added when HealthCheck.Path is empty")
 	}
 }
 

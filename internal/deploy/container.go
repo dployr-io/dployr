@@ -6,7 +6,6 @@ package deploy
 import (
 	"fmt"
 	"path"
-	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
@@ -26,10 +25,9 @@ type ContainerConfig struct {
 	Description string
 	Type        store.ServiceType
 	RunCmd      string // optional CMD override
-	HealthCheck *store.HealthCheck
-	Memory      int // MB; 0 = no limit
-	CPU         int // millicores; 0 = no limit
-	Storage     int // GB; 0 = no limit
+	Memory      int    // MB; 0 = no limit
+	CPU         int    // millicores; 0 = no limit
+	Storage     int    // GB; 0 = no limit
 }
 
 // ContainerCfg returns the container.Config for docker ContainerCreate.
@@ -47,27 +45,6 @@ func (c *ContainerConfig) ContainerCfg() container.Config {
 	if c.Port > 0 {
 		cfg.ExposedPorts = nat.PortSet{
 			nat.Port(fmt.Sprintf("%d/tcp", c.Port)): struct{}{},
-		}
-	}
-
-	if c.HealthCheck != nil && c.HealthCheck.Path != "" {
-		interval := c.HealthCheck.Interval
-		if interval <= 0 {
-			interval = 30
-		}
-		timeout := c.HealthCheck.Timeout
-		if timeout <= 0 {
-			timeout = 5
-		}
-		retries := c.HealthCheck.Retries
-		if retries <= 0 {
-			retries = 3
-		}
-		cfg.Healthcheck = &container.HealthConfig{
-			Test:     []string{"CMD-SHELL", fmt.Sprintf("wget -qO- http://localhost:%d%s || exit 1", c.Port, c.HealthCheck.Path)},
-			Interval: time.Duration(interval) * time.Second,
-			Timeout:  time.Duration(timeout) * time.Second,
-			Retries:  retries,
 		}
 	}
 

@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/dployr-io/dployr/pkg/auth"
@@ -17,6 +18,7 @@ import (
 	"github.com/dployr-io/dployr/pkg/core/proxy"
 	"github.com/dployr-io/dployr/pkg/core/service"
 	"github.com/dployr-io/dployr/pkg/core/system"
+	coreutils "github.com/dployr-io/dployr/pkg/core/utils"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/version"
 
@@ -92,7 +94,21 @@ func main() {
 	proxier := proxy.NewProxier(proxyState, ps)
 	ph := proxy.NewProxyHandler(proxier, logger)
 
-	services := _service.Init(cfg, logger, ss, ps)
+	redeployFn := func(name string) error {
+		ctx := context.Background()
+		svc, err := ss.GetService(ctx, name)
+		if err != nil || svc == nil {
+			return fmt.Errorf("service %s not found: %w", name, err)
+		}
+		dep, err := ds.GetDeployment(ctx, svc.DeploymentId)
+		if err != nil || dep == nil {
+			return fmt.Errorf("no deployment found for service %s: %w", name, err)
+		}
+		logPath := filepath.Join(coreutils.GetDataDir(), ".dployr", "logs") + "/"
+		return _deploy.DeployApp(dep.Blueprint, name, logPath, cfg, dockerCli)
+	}
+
+	services := _service.Init(cfg, logger, ss, ps, redeployFn)
 	servicer := service.NewServicer(cfg, logger, ss, services)
 	sh := service.NewServiceHandler(servicer, logger)
 

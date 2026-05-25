@@ -23,17 +23,38 @@ type DockerService struct {
 	cli dockerAPI
 }
 
+// Status returns the container state: "running" | "starting" | "stopped".
 func (d *DockerService) Status(name string) (string, error) {
 	ctx, cancel := dockerCtx()
 	defer cancel()
 	info, err := d.cli.ContainerInspect(ctx, name)
 	if err != nil {
-		return "", fmt.Errorf("service %s does not exist", name)
+		return "stopped", nil
 	}
-	if info.State != nil && info.State.Running {
-		return "running", nil
+	if info.State != nil {
+		if info.State.Running {
+			return "running", nil
+		}
+		if info.State.Status == "created" || info.State.Status == "restarting" {
+			return "starting", nil
+		}
 	}
 	return "stopped", nil
+}
+
+// ExitCode returns the last exit code of a stopped container.
+// Returns 0 for a clean stop, non-zero for a crash.
+func (d *DockerService) ExitCode(name string) (int, error) {
+	ctx, cancel := dockerCtx()
+	defer cancel()
+	info, err := d.cli.ContainerInspect(ctx, name)
+	if err != nil {
+		return -1, fmt.Errorf("container %q not found: %w", name, err)
+	}
+	if info.State == nil {
+		return -1, fmt.Errorf("container %q has no state", name)
+	}
+	return info.State.ExitCode, nil
 }
 
 func (d *DockerService) Install(name, desc, runCmd, workDir string, envVars map[string]string) error {
@@ -65,32 +86,6 @@ func (d *DockerService) Remove(name string) error {
 		return fmt.Errorf("docker rm -f %s: %w", name, err)
 	}
 	return nil
-}
-
-func (d *DockerService) HealthStatus(name string) (string, error) {
-	ctx, cancel := dockerCtx()
-	defer cancel()
-	info, err := d.cli.ContainerInspect(ctx, name)
-	if err != nil {
-		return "", nil
-	}
-	if info.State != nil && info.State.Health != nil {
-		hs := info.State.Health.Status
-		if hs != "" && hs != "<no value>" {
-			return hs, nil
-		}
-	}
-	if info.State != nil {
-		switch {
-		case info.State.Running:
-			return "healthy", nil
-		case info.State.Status == "created" || info.State.Status == "restarting":
-			return "starting", nil
-		default:
-			return "unhealthy", nil
-		}
-	}
-	return "", nil
 }
 
 // Ice stops the container and removes its image to free disk space.

@@ -22,6 +22,40 @@ import (
 	"github.com/dployr-io/dployr/version"
 )
 
+// ServiceHealth is the binary health state of a service container.
+type ServiceHealth string
+
+const (
+	HealthHealthy  ServiceHealth = "healthy"
+	HealthDegraded ServiceHealth = "degraded"
+)
+
+// resolveServiceHealth determines the binary health of a service from its
+// runtime state and supporting data sources:
+//
+//   - "running"  → HTTP probe result from the WatchDog poller.
+//   - "starting" → healthy (container is coming up; probe not yet meaningful).
+//   - "stopped"  → exit-code heuristic: 0 = clean stop (healthy), non-zero = crash (degraded).
+//
+// exitCode is only consulted when status == "stopped"; pass any value for other states.
+// pollerResult is only consulted when status == "running"; "" is treated as healthy (no result yet).
+func resolveServiceHealth(status string, pollerResult string, exitCode int) ServiceHealth {
+	switch status {
+	case "running":
+		if pollerResult == string(HealthDegraded) {
+			return HealthDegraded
+		}
+		return HealthHealthy
+	case "stopped":
+		if exitCode != 0 {
+			return HealthDegraded
+		}
+		return HealthHealthy
+	default: // "starting" or anything unexpected
+		return HealthHealthy
+	}
+}
+
 // BuildUpdateV1_1 constructs the v1.1 status update
 func BuildUpdateV1_1(
 	ctx context.Context,
@@ -35,6 +69,7 @@ func BuildUpdateV1_1(
 	proxyHandler proxy.HandleProxy,
 	fs *FileSystem,
 	topCollector *TopCollector,
+	watchDog *WatchDog,
 	workerMaxConcurrent int,
 	workerActiveJobs int,
 	l *shared.Logger,
@@ -56,7 +91,7 @@ func BuildUpdateV1_1(
 	update.Proxy = buildProxy(proxyHandler, isFullSync)
 	update.Processes = buildProcesses(ctx, topCollector, isFullSync)
 	update.Diagnostics = buildDiagnostics(ctx, instStore, isFullSync, workerMaxConcurrent, workerActiveJobs)
-	workloads, err := buildWorkloads(ctx, deployStore, svcStore)
+	workloads, err := buildWorkloads(ctx, deployStore, svcStore, watchDog)
 	if err != nil {
 		l.Error("error retrieving workloads", "error", err)
 	}
@@ -400,7 +435,7 @@ func buildNode() *system.NodeInfo {
 	}
 }
 
-func buildWorkloads(ctx context.Context, deployStore store.DeploymentStore, svcStore store.ServiceStore) (*system.WorkloadsInfo, error) {
+func buildWorkloads(ctx context.Context, deployStore store.DeploymentStore, svcStore store.ServiceStore, watchDog *WatchDog) (*system.WorkloadsInfo, error) {
 	workloads := &system.WorkloadsInfo{
 		Deployments: []system.DeploymentV1_1{},
 		Services:    []system.ServiceV1_1{},
@@ -427,15 +462,26 @@ func buildWorkloads(ctx context.Context, deployStore store.DeploymentStore, svcS
 			svcMgr, svcMgrErr := svc_runtime.SvcRuntime()
 			for i := range converted {
 				if store.ServiceType(svcs[i].Type) == store.TypeStatic {
-					// No container to inspect — Caddy serves files directly.
-					// Present as healthy if the service record exists.
-					converted[i].Status = "healthy"
+					// Caddy serves files directly — no container to inspect.
+					converted[i].Status = "running"
+					converted[i].Health = "healthy"
 					continue
 				}
 				if svcMgrErr == nil {
-					status, _ := svcMgr.HealthStatus(converted[i].Name)
+					status, _ := svcMgr.Status(converted[i].Name)
 					converted[i].Status = status
 				}
+				var res string
+				if watchDog != nil {
+					res = watchDog.Get(converted[i].Name)
+				}
+				exitCode := 0
+				if svcMgrErr == nil && converted[i].Status == "stopped" {
+					if code, err := svcMgr.ExitCode(converted[i].Name); err == nil {
+						exitCode = code
+					}
+				}
+				converted[i].Health = string(resolveServiceHealth(converted[i].Status, res, exitCode))
 			}
 			workloads.Services = converted
 		}
