@@ -330,7 +330,7 @@ register_instance() {
     local status=$?
 
     if [[ $status -ne 0 ]]; then
-        warn "Failed to register instance (curl exit $status). Visit https://dployr.io/docs/quickstart.html"
+        warn "Failed to register instance (curl exit $status). Visit https://dployr.io/docs/quickstart"
         log_json "error" "$response"
         return 1
     fi

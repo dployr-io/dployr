@@ -223,7 +223,7 @@ func (s *Syncer) runWSConnection(ctx context.Context) error {
 		return fmt.Errorf("failed to get instance: %w", err)
 	}
 	if inst == nil || strings.TrimSpace(inst.InstanceID) == "" {
-		return fmt.Errorf("instance not registered; reinstall using a valid bootstrap token (see https://dployr.io/docs/quickstart.html)")
+		return fmt.Errorf("instance not registered; reinstall using a valid bootstrap token (see https://dployr.io/docs/quickstart)")
 	}
 
 	if s.epoch == "" {
