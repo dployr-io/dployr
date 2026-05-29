@@ -7,38 +7,7 @@
 
 set -e
 
-START_TIME=$(date +%s)
-
 LOG_DIR="/var/log/dployrd"
-
-if [[ $EUID -eq 0 ]]; then
-    mkdir -p "$LOG_DIR"
-    LOG_FILE="$LOG_DIR/install.log"
-else
-    LOG_DIR="$HOME/.dployr"
-    mkdir -p "$LOG_DIR"
-    LOG_FILE="$LOG_DIR/install.log"
-fi
-
-# 3 = stderr for user-facing messages
-# 4 = log file for structured JSON logs
-exec 3>&2
-exec 4>>"$LOG_FILE"
-
-log_json() {
-    local level="$1"
-    local message="$2"
-    local timestamp
-    timestamp=$(date -Iseconds 2>/dev/null || date "+%Y-%m-%dT%H:%M:%S%z")
-    printf '{"timestamp":"%s","level":"%s","message":"%s","pid":%d,"user":"%s"}\n' \
-        "$timestamp" "$level" "$message" "$$" "${USER:-unknown}" >&4
-}
-
-log_json "info" "Installation started"
-log_json "info" "Logging to $LOG_FILE"
-
-export DEBIAN_FRONTEND=noninteractive
-
 INSTALL_DIR="/usr/local/bin"
 VERSION="latest"
 TOKEN=""
@@ -55,6 +24,15 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
+
+log_json() {
+    local level="$1"
+    local message="$2"
+    local timestamp
+    timestamp=$(date -Iseconds 2>/dev/null || date "+%Y-%m-%dT%H:%M:%S%z")
+    printf '{"timestamp":"%s","level":"%s","message":"%s","pid":%d,"user":"%s"}\n' \
+        "$timestamp" "$level" "$message" "$$" "${USER:-unknown}" >&4
+}
 
 info() {
     echo -e "${GREEN}[INFO]${NC} $1" >&3
@@ -86,7 +64,7 @@ install_git() {
     fi
 
     info "Installing git..."
-    
+
     case $OS in
         linux)
             if command -v apt &>/dev/null; then
@@ -127,7 +105,7 @@ install_jq() {
     fi
 
     info "Installing jq..."
-    
+
     case $OS in
         linux)
             if command -v apt &>/dev/null; then
@@ -201,12 +179,10 @@ get_daemon_port() {
 # in-progress deployments reported by the daemon. On first install or
 # when the daemon is not running, it returns immediately.
 wait_for_pending_tasks() {
-    # If daemon is not running yet, nothing to wait for.
     if ! pgrep -x "dployrd" >/dev/null 2>&1; then
         return 0
     fi
 
-    # jq is installed earlier; curl is expected to be available.
     if ! command -v curl >/dev/null 2>&1; then
         return 0
     fi
@@ -216,7 +192,6 @@ wait_for_pending_tasks() {
 
     info "Checking for pending tasks before upgrade (port $port)..."
 
-    # Best-effort: tell the daemon we are entering an updating window.
     local auth_header=""
     if [[ -n "$TOKEN" ]]; then
         auth_header="Authorization: Bearer $TOKEN"
@@ -229,7 +204,7 @@ wait_for_pending_tasks() {
         "http://localhost:${port}/system/mode" >/dev/null 2>&1 || true
 
     local attempts=0
-    local max_attempts=24 # ~2 minutes total at 5s intervals
+    local max_attempts=24
 
     while (( attempts < max_attempts )); do
         attempts=$((attempts + 1))
@@ -237,7 +212,6 @@ wait_for_pending_tasks() {
         local resp
         resp=$(curl -sS ${auth_header:+-H "$auth_header"} "http://localhost:${port}/system/tasks?status=pending" || true)
         if [[ -z "$resp" ]]; then
-            # If we can't talk to the daemon, do not block the install.
             warn "Could not query dployrd for pending deployments; continuing with install."
             return 0
         fi
@@ -251,7 +225,6 @@ wait_for_pending_tasks() {
 
         if [[ "$count" -eq 0 ]]; then
             info "No pending tasks detected. Proceeding with install."
-            # Best-effort: mark daemon as ready again.
             curl -sS -X POST \
                 -H "Content-Type: application/json" \
                 ${auth_header:+-H "$auth_header"} \
@@ -265,7 +238,6 @@ wait_for_pending_tasks() {
     done
 
     warn "Timed out waiting for pending deployments to finish. Proceeding with install."
-    # Even on timeout, attempt to return daemon to ready mode.
     curl -sS -X POST \
         -H "Content-Type: application/json" \
         ${auth_header:+-H "$auth_header"} \
@@ -298,9 +270,6 @@ install_tomato() {
 
 tget() { tomato get "$1" "$CONFIG_FILE" 2>/dev/null || echo ""; }
 
-echo "dployr Unix Installer" >&3
-echo "====================" >&3
-
 show_help() {
     cat >&3 << EOF
 Usage: $0 [options]
@@ -329,98 +298,6 @@ Examples:
 EOF
 }
 
-if [[ "$1" == "--help" || "$1" == "-h" ]]; then
-    show_help
-    exit 0
-fi
-
-ENVIRONMENT="prod"
-BASE_URL_EXPLICIT=0
-
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        -v|--version)
-            [[ -z "$2" ]] && error "Missing value for $1"
-            VERSION="$2"
-            shift 2
-            ;;
-        -t|--token)
-            [[ -z "$2" ]] && error "Missing value for $1"
-            TOKEN="$2"
-            shift 2
-            ;;
-        -b|--base)
-            [[ -z "$2" ]] && error "Missing value for $1"
-            BASE_URL="$2"
-            BASE_URL_EXPLICIT=1
-            shift 2
-            ;;
-        -i|--instance)
-            [[ -z "$2" ]] && error "Missing value for $1"
-            INSTANCE_ID="$2"
-            shift 2
-            ;;
-        -e|--env)
-            [[ -z "$2" ]] && error "Missing value for $1"
-            ENVIRONMENT="$2"
-            shift 2
-            ;;
-        -R|--role)
-            [[ -z "$2" ]] && error "Missing value for $1"
-            NODE_ROLE="$2"
-            shift 2
-            ;;
-        -r|--registry-url)
-            [[ -z "$2" ]] && error "Missing value for $1"
-            REGISTRY_URL="$2"
-            shift 2
-            ;;
-        --registry-auth)
-            [[ -z "$2" ]] && error "Missing value for $1"
-            REGISTRY_AUTH="$2"
-            shift 2
-            ;;
-        -h|--help)
-            show_help
-            exit 0
-            ;;
-        *)
-            error "Unknown argument: $1"
-            ;;
-    esac
-done
-
-case "$ENVIRONMENT" in
-    prod)
-        DEFAULT_BASE_URL="https://base.dployr.io"
-        ;;
-    dev)
-        DEFAULT_BASE_URL="https://base.dployr.dev"
-        ;;
-    *)
-        error "Invalid environment: $ENVIRONMENT (expected: prod or dev)"
-        ;;
-esac
-
-case "$NODE_ROLE" in
-    instance|build) ;;
-    *) error "Invalid role: $NODE_ROLE (expected: instance or build)" ;;
-esac
-
-if [[ $BASE_URL_EXPLICIT -eq 0 ]]; then
-    BASE_URL="$DEFAULT_BASE_URL"
-fi
-
-if [[ "$NODE_ROLE" == "build" ]]; then
-    [[ -z "$REGISTRY_URL" ]] && error "--registry-url is required when --role build is set"
-    [[ -z "$REGISTRY_AUTH" ]] && error "--registry-auth is required when --role build is set"
-fi
-
-info "Environment: $ENVIRONMENT"
-info "Node role: $NODE_ROLE"
-info "Base URL: $BASE_URL"
-[[ "$NODE_ROLE" == "build" ]] && info "Registry: $REGISTRY_URL"
-
 register_instance() {
     local token="$1"
 
@@ -433,7 +310,6 @@ register_instance() {
     if [[ "$is_registered" == "true" ]]; then
         info "Instance already registered with base; skipping registration."
 
-        # Update local copy of bootstrap token
         if [[ -n "$token" ]]; then
             curl -sS -X POST \
                 -H "Content-Type: application/json" \
@@ -497,153 +373,296 @@ register_instance() {
     error "Instance registration failed with unexpected response: $response"
 }
 
-if [[ $EUID -eq 0 ]]; then
-    info "Installing system-wide to $INSTALL_DIR"
-else
-    INSTALL_DIR="$HOME/.local/bin"
-    info "Installing to user directory: $INSTALL_DIR"
-    mkdir -p "$INSTALL_DIR"
-fi
+render_dployrd_config() {
+    local base_url="$1" instance_id="$2" node_role="$3"
+    local registry_url="$4" registry_auth="$5"
+    local container_memory="$6" container_cpu="$7" container_storage="$8"
+    cat <<EOF
+address = "localhost"
+port = 7879
+max-workers = 5
 
-OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-ARCH=$(uname -m)
+base_url = "$base_url"
+instance_id = "$instance_id"
+node_role = "$node_role"
 
-case $ARCH in
-    x86_64) ARCH="x86_64" ;;
-    aarch64|arm64) ARCH="arm64" ;;
-    *) error "Unsupported architecture: $ARCH" ;;
-esac
+registry_url = "$registry_url"
+registry_auth = "$registry_auth"
 
-case $OS in
-    linux) PLATFORM="Linux" ;;
-    darwin) PLATFORM="Darwin" ;;
-    *) error "Unsupported OS: $OS" ;;
-esac
+container_memory = $container_memory
+container_cpu = $container_cpu
+container_storage = $container_storage
+EOF
+}
 
-info "Detected platform: $PLATFORM-$ARCH"
+render_sudoers() {
+    local systemctl="$1" reboot="$2" mkdir="$3" rm="$4" cp="$5" chmod="$6" tee="$7" docker="$8"
+    cat <<EOF
+dployrd ALL=(ALL) NOPASSWD: $systemctl *
+dployrd ALL=(ALL) NOPASSWD: $reboot
+dployrd ALL=(ALL) NOPASSWD: $mkdir *
+dployrd ALL=(ALL) NOPASSWD: $rm *
+dployrd ALL=(ALL) NOPASSWD: $cp *
+dployrd ALL=(ALL) NOPASSWD: $chmod *
+dployrd ALL=(ALL) NOPASSWD: $tee *
+dployrd ALL=(ALL) NOPASSWD: $docker *
+EOF
+}
 
-install_git
-install_jq
-[[ "$OS" == "linux" && "$ARCH" == "x86_64" && $EUID -eq 0 ]] && install_tomato
+main() {
+    local START_TIME
+    START_TIME=$(date +%s)
 
-if [[ "$VERSION" == "latest" ]]; then
-    info "Fetching latest release..."
-    VERSION=$(curl -sS "https://api.github.com/repos/$REPO/releases/latest" | parse_json '.tag_name')
-    [[ -z "$VERSION" ]] && error "Failed to get latest version"
-    info "Latest version: $VERSION"
-fi
+    if [[ $EUID -eq 0 ]]; then
+        mkdir -p "$LOG_DIR"
+        LOG_FILE="$LOG_DIR/install.log"
+    else
+        LOG_DIR="$HOME/.dployr"
+        mkdir -p "$LOG_DIR"
+        LOG_FILE="$LOG_DIR/install.log"
+    fi
 
-info "Downloading dployr binaries..."
-DOWNLOAD_URL="https://github.com/$REPO/releases/download/$VERSION/dployr-$PLATFORM-$ARCH.tar.gz"
-TEMP_DIR=$(mktemp -d)
+    exec 3>&2
+    exec 4>>"$LOG_FILE"
 
-curl -sL "$DOWNLOAD_URL" -o "$TEMP_DIR/dployr.tar.gz" || error "Failed to download dployr"
-tar -xzf "$TEMP_DIR/dployr.tar.gz" -C "$TEMP_DIR" || error "Failed to extract dployr"
+    log_json "info" "Installation started"
+    log_json "info" "Logging to $LOG_FILE"
 
-EXTRACT_DIR="$TEMP_DIR/dployr-$PLATFORM-$ARCH"
+    export DEBIAN_FRONTEND=noninteractive
 
-if pgrep -x "dployrd" > /dev/null; then
-    # Give any in-flight deployments a chance to complete before
-    # stopping the daemon for upgrade.
-    wait_for_pending_tasks
+    echo "dployr Unix Installer" >&3
+    echo "====================" >&3
 
-    info "Stopping dployrd..."
-    case $OS in
-        linux)
-            if systemctl is-active --quiet dployrd 2>/dev/null; then
-                sudo systemctl stop dployrd
-            else
-                pkill -x dployrd || sudo pkill -x dployrd || true
-            fi
-            ;;
-        darwin)
-            if launchctl list | grep -q io.dployr.dployrd; then
-                launchctl stop io.dployr.dployrd
-            else
-                pkill -x dployrd
-            fi
-            ;;
-    esac
-    sleep 2
-fi
+    if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+        show_help
+        exit 0
+    fi
 
-info "Installing dployr binaries..."
-cp "$EXTRACT_DIR/dployr" "$INSTALL_DIR/" || error "Failed to copy dployr"
-chmod +x "$INSTALL_DIR/dployr"
+    local ENVIRONMENT="prod"
+    local BASE_URL_EXPLICIT=0
 
-cp "$EXTRACT_DIR/dployrd" "$INSTALL_DIR/" || error "Failed to copy dployrd"
-chmod +x "$INSTALL_DIR/dployrd"
-
-if [[ $EUID -eq 0 ]]; then
-    # Create dployrd system user and required groups 
-    for group in dployr-owner dployr-admin dployr-dev dployr-viewer; do
-        if ! getent group "$group" &>/dev/null; then
-            groupadd "$group"
-            log_json "info" "Created group: $group"
-        fi
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -v|--version)
+                [[ -z "$2" ]] && error "Missing value for $1"
+                VERSION="$2"
+                shift 2
+                ;;
+            -t|--token)
+                [[ -z "$2" ]] && error "Missing value for $1"
+                TOKEN="$2"
+                shift 2
+                ;;
+            -b|--base)
+                [[ -z "$2" ]] && error "Missing value for $1"
+                BASE_URL="$2"
+                BASE_URL_EXPLICIT=1
+                shift 2
+                ;;
+            -i|--instance)
+                [[ -z "$2" ]] && error "Missing value for $1"
+                INSTANCE_ID="$2"
+                shift 2
+                ;;
+            -e|--env)
+                [[ -z "$2" ]] && error "Missing value for $1"
+                ENVIRONMENT="$2"
+                shift 2
+                ;;
+            -R|--role)
+                [[ -z "$2" ]] && error "Missing value for $1"
+                NODE_ROLE="$2"
+                shift 2
+                ;;
+            -r|--registry-url)
+                [[ -z "$2" ]] && error "Missing value for $1"
+                REGISTRY_URL="$2"
+                shift 2
+                ;;
+            --registry-auth)
+                [[ -z "$2" ]] && error "Missing value for $1"
+                REGISTRY_AUTH="$2"
+                shift 2
+                ;;
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            *)
+                error "Unknown argument: $1"
+                ;;
+        esac
     done
 
-    if ! id "dployrd" &>/dev/null; then
-        _groups="dployr-admin"
-        getent group docker &>/dev/null && _groups="dployr-admin,docker"
-        useradd --system --create-home --shell /bin/bash -G "$_groups" dployrd
-        log_json "info" "Created dployrd system user"
+    local DEFAULT_BASE_URL
+    case "$ENVIRONMENT" in
+        prod) DEFAULT_BASE_URL="https://base.dployr.io" ;;
+        dev)  DEFAULT_BASE_URL="https://base.dployr.dev" ;;
+        *)    error "Invalid environment: $ENVIRONMENT (expected: prod or dev)" ;;
+    esac
+
+    case "$NODE_ROLE" in
+        instance|build) ;;
+        *) error "Invalid role: $NODE_ROLE (expected: instance or build)" ;;
+    esac
+
+    [[ $BASE_URL_EXPLICIT -eq 0 ]] && BASE_URL="$DEFAULT_BASE_URL"
+
+    if [[ "$NODE_ROLE" == "build" ]]; then
+        [[ -z "$REGISTRY_URL" ]] && error "--registry-url is required when --role build is set"
+        [[ -z "$REGISTRY_AUTH" ]] && error "--registry-auth is required when --role build is set"
     fi
-    mkdir -p /var/log/dployrd /var/lib/dployrd
-    chown dployrd:dployrd /var/log/dployrd /var/lib/dployrd
-    mkdir -p /var/lib/dployrd/.dployr/caddy
-    touch /var/lib/dployrd/.dployr/caddy/Caddyfile
-    chown -R dployrd:dployrd /var/lib/dployrd/.dployr
-fi
 
-info "Installing Caddy..."
-if command -v caddy &> /dev/null; then
-    info "Caddy already installed"
-else
+    info "Environment: $ENVIRONMENT"
+    info "Node role: $NODE_ROLE"
+    info "Base URL: $BASE_URL"
+    [[ "$NODE_ROLE" == "build" ]] && info "Registry: $REGISTRY_URL"
+
+    if [[ $EUID -eq 0 ]]; then
+        info "Installing system-wide to $INSTALL_DIR"
+    else
+        INSTALL_DIR="$HOME/.local/bin"
+        info "Installing to user directory: $INSTALL_DIR"
+        mkdir -p "$INSTALL_DIR"
+    fi
+
+    local OS ARCH PLATFORM
+    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+    ARCH=$(uname -m)
+
+    case $ARCH in
+        x86_64) ARCH="x86_64" ;;
+        aarch64|arm64) ARCH="arm64" ;;
+        *) error "Unsupported architecture: $ARCH" ;;
+    esac
+
     case $OS in
-        linux)
-            if [[ $EUID -eq 0 ]] && command -v apt &> /dev/null; then
-                info "Installing Caddy via apt..."
+        linux) PLATFORM="Linux" ;;
+        darwin) PLATFORM="Darwin" ;;
+        *) error "Unsupported OS: $OS" ;;
+    esac
 
-                while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
-                    sleep 2
-                done
+    info "Detected platform: $PLATFORM-$ARCH"
 
-                apt update -qq < /dev/null
-                apt install -y -qq debian-keyring debian-archive-keyring apt-transport-https < /dev/null
+    install_git
+    install_jq
+    [[ "$OS" == "linux" && "$ARCH" == "x86_64" && $EUID -eq 0 ]] && install_tomato
 
-                curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
-                    | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
-                    || error "Failed to import Caddy GPG key"
+    if [[ "$VERSION" == "latest" ]]; then
+        info "Fetching latest release..."
+        VERSION=$(curl -sS "https://api.github.com/repos/$REPO/releases/latest" | parse_json '.tag_name')
+        [[ -z "$VERSION" ]] && error "Failed to get latest version"
+        info "Latest version: $VERSION"
+    fi
 
-                curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
-                    | tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null \
-                    || error "Failed to add Caddy apt repository"
+    info "Downloading dployr binaries..."
+    local DOWNLOAD_URL="https://github.com/$REPO/releases/download/$VERSION/dployr-$PLATFORM-$ARCH.tar.gz"
+    local TEMP_DIR
+    TEMP_DIR=$(mktemp -d)
 
-                while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
-                    sleep 2
-                done
+    curl -sL "$DOWNLOAD_URL" -o "$TEMP_DIR/dployr.tar.gz" || error "Failed to download dployr"
+    tar -xzf "$TEMP_DIR/dployr.tar.gz" -C "$TEMP_DIR" || error "Failed to extract dployr"
 
-                apt update -qq < /dev/null || error "apt update failed after adding Caddy repository"
-                apt install -y -qq caddy < /dev/null || error "Failed to install Caddy via apt"
+    local EXTRACT_DIR="$TEMP_DIR/dployr-$PLATFORM-$ARCH"
 
-                info "Configuring Caddy systemd service..."
-                # Stop and disable only if we need to replace the service file
-                systemctl stop caddy 2>/dev/null || true
-                systemctl disable caddy 2>/dev/null || true
-                
-                cat > /var/lib/dployrd/.dployr/caddy/Caddyfile <<'EOF'
+    if pgrep -x "dployrd" > /dev/null; then
+        wait_for_pending_tasks
+
+        info "Stopping dployrd..."
+        case $OS in
+            linux)
+                if systemctl is-active --quiet dployrd 2>/dev/null; then
+                    sudo systemctl stop dployrd
+                else
+                    pkill -x dployrd || sudo pkill -x dployrd || true
+                fi
+                ;;
+            darwin)
+                if launchctl list | grep -q io.dployr.dployrd; then
+                    launchctl stop io.dployr.dployrd
+                else
+                    pkill -x dployrd
+                fi
+                ;;
+        esac
+        sleep 2
+    fi
+
+    info "Installing dployr binaries..."
+    cp "$EXTRACT_DIR/dployr" "$INSTALL_DIR/" || error "Failed to copy dployr"
+    chmod +x "$INSTALL_DIR/dployr"
+
+    cp "$EXTRACT_DIR/dployrd" "$INSTALL_DIR/" || error "Failed to copy dployrd"
+    chmod +x "$INSTALL_DIR/dployrd"
+
+    if [[ $EUID -eq 0 ]]; then
+        for group in dployr-owner dployr-admin dployr-dev dployr-viewer; do
+            if ! getent group "$group" &>/dev/null; then
+                groupadd "$group"
+                log_json "info" "Created group: $group"
+            fi
+        done
+
+        if ! id "dployrd" &>/dev/null; then
+            local _groups="dployr-admin"
+            getent group docker &>/dev/null && _groups="dployr-admin,docker"
+            useradd --system --create-home --shell /bin/bash -G "$_groups" dployrd
+            log_json "info" "Created dployrd system user"
+        fi
+        mkdir -p /var/log/dployrd /var/lib/dployrd
+        chown dployrd:dployrd /var/log/dployrd /var/lib/dployrd
+        mkdir -p /var/lib/dployrd/.dployr/caddy
+        touch /var/lib/dployrd/.dployr/caddy/Caddyfile
+        chown -R dployrd:dployrd /var/lib/dployrd/.dployr
+    fi
+
+    info "Installing Caddy..."
+    if command -v caddy &> /dev/null; then
+        info "Caddy already installed"
+    else
+        case $OS in
+            linux)
+                if [[ $EUID -eq 0 ]] && command -v apt &> /dev/null; then
+                    info "Installing Caddy via apt..."
+
+                    while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+                        sleep 2
+                    done
+
+                    apt update -qq < /dev/null
+                    apt install -y -qq debian-keyring debian-archive-keyring apt-transport-https < /dev/null
+
+                    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+                        | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
+                        || error "Failed to import Caddy GPG key"
+
+                    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+                        | tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null \
+                        || error "Failed to add Caddy apt repository"
+
+                    while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do
+                        sleep 2
+                    done
+
+                    apt update -qq < /dev/null || error "apt update failed after adding Caddy repository"
+                    apt install -y -qq caddy < /dev/null || error "Failed to install Caddy via apt"
+
+                    info "Configuring Caddy systemd service..."
+                    systemctl stop caddy 2>/dev/null || true
+                    systemctl disable caddy 2>/dev/null || true
+
+                    cat > /var/lib/dployrd/.dployr/caddy/Caddyfile <<'EOF'
 :80 {
     respond "dployr bootstrapping"
 }
 EOF
-                chown dployrd:dployrd /var/lib/dployrd/.dployr/caddy/Caddyfile
+                    chown dployrd:dployrd /var/lib/dployrd/.dployr/caddy/Caddyfile
 
-                info "Granting Caddy capability to bind to privileged ports..."
-                setcap cap_net_bind_service=+ep /usr/bin/caddy || warn "setcap failed; Caddy may not bind to ports 80/443 without root"
+                    info "Granting Caddy capability to bind to privileged ports..."
+                    setcap cap_net_bind_service=+ep /usr/bin/caddy || warn "setcap failed; Caddy may not bind to ports 80/443 without root"
 
-                mkdir -p /etc/systemd/system/caddy.service.d
-                cat > /etc/systemd/system/caddy.service.d/override.conf << 'EOF'
+                    mkdir -p /etc/systemd/system/caddy.service.d
+                    cat > /etc/systemd/system/caddy.service.d/override.conf << 'EOF'
 [Unit]
 Description=Caddy web server
 After=network.target
@@ -659,21 +678,20 @@ Restart=always
 RestartSec=5
 EOF
 
-                systemctl daemon-reload || error "systemctl daemon-reload failed"
-                systemctl enable caddy || warn "Failed to enable Caddy service"
-                systemctl start caddy || error "Failed to start Caddy service"
-            else
-                info "Installing Caddy via binary download..."
-                CADDY_URL="https://github.com/caddyserver/caddy/releases/latest/download/caddy_${OS}_${ARCH}.tar.gz"
-                curl -sL "$CADDY_URL" -o "$TEMP_DIR/caddy.tar.gz"
-                tar -xzf "$TEMP_DIR/caddy.tar.gz" -C "$TEMP_DIR"
-                cp "$TEMP_DIR/caddy" "$INSTALL_DIR/"
-                chmod +x "$INSTALL_DIR/caddy"
+                    systemctl daemon-reload || error "systemctl daemon-reload failed"
+                    systemctl enable caddy || warn "Failed to enable Caddy service"
+                    systemctl start caddy || error "Failed to start Caddy service"
+                else
+                    info "Installing Caddy via binary download..."
+                    local CADDY_URL="https://github.com/caddyserver/caddy/releases/latest/download/caddy_${OS}_${ARCH}.tar.gz"
+                    curl -sL "$CADDY_URL" -o "$TEMP_DIR/caddy.tar.gz"
+                    tar -xzf "$TEMP_DIR/caddy.tar.gz" -C "$TEMP_DIR"
+                    cp "$TEMP_DIR/caddy" "$INSTALL_DIR/"
+                    chmod +x "$INSTALL_DIR/caddy"
 
-                # Create systemd service for binary installation (if systemd exists)
-                if command -v systemctl &>/dev/null && [[ $EUID -eq 0 ]]; then
-                    info "Creating systemd service for Caddy..."
-                    cat > /etc/systemd/system/caddy.service << 'EOF'
+                    if command -v systemctl &>/dev/null && [[ $EUID -eq 0 ]]; then
+                        info "Creating systemd service for Caddy..."
+                        cat > /etc/systemd/system/caddy.service << 'EOF'
 [Unit]
 Description=Caddy web server
 After=network.target
@@ -689,32 +707,31 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
-                    systemctl daemon-reload
-                    systemctl enable caddy || warn "Failed to enable Caddy service"
-                    systemctl start caddy || error "Failed to start Caddy service"
-                else
-                    warn "systemd not available or not root – Caddy binary installed but not started automatically"
+                        systemctl daemon-reload
+                        systemctl enable caddy || warn "Failed to enable Caddy service"
+                        systemctl start caddy || error "Failed to start Caddy service"
+                    else
+                        warn "systemd not available or not root – Caddy binary installed but not started automatically"
+                    fi
                 fi
-            fi
-            ;;
-        darwin)
-            if command -v brew &> /dev/null; then
-                info "Installing Caddy via Homebrew..."
-                brew install -q caddy
-                info "Starting Caddy as a background service..."
-                brew services start caddy || warn "Failed to start Caddy via brew services"
-            else
-                info "Installing Caddy via binary download (macOS)..."
-                CADDY_URL="https://github.com/caddyserver/caddy/releases/latest/download/caddy_${OS}_${ARCH}.tar.gz"
-                curl -sL "$CADDY_URL" -o "$TEMP_DIR/caddy.tar.gz"
-                tar -xzf "$TEMP_DIR/caddy.tar.gz" -C "$TEMP_DIR"
-                cp "$TEMP_DIR/caddy" "$INSTALL_DIR/"
-                chmod +x "$INSTALL_DIR/caddy"
+                ;;
+            darwin)
+                if command -v brew &> /dev/null; then
+                    info "Installing Caddy via Homebrew..."
+                    brew install -q caddy
+                    info "Starting Caddy as a background service..."
+                    brew services start caddy || warn "Failed to start Caddy via brew services"
+                else
+                    info "Installing Caddy via binary download (macOS)..."
+                    local CADDY_URL="https://github.com/caddyserver/caddy/releases/latest/download/caddy_${OS}_${ARCH}.tar.gz"
+                    curl -sL "$CADDY_URL" -o "$TEMP_DIR/caddy.tar.gz"
+                    tar -xzf "$TEMP_DIR/caddy.tar.gz" -C "$TEMP_DIR"
+                    cp "$TEMP_DIR/caddy" "$INSTALL_DIR/"
+                    chmod +x "$INSTALL_DIR/caddy"
 
-                # Create launchd plist for binary installation
-                if [[ $EUID -eq 0 ]]; then
-                    info "Creating launchd plist for Caddy..."
-                    cat > /Library/LaunchDaemons/com.caddyserver.caddy.plist << 'EOF'
+                    if [[ $EUID -eq 0 ]]; then
+                        info "Creating launchd plist for Caddy..."
+                        cat > /Library/LaunchDaemons/com.caddyserver.caddy.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -743,118 +760,86 @@ EOF
 </dict>
 </plist>
 EOF
-                    launchctl load /Library/LaunchDaemons/com.caddyserver.caddy.plist
-                    launchctl start com.caddyserver.caddy || warn "Failed to start Caddy via launchctl"
-                else
-                    warn "Root privileges required to install launchd plist – Caddy binary installed but not started"
+                        launchctl load /Library/LaunchDaemons/com.caddyserver.caddy.plist
+                        launchctl start com.caddyserver.caddy || warn "Failed to start Caddy via launchctl"
+                    else
+                        warn "Root privileges required to install launchd plist – Caddy binary installed but not started"
+                    fi
                 fi
-            fi
-            ;;
-    esac
-fi
-
-# info "Installing vfox..."
-# if command -v vfox &> /dev/null; then
-#     info "vfox already installed"
-# else
-#     curl -sSL https://raw.githubusercontent.com/version-fox/vfox/main/install.sh | bash || error "Failed to install vfox"
-# fi
-
-info "Installing docker..."
-if ! command -v docker &> /dev/null; then
-    info "Docker not found. Installing..."
-    if [ "$(id -u)" -ne 0 ]; then
-        error "Docker installation requires root privileges"
+                ;;
+        esac
     fi
-    
-    curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
-    sh /tmp/get-docker.sh
-    rm -f /tmp/get-docker.sh
-    
+
+    info "Installing docker..."
     if ! command -v docker &> /dev/null; then
-        error "Docker installation failed"
-    fi
-    
-    info "Docker installed successfully"
-fi
-
-case $OS in
-    darwin)
-        CONFIG_DIR="/usr/local/etc/dployr"
-        ;;
-    *)
-        CONFIG_DIR="/etc/dployr"
-        ;;
-esac
-CONFIG_FILE="$CONFIG_DIR/config.toml"
-
-info "Creating system configuration..."
-[[ $EUID -ne 0 ]] && error "System-wide installation requires root privileges"
-
-mkdir -p "$CONFIG_DIR"
-
-CONTAINER_MEMORY="${CONTAINER_MEMORY:-0}"
-CONTAINER_CPU="${CONTAINER_CPU:-0}"
-CONTAINER_STORAGE="${CONTAINER_STORAGE:-0}"
-
-if [[ ! -f "$CONFIG_FILE" ]]; then
-    instance_value="${INSTANCE_ID:-my-instance-id}"
-    cat > "$CONFIG_FILE" << EOF
-address = "localhost"
-port = 7879
-max-workers = 5
-
-base_url = "$BASE_URL"
-instance_id = "$instance_value"
-node_role = "$NODE_ROLE"
-
-registry_url = "$REGISTRY_URL"
-registry_auth = "$REGISTRY_AUTH"
-
-container_memory = $CONTAINER_MEMORY
-container_cpu = $CONTAINER_CPU
-container_storage = $CONTAINER_STORAGE
-EOF
-    chmod 644 "$CONFIG_FILE"
-    chmod 755 "$CONFIG_DIR"
-    info "Created system config at $CONFIG_FILE"
-    [[ -n "$INSTANCE_ID" ]] && info "Using custom instance_id: $INSTANCE_ID"
-    [[ "$NODE_ROLE" == "build" ]] && info "Build node configured with registry: $REGISTRY_URL"
-else
-    info "Config file already exists at $CONFIG_FILE — skipping config write"
-    info "To update registry/role settings, edit $CONFIG_FILE directly"
-fi
-
-info "Setting up dployrd service..."
-case $OS in
-    linux)
-        if ! id "dployrd" &>/dev/null; then
-            _groups="dployr-admin"
-            getent group docker &>/dev/null && _groups="dployr-admin,docker"
-            useradd --system --create-home --shell /bin/bash -G "$_groups" dployrd
-            log_json "info" "Created dployrd system user"
-        else
-            usermod -aG docker dployrd 2>/dev/null || true
+        info "Docker not found. Installing..."
+        if [ "$(id -u)" -ne 0 ]; then
+            error "Docker installation requires root privileges"
         fi
-        
-        mkdir -p /var/log/dployrd /var/lib/dployrd
-        chown dployrd:dployrd /var/log/dployrd /var/lib/dployrd
-        
-        mkdir -p /var/lib/dployrd/.dployr/logs/caddy
-        chown -R dployrd:dployrd /var/lib/dployrd/.dployr
-        systemctl restart caddy || warn "Failed to restart Caddy"
-        chown -R dployrd:dployrd /var/lib/dployrd/.dployr/logs/caddy
-        
-        mkdir -p /home/dployrd/.version-fox/temp
-        chown -R dployrd:dployrd /home/dployrd/.version-fox
-        chmod -R 755 /home/dployrd/.version-fox
-        
-        info "Setting up vfox plugins..."
-        for plugin in nodejs python golang php java dotnet ruby; do
-            sudo -u dployrd bash -c "cd /var/lib/dployrd && vfox add $plugin" || warn "Failed to add $plugin plugin"
-        done
 
-        cat > /etc/systemd/system/dployrd.service << 'EOF'
+        curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
+        sh /tmp/get-docker.sh
+        rm -f /tmp/get-docker.sh
+
+        if ! command -v docker &> /dev/null; then
+            error "Docker installation failed"
+        fi
+
+        info "Docker installed successfully"
+    fi
+
+    local CONFIG_DIR CONFIG_FILE
+    case $OS in
+        darwin) CONFIG_DIR="/usr/local/etc/dployr" ;;
+        *)      CONFIG_DIR="/etc/dployr" ;;
+    esac
+    CONFIG_FILE="$CONFIG_DIR/config.toml"
+
+    info "Creating system configuration..."
+    [[ $EUID -ne 0 ]] && error "System-wide installation requires root privileges"
+
+    mkdir -p "$CONFIG_DIR"
+
+    local CONTAINER_MEMORY="${CONTAINER_MEMORY:-0}"
+    local CONTAINER_CPU="${CONTAINER_CPU:-0}"
+    local CONTAINER_STORAGE="${CONTAINER_STORAGE:-0}"
+
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        local instance_value="${INSTANCE_ID:-my-instance-id}"
+        render_dployrd_config "$BASE_URL" "$instance_value" "$NODE_ROLE" \
+            "$REGISTRY_URL" "$REGISTRY_AUTH" \
+            "$CONTAINER_MEMORY" "$CONTAINER_CPU" "$CONTAINER_STORAGE" > "$CONFIG_FILE"
+        chmod 644 "$CONFIG_FILE"
+        chmod 755 "$CONFIG_DIR"
+        info "Created system config at $CONFIG_FILE"
+        [[ -n "$INSTANCE_ID" ]] && info "Using custom instance_id: $INSTANCE_ID"
+        [[ "$NODE_ROLE" == "build" ]] && info "Build node configured with registry: $REGISTRY_URL"
+    else
+        info "Config file already exists at $CONFIG_FILE — skipping config write"
+        info "To update registry/role settings, edit $CONFIG_FILE directly"
+    fi
+
+    info "Setting up dployrd service..."
+    case $OS in
+        linux)
+            if ! id "dployrd" &>/dev/null; then
+                local _groups="dployr-admin"
+                getent group docker &>/dev/null && _groups="dployr-admin,docker"
+                useradd --system --create-home --shell /bin/bash -G "$_groups" dployrd
+                log_json "info" "Created dployrd system user"
+            else
+                usermod -aG docker dployrd 2>/dev/null || true
+            fi
+
+            mkdir -p /var/log/dployrd /var/lib/dployrd
+            chown dployrd:dployrd /var/log/dployrd /var/lib/dployrd
+
+            mkdir -p /var/lib/dployrd/.dployr/logs/caddy
+            chown -R dployrd:dployrd /var/lib/dployrd/.dployr
+            systemctl restart caddy || warn "Failed to restart Caddy"
+            chown -R dployrd:dployrd /var/lib/dployrd/.dployr/logs/caddy
+
+            cat > /etc/systemd/system/dployrd.service << 'EOF'
 [Unit]
 Description=Dployr Daemon
 After=network.target
@@ -873,38 +858,29 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
-        systemctl daemon-reload
-        systemctl enable dployrd
-        systemctl start dployrd
-        info "dployrd service started"
+            systemctl daemon-reload
+            systemctl enable dployrd
+            systemctl start dployrd
+            info "dployrd service started"
 
-        [[ -n "$TOKEN" ]] && { sleep 1; register_instance "$TOKEN" || true; }
-        ;;
-    darwin)
-        if ! dscl . -read /Users/_dployrd &>/dev/null; then
-            dscl . -create /Users/_dployrd
-            dscl . -create /Users/_dployrd UserShell /usr/bin/false
-            dscl . -create /Users/_dployrd RealName "dployr Daemon"
-            dscl . -create /Users/_dployrd UniqueID 501
-            dscl . -create /Users/_dployrd PrimaryGroupID 20
-            dscl . -create /Users/_dployrd NFSHomeDirectory /var/lib/dployrd
-            dscl . -append /Groups/dployr-admin GroupMembership _dployrd
-            log_json "info" "Created _dployrd system user"
-        fi
-        
-        mkdir -p /var/log/dployrd /var/lib/dployrd
-        chown _dployrd:staff /var/log/dployrd /var/lib/dployrd
-        
-        mkdir -p /var/lib/dployrd/.version-fox/temp
-        chown -R _dployrd:staff /var/lib/dployrd/.version-fox
-        chmod -R 755 /var/lib/dployrd/.version-fox
-        
-        info "Setting up vfox plugins..."
-        for plugin in nodejs python golang php java dotnet ruby; do
-            sudo -u _dployrd bash -c "cd /var/lib/dployrd && vfox add $plugin" || warn "Failed to add $plugin plugin"
-        done
-        
-        cat > /Library/LaunchDaemons/io.dployr.dployrd.plist << 'EOF'
+            [[ -n "$TOKEN" ]] && { sleep 1; register_instance "$TOKEN" || true; }
+            ;;
+        darwin)
+            if ! dscl . -read /Users/_dployrd &>/dev/null; then
+                dscl . -create /Users/_dployrd
+                dscl . -create /Users/_dployrd UserShell /usr/bin/false
+                dscl . -create /Users/_dployrd RealName "dployr Daemon"
+                dscl . -create /Users/_dployrd UniqueID 501
+                dscl . -create /Users/_dployrd PrimaryGroupID 20
+                dscl . -create /Users/_dployrd NFSHomeDirectory /var/lib/dployrd
+                dscl . -append /Groups/dployr-admin GroupMembership _dployrd
+                log_json "info" "Created _dployrd system user"
+            fi
+
+            mkdir -p /var/log/dployrd /var/lib/dployrd
+            chown _dployrd:staff /var/log/dployrd /var/lib/dployrd
+
+            cat > /Library/LaunchDaemons/io.dployr.dployrd.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -930,60 +906,45 @@ EOF
 </dict>
 </plist>
 EOF
-        launchctl load /Library/LaunchDaemons/io.dployr.dployrd.plist
-        launchctl start io.dployr.dployrd
-        info "dployrd service started"
+            launchctl load /Library/LaunchDaemons/io.dployr.dployrd.plist
+            launchctl start io.dployr.dployrd
+            info "dployrd service started"
 
-        # Restart Caddy (launchd) after directories are owned by _dployrd
-        launchctl kickstart -k system/com.caddyserver.caddy 2>/dev/null || launchctl start com.caddyserver.caddy || warn "Failed to restart Caddy"
+            launchctl kickstart -k system/com.caddyserver.caddy 2>/dev/null || launchctl start com.caddyserver.caddy || warn "Failed to restart Caddy"
 
-        [[ -n "$TOKEN" ]] && { sleep 1; register_instance "$TOKEN" || true; }
-        ;;
-esac
+            [[ -n "$TOKEN" ]] && { sleep 1; register_instance "$TOKEN" || true; }
+            ;;
+    esac
 
-if [[ -n "$SHELL" && -f "$HOME/.bashrc" ]]; then
-    # shellcheck disable=SC1091
-    source "$HOME/.bashrc" 2>&1 || true
-    eval "$(vfox activate bash)" 2>&1 || true
-else
-    eval "$(vfox activate bash)" 2>&1 || true
-fi
+    info "Setting up sudo permissions..."
+    local SYSTEMCTL REBOOT TEE MKDIR RM CP CHMOD DOCKER
+    SYSTEMCTL=$(command -v systemctl)
+    TEE=$(command -v tee)
+    MKDIR=$(command -v mkdir)
+    RM=$(command -v rm)
+    CP=$(command -v cp)
+    CHMOD=$(command -v chmod)
+    DOCKER=$(command -v docker)
 
-info "Setting up sudo permissions..."
-SYSTEMCTL=$(command -v systemctl)
-TEE=$(command -v tee)
-MKDIR=$(command -v mkdir)
-RM=$(command -v rm)
-CP=$(command -v cp)
-CHMOD=$(command -v chmod)
-DOCKER=$(command -v docker)
+    for cmd in SYSTEMCTL TEE MKDIR RM CP CHMOD; do
+        [[ -z "${!cmd}" ]] && error "Command $cmd not found"
+    done
 
-for cmd in SYSTEMCTL TEE MKDIR RM CP CHMOD; do
-    [[ -z "${!cmd}" ]] && error "Command $cmd not found"
-done
+    REBOOT=$(command -v reboot)
+    [[ -z "$REBOOT" ]] && error "Command reboot not found"
 
-REBOOT=$(command -v reboot)
-[[ -z "$REBOOT" ]] && error "Command reboot not found"
+    render_sudoers "$SYSTEMCTL" "$REBOOT" "$MKDIR" "$RM" "$CP" "$CHMOD" "$TEE" "$DOCKER" \
+        > /etc/sudoers.d/dployr
+    chmod 440 /etc/sudoers.d/dployr
 
-cat > /etc/sudoers.d/dployr << EOF
-dployrd ALL=(ALL) NOPASSWD: $SYSTEMCTL *
-dployrd ALL=(ALL) NOPASSWD: $REBOOT
-dployrd ALL=(ALL) NOPASSWD: $MKDIR *
-dployrd ALL=(ALL) NOPASSWD: $RM *
-dployrd ALL=(ALL) NOPASSWD: $CP *
-dployrd ALL=(ALL) NOPASSWD: $CHMOD *
-dployrd ALL=(ALL) NOPASSWD: $TEE *
-dployrd ALL=(ALL) NOPASSWD: $DOCKER *
-EOF
-chmod 440 /etc/sudoers.d/dployr
+    rm -rf "$TEMP_DIR"
 
-rm -rf "$TEMP_DIR"
+    local END_TIME
+    END_TIME=$(date +%s)
+    local DURATION=$((END_TIME - START_TIME))
+    log_json "info" "Installation completed in ${DURATION}s"
 
-END_TIME=$(date +%s)
-DURATION=$((END_TIME - START_TIME))
-log_json "info" "Installation completed in ${DURATION}s"
-
-cat >&3 << EOF
+    cat >&3 << EOF
 
 Installation completed successfully!
 
@@ -995,28 +956,33 @@ Installed components:
 Next steps:
 EOF
 
-[[ $EUID -ne 0 ]] && echo "- Add $INSTALL_DIR to your PATH" >&3
-[[ -n "$DPLOYR_DOMAIN" ]] && echo "- Instance URL: https://$DPLOYR_DOMAIN" >&3
-cat >&3 << EOF
+    [[ $EUID -ne 0 ]] && echo "- Add $INSTALL_DIR to your PATH" >&3
+    [[ -n "$DPLOYR_DOMAIN" ]] && echo "- Instance URL: https://$DPLOYR_DOMAIN" >&3
+    cat >&3 << EOF
 - The dployrd daemon is running as a system service
 - Use the CLI: dployr --help
 
 Service management:
 EOF
 
-case $OS in
-    linux)
-        cat >&3 << EOF
+    case $OS in
+        linux)
+            cat >&3 << EOF
 - Status: systemctl status dployrd
 - Stop: systemctl stop dployrd
 - Restart: systemctl restart dployrd
 EOF
-        ;;
-    darwin)
-        cat >&3 << EOF
+            ;;
+        darwin)
+            cat >&3 << EOF
 - Status: launchctl list | grep dployrd
 - Stop: launchctl stop io.dployr.dployrd
 - Restart: launchctl kickstart -k system/io.dployr.dployrd
 EOF
-        ;;
-esac
+            ;;
+    esac
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi
