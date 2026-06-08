@@ -36,13 +36,6 @@ type RemoteObj struct {
 	Token      string `json:"token,omitempty" db:"-"`
 }
 
-type HealthCheck struct {
-	Path     string `json:"path"`
-	Interval int    `json:"interval,omitempty"`
-	Timeout  int    `json:"timeout,omitempty"`
-	Retries  int    `json:"retries,omitempty"`
-}
-
 type Blueprint struct {
 	Name        string            `json:"name" db:"name"`
 	Desc        string            `json:"description" db:"description"`
@@ -60,7 +53,7 @@ type Blueprint struct {
 	Secrets     map[string]string `json:"secrets,omitempty" db:"secrets"`
 	Status      string            `json:"status" db:"status"`
 	ProjectID   *string           `json:"project_id,omitempty" db:"project_id"`
-	HealthCheck *HealthCheck      `json:"health_check,omitempty" db:"health_check"`
+	HealthCheck string            `json:"health_check,omitempty" db:"health_check"`
 }
 
 type Deployment struct {

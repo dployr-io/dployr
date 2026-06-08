@@ -135,8 +135,8 @@ func FromStoreService(s *store.Service) ServiceV1_1 {
 	if s.DeploymentId != "" {
 		svc.DeploymentID = &s.DeploymentId
 	}
-	if s.Blueprint != nil && s.Blueprint.HealthCheck != nil && s.Blueprint.HealthCheck.Path != "" {
-		svc.HealthCheck = s.Blueprint.HealthCheck.Path
+	if s.Blueprint != nil && s.Blueprint.HealthCheck != "" {
+		svc.HealthCheck = s.Blueprint.HealthCheck
 	}
 
 	if len(s.EnvVars) > 0 {

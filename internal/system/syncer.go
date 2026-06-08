@@ -186,8 +186,8 @@ func (s *Syncer) Start(ctx context.Context) {
 		targets := make([]WatchTarget, 0, len(svcs))
 		for _, svc := range svcs {
 			var healthPath string
-			if svc.Blueprint != nil && svc.Blueprint.HealthCheck != nil {
-				healthPath = svc.Blueprint.HealthCheck.Path
+			if svc.Blueprint != nil && svc.Blueprint.HealthCheck != "" {
+				healthPath = svc.Blueprint.HealthCheck
 			}
 
 			targets = append(targets, WatchTarget{
