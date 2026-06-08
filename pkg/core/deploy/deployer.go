@@ -45,7 +45,7 @@ type DeployRequest struct {
 	Secrets     map[string]any     `json:"secrets,omitempty"`
 	Remote      store.RemoteObj    `json:"remote,omitempty"`
 	Domain      string             `json:"domain,omitempty"`
-	HealthCheck *store.HealthCheck `json:"health_check,omitempty"`
+	HealthCheck string             `json:"health_check,omitempty"`
 }
 
 func (dr *DeployRequest) GetRuntimeObj() store.RuntimeObj {
