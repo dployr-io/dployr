@@ -83,7 +83,22 @@ func (h *Handler) StreamLogs(ctx context.Context, opts logs.StreamOptions, sendC
 // streamTail reads from current position and follows new log entries with file rotation detection.
 // Handles both historical reads (with time-based cutoff) and live tailing.
 func (h *Handler) streamTail(ctx context.Context, logPath string, opts logs.StreamOptions, cutoffTime time.Time, sendChunk func(chunk logs.LogChunk) error) error {
-	file, err := os.Open(logPath)
+	var file *os.File
+	var err error
+	for range 30 {
+		file, err = os.Open(logPath)
+		if err == nil {
+			break
+		}
+		if !os.IsNotExist(err) {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 	if err != nil {
 		h.logger.Error("failed to open log file", "error", err, "path", logPath)
 		return fmt.Errorf("failed to open log file: %w", err)

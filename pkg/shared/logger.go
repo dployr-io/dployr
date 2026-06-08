@@ -284,7 +284,8 @@ func writeDeploymentLog(name, dir, level, message string) error {
 	}
 	defer f.Close()
 
-	entry := fmt.Sprintf("%s\n", message)
+	entry := fmt.Sprintf(`{"time":%q,"level":%q,"msg":%q}`+"\n",
+		time.Now().UTC().Format(time.RFC3339Nano), level, message)
 
 	_, err = f.WriteString(entry)
 	return err

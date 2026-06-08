@@ -90,7 +90,7 @@ func detectNextJS(dir string) bool {
 	return inDeps || inDev
 }
 
-func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts, dockerCli deployDockerAPI) (string, error) {
+func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts, dockerCli deployDockerAPI, svcName, logDir string) (string, error) {
 	if cfg.RegistryURL == "" {
 		return "", fmt.Errorf("REGISTRY_URL is not configured on this build node")
 	}
@@ -155,16 +155,45 @@ func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts, dockerC
 	}
 	defer buildResp.Body.Close()
 
-	// Drain and check for build errors in the JSON stream.
+	// Drain docker build output, writing to the log file and surfacing errors.
+	// Open the log file once for the entire build stream rather than per-line.
+	var logWriter *bufio.Writer
+	var logFile *os.File
+	if logDir != "" {
+		if err := os.MkdirAll(logDir, 0755); err == nil {
+			logFile, _ = os.OpenFile(filepath.Join(logDir, strings.ToLower(svcName)+".log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if logFile != nil {
+				logWriter = bufio.NewWriter(logFile)
+			}
+		}
+	}
+
 	scanner := bufio.NewScanner(buildResp.Body)
 	for scanner.Scan() {
 		var msg struct {
 			Error  string `json:"error"`
 			Stream string `json:"stream"`
 		}
-		if json.Unmarshal(scanner.Bytes(), &msg) == nil && msg.Error != "" {
+		if json.Unmarshal(scanner.Bytes(), &msg) != nil {
+			continue
+		}
+		if msg.Error != "" {
+			if logWriter != nil {
+				logWriter.Flush()
+				logFile.Close()
+			}
 			return "", fmt.Errorf("docker build: %s", strings.TrimSpace(msg.Error))
 		}
+		if line := strings.TrimSpace(msg.Stream); line != "" && logWriter != nil {
+			entry := fmt.Sprintf(`{"time":%q,"level":"INFO","msg":%q}`+"\n",
+				time.Now().UTC().Format(time.RFC3339Nano), line)
+			logWriter.WriteString(entry)
+		}
+	}
+
+	if logWriter != nil {
+		logWriter.Flush()
+		logFile.Close()
 	}
 
 	var authStr string

@@ -11,6 +11,7 @@ import (
 
 	"github.com/dployr-io/dployr/internal/version_resolver"
 	"github.com/dployr-io/dployr/pkg/core/deploy"
+	coreutils "github.com/dployr-io/dployr/pkg/core/utils"
 	"github.com/dployr-io/dployr/pkg/shared"
 	"github.com/dployr-io/dployr/pkg/store"
 
@@ -132,12 +133,20 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 }
 
 func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy.BuildResponse, error) {
+	logDir := filepath.Join(coreutils.GetDataDir(), ".dployr", "logs")
+	svcName := coreutils.FormatName(req.Name)
+
+	shared.LogInfoF(svcName, logDir, "starting build")
+
 	workDir, err := SetupDir(req.Name)
 	if err != nil {
+		shared.LogErrF(svcName, logDir, err)
 		return nil, fmt.Errorf("failed to setup working directory: %w", err)
 	}
 
+	shared.LogInfoF(svcName, logDir, "cloning repository")
 	if err := CloneRepo(req.Remote, workDir, d.cfg); err != nil {
+		shared.LogErrF(svcName, logDir, fmt.Errorf("clone failed: %w", err))
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
@@ -166,6 +175,8 @@ func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy
 			env[k] = s
 		}
 	}
+
+	shared.LogInfoF(svcName, logDir, "building image")
 	image, err := BuildImage(req.Name, buildDir, d.cfg, BuildOpts{
 		Runtime:      req.Runtime,
 		Version:      resolution.Version,
@@ -176,11 +187,13 @@ func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy
 		Port:         req.Port,
 		IsNextJS:     req.Runtime == "nodejs" && detectNextJS(buildDir),
 		Env:          env,
-	}, d.dockerCli)
+	}, d.dockerCli, svcName, logDir)
 	if err != nil {
+		shared.LogErrF(svcName, logDir, fmt.Errorf("build failed: %w", err))
 		return nil, fmt.Errorf("build failed: %w", err)
 	}
 
+	shared.LogInfoF(svcName, logDir, "image pushed, build complete")
 	return &deploy.BuildResponse{Image: image}, nil
 }
 
