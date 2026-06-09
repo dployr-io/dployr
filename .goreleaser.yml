@@ -86,34 +86,20 @@ chocolateys:
     copyright: 2025 Emmanuel Madehin
     license_url: "https://raw.githubusercontent.com/dployr-io/dployr/refs/tags/{{ .Tag }}/LICENSE"
     project_source_url: https://github.com/dployr-io/dployr
-    tags: "deployment devops server management deployer"
-    summary: "Your app, your server, your rules!"
+    tags: "deployment cli devops self-hosted nodejs python go php ruby"
+    summary: "Ship apps, not infrastructure."
     description: |
-      Dployr turns any machine into your personal deployment platform. Deploy applications from Git repositories or Docker images with automatic reverse proxy, SSL certificates, and service management.
+      dployr gives you a real server the moment you sign up. Deploy your apps from the CLI, GitHub Actions, or the dashboard. No SSH, no config files, no waiting.
 
-      Features
-      **Multi-runtime support** for Node.js, Python, Go, PHP, Ruby, .NET, Java, Docker and static sites
-      **Git-based deployments** with automatic builds from repositories
-      **Automatic HTTPS** via integrated Caddy reverse proxy with Let's Encrypt
-      **Service management** with automatic Windows service creation via NSSM
-      **REST API and CLI** for automation and CI/CD integration
-      **Real-time log streaming** and deployment monitoring
-      **Domain management** with automatic SSL certificate provisioning
-      **Cross-platform** support for Windows, Linux, and macOS
+      Deploy from a git repository or a Docker image. dployr builds your code, starts the service, handles HTTPS, and streams logs back in real time.
 
-      Package Components
-      `dployr.exe` - Command-line interface for deployment management
-      `dployrd.exe` - Background daemon service
-      Automatic installation of Caddy (reverse proxy) and NSSM (service manager)
+      Runtimes: Node.js, Python, Go, PHP, Ruby, .NET, Java, Static, Docker.
 
-      Notes
-      This package automatically installs and configures Caddy and NSSM as dependencies
-      The daemon will be installed as a Windows service named 'dployrd'
-      Default configuration listens on port 8080
-      Requires administrator privileges for service installation
-    dependencies:
-      - id: caddy
-      - id: nssm
+      On Hobby and Indie plans, dployr manages the server for you. On Pro, connect your own VPS from any provider.
+
+      Package contents
+      dployr.exe - CLI for managing deployments, services, logs, and clusters
+      dployrd.exe - Daemon that runs on your server and executes deploy instructions
     source_repo: "https://push.chocolatey.org/"
 
 # macOS installer with Homebrew
@@ -123,7 +109,7 @@ brews:
       owner: dployr-io
       name: homebrew-dployr
     homepage: https://github.com/dployr-io/homebrew-dployr
-    description: "Your app, your server, your rules!"
+    description: "Ship apps, not infrastructure!"
     license: Apache License, Version 2.0
     dependencies:
       - name: caddy
@@ -140,11 +126,8 @@ scoops:
       owner: dployr-io
       name: scoop-dployr
     homepage: https://github.com/dployr-io/scoop-dployr
-    description: "Your app, your server, your rules!"
+    description: "Ship apps, not infrastructure!"
     license: Apache License, Version 2.0
-    depends:
-      - "caddy"
-      - "nssm"
 
 release:
   github:
