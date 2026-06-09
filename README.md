@@ -23,8 +23,25 @@ On Hobby and Indie plans, dployr provisions and manages the server. On Pro, you 
 
 ## Install
 
+**macOS**
+```bash
+brew install dployr-io/dployr/dployr
+```
+
+**Windows**
+```powershell
+scoop bucket add dployr https://github.com/dployr-io/scoop-dployr
+scoop install dployr
+```
+
+**Linux / macOS (script)**
 ```bash
 curl -sSL https://raw.githubusercontent.com/dployr-io/dployr/master/install.sh | bash
+```
+
+**Windows (script)**
+```powershell
+iwr https://raw.githubusercontent.com/dployr-io/dployr/master/install.ps1 | iex
 ```
 
 ## Connect your own server (Pro)
@@ -39,21 +56,35 @@ Get the bootstrap token from the **Instances** page in the dashboard: [dployr.io
 ## Deploy
 
 ```bash
-dployr deploy --name my-api --runtime nodejs --port 3000
+dployr auth login --email you@example.com
+
+dployr deployments create \
+  --name my-api \
+  --source remote \
+  --runtime nodejs \
+  --runtime-version 20 \
+  --remote https://github.com/your-org/your-repo \
+  --branch main \
+  --run-cmd "npm start" \
+  --port 3000
 ```
 
 ## Common commands
 
 ```bash
-dployr logs my-api --tail 100
+# Follow build logs
+dployr logs my-api --build --follow
 
-dployr env set my-api KEY=value
-dployr env list my-api
+# List services and deployments
+dployr services list
+dployr deployments list
 
-dployr domain add my-api yourdomain.com
+# Stop and start a service
+dployr services stop my-api
+dployr services start my-api
 
-dployr instances
-dployr services
+# List instances
+dployr instances list
 ```
 
 Full reference: [dployr.io/docs/cli](https://dployr.io/docs/cli)
