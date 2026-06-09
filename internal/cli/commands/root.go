@@ -106,6 +106,7 @@ Manage clusters, services, deployments, and instances from your terminal.`,
 	root.SetContext(ctx)
 
 	root.AddCommand(newVersionCmd())
+	root.AddCommand(newUpdateCmd(makeDeps))
 	root.AddCommand(newAuthCmd(makeDeps))
 	root.AddCommand(newContextCmd(makeDeps))
 	root.AddCommand(newClustersCmd(makeDeps))
