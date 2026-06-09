@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/dployr-io/dployr/internal/cli/config"
+	"github.com/dployr-io/dployr/pkg/version"
 )
 
 // EnvToken is the environment variable checked before config for CI usage.
@@ -68,6 +69,7 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "dployr-cli/"+version.Version)
 
 	c.setAuth(req)
 

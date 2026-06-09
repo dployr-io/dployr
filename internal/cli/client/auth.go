@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 )
 
 // RequestEmailOTP sends an OTP to the given email address.
 // Corresponds to POST /v1/auth/login/email.
 func (c *Client) RequestEmailOTP(ctx context.Context, email string) error {
-	resp, err := c.do(ctx, http.MethodPost, "/auth/login/email", nil, LoginEmailRequest{Email: email})
+	q := url.Values{"client": {"cli"}}
+	resp, err := c.do(ctx, http.MethodPost, "/auth/login/email", q, LoginEmailRequest{Email: email})
 	if err != nil {
 		return err
 	}
