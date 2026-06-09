@@ -47,6 +47,9 @@ func Load() (*Config, error) {
 	if _, err := toml.DecodeFile(Path(), &cfg); err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("could not read config: %w", err)
 	}
+	if cfg.BaseURL == "" {
+		cfg.BaseURL = "https://base.dployr.io"
+	}
 	return &cfg, nil
 }
 

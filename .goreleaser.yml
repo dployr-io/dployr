@@ -128,6 +128,11 @@ scoops:
     homepage: https://github.com/dployr-io/scoop-dployr
     description: "Ship apps, not infrastructure!"
     license: Apache License, Version 2.0
+    post_install:
+      - "$config_dir = \"$env:ProgramData\\dployr\""
+      - "$config_file = \"$config_dir\\config.toml\""
+      - "if (-not (Test-Path $config_dir)) { New-Item -ItemType Directory -Path $config_dir | Out-Null }"
+      - "if (-not (Test-Path $config_file)) { Set-Content -Path $config_file -Value 'base_url = \"https://base.dployr.io\"' }"
 
 release:
   github:
