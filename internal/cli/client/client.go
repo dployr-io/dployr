@@ -133,7 +133,7 @@ func del(ctx context.Context, c *Client, path string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil
 	}
 	return readAPIError(resp)
@@ -148,14 +148,14 @@ func (c *Client) clusterQuery() url.Values {
 	return url.Values{"clusterId": {c.cluster}}
 }
 
-// postNoContent performs a POST expecting 204 No Content.
+// postNoContent performs a POST expecting a 2xx success response.
 func postNoContent(ctx context.Context, c *Client, path string, query url.Values, body any) error {
 	resp, err := c.do(ctx, http.MethodPost, path, query, body)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil
 	}
 	return readAPIError(resp)

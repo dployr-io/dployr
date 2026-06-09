@@ -19,12 +19,12 @@ func systemCases(tag string) []systemMethodCase {
 	return []systemMethodCase{
 		{
 			name:     "SystemReboot",
-			call:     func(c *Client) error { return c.SystemReboot(context.Background(), tag) },
+			call:     func(c *Client) error { return c.SystemReboot(context.Background(), tag, false) },
 			wantPath: "/v1/instances/" + tag + "/system/reboot",
 		},
 		{
 			name:     "SystemRestart",
-			call:     func(c *Client) error { return c.SystemRestart(context.Background(), tag) },
+			call:     func(c *Client) error { return c.SystemRestart(context.Background(), tag, false) },
 			wantPath: "/v1/instances/" + tag + "/system/restart",
 		},
 	}

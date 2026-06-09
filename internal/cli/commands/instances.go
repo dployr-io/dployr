@@ -202,46 +202,49 @@ func newInstancesSystemCmd(makeDeps makeDepsFunc) *cobra.Command {
 		Short: "low-level instance system operations (requires admin)",
 	}
 
-	cmd.AddCommand(&cobra.Command{
+	rebootCmd := &cobra.Command{
 		Use:   "reboot <tag>",
 		Short: "reboot the instance machine",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := makeDeps(cmd)
-			if err != nil {
-				return err
-			}
-			if err := requireAuth(d.cfg); err != nil {
-				return err
-			}
-			fmt.Printf("rebooting instance %s...\n", args[0])
-			if err := d.client.SystemReboot(context.Background(), args[0]); err != nil {
-				return err
-			}
-			fmt.Println("reboot command sent")
-			return nil
-		},
-	})
+	}
+	rebootForce := rebootCmd.Flags().BoolP("force", "f", false, "force reboot even if tasks are running")
+	rebootCmd.RunE = func(cmd *cobra.Command, args []string) error {
+		d, err := makeDeps(cmd)
+		if err != nil {
+			return err
+		}
+		if err := requireAuth(d.cfg); err != nil {
+			return err
+		}
+		if err := d.client.SystemReboot(context.Background(), args[0], *rebootForce); err != nil {
+			return err
+		}
+		fmt.Printf("reboot command sent to %s\n", args[0])
+		return nil
+	}
+	cmd.AddCommand(rebootCmd)
 
-	cmd.AddCommand(&cobra.Command{
+	restartCmd := &cobra.Command{
 		Use:   "restart <tag>",
 		Short: "restart the dployrd daemon on an instance",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := makeDeps(cmd)
-			if err != nil {
-				return err
-			}
-			if err := requireAuth(d.cfg); err != nil {
-				return err
-			}
-			if err := d.client.SystemRestart(context.Background(), args[0]); err != nil {
-				return err
-			}
-			fmt.Printf("daemon restarted on instance %s\n", args[0])
-			return nil
-		},
-	})
+	}
+	restartForce := restartCmd.Flags().BoolP("force", "f", false, "force restart even if tasks are running")
+	restartCmd.RunE = func(cmd *cobra.Command, args []string) error {
+		d, err := makeDeps(cmd)
+		if err != nil {
+			return err
+		}
+		if err := requireAuth(d.cfg); err != nil {
+			return err
+		}
+		if err := d.client.SystemRestart(context.Background(), args[0], *restartForce); err != nil {
+			return err
+		}
+		fmt.Printf("restart command sent to %s\n", args[0])
+		return nil
+	}
+	cmd.AddCommand(restartCmd)
 
 	return cmd
 }

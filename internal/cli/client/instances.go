@@ -41,13 +41,13 @@ func (c *Client) DeleteInstance(ctx context.Context, id string) error {
 }
 
 // SystemReboot reboots the underlying machine.
-func (c *Client) SystemReboot(ctx context.Context, instanceID string) error {
-	return postNoContent(ctx, c, fmt.Sprintf("/instances/%s/system/reboot", instanceID), c.clusterQuery(), nil)
+func (c *Client) SystemReboot(ctx context.Context, instanceID string, force bool) error {
+	return postNoContent(ctx, c, fmt.Sprintf("/instances/%s/system/reboot", instanceID), c.clusterQuery(), map[string]bool{"force": force})
 }
 
 // SystemRestart restarts the dployrd daemon on the instance.
-func (c *Client) SystemRestart(ctx context.Context, instanceID string) error {
-	return postNoContent(ctx, c, fmt.Sprintf("/instances/%s/system/restart", instanceID), c.clusterQuery(), nil)
+func (c *Client) SystemRestart(ctx context.Context, instanceID string, force bool) error {
+	return postNoContent(ctx, c, fmt.Sprintf("/instances/%s/system/restart", instanceID), c.clusterQuery(), map[string]bool{"force": force})
 }
 
 // RotateInstanceToken rotates the access token for an instance.
