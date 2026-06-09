@@ -276,6 +276,7 @@ Usage: $0 [options]
 
 Options:
   -v, --version <tag>         Install a specific version (default: latest)
+      --cli-only              Install the dployr CLI only (no daemon, no Docker, no Caddy)
   -t, --token <token>         Instance registration token
   -b, --base <url>            Base API URL (overrides --env)
   -i, --instance <id>         Instance ID for config
@@ -290,12 +291,52 @@ Environment:
   dev  → https://base.dployr.dev
 
 Examples:
-  $0
+  $0 --cli-only
+  $0 --cli-only -v v0.3.1
   $0 -e dev
   $0 -v v0.3.1 -t <token>
-  $0 -e dev -b https://custom.internal
   $0 -R build -r registry.digitalocean.com/my-registry --registry-auth <do-token>
 EOF
+}
+
+install_completions() {
+    local bin="$1"
+    local shell_name
+
+    # bash
+    if command -v bash &>/dev/null; then
+        if [[ $EUID -eq 0 ]]; then
+            mkdir -p /etc/bash_completion.d
+            "$bin" completion bash > /etc/bash_completion.d/dployr 2>/dev/null && \
+                info "bash completion installed to /etc/bash_completion.d/dployr"
+        else
+            local bash_dir="$HOME/.local/share/bash-completion/completions"
+            mkdir -p "$bash_dir"
+            "$bin" completion bash > "$bash_dir/dployr" 2>/dev/null && \
+                info "bash completion installed to $bash_dir/dployr"
+        fi
+    fi
+
+    # zsh
+    if command -v zsh &>/dev/null; then
+        local zsh_dir
+        if [[ $EUID -eq 0 ]]; then
+            zsh_dir="/usr/local/share/zsh/site-functions"
+        else
+            zsh_dir="${ZDOTDIR:-$HOME}/.zfunc"
+        fi
+        mkdir -p "$zsh_dir"
+        "$bin" completion zsh > "$zsh_dir/_dployr" 2>/dev/null && \
+            info "zsh completion installed to $zsh_dir/_dployr"
+    fi
+
+    # fish
+    if command -v fish &>/dev/null; then
+        local fish_dir="$HOME/.config/fish/completions"
+        mkdir -p "$fish_dir"
+        "$bin" completion fish > "$fish_dir/dployr.fish" 2>/dev/null && \
+            info "fish completion installed to $fish_dir/dployr.fish"
+    fi
 }
 
 register_instance() {
@@ -440,9 +481,14 @@ main() {
 
     local ENVIRONMENT="prod"
     local BASE_URL_EXPLICIT=0
+    local CLI_ONLY=0
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --cli-only)
+                CLI_ONLY=1
+                shift
+                ;;
             -v|--version)
                 [[ -z "$2" ]] && error "Missing value for $1"
                 VERSION="$2"
@@ -591,6 +637,14 @@ main() {
     info "Installing dployr binaries..."
     cp "$EXTRACT_DIR/dployr" "$INSTALL_DIR/" || error "Failed to copy dployr"
     chmod +x "$INSTALL_DIR/dployr"
+
+    if [[ $CLI_ONLY -eq 1 ]]; then
+        install_completions "$INSTALL_DIR/dployr"
+        rm -rf "$TEMP_DIR"
+        info "dployr CLI installed to $INSTALL_DIR/dployr"
+        [[ $EUID -ne 0 ]] && info "Make sure $INSTALL_DIR is in your PATH"
+        exit 0
+    fi
 
     cp "$EXTRACT_DIR/dployrd" "$INSTALL_DIR/" || error "Failed to copy dployrd"
     chmod +x "$INSTALL_DIR/dployrd"
