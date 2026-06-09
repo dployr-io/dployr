@@ -32,7 +32,7 @@ func (c *Client) GetInstance(ctx context.Context, id string) (Instance, error) {
 
 // PingInstance sends a health ping to the instance daemon.
 func (c *Client) PingInstance(ctx context.Context, name string) error {
-	return postNoContent(ctx, c, fmt.Sprintf("/instances/%s/ping", name), nil)
+	return postNoContent(ctx, c, fmt.Sprintf("/instances/%s/ping", name), c.clusterQuery(), nil)
 }
 
 // DeleteInstance removes an instance.
@@ -40,29 +40,24 @@ func (c *Client) DeleteInstance(ctx context.Context, id string) error {
 	return del(ctx, c, "/instances/"+id)
 }
 
-// SystemInstall triggers dployr installation on the instance daemon.
-func (c *Client) SystemInstall(ctx context.Context, instanceID string) error {
-	return postNoContent(ctx, c, fmt.Sprintf("/instances/%s/system/install", instanceID), nil)
-}
-
 // SystemReboot reboots the underlying machine.
 func (c *Client) SystemReboot(ctx context.Context, instanceID string) error {
-	return postNoContent(ctx, c, fmt.Sprintf("/instances/%s/system/reboot", instanceID), nil)
+	return postNoContent(ctx, c, fmt.Sprintf("/instances/%s/system/reboot", instanceID), c.clusterQuery(), nil)
 }
 
 // SystemRestart restarts the dployrd daemon on the instance.
 func (c *Client) SystemRestart(ctx context.Context, instanceID string) error {
-	return postNoContent(ctx, c, fmt.Sprintf("/instances/%s/system/restart", instanceID), nil)
+	return postNoContent(ctx, c, fmt.Sprintf("/instances/%s/system/restart", instanceID), c.clusterQuery(), nil)
 }
 
 // RotateInstanceToken rotates the access token for an instance.
 func (c *Client) RotateInstanceToken(ctx context.Context, instanceID string) error {
-	return postNoContent(ctx, c, fmt.Sprintf("/instances/%s/tokens/rotate", instanceID), nil)
+	return postNoContent(ctx, c, fmt.Sprintf("/instances/%s/tokens/rotate", instanceID), c.clusterQuery(), nil)
 }
 
 // AddInstanceDomain configures a custom domain on an instance.
 func (c *Client) AddInstanceDomain(ctx context.Context, name, domain string) error {
-	return postNoContent(ctx, c, fmt.Sprintf("/instances/%s/domain", name), map[string]string{
+	return postNoContent(ctx, c, fmt.Sprintf("/instances/%s/domain", name), c.clusterQuery(), map[string]string{
 		"domain": domain,
 	})
 }

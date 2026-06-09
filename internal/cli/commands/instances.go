@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/dployr-io/dployr/internal/cli/client"
 	"github.com/dployr-io/dployr/internal/cli/output"
 	"github.com/spf13/cobra"
 )
@@ -96,13 +97,23 @@ func newInstancesGetCmd(makeDeps makeDepsFunc) *cobra.Command {
 				return err
 			}
 
-			inst, err := d.client.GetInstance(context.Background(), args[0])
+			instances, err := d.client.ListInstances(context.Background(), 100)
 			if err != nil {
 				return err
 			}
+			var inst *client.Instance
+			for i := range instances {
+				if instances[i].Tag == args[0] || instances[i].ID == args[0] {
+					inst = &instances[i]
+					break
+				}
+			}
+			if inst == nil {
+				return fmt.Errorf("instance %q not found", args[0])
+			}
 
 			if d.out.Format() == output.FormatJSON {
-				return d.out.JSON(inst)
+				return d.out.JSON(*inst)
 			}
 
 			d.out.Printf("id:      %s\n", inst.ID)
@@ -190,26 +201,6 @@ func newInstancesSystemCmd(makeDeps makeDepsFunc) *cobra.Command {
 		Use:   "system",
 		Short: "low-level instance system operations (requires admin)",
 	}
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "install <tag>",
-		Short: "trigger dployr installation on the instance daemon",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			d, err := makeDeps(cmd)
-			if err != nil {
-				return err
-			}
-			if err := requireAuth(d.cfg); err != nil {
-				return err
-			}
-			if err := d.client.SystemInstall(context.Background(), args[0]); err != nil {
-				return err
-			}
-			fmt.Printf("install triggered on instance %s\n", args[0])
-			return nil
-		},
-	})
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "reboot <tag>",

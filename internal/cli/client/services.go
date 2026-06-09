@@ -38,12 +38,12 @@ func (c *Client) GetService(ctx context.Context, id string) (Service, error) {
 
 // StopService stops (sleeps) a service.
 func (c *Client) StopService(ctx context.Context, id string) error {
-	return postNoContent(ctx, c, fmt.Sprintf("/services/%s/stop", id), nil)
+	return postNoContent(ctx, c, fmt.Sprintf("/services/%s/stop", id), nil, nil)
 }
 
 // StartService wakes a sleeping service.
 func (c *Client) StartService(ctx context.Context, id string) error {
-	return postNoContent(ctx, c, fmt.Sprintf("/services/%s/start", id), nil)
+	return postNoContent(ctx, c, fmt.Sprintf("/services/%s/start", id), nil, nil)
 }
 
 // DeleteService deletes a service and its associated resources.

@@ -139,9 +139,18 @@ func del(ctx context.Context, c *Client, path string) error {
 	return readAPIError(resp)
 }
 
+// clusterQuery returns a url.Values with clusterId set when the client has an
+// active cluster. Use this for endpoints that require the cluster scope.
+func (c *Client) clusterQuery() url.Values {
+	if c.cluster == "" {
+		return nil
+	}
+	return url.Values{"clusterId": {c.cluster}}
+}
+
 // postNoContent performs a POST expecting 204 No Content.
-func postNoContent(ctx context.Context, c *Client, path string, body any) error {
-	resp, err := c.do(ctx, http.MethodPost, path, nil, body)
+func postNoContent(ctx context.Context, c *Client, path string, query url.Values, body any) error {
+	resp, err := c.do(ctx, http.MethodPost, path, query, body)
 	if err != nil {
 		return err
 	}

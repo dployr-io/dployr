@@ -74,7 +74,7 @@ func (c *Client) AddClusterUsers(ctx context.Context, clusterName string, emails
 	if err != nil {
 		return err
 	}
-	return postNoContent(ctx, c, fmt.Sprintf("/clusters/%s/users", cl.ID), map[string]any{
+	return postNoContent(ctx, c, fmt.Sprintf("/clusters/%s/users", cl.ID), nil, map[string]any{
 		"emails": emails,
 		"role":   role,
 	})
@@ -86,7 +86,7 @@ func (c *Client) RemoveClusterUsers(ctx context.Context, clusterName string, use
 	if err != nil {
 		return err
 	}
-	return postNoContent(ctx, c, fmt.Sprintf("/clusters/%s/users/remove", cl.ID), map[string]any{
+	return postNoContent(ctx, c, fmt.Sprintf("/clusters/%s/users/remove", cl.ID), nil, map[string]any{
 		"userIds": userIDs,
 	})
 }
@@ -106,7 +106,7 @@ func (c *Client) AcceptInvite(ctx context.Context, clusterName string) error {
 	if err != nil {
 		return err
 	}
-	return postNoContent(ctx, c, fmt.Sprintf("/clusters/%s/users/invites/accept", cl.ID), nil)
+	return postNoContent(ctx, c, fmt.Sprintf("/clusters/%s/users/invites/accept", cl.ID), nil, nil)
 }
 
 // DeclineInvite declines a cluster invite identified by cluster name.
@@ -115,5 +115,5 @@ func (c *Client) DeclineInvite(ctx context.Context, clusterName string) error {
 	if err != nil {
 		return err
 	}
-	return postNoContent(ctx, c, fmt.Sprintf("/clusters/%s/users/invites/decline", cl.ID), nil)
+	return postNoContent(ctx, c, fmt.Sprintf("/clusters/%s/users/invites/decline", cl.ID), nil, nil)
 }
