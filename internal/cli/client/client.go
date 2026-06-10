@@ -192,6 +192,12 @@ type apiErrorEnvelope struct {
 	} `json:"error"`
 }
 
+// ErrTwoFARequired is returned when the server responds with auth.two_fa_required (HTTP 403).
+// Callers can detect this with errors.Is to prompt the user for a TOTP code and retry.
+type ErrTwoFARequired struct{}
+
+func (ErrTwoFARequired) Error() string { return "2FA verification required" }
+
 func readAPIError(resp *http.Response) error {
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode == http.StatusUnauthorized {
@@ -199,6 +205,9 @@ func readAPIError(resp *http.Response) error {
 	}
 	var envelope apiErrorEnvelope
 	if json.Unmarshal(body, &envelope) == nil && envelope.Error.Message != "" {
+		if envelope.Error.Code == "auth.two_fa_required" {
+			return ErrTwoFARequired{}
+		}
 		return fmt.Errorf("%s (HTTP %d)", envelope.Error.Message, resp.StatusCode)
 	}
 	return fmt.Errorf("server returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))

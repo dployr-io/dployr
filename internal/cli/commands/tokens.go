@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/dployr-io/dployr/internal/cli/client"
 	"github.com/dployr-io/dployr/internal/cli/output"
 	"github.com/spf13/cobra"
 )
@@ -56,8 +57,12 @@ Example:
 				exp = &expiresIn
 			}
 
-			tok, err := d.client.CreateToken(context.Background(), name, scopes, exp)
-			if err != nil {
+			var tok client.CreatedApiToken
+			if err := withTwoFA(context.Background(), d, func() error {
+				var e error
+				tok, e = d.client.CreateToken(context.Background(), name, scopes, exp)
+				return e
+			}); err != nil {
 				return err
 			}
 
@@ -159,7 +164,9 @@ func newTokensRevokeCmd(makeDeps makeDepsFunc) *cobra.Command {
 				}
 			}
 
-			if err := d.client.RevokeToken(context.Background(), args[0]); err != nil {
+			if err := withTwoFA(context.Background(), d, func() error {
+				return d.client.RevokeToken(context.Background(), args[0])
+			}); err != nil {
 				return err
 			}
 			fmt.Printf("token %s revoked\n", args[0])
