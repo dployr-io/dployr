@@ -58,14 +58,18 @@ For CI/CD environments use OIDC federation instead:
 }
 
 func loginEmail(d *deps, email string) error {
-	fmt.Printf("sending OTP to %s...\n", email)
-
 	ctx := context.Background()
-	if err := d.client.RequestEmailOTP(ctx, email); err != nil {
+	requireTotp, err := d.client.RequestEmailOTP(ctx, email)
+	if err != nil {
 		return fmt.Errorf("request OTP: %w", err)
 	}
 
-	fmt.Print("enter the code from your email: ")
+	if requireTotp {
+		fmt.Print("enter your authenticator app code: ")
+	} else {
+		fmt.Printf("sending OTP to %s...\n", email)
+		fmt.Print("enter the code from your email: ")
+	}
 	code, err := readLine()
 	if err != nil {
 		return fmt.Errorf("read code: %w", err)

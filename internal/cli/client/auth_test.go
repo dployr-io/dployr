@@ -19,7 +19,7 @@ func TestRequestEmailOTP_OK(t *testing.T) {
 	defer srv.Close()
 
 	c := New(&config.Config{BaseURL: srv.URL})
-	if err := c.RequestEmailOTP(context.Background(), "user@example.com"); err != nil {
+	if _, err := c.RequestEmailOTP(context.Background(), "user@example.com"); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -31,7 +31,7 @@ func TestRequestEmailOTP_ServerError(t *testing.T) {
 	defer srv.Close()
 
 	c := New(&config.Config{BaseURL: srv.URL})
-	if err := c.RequestEmailOTP(context.Background(), "bad@example.com"); err == nil {
+	if _, err := c.RequestEmailOTP(context.Background(), "bad@example.com"); err == nil {
 		t.Error("expected error for non-2xx response")
 	}
 }

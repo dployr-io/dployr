@@ -2,24 +2,33 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 )
 
-// RequestEmailOTP sends an OTP to the given email address.
+// RequestEmailOTP sends an OTP to the given email address and returns whether
+// the account requires TOTP instead of an email code.
 // Corresponds to POST /v1/auth/login/email.
-func (c *Client) RequestEmailOTP(ctx context.Context, email string) error {
+func (c *Client) RequestEmailOTP(ctx context.Context, email string) (requireTotp bool, err error) {
 	q := url.Values{"client": {"cli"}}
 	resp, err := c.do(ctx, http.MethodPost, "/auth/login/email", q, LoginEmailRequest{Email: email})
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent {
-		return nil
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		return false, readAPIError(resp)
 	}
-	return readAPIError(resp)
+
+	var body struct {
+		Data struct {
+			RequireTotp bool `json:"requireTotp"`
+		} `json:"data"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&body)
+	return body.Data.RequireTotp, nil
 }
 
 // VerifyEmailOTP submits the OTP code and returns the session cookie on success.

@@ -27,8 +27,9 @@ var (
 
 // Handler implements the LogStreamer interface.
 type Handler struct {
-	logger *shared.Logger
-	config *shared.Config
+	logger  *shared.Logger
+	config  *shared.Config
+	dataDir string // overrides OS-default paths when set (used in tests)
 }
 
 // NewHandler creates a new log stream handler.
@@ -314,6 +315,9 @@ func (h *Handler) getLogPath(path string) string {
 
 	// System log (app.log)
 	if clean == "app" {
+		if h.dataDir != "" {
+			return filepath.Join(h.dataDir, "logs", "app.log")
+		}
 		var sysLogDir string
 		switch runtime.GOOS {
 		case "windows":
@@ -332,6 +336,9 @@ func (h *Handler) getLogPath(path string) string {
 		if !strings.HasSuffix(svcName, ".log") {
 			svcName = svcName + ".log"
 		}
+		if h.dataDir != "" {
+			return filepath.Join(h.dataDir, ".dployr", "logs", svcName)
+		}
 		switch runtime.GOOS {
 		case "windows":
 			return filepath.Join(os.Getenv("PROGRAMDATA"), "dployr", ".dployr", "logs", svcName)
@@ -341,21 +348,24 @@ func (h *Handler) getLogPath(path string) string {
 	}
 
 	// Deployment logs
-	var dataDir string
-	switch runtime.GOOS {
-	case "windows":
-		dataDir = filepath.Join(os.Getenv("PROGRAMDATA"), "dployr")
-	default:
-		dataDir = "/var/lib/dployrd"
+	var baseDir string
+	if h.dataDir != "" {
+		baseDir = h.dataDir
+	} else {
+		switch runtime.GOOS {
+		case "windows":
+			baseDir = filepath.Join(os.Getenv("PROGRAMDATA"), "dployr")
+		default:
+			baseDir = "/var/lib/dployrd"
+		}
 	}
 
 	clean = strings.ToLower(clean)
-
 	if !strings.HasSuffix(clean, ".log") {
 		clean = clean + ".log"
 	}
 
-	return filepath.Join(dataDir, ".dployr", "logs", clean)
+	return filepath.Join(baseDir, ".dployr", "logs", clean)
 }
 
 // parseDuration converts duration strings like "5m", "1h", "24h" to time.Duration.
