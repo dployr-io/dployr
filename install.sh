@@ -466,10 +466,18 @@ type                = "loki"
 inputs              = ["docker_logs"]
 endpoint            = "${loki_url}"
 encoding.codec      = "json"
+EOF
+
+    if [[ -n "$push_token" ]]; then
+        cat <<EOF
 
 [sinks.loki.auth]
 strategy = "bearer"
 token    = "${push_token}"
+EOF
+    fi
+
+    cat <<EOF
 
 [sinks.loki.labels]
 host      = "${instance_tag}"
@@ -480,7 +488,7 @@ EOF
 }
 
 setup_vector() {
-    [[ -z "$LOKI_URL" || -z "$LOKI_PUSH_TOKEN" ]] && return
+    [[ -z "$LOKI_URL" ]] && return
 
     if ! command -v vector >/dev/null 2>&1; then
         info "Installing Vector..."
