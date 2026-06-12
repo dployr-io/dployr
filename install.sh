@@ -19,6 +19,8 @@ NODE_ROLE="${NODE_ROLE:-instance}"
 REGISTRY_URL="${REGISTRY_URL:-}"
 REGISTRY_AUTH="${REGISTRY_AUTH:-}"
 TOMATO_VERSION="${TOMATO_VERSION:-1.0.0}"
+LOKI_URL="${LOKI_URL:-}"
+LOKI_PUSH_TOKEN="${LOKI_PUSH_TOKEN:-}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -301,7 +303,6 @@ EOF
 
 install_completions() {
     local bin="$1"
-    local shell_name
 
     # bash
     if command -v bash &>/dev/null; then
@@ -450,6 +451,63 @@ dployrd ALL=(ALL) NOPASSWD: $docker *
 EOF
 }
 
+render_vector_config_node() {
+    local loki_url="$1" push_token="$2" instance_tag="$3"
+    cat <<EOF
+[api]
+enabled = true
+address = "127.0.0.1:8686"
+
+[sources.docker_logs]
+type = "docker_logs"
+
+[sinks.loki]
+type                = "loki"
+inputs              = ["docker_logs"]
+endpoint            = "${loki_url}"
+encoding.codec      = "json"
+
+[sinks.loki.auth]
+strategy = "bearer"
+token    = "${push_token}"
+
+[sinks.loki.labels]
+host      = "${instance_tag}"
+container = "{{ container_name }}"
+serviceId = "{{ container_name }}"
+source    = "dployrd"
+EOF
+}
+
+setup_vector() {
+    [[ -z "$LOKI_URL" || -z "$LOKI_PUSH_TOKEN" ]] && return
+
+    if ! command -v vector >/dev/null 2>&1; then
+        info "Installing Vector..."
+        curl -1sLf 'https://setup.vector.dev' | bash >/dev/null 2>&1
+        apt-get install -y vector >/dev/null 2>&1
+    else
+        info "Vector already installed: $(vector --version 2>&1 | head -1)"
+    fi
+    rm -f /etc/vector/vector.yaml
+    rm -rf /etc/vector/examples
+
+    local instance_tag
+    instance_tag="$(tomato get 'instance_id' "$CONFIG_FILE" 2>/dev/null || echo "")"
+    [[ -z "$instance_tag" ]] && { warn "instance_id not set in config — Vector not configured"; return; }
+
+    mkdir -p /etc/vector
+    render_vector_config_node "$LOKI_URL" "$LOKI_PUSH_TOKEN" "$instance_tag" > /etc/vector/vector.toml
+    echo 'VECTOR_CONFIG=/etc/vector/vector.toml' > /etc/default/vector
+
+    usermod -aG docker vector >/dev/null 2>&1 || true
+
+    systemctl daemon-reload
+    systemctl enable vector >/dev/null 2>&1
+    systemctl restart vector
+    info "Vector configured → ${LOKI_URL}"
+}
+
 main() {
     local START_TIME
     START_TIME=$(date +%s)
@@ -528,6 +586,16 @@ main() {
             --registry-auth)
                 [[ -z "$2" ]] && error "Missing value for $1"
                 REGISTRY_AUTH="$2"
+                shift 2
+                ;;
+            --loki-url)
+                [[ -z "$2" ]] && error "Missing value for $1"
+                LOKI_URL="$2"
+                shift 2
+                ;;
+            --loki-push-token)
+                [[ -z "$2" ]] && error "Missing value for $1"
+                LOKI_PUSH_TOKEN="$2"
                 shift 2
                 ;;
             -h|--help)
@@ -918,6 +986,8 @@ EOF
             info "dployrd service started"
 
             [[ -n "$TOKEN" ]] && { sleep 1; register_instance "$TOKEN" || true; }
+
+            setup_vector
             ;;
         darwin)
             if ! dscl . -read /Users/_dployrd &>/dev/null; then
