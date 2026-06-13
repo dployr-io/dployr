@@ -170,7 +170,7 @@ func printLogChunk(chunk client.LogChunk) {
 	fmt.Printf("%s%s%s  %s[%s]%s  %s%s%s\n",
 		colorGray, ts, colorReset,
 		sourceColor, chunk.Source, colorReset,
-		levelColor, chunk.Message, colorReset,
+		levelColor, stripMessageTimestamp(chunk.Message), colorReset,
 	)
 }
 
