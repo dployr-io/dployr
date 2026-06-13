@@ -782,6 +782,12 @@ main() {
                     systemctl disable caddy 2>/dev/null || true
 
                     cat > /var/lib/dployrd/.dployr/caddy/Caddyfile <<'EOF'
+{
+    log {
+        level ERROR
+    }
+}
+
 :80 {
     respond "dployr bootstrapping"
 }
