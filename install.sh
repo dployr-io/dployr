@@ -483,7 +483,7 @@ EOF
 host      = "${instance_tag}"
 container = "{{ container_name }}"
 serviceId = "{{ container_name }}"
-source    = "dployrd"
+source    = "runtime"
 EOF
 }
 
