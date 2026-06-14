@@ -32,9 +32,9 @@ var testCycles = map[string][]version_resolver.Cycle{
 		{Cycle: "3.8", Latest: "3.8.20", EOL: version_resolver.NewEOLDate("2024-10-07"), ReleaseDate: "2019-10-14"},
 	},
 	"nodejs": {
-		{Cycle: "22", Latest: "22.12.0", EOL: version_resolver.NewEOLDate(""), ReleaseDate: "2024-04-24", LTS: true},
-		{Cycle: "20", Latest: "20.18.1", EOL: version_resolver.NewEOLDate(""), ReleaseDate: "2023-04-18", LTS: true},
-		{Cycle: "18", Latest: "18.20.5", EOL: version_resolver.NewEOLDate("2025-04-30"), ReleaseDate: "2022-04-19", LTS: true},
+		{Cycle: "22", Latest: "22.12.0", EOL: version_resolver.NewEOLDate(""), ReleaseDate: "2024-04-24", LTS: version_resolver.NewFlexBool(true)},
+		{Cycle: "20", Latest: "20.18.1", EOL: version_resolver.NewEOLDate(""), ReleaseDate: "2023-04-18", LTS: version_resolver.NewFlexBool(true)},
+		{Cycle: "18", Latest: "18.20.5", EOL: version_resolver.NewEOLDate("2025-04-30"), ReleaseDate: "2022-04-19", LTS: version_resolver.NewFlexBool(true)},
 	},
 	"go": {
 		{Cycle: "1.24", Latest: "1.24.2", EOL: version_resolver.NewEOLDate(""), ReleaseDate: "2025-02-11"},
@@ -57,9 +57,9 @@ var testCycles = map[string][]version_resolver.Cycle{
 		{Cycle: "6.0", Latest: "6.0.36", EOL: version_resolver.NewEOLDate("2024-11-12"), ReleaseDate: "2021-11-08"},
 	},
 	"eclipse-temurin": {
-		{Cycle: "21", Latest: "21.0.5", EOL: version_resolver.NewEOLDate(""), ReleaseDate: "2023-09-19", LTS: true},
-		{Cycle: "17", Latest: "17.0.13", EOL: version_resolver.NewEOLDate(""), ReleaseDate: "2021-09-14", LTS: true},
-		{Cycle: "11", Latest: "11.0.25", EOL: version_resolver.NewEOLDate(""), ReleaseDate: "2018-09-25", LTS: true},
+		{Cycle: "21", Latest: "21.0.5", EOL: version_resolver.NewEOLDate(""), ReleaseDate: "2023-09-19", LTS: version_resolver.NewFlexBool(true)},
+		{Cycle: "17", Latest: "17.0.13", EOL: version_resolver.NewEOLDate(""), ReleaseDate: "2021-09-14", LTS: version_resolver.NewFlexBool(true)},
+		{Cycle: "11", Latest: "11.0.25", EOL: version_resolver.NewEOLDate(""), ReleaseDate: "2018-09-25", LTS: version_resolver.NewFlexBool(true)},
 	},
 }
 
@@ -112,10 +112,10 @@ func TestPython_FullPatch(t *testing.T) {
 	}
 }
 
-func TestPython_EOLVersion_ReturnsError(t *testing.T) {
-	err := resolveErr(t, "python", "3.8")
-	if err == nil {
-		t.Fatal("expected error for EOL python 3.8, got nil")
+func TestPython_EOLVersion_ReturnsWarning(t *testing.T) {
+	r := resolve(t, "python", "3.8")
+	if r.Warning == "" {
+		t.Fatal("expected a warning for EOL python 3.8, got none")
 	}
 }
 
@@ -176,10 +176,10 @@ func TestNode_FullPatch(t *testing.T) {
 	}
 }
 
-func TestNode_EOLVersion_ReturnsError(t *testing.T) {
-	err := resolveErr(t, "nodejs", "18")
-	if err == nil {
-		t.Fatal("expected error for EOL nodejs 18")
+func TestNode_EOLVersion_ReturnsWarning(t *testing.T) {
+	r := resolve(t, "nodejs", "18")
+	if r.Warning == "" {
+		t.Fatal("expected a warning for EOL nodejs 18, got none")
 	}
 }
 
@@ -213,10 +213,10 @@ func TestGolang_PatchInputTruncatesToMinor(t *testing.T) {
 	}
 }
 
-func TestGolang_EOLVersion_ReturnsError(t *testing.T) {
-	err := resolveErr(t, "golang", "1.21")
-	if err == nil {
-		t.Fatal("expected error for EOL go 1.21")
+func TestGolang_EOLVersion_ReturnsWarning(t *testing.T) {
+	r := resolve(t, "golang", "1.21")
+	if r.Warning == "" {
+		t.Fatal("expected a warning for EOL go 1.21, got none")
 	}
 }
 
@@ -256,15 +256,41 @@ func TestRuby_MajorMinor(t *testing.T) {
 
 func TestDotnet_NoVersion_PicksLatestStable(t *testing.T) {
 	r := resolve(t, "dotnet", "")
-	if want := "mcr.microsoft.com/dotnet/aspnet:9.0"; r.BuilderImage != want {
-		t.Errorf("got %q, want %q", r.BuilderImage, want)
+	if want := "mcr.microsoft.com/dotnet/sdk:9.0"; r.BuilderImage != want {
+		t.Errorf("BuilderImage: got %q, want %q", r.BuilderImage, want)
+	}
+	if want := "mcr.microsoft.com/dotnet/aspnet:9.0"; r.RunnerImage != want {
+		t.Errorf("RunnerImage: got %q, want %q", r.RunnerImage, want)
 	}
 }
 
 func TestDotnet_MajorMinor(t *testing.T) {
 	r := resolve(t, "dotnet", "8.0")
-	if want := "mcr.microsoft.com/dotnet/aspnet:8.0"; r.BuilderImage != want {
-		t.Errorf("got %q, want %q", r.BuilderImage, want)
+	if want := "mcr.microsoft.com/dotnet/sdk:8.0"; r.BuilderImage != want {
+		t.Errorf("BuilderImage: got %q, want %q", r.BuilderImage, want)
+	}
+	if want := "mcr.microsoft.com/dotnet/aspnet:8.0"; r.RunnerImage != want {
+		t.Errorf("RunnerImage: got %q, want %q", r.RunnerImage, want)
+	}
+}
+
+func TestDotnet_MajorOnlyCycleNormalisedToMinor(t *testing.T) {
+	// Simulate endoflife.date returning a major-only cycle (e.g. "10" for .NET 10).
+	client := &mockClient{data: map[string][]version_resolver.Cycle{
+		"dotnet": {
+			{Cycle: "10", Latest: "10.0.0", EOL: version_resolver.NewEOLDate(""), ReleaseDate: "2025-11-11"},
+			{Cycle: "9.0", Latest: "9.0.4", EOL: version_resolver.NewEOLDate(""), ReleaseDate: "2024-11-12"},
+		},
+	}}
+	r, err := version_resolver.New(client).Resolve("dotnet", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if want := "mcr.microsoft.com/dotnet/sdk:10.0"; r.BuilderImage != want {
+		t.Errorf("BuilderImage: got %q, want %q", r.BuilderImage, want)
+	}
+	if want := "mcr.microsoft.com/dotnet/aspnet:10.0"; r.RunnerImage != want {
+		t.Errorf("RunnerImage: got %q, want %q", r.RunnerImage, want)
 	}
 }
 

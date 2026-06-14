@@ -71,7 +71,10 @@ var specs = map[string]runtimeSpec{
 	"dotnet": {
 		eolProduct:     "dotnet",
 		maxGranularity: granMinor,
-		builderImageFn: func(v string) string { return "mcr.microsoft.com/dotnet/aspnet:" + v },
+		// endoflife.date uses "10" for .NET 10 but MCR image tags require "10.0".
+		// Normalise major-only versions by appending ".0".
+		builderImageFn: func(v string) string { return "mcr.microsoft.com/dotnet/sdk:" + dotnetVersion(v) },
+		runnerImageFn:  func(v string) string { return "mcr.microsoft.com/dotnet/aspnet:" + dotnetVersion(v) },
 	},
 	"java": {
 		eolProduct:     "eclipse-temurin",
@@ -81,4 +84,15 @@ var specs = map[string]runtimeSpec{
 		builderImageFn: func(v string) string { return "maven:3-eclipse-temurin-" + v },
 		runnerImageFn:  func(v string) string { return "eclipse-temurin:" + v + "-jre-alpine" },
 	},
+}
+
+// dotnetVersion ensures the version string always contains a dot, e.g. "10" → "10.0".
+// MCR image tags use major.minor format even when endoflife.date stores the cycle as major-only.
+func dotnetVersion(v string) string {
+	for _, c := range v {
+		if c == '.' {
+			return v
+		}
+	}
+	return v + ".0"
 }

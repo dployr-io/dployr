@@ -19,11 +19,32 @@ type EOLClient interface {
 
 // Cycle is a single release line as returned by endoflife.date.
 type Cycle struct {
-	Cycle       string  `json:"cycle"`
-	Latest      string  `json:"latest"`
-	EOL         EOLDate `json:"eol"`
-	ReleaseDate string  `json:"releaseDate"`
-	LTS         bool    `json:"lts"`
+	Cycle       string   `json:"cycle"`
+	Latest      string   `json:"latest"`
+	EOL         EOLDate  `json:"eol"`
+	ReleaseDate string   `json:"releaseDate"`
+	LTS         FlexBool `json:"lts"`
+}
+
+// FlexBool unmarshals a JSON value that is either a boolean or a date string
+// (e.g. Node.js LTS end dates). Any truthy value is treated as true.
+type FlexBool struct{ v bool }
+
+func NewFlexBool(v bool) FlexBool { return FlexBool{v: v} }
+
+func (f FlexBool) Bool() bool { return f.v }
+
+func (f *FlexBool) UnmarshalJSON(b []byte) error {
+	switch string(b) {
+	case "false", "null":
+		f.v = false
+	case "true":
+		f.v = true
+	default:
+		// Date string like "2026-04-30" — present means LTS is active.
+		f.v = true
+	}
+	return nil
 }
 
 // EOLDate is either "no end-of-life" (the zero value) or a calendar date.
@@ -47,8 +68,14 @@ func NewEOLDate(date string) EOLDate {
 }
 
 func (e *EOLDate) UnmarshalJSON(b []byte) error {
-	if string(b) == "false" || string(b) == "null" {
+	switch string(b) {
+	case "false", "null":
 		e.t = nil
+		return nil
+	case "true":
+		// EOL but no specific date recorded — treat as already expired.
+		past := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+		e.t = &past
 		return nil
 	}
 	var s string

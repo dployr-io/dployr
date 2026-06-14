@@ -20,6 +20,8 @@ type Resolution struct {
 	// Version is the resolved version tag (e.g. "3.12", "21") without the
 	// image name, useful when constructing secondary images inside a Dockerfile.
 	Version string
+	// Warning is non-empty when the resolved version is end-of-life.
+	Warning string
 }
 
 // Resolver resolves user-supplied runtime versions to concrete Docker image
@@ -82,6 +84,25 @@ func bestCycle(cycles []Cycle, pv parsedVersion) *Cycle {
 		}
 	}
 	return nil
+}
+
+// latestInLine returns the most recently released cycle for a major version,
+// regardless of EOL status. Used as a fallback when the requested line is EOL.
+func latestInLine(cycles []Cycle, major string) *Cycle {
+	var best *Cycle
+	for i := range cycles {
+		c := &cycles[i]
+		if major != "" {
+			head := strings.SplitN(c.Cycle, ".", 2)[0]
+			if head != major {
+				continue
+			}
+		}
+		if best == nil || c.ReleaseDate > best.ReleaseDate {
+			best = c
+		}
+	}
+	return best
 }
 
 // latestActive returns the most recently released non-EOL cycle.
@@ -152,6 +173,7 @@ func (r *Resolver) Resolve(runtime, version string) (Resolution, error) {
 	}
 
 	var c *Cycle
+	var warning string
 
 	switch pv.depth {
 	case 0:
@@ -162,7 +184,11 @@ func (r *Resolver) Resolve(runtime, version string) (Resolution, error) {
 	case 1:
 		c = latestActive(cycles, pv.major)
 		if c == nil {
-			return Resolution{}, fmt.Errorf("no active %s release in the %s.x line", runtime, pv.major)
+			c = latestInLine(cycles, pv.major)
+			if c == nil {
+				return Resolution{}, fmt.Errorf("unknown %s version %s", runtime, pv.major)
+			}
+			warning = fmt.Sprintf("%s %s is end-of-life and no longer receives security updates; consider upgrading", runtime, pv.major)
 		}
 	case 2, 3:
 		c = bestCycle(cycles, pv)
@@ -170,7 +196,7 @@ func (r *Resolver) Resolve(runtime, version string) (Resolution, error) {
 			return Resolution{}, fmt.Errorf("unknown %s version %s", runtime, version)
 		}
 		if c.EOL.Expired() {
-			return Resolution{}, fmt.Errorf("%s %s reached end-of-life on %s", runtime, c.Cycle, c.EOL)
+			warning = fmt.Sprintf("%s %s is end-of-life (expired %s) and no longer receives security updates; consider upgrading", runtime, c.Cycle, c.EOL)
 		}
 	}
 
@@ -179,5 +205,6 @@ func (r *Resolver) Resolve(runtime, version string) (Resolution, error) {
 		BuilderImage: spec.builderImage(v),
 		RunnerImage:  spec.runnerImage(v),
 		Version:      v,
+		Warning:      warning,
 	}, nil
 }
