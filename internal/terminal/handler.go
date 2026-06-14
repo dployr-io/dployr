@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	defaultSessionTimeout = 30 * time.Minute
+	defaultSessionTimeout = 10 * time.Minute
 	maxSessions           = 10
 	ptyBufferSize         = 8 * 1024
 )
@@ -35,13 +35,9 @@ type Handler struct {
 }
 
 func NewHandler(logger *shared.Logger) *Handler {
-	h := &Handler{
+	return &Handler{
 		logger: logger,
 	}
-
-	go h.cleanupLoop()
-
-	return h
 }
 
 func (h *Handler) HandleRelaySession(ctx context.Context, conn *websocket.Conn, sessionID string, cols, rows uint16) error {
@@ -83,10 +79,17 @@ func (h *Handler) HandleRelaySession(ctx context.Context, conn *websocket.Conn, 
 		h.mu.Unlock()
 	}()
 
+	// Idle timer resets only on client input; fires cancel() on inactivity.
+	idleTimer := time.AfterFunc(defaultSessionTimeout, func() {
+		logger.Info("terminal session timed out due to inactivity", "session_id", sessionID)
+		cancel()
+	})
+	defer idleTimer.Stop()
+
 	errChan := make(chan error, 2)
 
 	go h.ptyToWebSocket(ctx, session, conn, logger, errChan)
-	go h.webSocketToPTY(ctx, session, conn, logger, errChan)
+	go h.webSocketToPTY(ctx, session, conn, logger, errChan, idleTimer)
 
 	select {
 	case err := <-errChan:
@@ -184,8 +187,6 @@ func (h *Handler) ptyToWebSocket(ctx context.Context, session *terminal.Session,
 			}
 
 			if n > 0 {
-				session.UpdateActivity()
-
 				msg := terminal.Message{
 					Action: terminal.ActionOutput,
 					Data:   string(buf[:n]),
@@ -201,7 +202,7 @@ func (h *Handler) ptyToWebSocket(ctx context.Context, session *terminal.Session,
 	}
 }
 
-func (h *Handler) webSocketToPTY(ctx context.Context, session *terminal.Session, conn *websocket.Conn, logger *shared.Logger, errChan chan error) {
+func (h *Handler) webSocketToPTY(ctx context.Context, session *terminal.Session, conn *websocket.Conn, logger *shared.Logger, errChan chan error, idleTimer *time.Timer) {
 	for {
 		var msg terminal.Message
 		if err := h.readMessage(ctx, conn, &msg); err != nil {
@@ -216,6 +217,7 @@ func (h *Handler) webSocketToPTY(ctx context.Context, session *terminal.Session,
 		}
 
 		session.UpdateActivity()
+		idleTimer.Reset(defaultSessionTimeout)
 
 		switch msg.Action {
 		case terminal.ActionInput:
@@ -277,19 +279,3 @@ func (h *Handler) removeSession(sessionID string) {
 	}
 }
 
-func (h *Handler) cleanupLoop() {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		now := time.Now()
-		h.sessions.Range(func(key, value interface{}) bool {
-			session := value.(*terminal.Session)
-			if now.Sub(session.LastActivity) > defaultSessionTimeout {
-				h.logger.Info("cleaning up inactive session", "session_id", session.ID, "inactive_duration", now.Sub(session.LastActivity))
-				h.removeSession(session.ID)
-			}
-			return true
-		})
-	}
-}
