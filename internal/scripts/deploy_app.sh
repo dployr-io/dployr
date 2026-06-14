@@ -383,7 +383,7 @@ runtime_to_image() {
             echo "golang:${version}"
             ;;
         php)
-            echo "php:${version}"
+            echo "php:${version}-apache"
             ;;
         python)
             echo "python:${version}"
@@ -477,7 +477,7 @@ FROM ${image_ref}
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+COPY go.mod ./
 
 RUN go mod download
 
@@ -494,17 +494,17 @@ EOF
             cat <<EOF
 FROM ${image_ref}
 
-WORKDIR /app
+RUN a2enmod rewrite && sed -i "s/80/${port}/g" /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
+
+WORKDIR /var/www/html
 
 COPY composer.* ./
 
-RUN if [ -f composer.lock ]; then composer install --no-dev --optimize-autoloader; fi
+RUN if [ -f composer.json ]; then composer install --no-dev --optimize-autoloader; fi
 
 COPY . .
 
 ENV PORT=${port}
-
-CMD ${run_cmd:-}
 EOF
             ;;
         ruby)
