@@ -72,6 +72,7 @@ func (c *Client) GetLogs(ctx context.Context, q LogQuery) ([]LogChunk, error) {
 func (c *Client) StreamLogs(ctx context.Context, serviceID, source string, onChunk func(LogChunk)) error {
 	query := url.Values{
 		"follow": {"true"},
+		"since":  {fmt.Sprintf("%d", time.Now().Add(-15*time.Minute).UnixMilli())},
 	}
 	if source != "" && source != "all" {
 		query.Set("source", source)

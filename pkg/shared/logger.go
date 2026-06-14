@@ -5,6 +5,7 @@ package shared
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -284,9 +285,20 @@ func writeDeploymentLog(name, dir, level, message string) error {
 	}
 	defer f.Close()
 
-	entry := fmt.Sprintf(`{"time":%q,"level":%q,"msg":%q}`+"\n",
-		time.Now().UTC().Format(time.RFC3339Nano), level, message)
-
-	_, err = f.WriteString(entry)
+	type logEntry struct {
+		Time  string `json:"time"`
+		Level string `json:"level"`
+		Msg   string `json:"msg"`
+	}
+	b, err := json.Marshal(logEntry{
+		Time:  time.Now().UTC().Format(time.RFC3339Nano),
+		Level: level,
+		Msg:   message,
+	})
+	if err != nil {
+		return err
+	}
+	b = append(b, '\n')
+	_, err = f.Write(b)
 	return err
 }
