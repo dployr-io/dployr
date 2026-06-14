@@ -45,6 +45,14 @@ type Executor struct {
 	wsConnMu        sync.RWMutex
 	terminalHandler TerminalHandler
 	terminalMu      sync.RWMutex
+	activeStreams    sync.Map // streamID → struct{}, guards against duplicate log stream goroutines
+	streamCancelsMu sync.Mutex
+	streamCancels   map[string]streamOwner // path → owner, ensures only one active stream per log path
+}
+
+type streamOwner struct {
+	id     string // streamID that registered this entry
+	cancel context.CancelFunc
 }
 
 var pendingTasks int64
@@ -70,11 +78,12 @@ var taskExecMu sync.Mutex
 
 func NewExecutor(logger *shared.Logger, cfg *shared.Config, handler http.Handler, tokens AccessTokenProvider, auth pkgAuth.Authenticator) *Executor {
 	return &Executor{
-		logger:  logger,
-		cfg:     cfg,
-		handler: handler,
-		tokens:  tokens,
-		auth:    auth,
+		logger:        logger,
+		cfg:           cfg,
+		handler:       handler,
+		tokens:        tokens,
+		auth:          auth,
+		streamCancels: make(map[string]streamOwner),
 	}
 }
 
@@ -168,13 +177,36 @@ func (e *Executor) handleLogStream(ctx context.Context, task *tasks.Task) *tasks
 		}
 	}
 
+	if _, loaded := e.activeStreams.LoadOrStore(payload.StreamID, struct{}{}); loaded {
+		e.logger.Warn("duplicate log stream task ignored", "stream_id", payload.StreamID, "path", payload.Path)
+		return &tasks.Result{ID: task.ID, Status: "done", Result: map[string]interface{}{"message": "stream already active"}}
+	}
+
+	// Cancel any previous stream for this path so the same file is never
+	// streamed twice concurrently (e.g. on reconnect or redeploy).
+	streamCtx, streamCancel := context.WithCancel(ctx)
+	e.streamCancelsMu.Lock()
+	if prev, ok := e.streamCancels[payload.Path]; ok {
+		prev.cancel()
+	}
+	e.streamCancels[payload.Path] = streamOwner{id: payload.StreamID, cancel: streamCancel}
+	e.streamCancelsMu.Unlock()
+
 	e.logger.Info("starting log stream", "stream_id", payload.StreamID, "path", payload.Path, "duration", duration, "start_from", payload.StartFrom)
 
 	// Start streaming in background
 	go func() {
-		streamCtx := ctx
+		defer e.activeStreams.Delete(payload.StreamID)
+		defer streamCancel()
+		defer func() {
+			e.streamCancelsMu.Lock()
+			// Only remove our own entry — a newer stream may have already replaced it.
+			if owner, ok := e.streamCancels[payload.Path]; ok && owner.id == payload.StreamID {
+				delete(e.streamCancels, payload.Path)
+			}
+			e.streamCancelsMu.Unlock()
+		}()
 		logHandler := logs.NewHandler(e.logger)
-
 		opts := corelogs.StreamOptions{
 			StreamID:  payload.StreamID,
 			Path:      payload.Path,
