@@ -398,6 +398,22 @@ func TestGenerateDockerfile_Ruby(t *testing.T) {
 	}
 }
 
+func TestGenerateDockerfile_Ruby_DefaultRunCmd(t *testing.T) {
+	out := generateDockerfile(BuildOpts{Runtime: "ruby", Version: "3.3", Port: 8080})
+	for _, want := range []string{
+		"FROM ruby:3.3-slim",
+		"bundle config set --local without",
+		"mkdir -p tmp/pids",
+		"SECRET_KEY_BASE=placeholder bundle exec rails assets:precompile",
+		"bundle exec puma -C config/puma.rb",
+		"ENV PORT=8080",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("generateDockerfile(ruby,default): missing %q\n\ngot:\n%s", want, out)
+		}
+	}
+}
+
 func TestGenerateDockerfile_Java(t *testing.T) {
 	out := generateDockerfile(BuildOpts{Runtime: "java", Version: "21", Port: 8080})
 	for _, want := range []string{
@@ -418,6 +434,119 @@ func TestGenerateDockerfile_DefaultPort(t *testing.T) {
 	out := generateDockerfile(BuildOpts{Runtime: "nodejs", Version: "20"})
 	if !strings.Contains(out, "ENV PORT=8080") {
 		t.Errorf("generateDockerfile: expected default PORT=8080\n\ngot:\n%s", out)
+	}
+}
+
+func TestDotnetPublishDir_Default(t *testing.T) {
+	if got := dotnetPublishDir("dotnet publish -c Release -o out"); got != "out" {
+		t.Errorf("dotnetPublishDir default: got %q, want %q", got, "out")
+	}
+}
+
+func TestDotnetPublishDir_CustomShortFlag(t *testing.T) {
+	if got := dotnetPublishDir("dotnet publish -c Release -o publish"); got != "publish" {
+		t.Errorf("dotnetPublishDir -o: got %q, want %q", got, "publish")
+	}
+}
+
+func TestDotnetPublishDir_CustomLongFlag(t *testing.T) {
+	if got := dotnetPublishDir("dotnet publish --output /app/dist"); got != "/app/dist" {
+		t.Errorf("dotnetPublishDir --output: got %q, want %q", got, "/app/dist")
+	}
+}
+
+func TestDotnetPublishDir_EqualsSyntax(t *testing.T) {
+	if got := dotnetPublishDir("dotnet publish --output=release"); got != "release" {
+		t.Errorf("dotnetPublishDir --output=: got %q, want %q", got, "release")
+	}
+}
+
+func TestDotnetPublishDir_NoFlag(t *testing.T) {
+	if got := dotnetPublishDir("dotnet publish -c Release"); got != "" {
+		t.Errorf("dotnetPublishDir (no flag): got %q, want %q", got, "")
+	}
+}
+
+func TestGenerateDockerfile_Dotnet(t *testing.T) {
+	out := generateDockerfile(BuildOpts{
+		Runtime:      "dotnet",
+		BuilderImage: "mcr.microsoft.com/dotnet/sdk:9.0",
+		RunnerImage:  "mcr.microsoft.com/dotnet/aspnet:9.0",
+		Port:         3000,
+	})
+	for _, want := range []string{
+		"FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build",
+		"COPY *.csproj ./",
+		"RUN dotnet restore",
+		"RUN dotnet publish -c Release -o out",
+		"FROM mcr.microsoft.com/dotnet/aspnet:9.0",
+		"COPY --from=build /app/out .",
+		"ENV ASPNETCORE_URLS=http://+:3000",
+		"runtimeconfig.json",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("generateDockerfile(dotnet): missing %q\n\ngot:\n%s", want, out)
+		}
+	}
+}
+
+func TestGenerateDockerfile_Dotnet_BuildCmdNoOutputFlag(t *testing.T) {
+	out := generateDockerfile(BuildOpts{
+		Runtime:      "dotnet",
+		BuilderImage: "mcr.microsoft.com/dotnet/sdk:9.0",
+		RunnerImage:  "mcr.microsoft.com/dotnet/aspnet:9.0",
+		BuildCmd:     "dotnet publish -c Release",
+		Port:         3000,
+	})
+	if !strings.Contains(out, "RUN dotnet publish -c Release -o out") {
+		t.Errorf("generateDockerfile(dotnet, no -o): -o out should be injected\n\ngot:\n%s", out)
+	}
+	if !strings.Contains(out, "COPY --from=build /app/out .") {
+		t.Errorf("generateDockerfile(dotnet, no -o): COPY should use injected out dir\n\ngot:\n%s", out)
+	}
+}
+
+func TestGenerateDockerfile_Dotnet_CustomBuildCmd(t *testing.T) {
+	out := generateDockerfile(BuildOpts{
+		Runtime:      "dotnet",
+		BuilderImage: "mcr.microsoft.com/dotnet/sdk:9.0",
+		RunnerImage:  "mcr.microsoft.com/dotnet/aspnet:9.0",
+		BuildCmd:     "dotnet publish -c Release -o publish",
+		Port:         3000,
+	})
+	if !strings.Contains(out, "RUN dotnet publish -c Release -o publish") {
+		t.Errorf("generateDockerfile(dotnet, custom build): missing custom build cmd\n\ngot:\n%s", out)
+	}
+	if !strings.Contains(out, "COPY --from=build /app/publish .") {
+		t.Errorf("generateDockerfile(dotnet, custom build): COPY should use custom output dir\n\ngot:\n%s", out)
+	}
+}
+
+func TestGenerateDockerfile_Dotnet_CustomRunCmd(t *testing.T) {
+	out := generateDockerfile(BuildOpts{
+		Runtime:      "dotnet",
+		BuilderImage: "mcr.microsoft.com/dotnet/sdk:9.0",
+		RunnerImage:  "mcr.microsoft.com/dotnet/aspnet:9.0",
+		RunCmd:       "dotnet MyApp.dll",
+		Port:         3000,
+	})
+	if !strings.Contains(out, "dotnet MyApp.dll") {
+		t.Errorf("generateDockerfile(dotnet, custom run): missing custom run cmd\n\ngot:\n%s", out)
+	}
+	if strings.Contains(out, "runtimeconfig.json") {
+		t.Errorf("generateDockerfile(dotnet, custom run): find fallback should not appear\n\ngot:\n%s", out)
+	}
+}
+
+func TestGenerateDockerfile_Dotnet_MultiStage(t *testing.T) {
+	out := generateDockerfile(BuildOpts{
+		Runtime:      "dotnet",
+		BuilderImage: "mcr.microsoft.com/dotnet/sdk:9.0",
+		RunnerImage:  "mcr.microsoft.com/dotnet/aspnet:9.0",
+		Port:         3000,
+	})
+	if stages := strings.Count(out, "FROM "); stages < 2 {
+		t.Errorf("generateDockerfile(dotnet): expected multi-stage build (>=2 FROM), got %d\n\ngot:\n%s", stages, out)
 	}
 }
 

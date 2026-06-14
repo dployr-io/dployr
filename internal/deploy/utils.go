@@ -90,6 +90,36 @@ func detectNextJS(dir string) bool {
 	return inDeps || inDev
 }
 
+// normalizeDockerLine cleans a raw Docker build stream line for display.
+// Docker sends multi-line Dockerfile commands (Step N/M : RUN ...) as a single
+// stream message with embedded backslash-newline continuations. Replacing them
+// with a space prevents display artifacts like "nodejsnpm" or "&&npm".
+func normalizeDockerLine(s string) string {
+	s = strings.ReplaceAll(s, "\\\n", " ")
+	return strings.TrimSpace(s)
+}
+
+// writeLogEntry writes a single structured JSON log line to f.
+// Uses json.Marshal so string values are always valid JSON regardless of
+// their content (e.g. ANSI escape sequences, backslashes).
+func writeLogEntry(f *os.File, level, msg string) {
+	type entry struct {
+		Time  string `json:"time"`
+		Level string `json:"level"`
+		Msg   string `json:"msg"`
+	}
+	b, err := json.Marshal(entry{
+		Time:  time.Now().UTC().Format(time.RFC3339Nano),
+		Level: level,
+		Msg:   msg,
+	})
+	if err != nil {
+		return
+	}
+	b = append(b, '\n')
+	f.Write(b) //nolint:errcheck
+}
+
 func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts, dockerCli deployDockerAPI, svcName, logDir string) (string, error) {
 	if cfg.RegistryURL == "" {
 		return "", fmt.Errorf("REGISTRY_URL is not configured on this build node")
@@ -156,14 +186,14 @@ func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts, dockerC
 	defer buildResp.Body.Close()
 
 	// Drain docker build output, writing to the log file and surfacing errors.
-	// Open the log file once for the entire build stream rather than per-line.
-	var logWriter *bufio.Writer
+	// Write directly (no bufio) so each line is flushed to disk immediately and
+	// the log file tailer can stream build progress in real time.
 	var logFile *os.File
 	if logDir != "" {
 		if err := os.MkdirAll(logDir, 0755); err == nil {
 			logFile, _ = os.OpenFile(filepath.Join(logDir, strings.ToLower(svcName)+".log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if logFile != nil {
-				logWriter = bufio.NewWriter(logFile)
+				defer logFile.Close()
 			}
 		}
 	}
@@ -178,22 +208,14 @@ func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts, dockerC
 			continue
 		}
 		if msg.Error != "" {
-			if logWriter != nil {
-				logWriter.Flush()
-				logFile.Close()
-			}
 			return "", fmt.Errorf("docker build: %s", strings.TrimSpace(msg.Error))
 		}
-		if line := strings.TrimSpace(msg.Stream); line != "" && logWriter != nil {
-			entry := fmt.Sprintf(`{"time":%q,"level":"INFO","msg":%q}`+"\n",
-				time.Now().UTC().Format(time.RFC3339Nano), line)
-			logWriter.WriteString(entry)
+		if line := normalizeDockerLine(msg.Stream); line != "" && logFile != nil {
+			writeLogEntry(logFile, "INFO", line)
 		}
 	}
-
-	if logWriter != nil {
-		logWriter.Flush()
-		logFile.Close()
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("docker build stream error: %w", err)
 	}
 
 	var authStr string
@@ -211,7 +233,16 @@ func BuildImage(name, srcDir string, cfg *shared.Config, opts BuildOpts, dockerC
 		return "", fmt.Errorf("docker push failed: %w", err)
 	}
 	defer pushRC.Close()
-	if _, err := io.Copy(io.Discard, pushRC); err != nil {
+	pushScanner := bufio.NewScanner(pushRC)
+	for pushScanner.Scan() {
+		var msg struct {
+			Error string `json:"error"`
+		}
+		if json.Unmarshal(pushScanner.Bytes(), &msg) == nil && msg.Error != "" {
+			return "", fmt.Errorf("docker push failed: %s", strings.TrimSpace(msg.Error))
+		}
+	}
+	if err := pushScanner.Err(); err != nil {
 		return "", fmt.Errorf("docker push stream error: %w", err)
 	}
 
@@ -246,7 +277,7 @@ func runtimeBaseImage(runtime, version string) string {
 	case "golang":
 		return "golang:" + version
 	case "php":
-		return "php:" + version + "-fpm-alpine"
+		return "php:" + version + "-apache"
 	case "python":
 		return "python:" + version + "-slim"
 	case "nodejs":
@@ -349,23 +380,104 @@ func generateDockerfile(opts BuildOpts) string {
 		b.WriteString("COPY package*.json ./\nRUN npm install --omit=dev\nCOPY . .\n")
 		templateInstall = "npm install --omit=dev"
 	case "python":
-		b.WriteString("COPY requirements.txt ./\nRUN pip install --no-cache-dir -r requirements.txt\nCOPY . .\n")
+		b.WriteString("COPY requirements.txt ./\n")
+		// Auto-install system libs for common packages that need native extensions.
+		// psycopg2 (not -binary) needs libpq-dev; mysqlclient needs libmysqlclient-dev;
+		// Pillow needs image libs. Users on -binary variants or with custom deps use BuildCmd.
+		b.WriteString("RUN apt-get update -qq && apt-get install -y --no-install-recommends \\\n")
+		b.WriteString("    build-essential \\\n")
+		b.WriteString("    $(grep -qiE '^psycopg2[^-]' requirements.txt 2>/dev/null && echo libpq-dev || true) \\\n")
+		b.WriteString("    $(grep -qi 'mysqlclient' requirements.txt 2>/dev/null && echo default-libmysqlclient-dev || true) \\\n")
+		b.WriteString("    $(grep -qiE '^Pillow|^pillow' requirements.txt 2>/dev/null && echo 'libjpeg-dev libpng-dev' || true) \\\n")
+		b.WriteString("    && rm -rf /var/lib/apt/lists/*\n")
+		b.WriteString("RUN pip install --no-cache-dir -r requirements.txt\nCOPY . .\n")
 		templateInstall = "pip install --no-cache-dir -r requirements.txt"
 	case "golang":
-		b.WriteString("COPY go.mod go.sum ./\nRUN go mod download\nCOPY . .\n")
-		buildTarget := "."
-		if opts.RunCmd != "" {
-			buildTarget = opts.RunCmd
+		b.WriteString("COPY go.mod ./\nRUN go mod download\nCOPY . .\n")
+		if opts.BuildCmd != "" {
+			fmt.Fprintf(&b, "RUN %s\n", opts.BuildCmd)
+		} else {
+			b.WriteString("RUN CGO_ENABLED=0 go build -o /bin/app .\n")
 		}
-		fmt.Fprintf(&b, "RUN CGO_ENABLED=0 go build -o /bin/app %s\n", buildTarget)
 		b.WriteString("\nFROM alpine:3\n")
 		b.WriteString("RUN apk --no-cache add ca-certificates tzdata\n")
 		b.WriteString("COPY --from=0 /bin/app /bin/app\n")
 		fmt.Fprintf(&b, "\nENV PORT=%d\nCMD [\"/bin/app\"]\n", port)
 		return b.String()
+	case "php":
+		b.Reset()
+		fmt.Fprintf(&b, "FROM %s\n\n", builderImg)
+		b.WriteString("RUN a2enmod rewrite\n")
+		fmt.Fprintf(&b, "RUN sed -i 's/80/%d/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf\n\n", port)
+		b.WriteString("WORKDIR /var/www/html\n\n")
+		b.WriteString("COPY composer.* ./\n")
+		// Install system libs and PHP extensions based on what composer.json declares.
+		// pdo_pgsql needs libpq-dev; pdo_mysql is bundled; zip/gd are common Laravel deps.
+		b.WriteString("RUN apt-get update -qq && apt-get install -y --no-install-recommends \\\n")
+		b.WriteString("    unzip libzip-dev \\\n")
+		b.WriteString("    $([ -f composer.json ] && grep -qiE 'pgsql|postgres' composer.json 2>/dev/null && echo libpq-dev || true) \\\n")
+		b.WriteString("    && docker-php-ext-install zip \\\n")
+		b.WriteString("    && ([ -f composer.json ] && grep -qiE 'pgsql|postgres' composer.json && docker-php-ext-install pdo_pgsql || true) \\\n")
+		b.WriteString("    && ([ -f composer.json ] && grep -qiE 'mysql|mariadb' composer.json && docker-php-ext-install pdo_mysql || true) \\\n")
+		b.WriteString("    && rm -rf /var/lib/apt/lists/*\n\n")
+		b.WriteString("RUN if [ -f composer.json ]; then composer install --no-dev --optimize-autoloader; fi\n\n")
+		b.WriteString("COPY . .\n\n")
+		fmt.Fprintf(&b, "ENV PORT=%d\n", port)
+		if opts.RunCmd != "" {
+			fmt.Fprintf(&b, "CMD [\"/bin/sh\", \"-c\", \"%s\"]\n", opts.RunCmd)
+		}
+		return b.String()
+	case "dotnet":
+		sdkImg := builderImg
+		aspnetImg := runnerImg(strings.Replace(builderImg, "/sdk:", "/aspnet:", 1))
+		buildCmd := opts.BuildCmd
+		if buildCmd == "" {
+			buildCmd = "dotnet publish -c Release"
+		}
+		// Ensure a known output directory so the COPY in the runner stage is
+		// always correct, even when the user omits -o from their build command.
+		publishDir := dotnetPublishDir(buildCmd)
+		if publishDir == "" {
+			buildCmd += " -o out"
+			publishDir = "out"
+		}
+		b.Reset()
+		fmt.Fprintf(&b, "FROM %s AS build\n\nWORKDIR /app\n\n", sdkImg)
+		b.WriteString("COPY *.csproj ./\nRUN dotnet restore\nCOPY . .\n")
+		fmt.Fprintf(&b, "RUN %s\n", buildCmd)
+		fmt.Fprintf(&b, "\nFROM %s\nWORKDIR /app\n", aspnetImg)
+		fmt.Fprintf(&b, "COPY --from=build /app/%s .\n", publishDir)
+		fmt.Fprintf(&b, "ENV ASPNETCORE_URLS=http://+:%d\n", port)
+		runCmd := opts.RunCmd
+		if runCmd == "" {
+			runCmd = "f=$(find /app -maxdepth 1 -name '*.runtimeconfig.json' | head -1); dotnet ${f%.runtimeconfig.json}.dll"
+		}
+		fmt.Fprintf(&b, "CMD [\"/bin/sh\", \"-c\", \"%s\"]\n", runCmd)
+		return b.String()
 	case "ruby":
-		b.WriteString("COPY Gemfile* ./\nRUN bundle config set --local without 'development test' && bundle install\nCOPY . .\n")
-		templateInstall = "bundle install"
+		b.WriteString("ENV RAILS_ENV=production RAILS_LOG_TO_STDOUT=1 RAILS_SERVE_STATIC_FILES=true\n")
+		// Copy Gemfile first so we can detect the DB adapter before apt-get runs.
+		b.WriteString("COPY Gemfile Gemfile.lock* ./\n")
+		b.WriteString("RUN apt-get update -qq && apt-get install -y --no-install-recommends build-essential nodejs npm \\\n")
+		b.WriteString("    && (grep -qE \"gem ['\\\"]pg['\\\"]\" Gemfile && apt-get install -y --no-install-recommends libpq-dev || true) \\\n")
+		b.WriteString("    && (grep -qE \"gem ['\\\"]mysql2['\\\"]\" Gemfile && apt-get install -y --no-install-recommends default-libmysqlclient-dev || true) \\\n")
+		b.WriteString("    && (grep -qE \"gem ['\\\"]sqlite3['\\\"]\" Gemfile && apt-get install -y --no-install-recommends libsqlite3-dev || true) \\\n")
+		b.WriteString("    && npm install -g yarn --silent && rm -rf /var/lib/apt/lists/*\n")
+		b.WriteString("RUN bundle config set --local without 'development test' && bundle install\n")
+		b.WriteString("COPY . .\n")
+		b.WriteString("RUN mkdir -p tmp/pids tmp/cache tmp/sockets log\n")
+		if opts.BuildCmd != "" && strings.TrimSpace(opts.BuildCmd) != "bundle install" {
+			fmt.Fprintf(&b, "RUN %s\n", opts.BuildCmd)
+		}
+		b.WriteString("RUN [ -f package.json ] && yarn install --frozen-lockfile 2>/dev/null || true\n")
+		b.WriteString("RUN SECRET_KEY_BASE=placeholder bundle exec rails assets:precompile 2>/dev/null || true\n")
+		runCmd := opts.RunCmd
+		if runCmd == "" {
+			runCmd = "bundle exec puma -C config/puma.rb"
+		}
+		fmt.Fprintf(&b, "\nENV PORT=%d\n", port)
+		fmt.Fprintf(&b, "CMD [\"/bin/sh\", \"-c\", \"%s\"]\n", runCmd)
+		return b.String()
 	case "java":
 		buildCmd := opts.BuildCmd
 		if buildCmd == "" {
@@ -392,6 +504,28 @@ func generateDockerfile(opts BuildOpts) string {
 		fmt.Fprintf(&b, "CMD %s\n", opts.RunCmd)
 	}
 	return b.String()
+}
+
+// dotnetPublishDir extracts the output directory from a dotnet publish command.
+// Returns "" when no -o / --output flag is present.
+func dotnetPublishDir(cmd string) string {
+	parts := strings.Fields(cmd)
+	for i, p := range parts {
+		switch p {
+		case "-o", "--output":
+			if i+1 < len(parts) {
+				return strings.TrimRight(parts[i+1], "/")
+			}
+		default:
+			if after, ok := strings.CutPrefix(p, "--output="); ok {
+				return strings.TrimRight(after, "/")
+			}
+			if after, ok := strings.CutPrefix(p, "-o="); ok {
+				return strings.TrimRight(after, "/")
+			}
+		}
+	}
+	return ""
 }
 
 func (o BuildOpts) runtime() string {
@@ -489,7 +623,6 @@ __pycache__/
 .coverage
 htmlcov/
 dist-info/
-Gemfile.lock
 .bundle/
 .rubygems.lock
 /vendor/bundle/
@@ -498,7 +631,6 @@ Gemfile.lock
 dist/
 build/
 out/
-bin/
 obj/
 *.class
 *.jar
@@ -583,28 +715,25 @@ func CloneRepo(remote store.RemoteObj, destDir string, config *shared.Config) er
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	// Check if destDir already has a .git directory
-	gitDir := filepath.Join(destDir, ".git")
-	if _, err := os.Stat(gitDir); err == nil {
-		pullCmd := fmt.Sprintf("git -C %s pull", destDir)
-		if err := shared.Exec(ctx, pullCmd, destDir); err != nil {
-			if ctx.Err() == context.DeadlineExceeded {
-				return fmt.Errorf("git pull timed out after 5 minutes")
-			}
-			return err
+	// Always do a fresh clone into a clean directory. Re-using an existing
+	// working directory via git pull is fragile (detached HEAD, partial state
+	// from a failed previous build), so wipe and re-clone every time.
+	if err := os.RemoveAll(destDir); err != nil {
+		return fmt.Errorf("failed to clean destination directory: %s", err)
+	}
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return fmt.Errorf("failed to create destination directory: %s", err)
+	}
+
+	cloneCmd := fmt.Sprintf(
+		"GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch %s %s .",
+		remote.Branch, authUrl,
+	)
+	if err := shared.Exec(ctx, cloneCmd, destDir); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("git clone timed out after 5 minutes")
 		}
-	} else {
-		// Ensure destDir exists
-		if err := os.MkdirAll(destDir, 0755); err != nil {
-			return fmt.Errorf("failed to create destination directory: %s", err)
-		}
-		cloneCmd := fmt.Sprintf("git clone --depth 1 --branch %s %s .", remote.Branch, authUrl)
-		if err := shared.Exec(ctx, cloneCmd, destDir); err != nil {
-			if ctx.Err() == context.DeadlineExceeded {
-				return fmt.Errorf("git clone timed out after 5 minutes")
-			}
-			return fmt.Errorf("git clone failed: %s", err)
-		}
+		return fmt.Errorf("git clone failed: %s", err)
 	}
 
 	if remote.CommitHash != "" {
@@ -627,9 +756,6 @@ func CloneRepo(remote store.RemoteObj, destDir string, config *shared.Config) er
 
 func writeDockerIgnore(destDir string) error {
 	dockerIgnorePath := filepath.Join(destDir, ".dockerignore")
-	if _, err := os.Stat(dockerIgnorePath); err == nil {
-		return nil // Respect existing .dockerignore
-	}
 	return os.WriteFile(dockerIgnorePath, []byte(DockerIgnoreContent), 0644)
 }
 
@@ -862,6 +988,9 @@ func runDeployScript(ctx context.Context, bp store.Blueprint, name, logPath stri
 		for scanner.Scan() {
 			shared.LogInfoF(name, logPath, scanner.Text())
 		}
+		if err := scanner.Err(); err != nil {
+			shared.LogErrF(name, logPath, fmt.Errorf("stdout read error: %w", err))
+		}
 	}()
 
 	// Stream stderr to log file; surface [ERROR] lines for structured logging
@@ -875,6 +1004,9 @@ func runDeployScript(ctx context.Context, bp store.Blueprint, name, logPath stri
 			if strings.HasPrefix(line, "[ERROR]") {
 				scriptErr = strings.TrimPrefix(line, "[ERROR] ")
 			}
+		}
+		if err := scanner.Err(); err != nil {
+			shared.LogErrF(name, logPath, fmt.Errorf("stderr read error: %w", err))
 		}
 	}()
 

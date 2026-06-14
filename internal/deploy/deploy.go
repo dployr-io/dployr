@@ -156,12 +156,18 @@ func (d *Deployer) Build(ctx context.Context, req *deploy.BuildRequest) (*deploy
 	}
 
 	if err := writeDockerIgnore(buildDir); err != nil {
+		shared.LogErrF(svcName, logDir, fmt.Errorf("dockerignore: %w", err))
 		return nil, fmt.Errorf("failed to write .dockerignore: %w", err)
 	}
 
+	shared.LogInfoF(svcName, logDir, "resolving runtime version")
 	resolution, err := d.resolver.Resolve(req.Runtime, req.Version)
 	if err != nil {
+		shared.LogErrF(svcName, logDir, fmt.Errorf("version resolution failed: %w", err))
 		return nil, fmt.Errorf("unsupported runtime or version: %w", err)
+	}
+	if resolution.Warning != "" {
+		shared.LogWarnF(svcName, logDir, resolution.Warning)
 	}
 
 	env := make(map[string]string, len(req.EnvVars)+len(req.Secrets))
