@@ -232,7 +232,7 @@ Examples:
 			fmt.Printf("  task:    %s\n", result.TaskID)
 			fmt.Printf("  name:    %s\n", name)
 			fmt.Printf("  status:  pending\n")
-			fmt.Printf("\nfollow build logs with: dployr logs %s --build\n", name)
+			fmt.Printf("\nfollow build logs with: dployr logs %s --build -f\n", name)
 			return nil
 		},
 	}
