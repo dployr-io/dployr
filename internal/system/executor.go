@@ -45,7 +45,7 @@ type Executor struct {
 	wsConnMu        sync.RWMutex
 	terminalHandler TerminalHandler
 	terminalMu      sync.RWMutex
-	activeStreams    sync.Map // streamID → struct{}, guards against duplicate log stream goroutines
+	activeStreams   sync.Map // streamID → struct{}, guards against duplicate log stream goroutines
 	streamCancelsMu sync.Mutex
 	streamCancels   map[string]streamOwner // path → owner, ensures only one active stream per log path
 }

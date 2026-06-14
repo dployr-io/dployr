@@ -278,4 +278,3 @@ func (h *Handler) removeSession(sessionID string) {
 		}
 	}
 }
-
