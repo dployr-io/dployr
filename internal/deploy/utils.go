@@ -962,6 +962,7 @@ func runDeployScript(ctx context.Context, bp store.Blueprint, name, logPath stri
 		strconv.Itoa(cpu),
 		strconv.Itoa(storage),
 		strconv.Itoa(buildMemory),
+		bp.ClusterID,
 	}
 
 	cmd := exec.CommandContext(ctx, "bash", args...)

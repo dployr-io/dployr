@@ -5,7 +5,7 @@
 
 # deploy_app.sh — unified deployment script
 # Handles runtime setup, build, and service installation in one go
-# Usage: deploy_app.sh <action> <service_name> <source> <type> <runtime> <version> <workdir> <run_cmd> <description> <build_cmd> <port> <host_port> [image] [static_dir] [memory_mb] [cpu_millicores] [storage_gb] [build_memory_mb]
+# Usage: deploy_app.sh <action> <service_name> <source> <type> <runtime> <version> <workdir> <run_cmd> <description> <build_cmd> <port> <host_port> [image] [static_dir] [memory_mb] [cpu_millicores] [storage_gb] [build_memory_mb] [cluster_id]
 # Env vars and health_check are read from config.toml in the workdir; resource limits are positional args
 
 set -euo pipefail
@@ -29,6 +29,7 @@ MEMORY="${15:-0}"
 CPU="${16:-0}"
 STORAGE="${17:-0}"
 BUILD_MEMORY="${18:-0}"
+CLUSTER_ID="${19:-}"
 
 # --- logging ---
 log() { echo "[INFO] $*" >&2; }
@@ -50,6 +51,49 @@ log "Detected backend: $BACKEND (source=$SOURCE, type=$TYPE)"
 HEALTH_PATH=""; HEALTH_INTERVAL=30; HEALTH_TIMEOUT=5; HEALTH_RETRIES=3
 
 tget() { tomato get "$1" "${WORKDIR}/config.toml" 2>/dev/null || echo ""; }
+sysget() { tomato get "$1" "/etc/dployr/config.toml" 2>/dev/null || echo ""; }
+
+# Ensures the per-cluster cgroup slice exists with limits from system config.
+# Requires CLUSTER_ID (arg 19) to be set; no-ops when missing.
+# Prints the slice name so callers can pass it to --cgroup-parent.
+ensure_cluster_slice() {
+    ! command -v systemctl >/dev/null 2>&1 && return 0
+    [ -z "$CLUSTER_ID" ] && return 0
+
+    local slice_name="dployr-cluster-${CLUSTER_ID}.slice"
+    local slice_file="/etc/systemd/system/${slice_name}"
+
+    if [ ! -f "$slice_file" ]; then
+        local cluster_memory cluster_cpu
+        cluster_memory=$(sysget 'cluster_memory')
+        cluster_cpu=$(sysget 'cluster_cpu')
+
+        local mem_line="" cpu_line=""
+        if [ "${cluster_memory:-0}" -gt 0 ] 2>/dev/null; then
+            mem_line="MemoryMax=${cluster_memory}M"
+        fi
+        if [ "${cluster_cpu:-0}" -gt 0 ] 2>/dev/null; then
+            # millicores → CPUQuota% (100m = 10%, 250m = 25%)
+            local cpu_pct=$(( cluster_cpu / 10 ))
+            cpu_line="CPUQuota=${cpu_pct}%"
+        fi
+
+        sudo -n tee "$slice_file" > /dev/null << EOF
+[Unit]
+Description=dployr cluster ${CLUSTER_ID}
+Before=slices.target
+
+[Slice]
+${mem_line}
+${cpu_line}
+EOF
+        sudo -n systemctl daemon-reload 2>/dev/null || true
+        sudo -n systemctl start "${slice_name}" 2>/dev/null || true
+        log "Cluster slice created: ${slice_name} (${mem_line} ${cpu_line})"
+    fi
+
+    echo "$slice_name"
+}
 
 read_service_config() {
     local config_file="${WORKDIR}/config.toml"
@@ -690,8 +734,12 @@ docker_create_container() {
     log "Image: $image"
     
     docker rm -f "$name" 2>/dev/null || true
-    
+
+    local cluster_slice
+    cluster_slice=$(ensure_cluster_slice)
+
     local create_cmd=(docker run -d --name "$name" --restart unless-stopped)
+    [ -n "$cluster_slice" ] && create_cmd+=(--cgroup-parent "$cluster_slice")
     
     if [ -n "$port" ] && [ "$port" != "0" ]; then
         if [ -n "$host_port" ]; then
@@ -943,7 +991,7 @@ case "$ACTION" in
         status
         ;;
     *)
-        echo "Usage: $0 {deploy|start|stop|remove|status} <service_name> [source] [type] [runtime] [version] [workdir] [run_cmd] [description] [build_cmd] [port] [host_port] [image] [static_dir]"
+        echo "Usage: $0 {deploy|start|stop|remove|status} <service_name> [source] [type] [runtime] [version] [workdir] [run_cmd] [description] [build_cmd] [port] [host_port] [image] [static_dir] [memory_mb] [cpu_millicores] [storage_gb] [build_memory_mb] [cluster_id]"
         echo ""
         echo "Actions:"
         echo "  deploy  - Full deployment: setup runtime, build, install and start service"

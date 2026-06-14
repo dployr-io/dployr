@@ -44,6 +44,9 @@ type Config struct {
 	ContainerCPU     int
 	ContainerStorage int
 
+	ClusterMemory int // 0 = pro/dedicated (unlimited); >0 = shared node limit in MB
+	ClusterCPU    int // 0 = pro/dedicated (unlimited); >0 = shared node limit in millicores
+
 	LogMaxChunkBytes     int64
 	LogBatchSize         int
 	LogBatchTimeout      time.Duration
@@ -82,6 +85,9 @@ func LoadConfig() (*Config, error) {
 		ContainerMemory:  getEnvAsInt("CONTAINER_MEMORY", 0),
 		ContainerCPU:     getEnvAsInt("CONTAINER_CPU", 0),
 		ContainerStorage: getEnvAsInt("CONTAINER_STORAGE", 0),
+
+		ClusterMemory: getEnvAsInt("CLUSTER_MEMORY", 0),
+		ClusterCPU:    getEnvAsInt("CLUSTER_CPU", 0),
 
 		LogMaxChunkBytes:     getEnvAsInt64("LOG_MAX_CHUNK_BYTES", 8*1024*1024),
 		LogBatchSize:         getEnvAsInt("LOG_BATCH_SIZE", 50),

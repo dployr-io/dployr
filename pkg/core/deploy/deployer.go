@@ -31,6 +31,7 @@ type DeployRequest struct {
 	Name        string          `json:"name" validate:"required"`
 	Description string          `json:"description,omitempty"`
 	UserId      string          `json:"user_id" validate:"required"`
+	ClusterId   string          `json:"cluster_id,omitempty"`
 	Type        string          `json:"type" validate:"required,oneof= static web worker job"`
 	Source      string          `json:"source" validate:"required,oneof=remote image"`
 	Runtime     string          `json:"runtime" validate:"required,oneof=static golang php python nodejs ruby dotnet java"`

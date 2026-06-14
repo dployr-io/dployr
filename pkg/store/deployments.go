@@ -54,6 +54,7 @@ type Blueprint struct {
 	Status      string            `json:"status" db:"status"`
 	ProjectID   *string           `json:"project_id,omitempty" db:"project_id"`
 	HealthCheck string            `json:"health_check,omitempty" db:"health_check"`
+	ClusterID   string            `json:"cluster_id,omitempty" db:"cluster_id"`
 }
 
 type Deployment struct {

@@ -227,6 +227,7 @@ func (w *Worker) runDeployment(ctx context.Context, id string) (string, error) {
 		Status:      d.Blueprint.Status,
 		ProjectID:   d.Blueprint.ProjectID,
 		HealthCheck: d.Blueprint.HealthCheck,
+		ClusterID:   d.Blueprint.ClusterID,
 	}
 
 	shared.LogInfoF(svcName, logPath, "deploying application")

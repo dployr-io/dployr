@@ -419,6 +419,7 @@ render_dployrd_config() {
     local base_url="$1" instance_id="$2" node_role="$3"
     local registry_url="$4" registry_auth="$5"
     local container_memory="$6" container_cpu="$7" container_storage="$8"
+    local cluster_memory="${9:-0}" cluster_cpu="${10:-0}"
     cat <<EOF
 address = "localhost"
 port = 7879
@@ -434,6 +435,9 @@ registry_auth = "$registry_auth"
 container_memory = $container_memory
 container_cpu = $container_cpu
 container_storage = $container_storage
+
+cluster_memory = $cluster_memory
+cluster_cpu = $cluster_cpu
 EOF
 }
 
@@ -806,6 +810,7 @@ After=network.target
 [Service]
 User=dployrd
 Group=dployrd
+Slice=dployr-system.slice
 ExecStart=
 ExecStart=/usr/bin/caddy run --config /var/lib/dployrd/.dployr/caddy/Caddyfile
 WorkingDirectory=/var/lib/dployrd
@@ -939,12 +944,15 @@ EOF
     local CONTAINER_MEMORY="${CONTAINER_MEMORY:-0}"
     local CONTAINER_CPU="${CONTAINER_CPU:-0}"
     local CONTAINER_STORAGE="${CONTAINER_STORAGE:-0}"
+    local CLUSTER_MEMORY="${CLUSTER_MEMORY:-0}"
+    local CLUSTER_CPU="${CLUSTER_CPU:-0}"
 
     if [[ ! -f "$CONFIG_FILE" ]]; then
         local instance_value="${INSTANCE_ID:-my-instance-id}"
         render_dployrd_config "$BASE_URL" "$instance_value" "$NODE_ROLE" \
             "$REGISTRY_URL" "$REGISTRY_AUTH" \
-            "$CONTAINER_MEMORY" "$CONTAINER_CPU" "$CONTAINER_STORAGE" > "$CONFIG_FILE"
+            "$CONTAINER_MEMORY" "$CONTAINER_CPU" "$CONTAINER_STORAGE" \
+            "$CLUSTER_MEMORY" "$CLUSTER_CPU" > "$CONFIG_FILE"
         chmod 644 "$CONFIG_FILE"
         chmod 755 "$CONFIG_DIR"
         info "Created system config at $CONFIG_FILE"
@@ -953,6 +961,25 @@ EOF
     else
         info "Config file already exists at $CONFIG_FILE — skipping config write"
         info "To update registry/role settings, edit $CONFIG_FILE directly"
+    fi
+
+    if [[ "$OS" == "linux" && $EUID -eq 0 ]]; then
+        info "Configuring cgroup slices..."
+
+        # Protected system slice — dployrd, Caddy, Vector are never starved by user workloads
+        cat > /etc/systemd/system/dployr-system.slice << 'EOF'
+[Unit]
+Description=dployr system services
+Before=slices.target
+
+[Slice]
+MemoryMin=256M
+CPUWeight=1000
+EOF
+
+        systemctl daemon-reload
+        systemctl start dployr-system.slice 2>/dev/null || true
+        info "System protection slice configured (MemoryMin=256M CPUWeight=1000)"
     fi
 
     info "Setting up dployrd service..."
@@ -984,6 +1011,7 @@ After=network.target
 Type=simple
 User=dployrd
 Group=dployrd
+Slice=dployr-system.slice
 ExecStart=/usr/local/bin/dployrd
 WorkingDirectory=/var/lib/dployrd
 StandardOutput=append:/var/log/dployrd/dployrd.log

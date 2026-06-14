@@ -6,21 +6,29 @@ package system
 
 // UpdateV1_1 is the v1.1 status update schema
 type UpdateV1_1 struct {
-	Schema      string          `json:"schema"` // "v1.1"
-	Sequence    uint64          `json:"sequence"`
-	Epoch       string          `json:"epoch"`
-	InstanceID  string          `json:"instance_id"`
-	Timestamp   string          `json:"timestamp"` // RFC3339
-	IsFullSync  bool            `json:"is_full_sync"`
-	Node        *NodeInfo       `json:"node,omitempty"`
-	Status      StatusInfo      `json:"status"`
-	Health      HealthInfo      `json:"health"`
-	Resources   ResourcesInfo   `json:"resources"`
-	Workloads   *WorkloadsInfo  `json:"workloads,omitempty"`
-	Proxy       ProxyInfo       `json:"proxy"`
-	Processes   ProcessesInfo   `json:"processes"`
-	Filesystem  *FilesystemInfo `json:"filesystem,omitempty"`
-	Diagnostics DiagnosticsInfo `json:"diagnostics"`
+	Schema           string                           `json:"schema"` // "v1.1"
+	Sequence         uint64                           `json:"sequence"`
+	Epoch            string                           `json:"epoch"`
+	InstanceID       string                           `json:"instance_id"`
+	Timestamp        string                           `json:"timestamp"` // RFC3339
+	IsFullSync       bool                             `json:"is_full_sync"`
+	Node             *NodeInfo                        `json:"node,omitempty"`
+	Status           StatusInfo                       `json:"status"`
+	Health           HealthInfo                       `json:"health"`
+	Resources        ResourcesInfo                    `json:"resources"`
+	ClusterResources map[string]*ClusterResourcesInfo `json:"cluster_resources,omitempty"` // keyed by cluster UUID; shared nodes only
+	Workloads        *WorkloadsInfo                   `json:"workloads,omitempty"`
+	Proxy            ProxyInfo                        `json:"proxy"`
+	Processes        ProcessesInfo                    `json:"processes"`
+	Filesystem       *FilesystemInfo                  `json:"filesystem,omitempty"`
+	Diagnostics      DiagnosticsInfo                  `json:"diagnostics"`
+}
+
+// ClusterResourcesInfo holds per-cluster cgroup v2 memory stats for shared nodes.
+// Read from /sys/fs/cgroup/dployr-cluster-<id>.slice/ on Linux.
+type ClusterResourcesInfo struct {
+	MemoryUsedBytes  int64 `json:"memory_used_bytes"`  // memory.current
+	MemoryLimitBytes int64 `json:"memory_limit_bytes"` // memory.max (MemoryMax from slice unit)
 }
 
 // NodeInfo - static node metadata

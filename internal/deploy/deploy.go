@@ -90,6 +90,7 @@ func (d *Deployer) Deploy(ctx context.Context, req *deploy.DeployRequest) (*depl
 			Remote:      req.Remote,
 			Source:      store.Source(req.Source),
 			HealthCheck: req.HealthCheck,
+			ClusterID:   req.ClusterId,
 		},
 		UserId:    &userID,
 		CreatedAt: time.Now(),
