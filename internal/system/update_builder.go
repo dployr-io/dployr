@@ -88,9 +88,7 @@ func BuildUpdateV1_1(
 	update.Status = buildStatus()
 	update.Health = buildHealth(ctx, instStore, proxyHandler)
 	update.Resources = buildResources(ctx, topCollector, isFullSync)
-	if cfg.ClusterMemory > 0 {
-		update.ClusterResources = ReadClusterResources()
-	}
+	update.ClusterResources = ReadClusterResources()
 	update.Proxy = buildProxy(proxyHandler, isFullSync)
 	update.Processes = buildProcesses(ctx, topCollector, isFullSync)
 	update.Diagnostics = buildDiagnostics(ctx, instStore, isFullSync, workerMaxConcurrent, workerActiveJobs)
