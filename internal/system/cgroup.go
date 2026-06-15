@@ -14,8 +14,8 @@ import (
 
 	cgroup2 "github.com/containerd/cgroups/v3/cgroup2"
 	systemddbus "github.com/coreos/go-systemd/v22/dbus"
-	godbus "github.com/godbus/dbus/v5"
 	"github.com/dployr-io/dployr/pkg/core/system"
+	godbus "github.com/godbus/dbus/v5"
 )
 
 const cgroupRoot = "/sys/fs/cgroup"
