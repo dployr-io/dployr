@@ -9,61 +9,72 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"os"
 	"path/filepath"
 	"strings"
 
 	cgroup2 "github.com/containerd/cgroups/v3/cgroup2"
 	systemddbus "github.com/coreos/go-systemd/v22/dbus"
+	godbus "github.com/godbus/dbus/v5"
 	"github.com/dployr-io/dployr/pkg/core/system"
 )
 
 const cgroupRoot = "/sys/fs/cgroup"
 
 // EnsureClusterSlice creates or updates the per-cluster systemd slice with
-// the given memory (MB) and CPU (millicores) limits. It is idempotent —
-// calling it repeatedly with the same values is a no-op, and calling it with
-// changed values (tier upgrade/downgrade) updates the slice in place.
+// the given memory (MB) and CPU (millicores) limits via D-Bus transient units —
+// no file writes required. It is idempotent: if the slice is already active
+// with the correct limits it is a no-op; if limits differ they are updated
+// in-place via SetUnitProperties.
 func EnsureClusterSlice(clusterID string, memoryMB int, cpuMillicores int) error {
 	sliceName := "dployr-cluster-" + clusterID + ".slice"
-	sliceFile := "/etc/systemd/system/" + sliceName
 
-	var memLine, cpuLine string
+	// Desired values in D-Bus wire types.
+	// MemoryMax: bytes (uint64); math.MaxUint64 = "max" (unlimited).
+	// CPUQuotaPerSecUSec: µs per second; math.MaxUint64 = unlimited.
+	var wantMem uint64 = math.MaxUint64
 	if memoryMB > 0 {
-		memLine = fmt.Sprintf("MemoryMax=%dM", memoryMB)
+		wantMem = uint64(memoryMB) * 1024 * 1024
 	}
+	var wantCPU uint64 = math.MaxUint64
 	if cpuMillicores > 0 {
-		cpuLine = fmt.Sprintf("CPUQuota=%d%%", cpuMillicores/10)
+		// 1000 millicores == 1 CPU == 1_000_000 µs/s
+		wantCPU = uint64(cpuMillicores) * 1000
 	}
 
-	desired := fmt.Sprintf("[Unit]\nDescription=dployr cluster %s\nBefore=slices.target\n\n[Slice]\n%s\n%s\n",
-		clusterID, memLine, cpuLine)
-
-	current, _ := os.ReadFile(sliceFile)
-	if string(current) == desired {
-		return nil // already up to date
-	}
-
-	if err := os.WriteFile(sliceFile, []byte(desired), 0644); err != nil {
-		return fmt.Errorf("write slice unit %s: %w", sliceName, err)
-	}
-
-	conn, err := systemddbus.NewSystemConnectionContext(context.TODO())
+	ctx := context.TODO()
+	conn, err := systemddbus.NewSystemConnectionContext(ctx)
 	if err != nil {
 		return fmt.Errorf("connect to systemd dbus: %w", err)
 	}
 	defer conn.Close()
 
-	if err := conn.ReloadContext(context.TODO()); err != nil {
-		return fmt.Errorf("systemd daemon-reload: %w", err)
+	// Check whether the slice is already loaded with the correct limits.
+	existing, err := conn.GetUnitTypePropertiesContext(ctx, sliceName, "Slice")
+	if err == nil {
+		curMem, _ := existing["MemoryMax"].(uint64)
+		curCPU, _ := existing["CPUQuotaPerSecUSec"].(uint64)
+		if curMem == wantMem && curCPU == wantCPU {
+			return nil // already correct, nothing to do
+		}
+		// Slice exists but limits differ — update in place.
+		props := []systemddbus.Property{
+			{Name: "MemoryMax", Value: godbus.MakeVariant(wantMem)},
+			{Name: "CPUQuotaPerSecUSec", Value: godbus.MakeVariant(wantCPU)},
+		}
+		return conn.SetUnitPropertiesContext(ctx, sliceName, true, props...)
 	}
 
+	// Slice does not exist yet — create it as a transient unit.
+	props := []systemddbus.Property{
+		systemddbus.PropDescription("dployr cluster " + clusterID),
+		{Name: "MemoryMax", Value: godbus.MakeVariant(wantMem)},
+		{Name: "CPUQuotaPerSecUSec", Value: godbus.MakeVariant(wantCPU)},
+	}
 	ch := make(chan string, 1)
-	if _, err := conn.StartUnitContext(context.TODO(), sliceName, "replace", ch); err != nil {
-		return fmt.Errorf("start slice %s: %w", sliceName, err)
+	if _, err := conn.StartTransientUnitContext(ctx, sliceName, "replace", props, ch); err != nil {
+		return fmt.Errorf("start transient slice %s: %w", sliceName, err)
 	}
 	<-ch
-
 	return nil
 }
 
