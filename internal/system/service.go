@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	systemddbus "github.com/coreos/go-systemd/v22/dbus"
+
 	"github.com/dployr-io/dployr/internal/scripts"
 	pkgAuth "github.com/dployr-io/dployr/pkg/auth"
 	"github.com/dployr-io/dployr/pkg/core/system"
@@ -91,17 +93,25 @@ func (s *DefaultService) Restart(ctx context.Context, req system.RestartRequest)
 	currentModeMu.Lock()
 	currentMode = system.ModeUpdating
 	currentModeMu.Unlock()
-	// Stop dployr first, then restart
 	go func() {
-		cmd := exec.Command("sudo", "systemctl", "restart", "dployrd")
-		if err := cmd.Run(); err != nil {
+		conn, err := systemddbus.NewSystemConnectionContext(context.TODO())
+		if err != nil {
+			logger.Error("failed to connect to systemd dbus", "error", err)
+			return
+		}
+		defer conn.Close()
+
+		ch := make(chan string, 1)
+		if _, err := conn.RestartUnitContext(context.TODO(), "dployrd.service", "replace", ch); err != nil {
 			logger.Error("failed to restart dployrd", "error", err)
 		}
+		<-ch
 
-		cmd = exec.Command("sudo", "systemctl", "restart", "caddy")
-		if err := cmd.Run(); err != nil {
+		ch = make(chan string, 1)
+		if _, err := conn.RestartUnitContext(context.TODO(), "caddy.service", "replace", ch); err != nil {
 			logger.Error("failed to restart caddy", "error", err)
 		}
+		<-ch
 
 		currentModeMu.Lock()
 		currentMode = system.ModeReady
@@ -134,29 +144,22 @@ func (s *DefaultService) Reboot(ctx context.Context, req system.RebootRequest) (
 	currentModeMu.Unlock()
 
 	go func() {
-		exec.Command("sudo", "systemctl", "stop", "dployrd").Run()
-		time.Sleep(200 * time.Millisecond)
-
-		cmd := exec.Command("sudo", "systemctl", "reboot")
-		if err := cmd.Run(); err != nil {
-			// Fallback
-			exec.Command("sudo", "reboot").Run()
+		conn, err := systemddbus.NewSystemConnectionContext(context.TODO())
+		if err != nil {
+			logger.Error("failed to connect to systemd dbus", "error", err)
+			return
 		}
+		defer conn.Close()
 
-		cmd = exec.Command("sudo", "systemctl", "restart", "caddy")
-		if err := cmd.Run(); err != nil {
-			logger.Error("failed to restart caddy", "error", err)
+		ch := make(chan string, 1)
+		if _, err := conn.StopUnitContext(context.TODO(), "dployrd.service", "replace", ch); err != nil {
+			logger.Error("failed to stop dployrd", "error", err)
 		}
+		<-ch
 
-		cmd = exec.Command("sudo", "systemctl", "start", "dployrd")
-		if err := cmd.Run(); err != nil {
-			logger.Error("failed to start dployrd", "error", err)
+		if err := exec.Command("sudo", "reboot").Run(); err != nil {
+			logger.Error("failed to reboot", "error", err)
 		}
-		time.Sleep(200 * time.Millisecond)
-
-		currentModeMu.Lock()
-		currentMode = system.ModeReady
-		currentModeMu.Unlock()
 	}()
 
 	return system.RebootResponse{
@@ -462,25 +465,26 @@ func streamCommandOutput(cmd *exec.Cmd, logger *shared.Logger) (string, error) {
 	var wg sync.WaitGroup
 
 	// Stream stdout as info logs
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		scanner := bufio.NewScanner(stdoutPipe)
 		for scanner.Scan() {
 			line := scanner.Text()
-			output.WriteString(line + "\n")
+			output.WriteString(line)
+			output.WriteByte('\n')
 			logger.Info(line)
 		}
-	}()
+		if err := scanner.Err(); err != nil {
+			logger.Warn("stdout scanner error", "error", err)
+		}
+	})
 
 	// Stream stderr as warn/error logs
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		scanner := bufio.NewScanner(stderrPipe)
 		for scanner.Scan() {
 			line := scanner.Text()
-			output.WriteString(line + "\n")
+			output.WriteString(line)
+			output.WriteByte('\n')
 			// Heuristic: lines with "error" or "fatal" are errors, others are warnings
 			if strings.Contains(strings.ToLower(line), "error") || strings.Contains(strings.ToLower(line), "fatal") {
 				logger.Error(line)
@@ -488,7 +492,10 @@ func streamCommandOutput(cmd *exec.Cmd, logger *shared.Logger) (string, error) {
 				logger.Warn(line)
 			}
 		}
-	}()
+		if err := scanner.Err(); err != nil {
+			logger.Warn("stderr scanner error", "error", err)
+		}
+	})
 
 	if err := cmd.Start(); err != nil {
 		return "", fmt.Errorf("failed to start command: %w", err)

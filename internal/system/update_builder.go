@@ -9,10 +9,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/dployr-io/dployr/internal/svc_runtime"
@@ -92,7 +89,7 @@ func BuildUpdateV1_1(
 	update.Health = buildHealth(ctx, instStore, proxyHandler)
 	update.Resources = buildResources(ctx, topCollector, isFullSync)
 	if cfg.ClusterMemory > 0 {
-		update.ClusterResources = buildClusterResources()
+		update.ClusterResources = ReadClusterResources()
 	}
 	update.Proxy = buildProxy(proxyHandler, isFullSync)
 	update.Processes = buildProcesses(ctx, topCollector, isFullSync)
@@ -235,59 +232,6 @@ func buildDisks() []system.DiskInfo {
 		})
 	}
 	return disks
-}
-
-// buildClusterResources reads per-cluster cgroup v2 memory stats for all
-// dployr-cluster-*.slice units present on this node. Returns nil when no
-// slices exist (pro/dedicated nodes) or when cgroup v2 is unavailable.
-func buildClusterResources() map[string]*system.ClusterResourcesInfo {
-	matches, err := filepath.Glob("/sys/fs/cgroup/dployr-cluster-*.slice")
-	if err != nil || len(matches) == 0 {
-		return nil
-	}
-
-	result := make(map[string]*system.ClusterResourcesInfo, len(matches))
-	for _, slicePath := range matches {
-		base := filepath.Base(slicePath) // "dployr-cluster-<uuid>.slice"
-		id := strings.TrimSuffix(strings.TrimPrefix(base, "dployr-cluster-"), ".slice")
-		if id == "" {
-			continue
-		}
-
-		usedRaw, err := os.ReadFile(filepath.Join(slicePath, "memory.current"))
-		if err != nil {
-			continue
-		}
-		limitRaw, err := os.ReadFile(filepath.Join(slicePath, "memory.max"))
-		if err != nil {
-			continue
-		}
-
-		used, err := strconv.ParseInt(strings.TrimSpace(string(usedRaw)), 10, 64)
-		if err != nil {
-			continue
-		}
-		limitStr := strings.TrimSpace(string(limitRaw))
-		var limit int64
-		if limitStr == "max" {
-			limit = 0
-		} else {
-			limit, err = strconv.ParseInt(limitStr, 10, 64)
-			if err != nil {
-				continue
-			}
-		}
-
-		result[id] = &system.ClusterResourcesInfo{
-			MemoryUsedBytes:  used,
-			MemoryLimitBytes: limit,
-		}
-	}
-
-	if len(result) == 0 {
-		return nil
-	}
-	return result
 }
 
 func buildProxy(proxyHandler proxy.HandleProxy, includeRoutes bool) system.ProxyInfo {
