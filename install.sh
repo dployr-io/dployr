@@ -980,6 +980,19 @@ EOF
         systemctl daemon-reload
         systemctl start dployr-system.slice 2>/dev/null || true
         info "System protection slice configured (MemoryMin=256M CPUWeight=1000)"
+
+        # Add permissions
+        mkdir -p /etc/polkit-1/rules.d
+        cat > /etc/polkit-1/rules.d/50-dployrd.rules << 'EOF'
+polkit.addRule(function(action, subject) {
+    if ((action.id === "org.freedesktop.systemd1.manage-units" ||
+         action.id === "org.freedesktop.systemd1.manage-unit-files") &&
+        subject.user === "dployrd") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+        info "Polkit rule installed — dployrd can manage systemd units without interactive auth"
     fi
 
     info "Setting up dployrd service..."
