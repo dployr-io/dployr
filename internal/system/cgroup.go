@@ -133,8 +133,16 @@ func ReadClusterResources() map[string]*system.ClusterResourcesInfo {
 		cpuLimit := readCPUMaxMillicores(slicePath)
 		cpuUsagePct := computeCPUPercent(id, stats.CPU.GetUsageUsec())
 
+		// Inactive file cache is reclaimable under pressure, so it doesn't count
+		workingSetBytes := stats.Memory.Usage
+		if stats.Memory.InactiveFile < workingSetBytes {
+			workingSetBytes -= stats.Memory.InactiveFile
+		} else {
+			workingSetBytes = 0
+		}
+
 		result[id] = &system.ClusterResourcesInfo{
-			MemoryUsedBytes:    int64(stats.Memory.Usage),
+			MemoryUsedBytes:    int64(workingSetBytes),
 			MemoryLimitBytes:   limit,
 			CPULimitMillicores: cpuLimit,
 			CPUUsagePercent:    cpuUsagePct,

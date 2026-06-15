@@ -305,6 +305,11 @@ systemd_install() {
     sudo mkdir -p "/etc/systemd/system"
     local log_file="${log_dir}/${service_name}.log"
 
+    local cluster_slice
+    cluster_slice=$(ensure_cluster_slice)
+    local slice_line=""
+    [ -n "$cluster_slice" ] && slice_line="Slice=${cluster_slice}"
+
     sudo tee "/etc/systemd/system/${service_name}.service" > /dev/null <<EOF
 [Unit]
 Description=${description}
@@ -317,7 +322,7 @@ WorkingDirectory=${workdir}
 ExecStart=${exe_script}
 StandardOutput=append:${log_file}
 StandardError=append:${log_file}
-
+${slice_line}
 Restart=always
 RestartSec=10
 

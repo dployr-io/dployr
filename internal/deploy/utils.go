@@ -844,6 +844,7 @@ func deployDocker(ctx context.Context, bp store.Blueprint, name, logPath string,
 		Description: bp.Desc,
 		Type:        bp.Type,
 		RunCmd:      bp.RunCmd,
+		ClusterID:   bp.ClusterID,
 	}
 	if cfg != nil {
 		cc.Memory = cfg.ContainerMemory

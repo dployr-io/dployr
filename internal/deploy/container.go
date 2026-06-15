@@ -28,6 +28,7 @@ type ContainerConfig struct {
 	Memory      int    // MB; 0 = no limit
 	CPU         int    // millicores; 0 = no limit
 	Storage     int    // GB; 0 = no limit
+	ClusterID   string // when set, container is placed in the cluster's cgroup slice
 }
 
 // ContainerCfg returns the container.Config for docker ContainerCreate.
@@ -81,6 +82,9 @@ func (c *ContainerConfig) HostCfg() container.HostConfig {
 	}
 	if c.Storage > 0 {
 		hc.StorageOpt = map[string]string{"size": fmt.Sprintf("%dg", c.Storage)}
+	}
+	if c.ClusterID != "" {
+		hc.CgroupParent = "dployr-cluster-" + c.ClusterID + ".slice"
 	}
 
 	return hc
