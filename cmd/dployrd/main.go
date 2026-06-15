@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/dployr-io/dployr/pkg/auth"
+	"github.com/dployr-io/dployr/pkg/core/cluster"
 	"github.com/dployr-io/dployr/pkg/core/deploy"
 	"github.com/dployr-io/dployr/pkg/core/proxy"
 	"github.com/dployr-io/dployr/pkg/core/service"
@@ -127,6 +128,9 @@ func main() {
 	storageMounter := _storage.NewMounter(logger)
 	storageH := pkgstorage.NewHandler(storageMounter, logger)
 
+	clusterSetup := _system.NewClusterSetup()
+	clusterH := cluster.NewHandler(clusterSetup, logger)
+
 	wh := web.WebHandler{
 		DepsH:    dh,
 		SvcH:     sh,
@@ -138,9 +142,32 @@ func main() {
 		AuthM:    am,
 		MetricsH: mh,
 		StorageH: storageH,
+		ClusterH: clusterH,
 	}
 
 	mux := wh.BuildMux(cfg)
+
+	// Restore cgroup slices for any clusters that survived a node reprovision.
+	// On a blank-slate node this is a no-op; slices are created proactively
+	// via the setup_cluster task sent at cluster assignment time.
+	if cfg.ClusterMemory > 0 {
+		if deployments, err := ds.ListDeployments(ctx, 1000, 0); err == nil {
+			seen := make(map[string]struct{})
+			for _, d := range deployments {
+				id := d.Blueprint.ClusterID
+				if id == "" {
+					continue
+				}
+				if _, ok := seen[id]; ok {
+					continue
+				}
+				seen[id] = struct{}{}
+				if err := _system.EnsureClusterSlice(id, cfg.ClusterMemory, cfg.ClusterCPU); err != nil {
+					logger.Warn("failed to ensure cluster slice at startup", "cluster_id", id, "error", err)
+				}
+			}
+		}
+	}
 
 	syncer := _system.NewSyncer(cfg, logger, is, trs, ds, ss, ps, mux, as, fs, workerMaxConcurrent, w.ActiveJobs)
 	w.SetCompletionHandler(func(id string) {

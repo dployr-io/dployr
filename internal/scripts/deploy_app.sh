@@ -63,33 +63,35 @@ ensure_cluster_slice() {
     local slice_name="dployr-cluster-${CLUSTER_ID}.slice"
     local slice_file="/etc/systemd/system/${slice_name}"
 
-    if [ ! -f "$slice_file" ]; then
-        local cluster_memory cluster_cpu
-        cluster_memory=$(sysget 'cluster_memory')
-        cluster_cpu=$(sysget 'cluster_cpu')
+    local cluster_memory cluster_cpu
+    cluster_memory=$(sysget 'cluster_memory')
+    cluster_cpu=$(sysget 'cluster_cpu')
 
-        local mem_line="" cpu_line=""
-        if [ "${cluster_memory:-0}" -gt 0 ] 2>/dev/null; then
-            mem_line="MemoryMax=${cluster_memory}M"
-        fi
-        if [ "${cluster_cpu:-0}" -gt 0 ] 2>/dev/null; then
-            # millicores → CPUQuota% (100m = 10%, 250m = 25%)
-            local cpu_pct=$(( cluster_cpu / 10 ))
-            cpu_line="CPUQuota=${cpu_pct}%"
-        fi
+    local mem_line="" cpu_line=""
+    if [ "${cluster_memory:-0}" -gt 0 ] 2>/dev/null; then
+        mem_line="MemoryMax=${cluster_memory}M"
+    fi
+    if [ "${cluster_cpu:-0}" -gt 0 ] 2>/dev/null; then
+        # millicores → CPUQuota% (100m = 10%, 250m = 25%)
+        local cpu_pct=$(( cluster_cpu / 10 ))
+        cpu_line="CPUQuota=${cpu_pct}%"
+    fi
 
-        sudo -n tee "$slice_file" > /dev/null << EOF
-[Unit]
-Description=dployr cluster ${CLUSTER_ID}
-Before=slices.target
+    # Build desired unit content and only reload systemd when it has changed.
+    # This makes the function idempotent across repeated deploys and also picks
+    # up limit changes from tier upgrades/downgrades automatically.
+    local desired
+    desired=$(printf '[Unit]\nDescription=dployr cluster %s\nBefore=slices.target\n\n[Slice]\n%s\n%s\n' \
+        "$CLUSTER_ID" "$mem_line" "$cpu_line")
 
-[Slice]
-${mem_line}
-${cpu_line}
-EOF
+    local current
+    current=$(cat "$slice_file" 2>/dev/null || echo "")
+
+    if [ "$current" != "$desired" ]; then
+        printf '%s\n' "$desired" | sudo -n tee "$slice_file" > /dev/null
         sudo -n systemctl daemon-reload 2>/dev/null || true
         sudo -n systemctl start "${slice_name}" 2>/dev/null || true
-        log "Cluster slice created: ${slice_name} (${mem_line} ${cpu_line})"
+        log "Cluster slice updated: ${slice_name} (${mem_line:-no-mem-limit} ${cpu_line:-no-cpu-limit})"
     fi
 
     echo "$slice_name"

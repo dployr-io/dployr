@@ -4,12 +4,15 @@
 package proxy
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
+
+	systemddbus "github.com/coreos/go-systemd/v22/dbus"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -130,11 +133,17 @@ func (c *CaddyHandler) Setup(apps map[string]proxy.App) error {
 
 func (c *CaddyHandler) Stop() error {
 	c.logger.Info("stopping caddy service")
-	stop := exec.Command("sudo", "systemctl", "stop", "caddy")
-	if output, err := stop.CombinedOutput(); err != nil {
-		c.logger.Warn("failed to stop caddy service", "output", string(output), "error", err)
+	conn, err := systemddbus.NewSystemConnectionContext(context.TODO())
+	if err != nil {
+		return fmt.Errorf("connect to systemd dbus: %w", err)
+	}
+	defer conn.Close()
+
+	ch := make(chan string, 1)
+	if _, err := conn.StopUnitContext(context.TODO(), "caddy.service", "replace", ch); err != nil {
 		return fmt.Errorf("failed to stop caddy service: %w", err)
 	}
+	<-ch
 	c.logger.Info("caddy service stopped")
 	return nil
 }
@@ -194,11 +203,17 @@ func (c *CaddyHandler) Restart() error {
 	c.logger.Debug("caddy config validation successful")
 
 	c.logger.Info("restarting caddy service")
-	restart := exec.Command("sudo", "systemctl", "restart", "caddy")
-	if output, err := restart.CombinedOutput(); err != nil {
-		c.logger.Error("failed to restart caddy service", "output", string(output), "error", err)
+	conn, err := systemddbus.NewSystemConnectionContext(context.TODO())
+	if err != nil {
+		return fmt.Errorf("connect to systemd dbus: %w", err)
+	}
+	defer conn.Close()
+
+	ch := make(chan string, 1)
+	if _, err := conn.RestartUnitContext(context.TODO(), "caddy.service", "replace", ch); err != nil {
 		return fmt.Errorf("failed to restart caddy service: %w", err)
 	}
+	<-ch
 
 	// verify it's actually running by checking admin API
 	maxRetries := 10
