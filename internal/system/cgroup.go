@@ -9,13 +9,27 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	cgroup2 "github.com/containerd/cgroups/v3/cgroup2"
 	systemddbus "github.com/coreos/go-systemd/v22/dbus"
 	"github.com/dployr-io/dployr/pkg/core/system"
 	godbus "github.com/godbus/dbus/v5"
+)
+
+type cpuSample struct {
+	usageUsec uint64
+	at        time.Time
+}
+
+var (
+	cpuSamplesMu sync.Mutex
+	cpuSamples   = map[string]cpuSample{} // keyed by cluster ID
 )
 
 const cgroupRoot = "/sys/fs/cgroup"
@@ -116,9 +130,14 @@ func ReadClusterResources() map[string]*system.ClusterResourcesInfo {
 			limit = 0
 		}
 
+		cpuLimit := readCPUMaxMillicores(slicePath)
+		cpuUsagePct := computeCPUPercent(id, stats.CPU.GetUsageUsec())
+
 		result[id] = &system.ClusterResourcesInfo{
-			MemoryUsedBytes:  int64(stats.Memory.Usage),
-			MemoryLimitBytes: limit,
+			MemoryUsedBytes:    int64(stats.Memory.Usage),
+			MemoryLimitBytes:   limit,
+			CPULimitMillicores: cpuLimit,
+			CPUUsagePercent:    cpuUsagePct,
 		}
 	}
 
@@ -126,4 +145,49 @@ func ReadClusterResources() map[string]*system.ClusterResourcesInfo {
 		return nil
 	}
 	return result
+}
+
+// computeCPUPercent returns the CPU usage as a percentage of one full core since
+// the last call for this cluster ID. Returns 0 on the first call (no prior sample).
+func computeCPUPercent(clusterID string, usageUsec uint64) float64 {
+	now := time.Now()
+
+	cpuSamplesMu.Lock()
+	prev, ok := cpuSamples[clusterID]
+	cpuSamples[clusterID] = cpuSample{usageUsec: usageUsec, at: now}
+	cpuSamplesMu.Unlock()
+
+	if !ok {
+		return 0
+	}
+	elapsedUs := now.Sub(prev.at).Microseconds()
+	if elapsedUs <= 0 || usageUsec < prev.usageUsec {
+		return 0
+	}
+	deltaUs := usageUsec - prev.usageUsec
+	return float64(deltaUs) / float64(elapsedUs) * 100
+}
+
+// readCPUMaxMillicores parses cpu.max from a cgroup v2 slice directory.
+// Format: "<quota_us> <period_us>" or "max <period_us>" (unlimited).
+// Returns 0 when unlimited or unreadable.
+func readCPUMaxMillicores(slicePath string) int64 {
+	raw, err := os.ReadFile(filepath.Join(slicePath, "cpu.max"))
+	if err != nil {
+		return 0
+	}
+	fields := strings.Fields(strings.TrimSpace(string(raw)))
+	if len(fields) != 2 || fields[0] == "max" {
+		return 0
+	}
+	quota, err := strconv.ParseInt(fields[0], 10, 64)
+	if err != nil || quota <= 0 {
+		return 0
+	}
+	period, err := strconv.ParseInt(fields[1], 10, 64)
+	if err != nil || period <= 0 {
+		return 0
+	}
+	// millicores = (quota / period) * 1000
+	return quota * 1000 / period
 }

@@ -24,11 +24,13 @@ type UpdateV1_1 struct {
 	Diagnostics      DiagnosticsInfo                  `json:"diagnostics"`
 }
 
-// ClusterResourcesInfo holds per-cluster cgroup v2 memory stats for shared nodes.
+// ClusterResourcesInfo holds per-cluster cgroup v2 resource stats for shared nodes.
 // Read from /sys/fs/cgroup/dployr-cluster-<id>.slice/ on Linux.
 type ClusterResourcesInfo struct {
-	MemoryUsedBytes  int64 `json:"memory_used_bytes"`  // memory.current
-	MemoryLimitBytes int64 `json:"memory_limit_bytes"` // memory.max (MemoryMax from slice unit)
+	MemoryUsedBytes    int64   `json:"memory_used_bytes"`    // memory.current
+	MemoryLimitBytes   int64   `json:"memory_limit_bytes"`   // memory.max
+	CPULimitMillicores int64   `json:"cpu_limit_millicores"` // cpu.max quota; 0 = unlimited
+	CPUUsagePercent    float64 `json:"cpu_usage_percent"`    // % of one core since last sample; 0 on first call
 }
 
 // NodeInfo - static node metadata
