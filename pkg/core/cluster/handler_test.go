@@ -14,8 +14,8 @@ import (
 	"github.com/dployr-io/dployr/pkg/shared"
 )
 
-// stubSetupper records calls and optionally returns an error.
-type stubSetupper struct {
+// stubProvisioner records calls and optionally returns an error.
+type stubProvisioner struct {
 	calls []setupCall
 	err   error
 }
@@ -26,12 +26,12 @@ type setupCall struct {
 	cpuMillicores int
 }
 
-func (s *stubSetupper) Setup(clusterID string, memoryMB int, cpuMillicores int) error {
+func (s *stubProvisioner) Setup(clusterID string, memoryMB int, cpuMillicores int) error {
 	s.calls = append(s.calls, setupCall{clusterID, memoryMB, cpuMillicores})
 	return s.err
 }
 
-func newTestHandler(s Setupper) *Handler {
+func newTestHandler(s Provisioner) *Handler {
 	return NewHandler(s, shared.NewLogger())
 }
 
@@ -49,7 +49,7 @@ func post(t *testing.T, h *Handler, body any) *httptest.ResponseRecorder {
 }
 
 func TestSetupCluster_ValidRequest(t *testing.T) {
-	stub := &stubSetupper{}
+	stub := &stubProvisioner{}
 	h := newTestHandler(stub)
 
 	rr := post(t, h, map[string]any{
@@ -86,7 +86,7 @@ func TestSetupCluster_ValidRequest(t *testing.T) {
 }
 
 func TestSetupCluster_MissingClusterID(t *testing.T) {
-	stub := &stubSetupper{}
+	stub := &stubProvisioner{}
 	h := newTestHandler(stub)
 
 	rr := post(t, h, map[string]any{
@@ -103,7 +103,7 @@ func TestSetupCluster_MissingClusterID(t *testing.T) {
 }
 
 func TestSetupCluster_SetupError(t *testing.T) {
-	stub := &stubSetupper{err: errors.New("cgroup write failed")}
+	stub := &stubProvisioner{err: errors.New("cgroup write failed")}
 	h := newTestHandler(stub)
 
 	rr := post(t, h, map[string]any{
@@ -118,7 +118,7 @@ func TestSetupCluster_SetupError(t *testing.T) {
 }
 
 func TestSetupCluster_MethodNotAllowed(t *testing.T) {
-	stub := &stubSetupper{}
+	stub := &stubProvisioner{}
 	h := newTestHandler(stub)
 
 	for _, method := range []string{http.MethodGet, http.MethodPut, http.MethodDelete} {
@@ -136,7 +136,7 @@ func TestSetupCluster_MethodNotAllowed(t *testing.T) {
 }
 
 func TestSetupCluster_InvalidBody(t *testing.T) {
-	stub := &stubSetupper{}
+	stub := &stubProvisioner{}
 	h := newTestHandler(stub)
 
 	req := httptest.NewRequest(http.MethodPost, "/clusters/setup", bytes.NewBufferString("not-json"))

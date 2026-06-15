@@ -10,17 +10,17 @@ import (
 	"github.com/dployr-io/dployr/pkg/shared"
 )
 
-// Setupper creates or updates the per-cluster cgroup slice on this node.
-type Setupper interface {
+// Provisioner creates or updates the per-cluster cgroup slice on this node.
+type Provisioner interface {
 	Setup(clusterID string, memoryMB int, cpuMillicores int) error
 }
 
 type Handler struct {
-	setup  Setupper
+	setup  Provisioner
 	logger *shared.Logger
 }
 
-func NewHandler(setup Setupper, logger *shared.Logger) *Handler {
+func NewHandler(setup Provisioner, logger *shared.Logger) *Handler {
 	return &Handler{setup: setup, logger: logger}
 }
 
